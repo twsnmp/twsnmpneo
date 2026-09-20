@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@lucide/svelte": "^1.47.0",
+    "@mdi/font": "^7.4.47",
+    "@mdi/js": "^7.4.47",
     "clsx": "^2.1.1",
     "echarts": "^6.1.0",
     "p5": "^2.3.3",

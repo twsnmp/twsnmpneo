@@ -104,6 +104,87 @@ export async function saveLine(line: LineEnt): Promise<LineEnt> {
   return res.json();
 }
 
+export async function deleteLine(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/lines/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete line failed: ${res.statusText}`);
+}
+
+export async function fetchNetworks(): Promise<NetworkEnt[]> {
+  const res = await fetch(`${API_BASE}/networks`);
+  if (!res.ok) throw new Error(`Fetch networks failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function saveNetwork(net: NetworkEnt): Promise<NetworkEnt> {
+  const res = await fetch(`${API_BASE}/networks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(net),
+  });
+  if (!res.ok) throw new Error(`Save network failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteNetwork(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/networks/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete network failed: ${res.statusText}`);
+}
+
+export interface DrawItemEnt {
+  id?: string;
+  type: number;
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+  text?: string;
+  color?: string;
+  size?: number;
+  node_id?: string;
+  polling_id?: string;
+  path?: string;
+  value?: number;
+  values?: number[];
+  cond?: number;
+}
+
+export async function fetchDrawItems(): Promise<DrawItemEnt[]> {
+  const res = await fetch(`${API_BASE}/drawitems`);
+  if (!res.ok) throw new Error(`Fetch draw items failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function saveDrawItem(item: DrawItemEnt): Promise<DrawItemEnt> {
+  const res = await fetch(`${API_BASE}/drawitems`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  if (!res.ok) throw new Error(`Save draw item failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteDrawItem(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/drawitems/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete draw item failed: ${res.statusText}`);
+}
+
+export async function fetchMapConf(): Promise<any> {
+  const res = await fetch(`${API_BASE}/map/conf`);
+  if (!res.ok) throw new Error(`Fetch map conf failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function saveMapConf(conf: any): Promise<any> {
+  const res = await fetch(`${API_BASE}/map/conf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(conf),
+  });
+  if (!res.ok) throw new Error(`Save map conf failed: ${res.statusText}`);
+  return res.json();
+}
+
 export async function fetchPollings(): Promise<PollingEnt[]> {
   const res = await fetch(`${API_BASE}/pollings`);
   if (!res.ok) throw new Error(`Fetch pollings failed: ${res.statusText}`);

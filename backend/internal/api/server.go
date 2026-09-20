@@ -175,6 +175,12 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			return c.JSON(http.StatusOK, &l)
 		})
+		apiGroup.DELETE("/lines/:id", func(c echo.Context) error {
+			if err := cfg.Store.DeleteLine(c.Request().Context(), c.Param("id")); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
 
 		// Networks
 		apiGroup.GET("/networks", func(c echo.Context) error {
@@ -193,6 +199,37 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, &n)
+		})
+		apiGroup.DELETE("/networks/:id", func(c echo.Context) error {
+			if err := cfg.Store.DeleteNetwork(c.Request().Context(), c.Param("id")); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+
+		// DrawItems
+		apiGroup.GET("/drawitems", func(c echo.Context) error {
+			items, err := cfg.Store.ListDrawItems(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, items)
+		})
+		apiGroup.POST("/drawitems", func(c echo.Context) error {
+			var item datastore.DrawItemEnt
+			if err := c.Bind(&item); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveDrawItem(c.Request().Context(), &item); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, &item)
+		})
+		apiGroup.DELETE("/drawitems/:id", func(c echo.Context) error {
+			if err := cfg.Store.DeleteDrawItem(c.Request().Context(), c.Param("id")); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
 		// Map Conf
