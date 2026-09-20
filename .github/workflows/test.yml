@@ -1,0 +1,58 @@
+name: CI / Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-frontend:
+    name: Frontend Check & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Type Check
+        working-directory: frontend
+        run: pnpm run check
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: pnpm run build
+
+  test-backend:
+    name: Backend Unit Tests & Race Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run Backend Tests with Race Detection
+        working-directory: backend
+        run: go test -v -race -cover ./internal/...
+
+      - name: Build Backend Binary
+        working-directory: backend
+        run: go build -v ./cmd/twsnmpneo

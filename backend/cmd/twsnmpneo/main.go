@@ -1,0 +1,178 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
+	"github.com/twsnmp/twsnmpneo/backend/internal/api"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
+	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
+	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
+)
+
+var (
+	version = "v0.1.0-dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
+func main() {
+	var (
+		dataDir     = flag.String("datadir", "./data", "Directory to store database and log files")
+		port        = flag.Int("port", 8080, "Web interface port")
+		syslogUDP   = flag.Int("syslog-udp", 0, "Syslog UDP port (0 to disable or default)")
+		syslogTCP   = flag.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
+		trapPort    = flag.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable)")
+		netflowPort = flag.Int("netflow-port", 0, "NetFlow UDP port (0 to disable)")
+		debug       = flag.Bool("debug", false, "Enable debug logging")
+		verFlag     = flag.Bool("version", false, "Show version and exit")
+	)
+	flag.Parse()
+
+	if *verFlag {
+		fmt.Printf("twsnmpneo %s (commit: %s, date: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
+
+	// Setup logger
+	logLevel := slog.LevelInfo
+	if *debug {
+		logLevel = slog.LevelDebug
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	}))
+	slog.SetDefault(logger)
+
+	slog.Info("Starting TWSNMP NEO",
+		"version", version,
+		"datadir", *dataDir,
+		"port", *port,
+		"debug", *debug,
+	)
+
+	// Ensure data directory exists
+	if err := os.MkdirAll(*dataDir, 0755); err != nil {
+		slog.Error("Failed to create data directory", "path", *dataDir, "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize bbolt datastore
+	dbPath := filepath.Join(*dataDir, "twsnmpneo.db")
+	store, err := bbolt.New(dbPath)
+	if err != nil {
+		slog.Error("Failed to initialize bbolt datastore", "error", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	// Initialize parquet log store
+	pqDir := filepath.Join(*dataDir, "logs")
+	pqStore, err := parquet.New(parquet.Config{
+		Dir:            pqDir,
+		BufferSize:     5000,
+		BufferInterval: 10 * time.Second,
+	})
+	if err != nil {
+		slog.Error("Failed to initialize parquet log store", "error", err)
+		os.Exit(1)
+	}
+	defer pqStore.Close()
+
+	// Initialize Private PKI
+	pkiDir := filepath.Join(*dataDir, "pki")
+	pkiMgr, err := pki.New(pki.Config{
+		DataDir: pkiDir,
+	})
+	if err != nil {
+		slog.Error("Failed to initialize Private PKI", "error", err)
+		os.Exit(1)
+	}
+	_ = pkiMgr
+
+	// Setup context with graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Initialize Polling Manager
+	pollMgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  10,
+		PollInterval: 1 * time.Second,
+	})
+	go func() {
+		if err := pollMgr.Start(ctx); err != nil {
+			slog.Error("Polling manager error", "error", err)
+		}
+	}()
+
+	// Initialize Protocol Receivers
+	recvMgr := receiver.NewManager(receiver.Config{
+		Store:       store,
+		LogStore:    pqStore,
+		SyslogUDP:   *syslogUDP,
+		SyslogTCP:   *syslogTCP,
+		TrapPort:    *trapPort,
+		NetFlowPort: *netflowPort,
+	})
+	go func() {
+		if err := recvMgr.Start(ctx); err != nil {
+			slog.Error("Receiver manager error", "error", err)
+		}
+	}()
+
+	// Initialize MCP Server
+	mcpServer := ai.NewMCPServer(ai.MCPConfig{
+		Store:    store,
+		LogStore: pqStore,
+		Version:  version,
+	})
+
+	// Initialize Web/API server
+	server, err := api.NewServer(api.Config{
+		Port:      *port,
+		Debug:     *debug,
+		Version:   version,
+		Store:     store,
+		LogStore:  pqStore,
+		MCPServer: mcpServer,
+	})
+	if err != nil {
+		slog.Error("Failed to initialize API server", "error", err)
+		os.Exit(1)
+	}
+
+	// Start server in background
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := server.Start(ctx); err != nil {
+			serverErr <- err
+		}
+	}()
+
+	select {
+	case err := <-serverErr:
+		slog.Error("Server error", "error", err)
+		os.Exit(1)
+	case <-ctx.Done():
+		slog.Info("Shutdown signal received")
+	}
+
+	slog.Info("Shutting down TWSNMP NEO gracefully...")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	<-shutdownCtx.Done()
+	slog.Info("TWSNMP NEO stopped.")
+}

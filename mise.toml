@@ -1,0 +1,30 @@
+[tools]
+go = "1.23"
+node = "22"
+pnpm = "latest"
+
+[tasks.dev-frontend]
+description = "Launch frontend development server with HMR (Vite)"
+dir = "frontend"
+run = "pnpm dev"
+
+[tasks.build-frontend]
+description = "Build static frontend assets for Go embed packaging"
+dir = "frontend"
+run = "pnpm build && mkdir -p ../backend/web && rm -rf ../backend/web/dist && cp -r dist ../backend/web/dist"
+
+[tasks.test-backend]
+description = "Run backend unit tests with race detection"
+dir = "backend"
+run = "go test -race -v ./..."
+
+[tasks.build-debug]
+description = "Compile debug binary bundling frontend assets"
+depends = ["build-frontend"]
+dir = "backend"
+run = "go build -tags dev -o ../bin/twsnmpneo ./cmd/twsnmpneo"
+
+[tasks.run-debug]
+description = "Execute debug binary with local data directory"
+depends = ["build-debug"]
+run = "./bin/twsnmpneo --datadir ./data --debug"
