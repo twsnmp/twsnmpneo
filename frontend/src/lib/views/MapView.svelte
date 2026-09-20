@@ -203,7 +203,9 @@
   };
 </script>
 
-<div class="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-background" onclick={() => (showContextMenu = false)}>
+<svelte:window onclick={() => (showContextMenu = false)} />
+
+<div class="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-background">
   <!-- Map Floating Toolbar -->
   <div class="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl border border-border/80 bg-card/90 p-1.5 shadow-lg backdrop-blur-md">
     <!-- Quick Add Menu -->
@@ -278,9 +280,12 @@
   <!-- Right Click Context Menu -->
   {#if showContextMenu}
     <div
+      role="menu"
+      tabindex="-1"
       class="fixed z-50 min-w-[160px] rounded-xl border border-border bg-card p-1.5 text-xs shadow-2xl backdrop-blur-md"
       style="left: {contextX}px; top: {contextY}px;"
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.key === 'Escape' && (showContextMenu = false)}
     >
       {#if contextTargetNode}
         <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted font-medium">

@@ -99,39 +99,47 @@
 
       <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div>
-          <label class="block text-xs font-medium text-muted-foreground">SW-HUB 名称</label>
-          <input type="text" bind:value={name} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          <label class="block text-xs font-medium text-muted-foreground">
+            SW-HUB 名称
+            <input type="text" bind:value={name} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
         <div>
-          <label class="block text-xs font-medium text-muted-foreground">管理 IP アドレス (任意)</label>
-          <input type="text" bind:value={ip} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-muted-foreground">ポート総数</label>
-          <select
-            bind:value={totalPorts}
-            onchange={generateDefaultPorts}
-            class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none"
-          >
-            <option value={4}>4 ポート</option>
-            <option value={8}>8 ポート</option>
-            <option value={16}>16 ポート</option>
-            <option value={24}>24 ポート</option>
-            <option value={48}>48 ポート</option>
-          </select>
+          <label class="block text-xs font-medium text-muted-foreground">
+            管理 IP アドレス (任意)
+            <input type="text" bind:value={ip} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-muted-foreground">横並びポート数 (折り返し)</label>
-          <input
-            type="number"
-            min={2}
-            max={24}
-            bind:value={hPorts}
-            onchange={generateDefaultPorts}
-            class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none"
-          />
+          <label class="block text-xs font-medium text-muted-foreground">
+            ポート総数
+            <select
+              bind:value={totalPorts}
+              onchange={generateDefaultPorts}
+              class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none"
+            >
+              <option value={4}>4 ポート</option>
+              <option value={8}>8 ポート</option>
+              <option value={16}>16 ポート</option>
+              <option value={24}>24 ポート</option>
+              <option value={48}>48 ポート</option>
+            </select>
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-muted-foreground">
+            横並びポート数 (折り返し)
+            <input
+              type="number"
+              min={2}
+              max={24}
+              bind:value={hPorts}
+              onchange={generateDefaultPorts}
+              class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none"
+            />
+          </label>
         </div>
 
         <div class="col-span-2 flex items-center gap-2">

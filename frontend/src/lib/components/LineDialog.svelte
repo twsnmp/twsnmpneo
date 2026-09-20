@@ -67,9 +67,9 @@
       </div>
 
       <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
-        <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">接続元 (ノード / SW-HUB)</label>
-          <select bind:value={nodeId1} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+        <label class="col-span-2 block text-xs font-medium text-muted-foreground sm:col-span-1">
+          接続元 (ノード / SW-HUB)
+          <select bind:value={nodeId1} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground">
             <optgroup label="ノード">
               {#each nodes as n}
                 <option value={n.id}>{n.name} ({n.ip})</option>
@@ -83,11 +83,11 @@
               </optgroup>
             {/if}
           </select>
-        </div>
+        </label>
 
-        <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">接続先 (ノード / SW-HUB)</label>
-          <select bind:value={nodeId2} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+        <label class="col-span-2 block text-xs font-medium text-muted-foreground sm:col-span-1">
+          接続先 (ノード / SW-HUB)
+          <select bind:value={nodeId2} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground">
             <optgroup label="ノード">
               {#each nodes as n}
                 <option value={n.id}>{n.name} ({n.ip})</option>
@@ -101,21 +101,21 @@
               </optgroup>
             {/if}
           </select>
-        </div>
+        </label>
 
-        <div>
-          <label class="block text-xs font-medium text-muted-foreground">線の太さ (1〜10px)</label>
-          <input type="number" min={1} max={10} bind:value={width} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs" />
-        </div>
+        <label class="block text-xs font-medium text-muted-foreground">
+          線の太さ (1〜10px)
+          <input type="number" min={1} max={10} bind:value={width} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground" />
+        </label>
 
-        <div>
-          <label class="block text-xs font-medium text-muted-foreground">ステータス</label>
-          <select bind:value={state} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+        <label class="block text-xs font-medium text-muted-foreground">
+          ステータス
+          <select bind:value={state} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground">
             <option value="normal">正常 (緑 / 青)</option>
             <option value="low">軽度障害 (黄 / オレンジ)</option>
             <option value="high">重度障害 (赤)</option>
           </select>
-        </div>
+        </label>
       </div>
 
       <div class="mt-6 flex items-center justify-between border-t border-border pt-4">

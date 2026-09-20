@@ -93,7 +93,7 @@
 
       <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div class="col-span-2">
-          <label class="block text-xs font-medium text-muted-foreground">アイテム種別</label>
+          <span class="block text-xs font-medium text-muted-foreground">アイテム種別</span>
           <div class="mt-1 grid grid-cols-3 gap-2">
             {#each itemTypes as it}
               <button
@@ -109,12 +109,14 @@
         </div>
 
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">表示テキスト / タイトル</label>
-          <input type="text" bind:value={text} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          <label class="block text-xs font-medium text-muted-foreground">
+            表示テキスト / タイトル
+            <input type="text" bind:value={text} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
 
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">テーマカラー</label>
+          <span class="block text-xs font-medium text-muted-foreground">テーマカラー</span>
           <div class="mt-1 flex items-center gap-2">
             <input type="color" bind:value={color} class="h-8 w-12 cursor-pointer rounded border border-border bg-transparent p-0.5" />
             <input type="text" bind:value={color} class="w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
@@ -122,29 +124,35 @@
         </div>
 
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">連動ノード (任意)</label>
-          <select bind:value={nodeId} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-            <option value="">(なし)</option>
-            {#each nodes as n}
-              <option value={n.id}>{n.name} ({n.ip})</option>
-            {/each}
-          </select>
+          <label class="block text-xs font-medium text-muted-foreground">
+            連動ノード (任意)
+            <select bind:value={nodeId} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+              <option value="">(なし)</option>
+              {#each nodes as n}
+                <option value={n.id}>{n.name} ({n.ip})</option>
+              {/each}
+            </select>
+          </label>
         </div>
 
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">連動ポーリング (任意)</label>
-          <select bind:value={pollingId} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-            <option value="">(なし)</option>
-            {#each pollings as p}
-              <option value={p.id}>{p.name} ({p.type})</option>
-            {/each}
-          </select>
+          <label class="block text-xs font-medium text-muted-foreground">
+            連動ポーリング (任意)
+            <select bind:value={pollingId} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+              <option value="">(なし)</option>
+              {#each pollings as p}
+                <option value={p.id}>{p.name} ({p.type})</option>
+              {/each}
+            </select>
+          </label>
         </div>
 
         {#if type >= 6}
           <div class="col-span-2">
-            <label class="block text-xs font-medium text-muted-foreground">現在値 / プレビュー値 ({value})</label>
-            <input type="range" min={0} max={100} bind:value={value} class="mt-2 w-full accent-primary" />
+            <label class="block text-xs font-medium text-muted-foreground">
+              現在値 / プレビュー値 ({value})
+              <input type="range" min={0} max={100} bind:value={value} class="mt-2 w-full accent-primary" />
+            </label>
           </div>
         {/if}
       </div>

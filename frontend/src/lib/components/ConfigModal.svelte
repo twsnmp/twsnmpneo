@@ -101,42 +101,42 @@
         <div class="flex-1 overflow-y-auto p-6 text-xs">
           {#if activeTab === "map"}
             <div class="space-y-4 max-w-lg">
-              <div>
-                <label class="block font-medium text-muted-foreground">マップ名称</label>
+              <label class="block font-medium text-muted-foreground">
+                マップ名称
                 <input type="text" bind:value={mapName} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
-              </div>
-              <div>
-                <label class="block font-medium text-muted-foreground">デフォルトアイコンサイズ (1〜5)</label>
+              </label>
+              <label class="block font-medium text-muted-foreground">
+                デフォルトアイコンサイズ (1〜5)
                 <input type="number" min={1} max={5} bind:value={iconSize} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
-              </div>
-              <div>
-                <label class="block font-medium text-muted-foreground">通常ポーリング間隔 (秒)</label>
+              </label>
+              <label class="block font-medium text-muted-foreground">
+                通常ポーリング間隔 (秒)
                 <input type="number" min={5} bind:value={pollInt} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
-              </div>
+              </label>
             </div>
           {:else if activeTab === "notify"}
             <div class="space-y-4 max-w-lg">
               <span class="text-muted-foreground">障害検知時の通知先設定 (Slack, LINE, Teams, Webhook, SMTP)</span>
-              <div>
-                <label class="block font-medium text-muted-foreground">Webhook URL</label>
+              <label class="block font-medium text-muted-foreground">
+                Webhook URL
                 <input type="text" placeholder="https://hooks.slack.com/services/..." class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
-              </div>
+              </label>
             </div>
           {:else if activeTab === "ai"}
             <div class="space-y-4 max-w-lg">
-              <div>
-                <label class="block font-medium text-muted-foreground">AI プロバイダー</label>
+              <label class="block font-medium text-muted-foreground">
+                AI プロバイダー
                 <select bind:value={aiProvider} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none">
                   <option value="gemini">Google Gemini</option>
                   <option value="openai">OpenAI (GPT-4o)</option>
                   <option value="claude">Anthropic Claude</option>
                   <option value="ollama">Ollama (Local LLM)</option>
                 </select>
-              </div>
-              <div>
-                <label class="block font-medium text-muted-foreground">API キー</label>
+              </label>
+              <label class="block font-medium text-muted-foreground">
+                API キー
                 <input type="password" bind:value={aiApiKey} placeholder="AI サービスの API キーを入力" class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none font-mono" />
-              </div>
+              </label>
             </div>
           {:else if activeTab === "datastore"}
             <div class="space-y-4 max-w-lg">

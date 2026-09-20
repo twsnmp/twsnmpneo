@@ -76,29 +76,39 @@
 
       <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">ノード名</label>
-          <input type="text" bind:value={name} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          <label class="block text-xs font-medium text-muted-foreground">
+            ノード名
+            <input type="text" bind:value={name} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">IP アドレス</label>
-          <input type="text" bind:value={ip} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          <label class="block text-xs font-medium text-muted-foreground">
+            IP アドレス
+            <input type="text" bind:value={ip} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">MAC アドレス</label>
-          <input type="text" bind:value={mac} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          <label class="block text-xs font-medium text-muted-foreground">
+            MAC アドレス
+            <input type="text" bind:value={mac} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-xs font-medium text-muted-foreground">アイコン</label>
-          <select bind:value={icon} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none">
-            {#each iconList as ic}
-              <option value={ic.value}>{ic.name}</option>
-            {/each}
-          </select>
+          <label class="block text-xs font-medium text-muted-foreground">
+            アイコン
+            <select bind:value={icon} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none">
+              {#each iconList as ic}
+                <option value={ic.value}>{ic.name}</option>
+              {/each}
+            </select>
+          </label>
         </div>
 
         <div class="col-span-2">
-          <label class="block text-xs font-medium text-muted-foreground">説明・メモ</label>
-          <input type="text" bind:value={descr} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          <label class="block text-xs font-medium text-muted-foreground">
+            説明・メモ
+            <input type="text" bind:value={descr} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 focus:border-primary focus:outline-none" />
+          </label>
         </div>
 
         <!-- SNMP Settings -->
@@ -106,25 +116,33 @@
           <span class="text-xs font-semibold text-primary">SNMP / 認証設定</span>
           <div class="mt-2 grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs text-muted-foreground">SNMP バージョン</label>
-              <select bind:value={snmpMode} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs">
-                {#each snmpModeList as sm}
-                  <option value={sm.value}>{sm.name}</option>
-                {/each}
-              </select>
+              <label class="block text-xs text-muted-foreground">
+                SNMP バージョン
+                <select bind:value={snmpMode} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs">
+                  {#each snmpModeList as sm}
+                    <option value={sm.value}>{sm.name}</option>
+                  {/each}
+                </select>
+              </label>
             </div>
             <div>
-              <label class="block text-xs text-muted-foreground">コミュニティ名</label>
-              <input type="text" bind:value={community} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
+              <label class="block text-xs text-muted-foreground">
+                コミュニティ名
+                <input type="text" bind:value={community} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
+              </label>
             </div>
             {#if snmpMode.startsWith("v3")}
               <div>
-                <label class="block text-xs text-muted-foreground">v3 ユーザー名</label>
-                <input type="text" bind:value={user} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
+                <label class="block text-xs text-muted-foreground">
+                  v3 ユーザー名
+                  <input type="text" bind:value={user} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
+                </label>
               </div>
               <div>
-                <label class="block text-xs text-muted-foreground">v3 パスワード</label>
-                <input type="password" bind:value={password} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
+                <label class="block text-xs text-muted-foreground">
+                  v3 パスワード
+                  <input type="password" bind:value={password} class="mt-1 w-full rounded-md border border-border bg-background px-2 py-1 text-xs" />
+                </label>
               </div>
             {/if}
           </div>

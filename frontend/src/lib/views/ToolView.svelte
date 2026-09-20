@@ -81,8 +81,10 @@
 
         <div class="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
           <div class="w-64">
-            <label class="block text-xs font-medium text-muted-foreground">対象 IP アドレス</label>
-            <input type="text" bind:value={targetIp} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none font-mono" />
+            <label class="block text-xs font-medium text-muted-foreground">
+              対象 IP アドレス
+              <input type="text" bind:value={targetIp} class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none font-mono" />
+            </label>
           </div>
 
           <div class="pt-5">
@@ -122,16 +124,20 @@
 
         <div class="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
           <div class="w-64">
-            <label class="block text-xs font-medium text-muted-foreground">対象ノード</label>
-            <select class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none">
-              {#each nodes as n}
-                <option value={n.id}>{n.name} ({n.ip})</option>
-              {/each}
-            </select>
+            <label class="block text-xs font-medium text-muted-foreground">
+              対象ノード
+              <select class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none">
+                {#each nodes as n}
+                  <option value={n.id}>{n.name} ({n.ip})</option>
+                {/each}
+              </select>
+            </label>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-medium text-muted-foreground">OID / MIB 名</label>
-            <input type="text" value=".1.3.6.1.2.1.1 (system)" class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none font-mono" />
+            <label class="block text-xs font-medium text-muted-foreground">
+              OID / MIB 名
+              <input type="text" value=".1.3.6.1.2.1.1 (system)" class="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none font-mono" />
+            </label>
           </div>
           <div class="pt-5">
             <button class="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
@@ -158,8 +164,10 @@
 
         <div class="rounded-xl border border-border bg-card p-6 shadow-sm max-w-lg space-y-4">
           <div>
-            <label class="block text-xs font-medium text-muted-foreground">対象 MAC アドレス</label>
-            <input type="text" placeholder="00:11:22:33:44:55" class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:border-primary focus:outline-none font-mono" />
+            <label class="block text-xs font-medium text-muted-foreground">
+              対象 MAC アドレス
+              <input type="text" placeholder="00:11:22:33:44:55" class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:border-primary focus:outline-none font-mono" />
+            </label>
           </div>
           <button class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
             <Zap class="h-4 w-4" />
