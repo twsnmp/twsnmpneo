@@ -3,7 +3,7 @@
   import { initVPanel, setVPanel } from "../map/vpanel";
   import { getStateColor, getStateName } from "../common";
   import type { NodeEnt, PollingEnt, EventLogEnt } from "../api";
-  import { X, Box, ListTree, Activity, FileText, CheckCircle2, RotateCw, ZoomIn, ZoomOut } from "@lucide/svelte";
+  import { X, Box, ListTree, Activity, FileText, CheckCircle2, RotateCw, ZoomIn, ZoomOut, Cpu } from "@lucide/svelte";
 
   let { show = $bindable(false), node = null, pollings = [], logs = [] } = $props<{
     show: boolean;
@@ -20,7 +20,6 @@
 
   $effect(() => {
     if (show && node) {
-      // Generate sample/detected ports for demonstration
       ports = [];
       for (let i = 1; i <= 24; i++) {
         ports.push({
@@ -48,72 +47,106 @@
 </script>
 
 {#if show && node}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
-    <div class="flex h-[85vh] w-full max-w-5xl flex-col rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
-      <!-- Header -->
-      <div class="flex items-center justify-between border-b border-border px-6 py-3 bg-muted/30">
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onkeydown={(e) => { if (e.key === "Escape") show = false; }}
+  >
+    <div class="flex h-[88vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+      <!-- Modal Header (twnoaa style) -->
+      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-3.5 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="h-3.5 w-3.5 rounded-full" style="background-color: {getStateColor(node.state)}"></div>
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
+            <Cpu class="h-5 w-5" />
+          </div>
           <div>
-            <h2 class="text-base font-bold text-foreground">{node.name}</h2>
-            <p class="text-xs text-muted-foreground">{node.ip} {node.mac ? `(${node.mac})` : ""}</p>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-slate-100">{node.name}</h2>
+              <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border" style="background-color: {getStateColor(node.state)}20; border-color: {getStateColor(node.state)}50; color: {getStateColor(node.state)}">
+                <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(node.state)}"></span>
+                {getStateName(node.state)}
+              </span>
+            </div>
+            <p class="text-[11px] font-mono text-cyan-400">{node.ip} {node.mac ? `(${node.mac})` : ""}</p>
           </div>
         </div>
 
-        <!-- Tab Buttons -->
-        <div class="flex rounded-lg border border-border bg-background p-1 text-xs">
+        <!-- Tab Buttons (twnoaa style) -->
+        <div class="flex rounded-xl border border-slate-800 bg-slate-950 p-1 text-xs">
           <button
+            type="button"
             onclick={() => (activeTab = "vpanel")}
-            class="flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'vpanel' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'vpanel' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
           >
             <Box class="h-3.5 w-3.5" />
-            3D バーチャルパネル
+            3D パネル
           </button>
           <button
+            type="button"
             onclick={() => (activeTab = "ports")}
-            class="flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'ports' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'ports' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
           >
             <ListTree class="h-3.5 w-3.5" />
             ポート一覧
           </button>
           <button
+            type="button"
             onclick={() => (activeTab = "polling")}
-            class="flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'polling' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'polling' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
           >
             <Activity class="h-3.5 w-3.5" />
             ポーリング
           </button>
           <button
+            type="button"
             onclick={() => (activeTab = "logs")}
-            class="flex items-center gap-1.5 rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'logs' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'logs' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
           >
             <FileText class="h-3.5 w-3.5" />
             個別ログ
           </button>
         </div>
 
-        <button onclick={() => (show = false)} class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+        <button
+          type="button"
+          aria-label="閉じる"
+          onclick={() => (show = false)}
+          class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
+        >
           <X class="h-5 w-5" />
         </button>
       </div>
 
       <!-- Tab Content -->
-      <div class="relative flex-1 overflow-hidden p-6 bg-background">
+      <div class="relative flex-1 overflow-hidden p-6 bg-slate-900/40 text-xs">
         {#if activeTab === "vpanel"}
-          <div class="relative flex h-full flex-col items-center justify-center rounded-lg border border-border bg-zinc-950/80 overflow-hidden">
+          <div class="relative flex h-full flex-col items-center justify-center rounded-2xl border border-slate-800 bg-[#080d1e] overflow-hidden shadow-inner">
             <!-- 3D Controls -->
-            <div class="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-border/80 bg-card/80 p-1.5 backdrop-blur-sm shadow-md">
+            <div class="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 p-1.5 backdrop-blur-md shadow-lg">
               <button
+                type="button"
                 onclick={toggleRotate}
-                class="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors {rotate ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+                class="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer {rotate ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/30' : 'bg-slate-950 text-slate-400 hover:text-slate-200'}"
               >
                 <RotateCw class="h-3.5 w-3.5" />
                 自動回転
               </button>
-              <button onclick={() => handleZoom(true)} class="rounded p-1 text-muted-foreground hover:bg-muted">
+              <button
+                type="button"
+                aria-label="拡大"
+                onclick={() => handleZoom(true)}
+                class="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 cursor-pointer"
+              >
                 <ZoomIn class="h-4 w-4" />
               </button>
-              <button onclick={() => handleZoom(false)} class="rounded p-1 text-muted-foreground hover:bg-muted">
+              <button
+                type="button"
+                aria-label="縮小"
+                onclick={() => handleZoom(false)}
+                class="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 cursor-pointer"
+              >
                 <ZoomOut class="h-4 w-4" />
               </button>
             </div>
@@ -122,9 +155,9 @@
             <div id="vpanel-canvas-container" class="h-full w-full"></div>
           </div>
         {:else if activeTab === "ports"}
-          <div class="h-full overflow-y-auto">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead class="sticky top-0 bg-muted text-muted-foreground border-b border-border">
+          <div class="h-full overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/80 shadow-lg">
+            <table class="w-full text-left text-xs border-collapse font-mono">
+              <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-800">
                 <tr>
                   <th class="p-3">ポート</th>
                   <th class="p-3">ステータス</th>
@@ -133,19 +166,19 @@
                   <th class="p-3">Out (送信)</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-border">
+              <tbody class="divide-y divide-slate-800/60">
                 {#each ports as pt, i}
-                  <tr class="hover:bg-muted/30">
-                    <td class="p-3 font-semibold text-foreground">Port {i + 1}</td>
+                  <tr class="hover:bg-slate-800/40 transition-colors">
+                    <td class="p-3 font-semibold text-slate-100">Port {i + 1}</td>
                     <td class="p-3">
-                      <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium {pt.State === 'up' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-zinc-500/15 text-zinc-500'}">
-                        <span class="h-1.5 w-1.5 rounded-full {pt.State === 'up' ? 'bg-emerald-500' : 'bg-zinc-500'}"></span>
+                      <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-semibold text-[11px] {pt.State === 'up' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500 border border-slate-700'}">
+                        <span class="h-1.5 w-1.5 rounded-full {pt.State === 'up' ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
                         {pt.State.toUpperCase()}
                       </span>
                     </td>
-                    <td class="p-3 text-muted-foreground">{pt.Speed > 0 ? "1 Gbps" : "-"}</td>
-                    <td class="p-3 text-muted-foreground">{pt.State === "up" ? `${(Math.random() * 20).toFixed(2)} MB` : "0"}</td>
-                    <td class="p-3 text-muted-foreground">{pt.State === "up" ? `${(Math.random() * 15).toFixed(2)} MB` : "0"}</td>
+                    <td class="p-3 text-cyan-400">{pt.Speed > 0 ? "1 Gbps" : "-"}</td>
+                    <td class="p-3 text-slate-300">{pt.State === "up" ? `${(Math.random() * 20).toFixed(2)} MB` : "0"}</td>
+                    <td class="p-3 text-slate-300">{pt.State === "up" ? `${(Math.random() * 15).toFixed(2)} MB` : "0"}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -154,20 +187,20 @@
         {:else if activeTab === "polling"}
           <div class="h-full overflow-y-auto">
             {#if pollings.filter((p) => p.node_id === node?.id).length === 0}
-              <div class="flex h-full items-center justify-center text-xs text-muted-foreground">
+              <div class="flex h-full items-center justify-center text-xs text-slate-500">
                 このノードに紐づくポーリングはありません
               </div>
             {:else}
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {#each pollings.filter((p) => p.node_id === node?.id) as p}
-                  <div class="rounded-lg border border-border p-3">
+                  <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-2">
                     <div class="flex items-center justify-between">
-                      <span class="font-semibold text-sm">{p.name}</span>
-                      <span class="rounded px-2 py-0.5 text-[10px] font-medium uppercase bg-muted text-muted-foreground">{p.type}</span>
+                      <span class="font-bold text-sm text-slate-100">{p.name}</span>
+                      <span class="rounded-lg px-2.5 py-0.5 text-[10px] font-semibold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">{p.type}</span>
                     </div>
-                    <div class="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>状態: {getStateName(p.state)}</span>
-                      <span>応答値: {p.last_val ?? "-"}</span>
+                    <div class="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/80 font-mono">
+                      <span>状態: <span class="font-semibold text-emerald-400">{getStateName(p.state)}</span></span>
+                      <span>応答値: <span class="text-cyan-400">{p.last_val ?? "-"}</span></span>
                     </div>
                   </div>
                 {/each}
@@ -175,18 +208,18 @@
             {/if}
           </div>
         {:else if activeTab === "logs"}
-          <div class="h-full overflow-y-auto text-xs font-mono space-y-2">
+          <div class="h-full overflow-y-auto font-mono text-xs space-y-2">
             {#each logs.filter((l) => l.node_id === node?.id || l.node_name === node?.name) as l}
-              <div class="rounded border border-border bg-muted/20 p-2">
-                <div class="flex items-center justify-between text-muted-foreground text-[10px]">
-                  <span>{new Date(l.time * 1000).toLocaleString()}</span>
-                  <span class="font-semibold text-primary">{l.type}</span>
+              <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-3 shadow-md space-y-1">
+                <div class="flex items-center justify-between text-[11px] text-slate-400">
+                  <span class="text-cyan-400">{new Date(l.time * 1000).toLocaleString()}</span>
+                  <span class="font-semibold uppercase text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{l.type}</span>
                 </div>
-                <div class="mt-1 text-foreground">{l.event}</div>
+                <div class="text-slate-100 font-sans text-xs">{l.event}</div>
               </div>
             {/each}
             {#if logs.filter((l) => l.node_id === node?.id || l.node_name === node?.name).length === 0}
-              <div class="flex h-full items-center justify-center text-muted-foreground font-sans text-xs">
+              <div class="flex h-full items-center justify-center text-slate-500 font-sans text-xs">
                 該当するイベントログはありません
               </div>
             {/if}
