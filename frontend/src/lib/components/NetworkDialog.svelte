@@ -63,13 +63,15 @@
     }
 
     const net = {
-      ...(network || { id: "" }),
+      ...(network || { id: "", x: 240, y: 120 }),
       name,
       ip,
       descr,
       unmanaged,
       h_ports: hPorts,
       ports,
+      x: typeof network?.x === "number" && network.x > 0 ? network.x : 240,
+      y: typeof network?.y === "number" && network.y > 0 ? network.y : 120,
       w: Math.max(hPorts * 45 + 30, 200),
       h: Math.ceil(ports.length / hPorts) * 60 + 50,
     };

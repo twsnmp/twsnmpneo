@@ -9,18 +9,21 @@
   import SystemView from "./lib/views/SystemView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import AIAssistant from "./lib/mcp/AIAssistant.svelte";
+  import { fetchMapConf } from "./lib/api";
   import {
-    Map as MapIcon,
-    Server,
-    Activity,
-    FileText,
+    Network,
+    Laptop,
+    CheckSquare,
+    Calendar,
     BarChart3,
     Wrench,
-    Settings,
     Info,
+    Settings,
     Moon,
     Sun,
     Bot,
+    HelpCircle,
+    Activity,
   } from "@lucide/svelte";
 
   type PageType = "map" | "nodes" | "pollings" | "logs" | "reports" | "tools" | "system";
@@ -29,10 +32,16 @@
   let isDark = $state(true);
   let showConfig = $state(false);
   let showAI = $state(false);
+  let mapName = $state("My Network");
 
-  onMount(() => {
-    // Default dark theme
+  onMount(async () => {
     document.documentElement.classList.add("dark");
+    try {
+      const conf = await fetchMapConf();
+      if (conf?.MapName) mapName = conf.MapName;
+    } catch {
+      // default
+    }
   });
 
   const toggleTheme = () => {
@@ -45,43 +54,56 @@
   };
 
   const navItems = [
-    { id: "map", label: "マップ", icon: MapIcon },
-    { id: "nodes", label: "ノード", icon: Server },
-    { id: "pollings", label: "ポーリング", icon: Activity },
-    { id: "logs", label: "ログ", icon: FileText },
-    { id: "reports", label: "レポート", icon: BarChart3 },
-    { id: "tools", label: "ツール", icon: Wrench },
-    { id: "system", label: "システム", icon: Info },
+    { id: "map", label: "Map", icon: Network },
+    { id: "nodes", label: "Node", icon: Laptop },
+    { id: "pollings", label: "Polling", icon: CheckSquare },
+    { id: "logs", label: "Log", icon: Calendar },
+    { id: "reports", label: "Reports", icon: BarChart3 },
+    { id: "tools", label: "Tools", icon: Wrench },
+    { id: "system", label: "System", icon: Info },
   ];
 </script>
 
-<div class="flex h-screen flex-col bg-background text-foreground overflow-hidden font-sans">
-  <!-- Top Navigation Bar (twsnmpfk style) -->
-  <header class="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-md z-30">
+<div class="flex h-screen w-screen flex-col overflow-hidden bg-[#0b1329] text-[#f1f5f9] font-sans">
+  <!-- Top Navigation Bar matching twsnmpfk Image 1 + twnoaa palette -->
+  <header class="flex h-17 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2 shadow-xl z-30">
     <!-- Brand -->
     <div class="flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-md">
-        <span class="font-black text-white text-base tracking-wider">NEO</span>
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-sm">
+        <Activity class="h-5 w-5 animate-pulse" />
       </div>
       <div>
-        <h1 class="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
+        <h1 class="text-sm font-bold tracking-tight text-slate-100 flex items-center gap-2">
           TWSNMP NEO
-          <span class="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">v2.0</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-500/30">
+            v2.0.0
+          </span>
+          <span class="text-xs font-normal text-slate-400">- {mapName}</span>
         </h1>
+        <p class="text-[10px] text-slate-400 font-medium">Next-Gen Intelligent Network Management</p>
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <nav class="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/30 p-1">
+    <!-- Center Navigation Tabs with Stacked Icon + Label (twsnmpfk style with twnoaa styling) -->
+    <nav class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
       {#each navItems as item}
         <button
           onclick={() => (currentPage = item.id as PageType)}
-          class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all {currentPage === item.id ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+          class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'}"
         >
-          <item.icon class="h-4 w-4" />
+          <item.icon class="h-4 w-4 mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-400'}" />
           <span>{item.label}</span>
         </button>
       {/each}
+
+      <!-- Settings item in nav -->
+      <button
+        onclick={() => (showConfig = true)}
+        class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all"
+      >
+        <Settings class="h-4 w-4 mb-0.5 text-slate-400" />
+        <span>Setting</span>
+      </button>
     </nav>
 
     <!-- Right Controls -->
@@ -89,38 +111,38 @@
       <!-- AI Assistant Button -->
       <button
         onclick={() => (showAI = !showAI)}
-        class="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors shadow-sm"
+        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm"
       >
-        <Bot class="h-4 w-4" />
+        <Bot class="h-4 w-4 text-cyan-400" />
         <span>AI アシスタント</span>
-      </button>
-
-      <!-- Config Button -->
-      <button
-        onclick={() => (showConfig = true)}
-        class="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        title="システム設定"
-      >
-        <Settings class="h-4 w-4" />
       </button>
 
       <!-- Theme Toggle -->
       <button
         onclick={toggleTheme}
-        class="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        title="ダーク/ライトモード切替"
+        title="テーマ切り替え"
+        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
       >
         {#if isDark}
-          <Sun class="h-4 w-4" />
+          <Sun class="h-4 w-4 text-amber-400" />
         {:else}
-          <Moon class="h-4 w-4" />
+          <Moon class="h-4 w-4 text-cyan-400" />
         {/if}
+      </button>
+
+      <!-- Help Button -->
+      <button
+        onclick={() => alert("TWSNMP NEO ヘルプ: マップ上で右クリックするとノードやSW-HUBの追加、編集、削除メニューが表示されます。")}
+        title="ヘルプ"
+        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
+      >
+        <HelpCircle class="h-4 w-4 text-slate-400" />
       </button>
     </div>
   </header>
 
-  <!-- Main View Router -->
-  <main class="relative flex-1 overflow-hidden">
+  <!-- Main View Area -->
+  <main class="flex-1 overflow-hidden relative">
     {#if currentPage === "map"}
       <MapView />
     {:else if currentPage === "nodes"}
@@ -136,15 +158,9 @@
     {:else if currentPage === "system"}
       <SystemView />
     {/if}
-
-    <!-- AI Assistant Drawer Overlay -->
-    {#if showAI}
-      <div class="absolute top-0 right-0 z-40 h-full w-96 border-l border-border bg-card shadow-2xl">
-        <AIAssistant />
-      </div>
-    {/if}
   </main>
 
-  <!-- Global Config Modal -->
+  <!-- Global Modals & Drawers -->
   <ConfigModal bind:show={showConfig} />
+  <AIAssistant bind:show={showAI} />
 </div>

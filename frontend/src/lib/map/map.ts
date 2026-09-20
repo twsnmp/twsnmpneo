@@ -121,7 +121,8 @@ export const updateMAP = async () => {
     const nodeList = await fetchNodes();
     nodes = {};
     nodeList.forEach((n) => {
-      nodes[n.id] = n;
+      const id = n.id || (n as any).ID || '';
+      if (id) nodes[id] = n;
     });
 
     lines = await fetchLines();
@@ -129,13 +130,15 @@ export const updateMAP = async () => {
     const itemList = await fetchDrawItems();
     items = {};
     itemList.forEach((item) => {
-      if (item.id) items[item.id] = item;
+      const id = item.id || (item as any).ID || '';
+      if (id) items[id] = item;
     });
 
     const netList = await fetchNetworks();
     networks = {};
     netList.forEach((net) => {
-      networks[net.id] = net;
+      const id = net.id || (net as any).ID || '';
+      if (id) networks[id] = net;
     });
   } catch (e) {
     console.error("Failed to fetch map elements:", e);
@@ -293,7 +296,7 @@ const mapMain = (p5: P5) => {
     if (!mapRedraw) return;
     const dark = isDark();
     p5.clear();
-    p5.background(dark ? 23 : 252);
+    p5.background(dark ? p5.color(11, 19, 41) : 252);
 
     p5.push();
     p5.translate(moveX, moveY);
@@ -317,15 +320,15 @@ const mapMain = (p5: P5) => {
       p5.push();
       p5.translate(net.x || 0, net.y || 0);
 
-      if (selectedNetwork === net.id) {
-        p5.stroke("#3b82f6");
+      if (selectedNetwork === (net.id || (net as any).ID)) {
+        p5.stroke("#06b6d4");
         p5.strokeWeight(2);
       } else if (net.error) {
         p5.stroke("#ef4444");
       } else {
-        p5.stroke("#6b7280");
+        p5.stroke("#334155");
       }
-      p5.fill("rgba(31,41,55,0.9)");
+      p5.fill(dark ? "rgba(15, 23, 42, 0.9)" : "rgba(243,244,246,0.9)");
       const nw = net.w || 320;
       const nh = net.h || 140;
       p5.rect(0, 0, nw, nh, 8);

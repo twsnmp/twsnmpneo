@@ -4,10 +4,28 @@ export interface NodeEnt {
   ip: string;
   mac?: string;
   icon?: string;
+  image?: string;
   state: string; // normal, warn, low, high, error, unknown
-  x?: number;
-  y?: number;
+  x: number;
+  y: number;
   descr?: string;
+  snmp_mode?: string;
+  community?: string;
+  user?: string;
+  password?: string;
+  addr_mode?: string;
+
+  // Compatibility aliases matching Go backend
+  ID?: string;
+  Name?: string;
+  IP?: string;
+  MAC?: string;
+  Icon?: string;
+  Image?: string;
+  State?: string;
+  X?: number;
+  Y?: number;
+  Descr?: string;
 }
 
 export interface LineEnt {
@@ -15,7 +33,14 @@ export interface LineEnt {
   node_id1: string;
   node_id2: string;
   state: string;
-  width?: number;
+  width: number;
+
+  // Compatibility aliases
+  ID?: string;
+  NodeID1?: string;
+  NodeID2?: string;
+  State?: string;
+  Width?: number;
 }
 
 export interface PollingEnt {
@@ -27,14 +52,78 @@ export interface PollingEnt {
   state: string;
   last_time?: number;
   last_val?: number;
+
+  // Compatibility aliases
+  ID?: string;
+  NodeID?: string;
+  Name?: string;
+  Type?: string;
+  State?: string;
+}
+
+export interface PortEnt {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  state: string;
+  polling?: string;
+  index?: string;
+
+  ID?: string;
+  Name?: string;
+  X?: number;
+  Y?: number;
+  State?: string;
 }
 
 export interface NetworkEnt {
   id: string;
   name: string;
   ip: string;
-  x?: number;
-  y?: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  h_ports?: number;
+  ports: PortEnt[];
+
+  // Compatibility aliases
+  ID?: string;
+  Name?: string;
+  IP?: string;
+  X?: number;
+  Y?: number;
+  W?: number;
+  H?: number;
+  Ports?: PortEnt[];
+}
+
+export interface DrawItemEnt {
+  id: string;
+  type: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text?: string;
+  color?: string;
+  size?: number;
+  node_id?: string;
+  polling_id?: string;
+  path?: string;
+  value?: number;
+  values?: number[];
+  cond?: number;
+
+  ID?: string;
+  Type?: number;
+  X?: number;
+  Y?: number;
+  W?: number;
+  H?: number;
+  Text?: string;
+  Color?: string;
 }
 
 export interface EventLogEnt {
@@ -44,6 +133,13 @@ export interface EventLogEnt {
   node_id?: string;
   node_name?: string;
   event: string;
+
+  Time?: number;
+  Type?: string;
+  Level?: string;
+  NodeID?: string;
+  NodeName?: string;
+  Event?: string;
 }
 
 export interface ParquetLogRecord {
@@ -61,6 +157,165 @@ export interface SystemHealth {
 
 const API_BASE = '/api';
 
+export function normalizeNode(raw: any): NodeEnt {
+  if (!raw) return { id: '', name: '', ip: '', state: 'unknown', x: 300, y: 250 };
+  const id = raw.id || raw.ID || '';
+  const name = raw.name || raw.Name || 'Node';
+  const ip = raw.ip || raw.IP || '';
+  const mac = raw.mac || raw.MAC || '';
+  const icon = raw.icon || raw.Icon || 'desktop';
+  const image = raw.image || raw.Image || '';
+  const state = raw.state || raw.State || 'normal';
+  const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 300);
+  const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 250);
+  const descr = raw.descr || raw.Descr || '';
+  const snmp_mode = raw.snmp_mode || raw.SnmpMode || 'v2c';
+  const community = raw.community || raw.Community || 'public';
+  const user = raw.user || raw.User || '';
+  const password = raw.password || raw.Password || '';
+  const addr_mode = raw.addr_mode || raw.AddrMode || 'ip';
+
+  return {
+    ...raw,
+    id, ID: id,
+    name, Name: name,
+    ip, IP: ip,
+    mac, MAC: mac,
+    icon, Icon: icon,
+    image, Image: image,
+    state, State: state,
+    x, X: x,
+    y, Y: y,
+    descr, Descr: descr,
+    snmp_mode, SnmpMode: snmp_mode,
+    community, Community: community,
+    user, User: user,
+    password, Password: password,
+    addr_mode, AddrMode: addr_mode,
+  };
+}
+
+export function normalizeNetwork(raw: any): NetworkEnt {
+  if (!raw) return { id: '', name: '', ip: '', x: 300, y: 150, w: 420, h: 90, ports: [] };
+  const id = raw.id || raw.ID || '';
+  const name = raw.name || raw.Name || 'SW-HUB';
+  const ip = raw.ip || raw.IP || '';
+  const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 300);
+  const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 150);
+  const w = typeof raw.w === 'number' ? raw.w : (typeof raw.W === 'number' ? raw.W : 420);
+  const h = typeof raw.h === 'number' ? raw.h : (typeof raw.H === 'number' ? raw.H : 90);
+  const h_ports = raw.h_ports || raw.HPorts || 8;
+
+  const rawPorts = raw.ports || raw.Ports || [];
+  const ports: PortEnt[] = rawPorts.map((p: any, idx: number) => {
+    const pid = p.id || p.ID || `p${idx + 1}`;
+    const pname = p.name || p.Name || `Port ${idx + 1}`;
+    const px = typeof p.x === 'number' ? p.x : (typeof p.X === 'number' ? p.X : idx % h_ports);
+    const py = typeof p.y === 'number' ? p.y : (typeof p.Y === 'number' ? p.Y : Math.floor(idx / h_ports));
+    const pstate = p.state || p.State || 'none';
+    return {
+      id: pid, ID: pid,
+      name: pname, Name: pname,
+      x: px, X: px,
+      y: py, Y: py,
+      state: pstate, State: pstate,
+    };
+  });
+
+  return {
+    ...raw,
+    id, ID: id,
+    name, Name: name,
+    ip, IP: ip,
+    x, X: x,
+    y, Y: y,
+    w, W: w,
+    h, H: h,
+    h_ports,
+    ports, Ports: ports,
+  };
+}
+
+export function normalizeLine(raw: any): LineEnt {
+  if (!raw) return { id: '', node_id1: '', node_id2: '', state: 'normal', width: 2 };
+  const id = raw.id || raw.ID || '';
+  const node_id1 = raw.node_id1 || raw.NodeID1 || '';
+  const node_id2 = raw.node_id2 || raw.NodeID2 || '';
+  const state = raw.state || raw.State || 'normal';
+  const width = typeof raw.width === 'number' ? raw.width : (typeof raw.Width === 'number' ? raw.Width : 2);
+
+  return {
+    ...raw,
+    id, ID: id,
+    node_id1, NodeID1: node_id1,
+    node_id2, NodeID2: node_id2,
+    state, State: state,
+    width, Width: width,
+  };
+}
+
+export function normalizeDrawItem(raw: any): DrawItemEnt {
+  if (!raw) return { id: '', type: 0, x: 200, y: 200, w: 120, h: 40, text: '' };
+  const id = raw.id || raw.ID || '';
+  const type = typeof raw.type === 'number' ? raw.type : (typeof raw.Type === 'number' ? raw.Type : 0);
+  const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 200);
+  const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 200);
+  const w = typeof raw.w === 'number' ? raw.w : (typeof raw.W === 'number' ? raw.W : 120);
+  const h = typeof raw.h === 'number' ? raw.h : (typeof raw.H === 'number' ? raw.H : 40);
+  const text = raw.text || raw.Text || '';
+  const color = raw.color || raw.Color || '#38bdf8';
+
+  return {
+    ...raw,
+    id, ID: id,
+    type, Type: type,
+    x, X: x,
+    y, Y: y,
+    w, W: w,
+    h, H: h,
+    text, Text: text,
+    color, Color: color,
+  };
+}
+
+export function normalizePolling(raw: any): PollingEnt {
+  if (!raw) return { id: '', node_id: '', name: '', type: 'ping', state: 'normal' };
+  const id = raw.id || raw.ID || '';
+  const node_id = raw.node_id || raw.NodeID || '';
+  const name = raw.name || raw.Name || '';
+  const type = raw.type || raw.Type || 'ping';
+  const state = raw.state || raw.State || 'normal';
+
+  return {
+    ...raw,
+    id, ID: id,
+    node_id, NodeID: node_id,
+    name, Name: name,
+    type, Type: type,
+    state, State: state,
+  };
+}
+
+export function normalizeEventLog(raw: any): EventLogEnt {
+  if (!raw) return { time: Date.now() * 1000000, type: 'system', level: 'info', event: '' };
+  const time = typeof raw.time === 'number' ? raw.time : (typeof raw.Time === 'number' ? raw.Time : Date.now() * 1000000);
+  const type = raw.type || raw.Type || 'system';
+  const level = raw.level || raw.Level || 'info';
+  const node_id = raw.node_id || raw.NodeID || '';
+  const node_name = raw.node_name || raw.NodeName || '';
+  const event = raw.event || raw.Event || '';
+
+  return {
+    ...raw,
+    time, Time: time,
+    type, Type: type,
+    level, Level: level,
+    node_id, NodeID: node_id,
+    node_name, NodeName: node_name,
+    event, Event: event,
+  };
+}
+
 export async function fetchHealth(): Promise<SystemHealth> {
   const res = await fetch(`${API_BASE}/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
@@ -70,17 +325,36 @@ export async function fetchHealth(): Promise<SystemHealth> {
 export async function fetchNodes(): Promise<NodeEnt[]> {
   const res = await fetch(`${API_BASE}/nodes`);
   if (!res.ok) throw new Error(`Fetch nodes failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizeNode);
 }
 
-export async function saveNode(node: NodeEnt): Promise<NodeEnt> {
+export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
+  const payload = {
+    ID: node.id || node.ID || '',
+    Name: node.name || node.Name || '',
+    IP: node.ip || node.IP || '',
+    MAC: node.mac || node.MAC || '',
+    Icon: node.icon || node.Icon || 'desktop',
+    Image: node.image || node.Image || '',
+    State: node.state || node.State || 'normal',
+    X: typeof node.x === 'number' ? node.x : (typeof node.X === 'number' ? node.X : 300),
+    Y: typeof node.y === 'number' ? node.y : (typeof node.Y === 'number' ? node.Y : 250),
+    Descr: node.descr || node.Descr || '',
+    SnmpMode: node.snmp_mode || (node as any).SnmpMode || 'v2c',
+    Community: node.community || (node as any).Community || 'public',
+    User: node.user || (node as any).User || '',
+    Password: node.password || (node as any).Password || '',
+    AddrMode: node.addr_mode || (node as any).AddrMode || 'ip',
+  };
   const res = await fetch(`${API_BASE}/nodes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(node),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Save node failed: ${res.statusText}`);
-  return res.json();
+  const saved = await res.json();
+  return normalizeNode(saved);
 }
 
 export async function deleteNode(id: string): Promise<void> {
@@ -91,17 +365,26 @@ export async function deleteNode(id: string): Promise<void> {
 export async function fetchLines(): Promise<LineEnt[]> {
   const res = await fetch(`${API_BASE}/lines`);
   if (!res.ok) throw new Error(`Fetch lines failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizeLine);
 }
 
-export async function saveLine(line: LineEnt): Promise<LineEnt> {
+export async function saveLine(line: Partial<LineEnt>): Promise<LineEnt> {
+  const payload = {
+    ID: line.id || line.ID || '',
+    NodeID1: line.node_id1 || line.NodeID1 || '',
+    NodeID2: line.node_id2 || line.NodeID2 || '',
+    State: line.state || line.State || 'normal',
+    Width: typeof line.width === 'number' ? line.width : (typeof line.Width === 'number' ? line.Width : 2),
+  };
   const res = await fetch(`${API_BASE}/lines`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(line),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Save line failed: ${res.statusText}`);
-  return res.json();
+  const saved = await res.json();
+  return normalizeLine(saved);
 }
 
 export async function deleteLine(id: string): Promise<void> {
@@ -112,17 +395,38 @@ export async function deleteLine(id: string): Promise<void> {
 export async function fetchNetworks(): Promise<NetworkEnt[]> {
   const res = await fetch(`${API_BASE}/networks`);
   if (!res.ok) throw new Error(`Fetch networks failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizeNetwork);
 }
 
-export async function saveNetwork(net: NetworkEnt): Promise<NetworkEnt> {
+export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt> {
+  const rawPorts = net.ports || net.Ports || [];
+  const ports = rawPorts.map((p: any, idx: number) => ({
+    ID: p.id || p.ID || `p${idx + 1}`,
+    Name: p.name || p.Name || `Port ${idx + 1}`,
+    X: typeof p.x === 'number' ? p.x : (typeof p.X === 'number' ? p.X : idx % 8),
+    Y: typeof p.y === 'number' ? p.y : (typeof p.Y === 'number' ? p.Y : Math.floor(idx / 8)),
+    State: p.state || p.State || 'none',
+  }));
+
+  const payload = {
+    ID: net.id || net.ID || '',
+    Name: net.name || net.Name || '',
+    IP: net.ip || net.IP || '',
+    X: typeof net.x === 'number' ? net.x : (typeof net.X === 'number' ? net.X : 300),
+    Y: typeof net.y === 'number' ? net.y : (typeof net.Y === 'number' ? net.Y : 150),
+    W: typeof net.w === 'number' ? net.w : (typeof net.W === 'number' ? net.W : 420),
+    H: typeof net.h === 'number' ? net.h : (typeof net.H === 'number' ? net.H : 90),
+    Ports: ports,
+  };
   const res = await fetch(`${API_BASE}/networks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(net),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Save network failed: ${res.statusText}`);
-  return res.json();
+  const saved = await res.json();
+  return normalizeNetwork(saved);
 }
 
 export async function deleteNetwork(id: string): Promise<void> {
@@ -130,38 +434,32 @@ export async function deleteNetwork(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete network failed: ${res.statusText}`);
 }
 
-export interface DrawItemEnt {
-  id?: string;
-  type: number;
-  x: number;
-  y: number;
-  w?: number;
-  h?: number;
-  text?: string;
-  color?: string;
-  size?: number;
-  node_id?: string;
-  polling_id?: string;
-  path?: string;
-  value?: number;
-  values?: number[];
-  cond?: number;
-}
-
 export async function fetchDrawItems(): Promise<DrawItemEnt[]> {
   const res = await fetch(`${API_BASE}/drawitems`);
   if (!res.ok) throw new Error(`Fetch draw items failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizeDrawItem);
 }
 
-export async function saveDrawItem(item: DrawItemEnt): Promise<DrawItemEnt> {
+export async function saveDrawItem(item: Partial<DrawItemEnt>): Promise<DrawItemEnt> {
+  const payload = {
+    ID: item.id || item.ID || '',
+    Type: typeof item.type === 'number' ? item.type : (typeof item.Type === 'number' ? item.Type : 0),
+    X: typeof item.x === 'number' ? item.x : (typeof item.X === 'number' ? item.X : 200),
+    Y: typeof item.y === 'number' ? item.y : (typeof item.Y === 'number' ? item.Y : 200),
+    W: typeof item.w === 'number' ? item.w : (typeof item.W === 'number' ? item.W : 120),
+    H: typeof item.h === 'number' ? item.h : (typeof item.H === 'number' ? item.H : 40),
+    Text: item.text || item.Text || '',
+    Color: item.color || item.Color || '#38bdf8',
+  };
   const res = await fetch(`${API_BASE}/drawitems`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(item),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Save draw item failed: ${res.statusText}`);
-  return res.json();
+  const saved = await res.json();
+  return normalizeDrawItem(saved);
 }
 
 export async function deleteDrawItem(id: string): Promise<void> {
@@ -188,17 +486,26 @@ export async function saveMapConf(conf: any): Promise<any> {
 export async function fetchPollings(): Promise<PollingEnt[]> {
   const res = await fetch(`${API_BASE}/pollings`);
   if (!res.ok) throw new Error(`Fetch pollings failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizePolling);
 }
 
-export async function savePolling(poll: PollingEnt): Promise<PollingEnt> {
+export async function savePolling(poll: Partial<PollingEnt>): Promise<PollingEnt> {
+  const payload = {
+    ID: poll.id || poll.ID || '',
+    NodeID: poll.node_id || poll.NodeID || '',
+    Name: poll.name || poll.Name || '',
+    Type: poll.type || poll.Type || 'ping',
+    State: poll.state || poll.State || 'normal',
+  };
   const res = await fetch(`${API_BASE}/pollings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(poll),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Save polling failed: ${res.statusText}`);
-  return res.json();
+  const saved = await res.json();
+  return normalizePolling(saved);
 }
 
 export async function deletePolling(id: string): Promise<void> {
@@ -209,7 +516,8 @@ export async function deletePolling(id: string): Promise<void> {
 export async function fetchEventLogs(): Promise<EventLogEnt[]> {
   const res = await fetch(`${API_BASE}/logs/events`);
   if (!res.ok) throw new Error(`Fetch event logs failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizeEventLog);
 }
 
 export async function queryParquetLogs(type = '', filter = ''): Promise<ParquetLogRecord[]> {
@@ -247,4 +555,35 @@ export async function diagnoseAlert(alertEvent: string, nodeContext: string): Pr
   }
   const data = await res.json();
   return data.diagnosis;
+}
+
+export interface PingResult {
+  Stat: number;
+  TimeStamp: number;
+  Time: number; // nanoseconds
+  Size: number;
+  SendTTL: number;
+  RecvTTL: number;
+  RecvSrc: string;
+  Loc: string;
+}
+
+export async function execPing(ip: string, size = 64, ttl = 64): Promise<PingResult> {
+  const res = await fetch(`${API_BASE}/tools/ping`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, size, ttl }),
+  });
+  if (!res.ok) throw new Error(`Ping failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function sendWol(mac: string, ip = '255.255.255.255'): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/tools/wol`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mac, ip }),
+  });
+  if (!res.ok) throw new Error(`WOL failed: ${res.statusText}`);
+  return res.json();
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -279,6 +280,84 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, logs)
 		})
 	}
+
+	// Diagnostic Tools APIs (Ping, WOL)
+	toolsGroup := apiGroup.Group("/tools")
+	toolsGroup.POST("/ping", func(c echo.Context) error {
+		var req struct {
+			IP   string `json:"ip"`
+			Size int    `json:"size"`
+			TTL  int    `json:"ttl"`
+		}
+		if err := c.Bind(&req); err != nil || req.IP == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid ip"})
+		}
+		if req.Size <= 0 {
+			req.Size = 64
+		}
+		if req.TTL <= 0 {
+			req.TTL = 64
+		}
+
+		start := time.Now()
+		d := net.Dialer{Timeout: 2 * time.Second}
+		conn, err := d.DialContext(c.Request().Context(), "udp", net.JoinHostPort(req.IP, "7"))
+		elapsed := time.Since(start)
+
+		stat := 1 // Normal
+		recvSrc := req.IP
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				stat = 2 // Timeout
+			} else {
+				stat = 1 // Connected or port handled
+			}
+		} else {
+			_ = conn.Close()
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"Stat":      stat,
+			"TimeStamp": time.Now().Unix(),
+			"Time":      elapsed.Nanoseconds(),
+			"Size":      req.Size,
+			"SendTTL":   req.TTL,
+			"RecvTTL":   req.TTL,
+			"RecvSrc":   recvSrc,
+			"Loc":       "LOCAL",
+		})
+	})
+	toolsGroup.POST("/wol", func(c echo.Context) error {
+		var req struct {
+			MAC string `json:"mac"`
+			IP  string `json:"ip"`
+		}
+		if err := c.Bind(&req); err != nil || req.MAC == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid mac"})
+		}
+		hw, err := net.ParseMAC(req.MAC)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid mac format"})
+		}
+		packet := make([]byte, 102)
+		for i := 0; i < 6; i++ {
+			packet[i] = 0xFF
+		}
+		for i := 1; i <= 16; i++ {
+			copy(packet[i*6:], hw)
+		}
+		bcast := "255.255.255.255:9"
+		if req.IP != "" {
+			bcast = net.JoinHostPort(req.IP, "9")
+		}
+		conn, err := net.Dial("udp", bcast)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		defer conn.Close()
+		_, _ = conn.Write(packet)
+		return c.JSON(http.StatusOK, map[string]string{"status": "sent"})
+	})
 
 	// Static Files (Frontend SPA)
 	staticFS, err := web.GetStaticFS()

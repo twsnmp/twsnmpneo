@@ -4,11 +4,10 @@
   import { getStateColor, getStateName } from "../common";
   import { Search, RefreshCw, FileText, Sparkles, Filter, Database, Calendar } from "@lucide/svelte";
 
-  let activeTab = $state<"event" | "syslog" | "trap" | "netflow" | "arp">("event");
+  let activeTab = $state<"event" | "syslog" | "trap" | "netflow">("event");
   let eventLogs = $state<EventLogEnt[]>([]);
   let parquetLogs = $state<ParquetLogRecord[]>([]);
   let searchQuery = $state("");
-  let levelFilter = $state("all");
 
   // AI Dialog state
   let showAIDialog = $state(false);
@@ -52,33 +51,50 @@
       aiLoading = false;
     }
   };
+
+  const getLevelBadge = (level: string) => {
+    switch (level?.toLowerCase()) {
+      case "normal":
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case "warn":
+      case "low":
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+      case "high":
+      case "error":
+        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+      case "info":
+        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+      default:
+        return "bg-slate-800 text-slate-400 border-slate-700";
+    }
+  };
 </script>
 
-<div class="flex h-[calc(100vh-4rem)] flex-col gap-4 p-6 overflow-hidden bg-background">
-  <!-- Tabs & Filter bar -->
-  <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
-    <div class="flex items-center gap-2 rounded-lg border border-border bg-background p-1 text-xs">
+<div class="flex h-[calc(100vh-4.25rem)] flex-col gap-4 p-5 overflow-hidden bg-[#0b1329] text-slate-100 font-sans">
+  <!-- Tabs & Filter Bar (twnoaa style) -->
+  <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg">
+    <div class="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950 p-1 text-xs">
       <button
         onclick={() => (activeTab = "event")}
-        class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'event' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+        class="rounded-lg px-3.5 py-1.5 font-semibold transition-all {activeTab === 'event' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
       >
         イベントログ
       </button>
       <button
         onclick={() => (activeTab = "syslog")}
-        class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'syslog' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+        class="rounded-lg px-3.5 py-1.5 font-semibold transition-all {activeTab === 'syslog' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
       >
         Syslog (Parquet)
       </button>
       <button
         onclick={() => (activeTab = "trap")}
-        class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'trap' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+        class="rounded-lg px-3.5 py-1.5 font-semibold transition-all {activeTab === 'trap' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
       >
         SNMP TRAP (Parquet)
       </button>
       <button
         onclick={() => (activeTab = "netflow")}
-        class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'netflow' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}"
+        class="rounded-lg px-3.5 py-1.5 font-semibold transition-all {activeTab === 'netflow' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
       >
         NetFlow (Parquet)
       </button>
@@ -86,54 +102,58 @@
 
     <div class="flex items-center gap-3">
       <div class="relative w-64">
-        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="ログ内容・送信元で検索..."
           bind:value={searchQuery}
           onkeydown={(e) => e.key === "Enter" && loadCurrentLogs()}
-          class="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-3 text-xs focus:border-primary focus:outline-none"
+          class="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
         />
       </div>
 
-      <button onclick={loadCurrentLogs} class="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted font-medium">
-        <RefreshCw class="h-3.5 w-3.5" />
+      <button
+        onclick={loadCurrentLogs}
+        class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-all"
+      >
+        <RefreshCw class="h-3.5 w-3.5 text-cyan-400" />
         更新
       </button>
     </div>
   </div>
 
-  <!-- Table View -->
-  <div class="flex-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-    <div class="h-full overflow-y-auto">
+  <!-- Table Container (twnoaa style) -->
+  <div class="flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg flex flex-col min-h-0">
+    <div class="h-full overflow-y-auto overflow-x-auto">
       {#if activeTab === "event"}
-        <table class="w-full text-left text-xs border-collapse font-mono">
-          <thead class="sticky top-0 z-10 border-b border-border bg-muted/80 backdrop-blur-sm text-muted-foreground font-sans">
+        <table class="w-full text-left text-xs">
+          <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
             <tr>
-              <th class="p-3">日時</th>
-              <th class="p-3">レベル</th>
-              <th class="p-3">種別</th>
-              <th class="p-3">ノード</th>
-              <th class="p-3">イベント内容</th>
-              <th class="p-3 text-right">AI</th>
+              <th class="py-2.5 px-3.5 w-44">日時</th>
+              <th class="py-2.5 px-3.5 w-28">レベル</th>
+              <th class="py-2.5 px-3.5 w-28">種別</th>
+              <th class="py-2.5 px-3.5 w-48">ノード</th>
+              <th class="py-2.5 px-3.5">イベント内容</th>
+              <th class="py-2.5 px-3.5 text-right w-20">AI</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-border">
+          <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
             {#each eventLogs as el}
-              <tr class="hover:bg-muted/40 transition-colors">
-                <td class="p-3 text-muted-foreground">{new Date(el.time * 1000).toLocaleString()}</td>
-                <td class="p-3">
-                  <span class="rounded px-2 py-0.5 text-[10px] uppercase font-bold" style="background-color: {getStateColor(el.level)}20; color: {getStateColor(el.level)}">
+              <tr class="hover:bg-slate-800/40 transition-colors">
+                <td class="py-2 px-3.5 text-slate-400 text-[11px]">{new Date(el.time * 1000).toLocaleString()}</td>
+                <td class="py-2 px-3.5">
+                  <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getLevelBadge(el.level)}">
+                    <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(el.level)}"></span>
                     {el.level}
                   </span>
                 </td>
-                <td class="p-3 font-semibold text-primary">{el.type}</td>
-                <td class="p-3 font-sans text-foreground">{el.node_name || "-"}</td>
-                <td class="p-3 text-foreground break-all">{el.event}</td>
-                <td class="p-3 text-right">
+                <td class="py-2 px-3.5 font-semibold text-cyan-400 font-sans">{el.type}</td>
+                <td class="py-2 px-3.5 font-sans text-slate-200">{el.node_name || "-"}</td>
+                <td class="py-2 px-3.5 text-slate-100 break-all font-sans">{el.event}</td>
+                <td class="py-2 px-3.5 text-right font-sans">
                   <button
                     onclick={() => handleAskAI(`${el.type} (${el.level}): ${el.event} [Node: ${el.node_name || el.node_id}]`)}
-                    class="flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] font-sans font-medium text-primary hover:bg-primary/20"
+                    class="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all"
                   >
                     <Sparkles class="h-3 w-3" />
                     分析
@@ -141,28 +161,35 @@
                 </td>
               </tr>
             {/each}
+            {#if eventLogs.length === 0}
+              <tr>
+                <td colspan="6" class="py-12 text-center text-slate-500 font-sans">
+                  イベントログがありません
+                </td>
+              </tr>
+            {/if}
           </tbody>
         </table>
       {:else}
-        <table class="w-full text-left text-xs border-collapse font-mono">
-          <thead class="sticky top-0 z-10 border-b border-border bg-muted/80 backdrop-blur-sm text-muted-foreground font-sans">
+        <table class="w-full text-left text-xs">
+          <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
             <tr>
-              <th class="p-3">日時</th>
-              <th class="p-3">送信元 (Src)</th>
-              <th class="p-3">ログデータ (Columnar Record)</th>
-              <th class="p-3 text-right">AI</th>
+              <th class="py-2.5 px-3.5 w-44">日時</th>
+              <th class="py-2.5 px-3.5 w-40">送信元 (Src)</th>
+              <th class="py-2.5 px-3.5">ログデータ (Parquet Record)</th>
+              <th class="py-2.5 px-3.5 text-right w-20">AI</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-border">
+          <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
             {#each parquetLogs as pl}
-              <tr class="hover:bg-muted/40 transition-colors">
-                <td class="p-3 text-muted-foreground">{new Date(pl.time * 1000).toLocaleString()}</td>
-                <td class="p-3 font-semibold text-primary">{pl.src}</td>
-                <td class="p-3 text-foreground break-all">{pl.log}</td>
-                <td class="p-3 text-right">
+              <tr class="hover:bg-slate-800/40 transition-colors">
+                <td class="py-2 px-3.5 text-slate-400 text-[11px]">{new Date(pl.time * 1000).toLocaleString()}</td>
+                <td class="py-2 px-3.5 font-semibold text-cyan-400 font-mono">{pl.src}</td>
+                <td class="py-2 px-3.5 text-slate-100 break-all">{pl.log}</td>
+                <td class="py-2 px-3.5 text-right font-sans">
                   <button
                     onclick={() => handleAskAI(`${pl.type} from ${pl.src}: ${pl.log}`)}
-                    class="flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] font-sans font-medium text-primary hover:bg-primary/20"
+                    class="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all"
                   >
                     <Sparkles class="h-3 w-3" />
                     分析
@@ -172,7 +199,7 @@
             {/each}
             {#if parquetLogs.length === 0}
               <tr>
-                <td colspan="4" class="p-8 text-center text-muted-foreground font-sans">
+                <td colspan="4" class="py-12 text-center text-slate-500 font-sans">
                   該当するログは見つかりませんでした
                 </td>
               </tr>
@@ -183,26 +210,26 @@
     </div>
   </div>
 
-  <!-- AI Analysis Modal -->
+  <!-- AI Analysis Modal (twnoaa style) -->
   {#if showAIDialog}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-card p-6 shadow-2xl overflow-hidden">
-        <div class="flex items-center justify-between border-b border-border pb-3">
-          <div class="flex items-center gap-2 text-base font-bold text-primary">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2 text-base font-bold text-cyan-400">
             <Sparkles class="h-5 w-5" />
             <span>AI ログ診断アシスタント</span>
           </div>
-          <button onclick={() => (showAIDialog = false)} class="rounded p-1 text-muted-foreground hover:bg-muted">✕</button>
+          <button onclick={() => (showAIDialog = false)} class="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white">✕</button>
         </div>
 
-        <div class="my-3 rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs text-foreground">
+        <div class="my-3 rounded-xl border border-slate-800 bg-slate-950 p-3 font-mono text-xs text-slate-300">
           {selectedLogText}
         </div>
 
-        <div class="flex-1 overflow-y-auto rounded-lg border border-border/80 bg-background p-4 text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+        <div class="flex-1 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs leading-relaxed text-slate-200 whitespace-pre-wrap">
           {#if aiLoading}
-            <div class="flex items-center gap-2 text-muted-foreground">
-              <RefreshCw class="h-4 w-4 animate-spin text-primary" />
+            <div class="flex items-center gap-2 text-cyan-400">
+              <RefreshCw class="h-4 w-4 animate-spin" />
               <span>マルチLLM推論中... ログとトポロジーを総合解析しています</span>
             </div>
           {:else}
@@ -210,8 +237,8 @@
           {/if}
         </div>
 
-        <div class="mt-4 flex justify-end border-t border-border pt-3">
-          <button onclick={() => (showAIDialog = false)} class="rounded-lg bg-muted px-4 py-1.5 text-xs font-semibold hover:bg-muted/80">
+        <div class="mt-4 flex justify-end border-t border-slate-800 pt-3">
+          <button onclick={() => (showAIDialog = false)} class="rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-200 transition-colors">
             閉じる
           </button>
         </div>

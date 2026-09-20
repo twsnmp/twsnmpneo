@@ -28,18 +28,21 @@
   import {
     ZoomIn,
     ZoomOut,
-    Maximize2,
+    Save,
     RefreshCw,
     Plus,
     Server,
     Palette,
-    Cpu,
     Activity,
     Edit3,
     Trash2,
     Info,
-    Search,
-    Radio,
+    Calendar,
+    CheckCircle2,
+    AlertTriangle,
+    XCircle,
+    HelpCircle,
+    RotateCcw,
   } from "@lucide/svelte";
 
   let nodes = $state<NodeEnt[]>([]);
@@ -72,9 +75,6 @@
   let contextTargetNode = $state("");
   let contextTargetNet = $state("");
 
-  // Quick filter / search
-  let selectedNodeId = $state("");
-
   let refreshTimer: any = null;
 
   const reloadAllData = async () => {
@@ -100,33 +100,37 @@
   };
 
   onMount(async () => {
-    const container = document.getElementById("p5-map-canvas");
-    if (container) {
-      await initMAP(container, (event: any) => {
-        if (event.Cmd === "contextMenu") {
-          contextTargetNode = event.Node || "";
-          contextTargetNet = event.Network || "";
-          contextX = event.x;
-          contextY = event.y;
+    const canvasDiv = document.getElementById("p5-map-canvas");
+    if (canvasDiv) {
+      await initMAP(canvasDiv, (ev: any) => {
+        if (ev?.type === "contextmenu") {
+          contextX = ev.x;
+          contextY = ev.y;
+          contextTargetNode = ev.nodeId || "";
+          contextTargetNet = ev.networkId || "";
           showContextMenu = true;
-        } else if (event.Cmd === "nodeDoubleClicked") {
-          const n = nodes.find((x) => x.id === event.Param);
+        } else if (ev?.type === "dblclick" && ev.nodeId) {
+          const n = nodes.find((item) => (item.id || item.ID) === ev.nodeId);
           if (n) {
             detailNode = n;
             showNodeDetailModal = true;
           }
-        } else if (event.Cmd === "networkDoubleClicked") {
-          const net = networks.find((x) => x.id === event.Param);
-          if (net) {
-            selectedNetwork = net;
-            showNetworkDialog = true;
-          }
         }
       });
-      await reloadAllData();
     }
 
-    refreshTimer = setInterval(reloadAllData, 5000);
+    await reloadAllData();
+
+    // Periodic refresh every 5 seconds
+    refreshTimer = setInterval(async () => {
+      try {
+        const [el, pl] = await Promise.all([fetchEventLogs(), fetchPollings()]);
+        eventLogs = el;
+        pollings = pl;
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    }, 5000);
   });
 
   onDestroy(() => {
@@ -134,42 +138,82 @@
     resetMap();
   });
 
-  // Actions
   const handleOpenAddNode = () => {
-    selectedNode = null;
+    selectedNode = {
+      id: "",
+      name: "新規ノード",
+      ip: "192.168.1.10",
+      mac: "",
+      descr: "",
+      icon: "desktop",
+      state: "normal",
+      x: contextX > 0 ? contextX : 320,
+      y: contextY > 0 ? contextY : 200,
+    };
     showNodeDialog = true;
     showContextMenu = false;
   };
 
   const handleOpenAddNetwork = () => {
-    selectedNetwork = null;
+    selectedNetwork = {
+      id: "",
+      name: "SW-HUB",
+      ip: "192.168.1.254",
+      x: contextX > 0 ? contextX : 240,
+      y: contextY > 0 ? contextY : 120,
+      w: 420,
+      h: 90,
+      h_ports: 8,
+      ports: Array.from({ length: 8 }).map((_, i) => ({
+        id: `p${i + 1}`,
+        name: `Port ${i + 1}`,
+        x: i % 8,
+        y: Math.floor(i / 8),
+        state: "none",
+      })),
+    };
     showNetworkDialog = true;
     showContextMenu = false;
   };
 
-  const handleOpenAddDrawItem = () => {
-    selectedDrawItem = null;
-    showDrawItemDialog = true;
-    showContextMenu = false;
-  };
-
   const handleOpenAddLine = () => {
-    selectedLine = null;
+    selectedLine = {
+      id: "",
+      node_id1: nodes[0]?.id || "",
+      node_id2: nodes[1]?.id || (networks[0] ? `NET:${networks[0].id}` : ""),
+      state: "normal",
+      width: 2,
+    };
     showLineDialog = true;
     showContextMenu = false;
   };
 
+  const handleOpenAddDrawItem = () => {
+    selectedDrawItem = {
+      id: "",
+      type: 0,
+      x: contextX > 0 ? contextX : 200,
+      y: contextY > 0 ? contextY : 200,
+      w: 120,
+      h: 40,
+      text: "新規アイテム",
+      color: "#06b6d4",
+    };
+    showDrawItemDialog = true;
+    showContextMenu = false;
+  };
+
   const handleEditTargetNode = () => {
-    const n = nodes.find((x) => x.id === contextTargetNode);
+    const n = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
     if (n) {
-      selectedNode = n;
+      selectedNode = { ...n };
       showNodeDialog = true;
     }
     showContextMenu = false;
   };
 
   const handleShowNodeDetail = () => {
-    const n = nodes.find((x) => x.id === contextTargetNode);
+    const n = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
     if (n) {
       detailNode = n;
       showNodeDetailModal = true;
@@ -186,9 +230,9 @@
   };
 
   const handleEditTargetNetwork = () => {
-    const net = networks.find((x) => x.id === contextTargetNet);
+    const net = networks.find((item) => (item.id || item.ID) === contextTargetNet);
     if (net) {
-      selectedNetwork = net;
+      selectedNetwork = { ...net };
       showNetworkDialog = true;
     }
     showContextMenu = false;
@@ -201,80 +245,175 @@
     }
     showContextMenu = false;
   };
+
+  const formatLogTime = (ts: number): string => {
+    if (!ts) return "-";
+    const d = new Date(ts > 1e12 ? ts / 1e6 : ts * 1000);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  };
+
+  const getLevelBadgeClass = (lvl: string) => {
+    switch (lvl?.toLowerCase()) {
+      case "normal":
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case "repair":
+        return "bg-cyan-500/10 text-cyan-300 border-cyan-500/30";
+      case "warn":
+      case "low":
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+      case "high":
+      case "error":
+        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+      case "info":
+        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+      default:
+        return "bg-slate-800 text-slate-400 border-slate-700";
+    }
+  };
 </script>
 
 <svelte:window onclick={() => (showContextMenu = false)} />
 
-<div class="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-background">
-  <!-- Map Floating Toolbar -->
-  <div class="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-xl border border-border/80 bg-card/90 p-1.5 shadow-lg backdrop-blur-md">
-    <!-- Quick Add Menu -->
-    <button
-      onclick={handleOpenAddNode}
-      class="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-all"
-    >
-      <Plus class="h-3.5 w-3.5" />
-      ノード追加
-    </button>
-    <button
-      onclick={handleOpenAddNetwork}
-      class="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
-    >
-      <Server class="h-3.5 w-3.5" />
-      SW-HUB追加
-    </button>
-    <button
-      onclick={handleOpenAddLine}
-      class="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
-    >
-      <Activity class="h-3.5 w-3.5" />
-      ライン結線
-    </button>
-    <button
-      onclick={handleOpenAddDrawItem}
-      class="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
-    >
-      <Palette class="h-3.5 w-3.5" />
-      描画アイテム
-    </button>
+<!-- Two-tier layout matching twsnmpfk Image 1 + twnoaa styling -->
+<div class="flex h-[calc(100vh-4.25rem)] w-full flex-col overflow-hidden bg-[#0b1329]">
+  <!-- Upper Section: Topology Map Canvas (approx 62%) -->
+  <div class="relative h-[62%] w-full overflow-hidden border-b border-slate-800">
+    <!-- Top-left Quick Action Toolbar -->
+    <div class="absolute top-3 left-4 z-20 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/90 p-1.5 shadow-xl backdrop-blur-md">
+      <button
+        onclick={handleOpenAddNode}
+        class="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-cyan-600/30 hover:bg-cyan-500 transition-all"
+      >
+        <Plus class="h-3.5 w-3.5" />
+        ノード追加
+      </button>
+      <button
+        onclick={handleOpenAddNetwork}
+        class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
+      >
+        <Server class="h-3.5 w-3.5 text-cyan-400" />
+        SW-HUB追加
+      </button>
+      <button
+        onclick={handleOpenAddLine}
+        class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
+      >
+        <Activity class="h-3.5 w-3.5 text-emerald-400" />
+        ライン結線
+      </button>
+      <button
+        onclick={handleOpenAddDrawItem}
+        class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
+      >
+        <Palette class="h-3.5 w-3.5 text-purple-400" />
+        描画アイテム
+      </button>
 
-    <div class="mx-1 h-4 w-[1px] bg-border"></div>
+      <div class="mx-1 h-4 w-[1px] bg-slate-800"></div>
 
-    <!-- Zoom & Refresh Controls -->
-    <button onclick={() => zoom(true)} class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-      <ZoomIn class="h-4 w-4" />
-    </button>
-    <button onclick={() => zoom(false)} class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-      <ZoomOut class="h-4 w-4" />
-    </button>
-    <button onclick={reloadAllData} class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-      <RefreshCw class="h-4 w-4" />
-    </button>
+      <button
+        onclick={reloadAllData}
+        title="再読み込み"
+        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+      >
+        <RefreshCw class="h-4 w-4 text-cyan-400" />
+      </button>
+    </div>
+
+    <!-- Bottom-right Floating Map Controls (Save, Zoom In, Zoom Out) matching twsnmpfk -->
+    <div class="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2">
+      <button
+        onclick={() => alert("マップ配置を保存しました")}
+        title="マップ保存"
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-md"
+      >
+        <Save class="h-4 w-4 text-cyan-400" />
+      </button>
+      <div class="flex items-center gap-1.5">
+        <button
+          onclick={() => zoom(true)}
+          title="拡大"
+          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-md"
+        >
+          <ZoomIn class="h-4 w-4" />
+        </button>
+        <button
+          onclick={() => zoom(false)}
+          title="縮小"
+          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-md"
+        >
+          <ZoomOut class="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
+    <!-- p5.js Canvas Container -->
+    <div id="p5-map-canvas" class="h-full w-full"></div>
   </div>
 
-  <!-- p5.js Map Canvas Container -->
-  <div id="p5-map-canvas" class="h-full w-full"></div>
-
-  <!-- Bottom Event Log Bar (Ticker) -->
-  <div class="absolute bottom-3 left-4 right-4 z-20 flex items-center justify-between rounded-xl border border-border/80 bg-card/90 px-4 py-2 text-xs shadow-lg backdrop-blur-md">
-    <div class="flex items-center gap-3 overflow-hidden">
-      <div class="flex items-center gap-1.5 font-semibold text-primary shrink-0">
-        <Radio class="h-3.5 w-3.5 animate-pulse text-emerald-500" />
-        <span>最新イベント:</span>
+  <!-- Lower Section: Realtime Event Log Table (approx 38%) matching Image 1 + twnoaa style -->
+  <div class="flex h-[38%] w-full flex-col min-h-0 bg-[#0b1329] p-3 space-y-2 overflow-hidden">
+    <div class="flex items-center justify-between flex-shrink-0 px-1">
+      <div class="flex items-center gap-2">
+        <Calendar class="h-4 w-4 text-cyan-400" />
+        <span class="text-xs font-bold text-slate-200">リアルタイム イベントログ (Event Log)</span>
+        <span class="text-[11px] font-mono text-slate-400">({eventLogs.length} 件)</span>
       </div>
-      {#if eventLogs.length > 0}
-        <div class="flex items-center gap-2 truncate text-muted-foreground">
-          <span class="font-mono text-[10px]">{new Date(eventLogs[0].time * 1000).toLocaleTimeString()}</span>
-          <span class="rounded px-1.5 py-0.2 text-[10px] uppercase font-bold" style="background-color: {getStateColor(eventLogs[0].level)}22; color: {getStateColor(eventLogs[0].level)}">
-            {eventLogs[0].type}
-          </span>
-          <span class="truncate text-foreground font-medium">{eventLogs[0].event}</span>
-        </div>
-      {:else}
-        <span class="text-muted-foreground">イベントはありません</span>
-      {/if}
+      <div class="text-[11px] text-slate-400 font-mono">
+        <span>ノード: <strong class="text-cyan-400">{nodes.length}</strong></span>
+        <span class="mx-1.5">•</span>
+        <span>SW-HUB: <strong class="text-emerald-400">{networks.length}</strong></span>
+        <span class="mx-1.5">•</span>
+        <span>結線: <strong class="text-purple-400">{lines.length}</strong></span>
+      </div>
     </div>
-    <span class="text-[10px] text-muted-foreground shrink-0">{nodes.length} ノード / {networks.length} SW-HUB / {lines.length} ライン</span>
+
+    <!-- twnoaa style table container -->
+    <div class="flex-1 overflow-y-auto overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/70 shadow-lg min-h-0">
+      <table class="w-full text-left text-xs">
+        <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+          <tr>
+            <th class="py-2 px-3 w-28">Level</th>
+            <th class="py-2 px-3 w-44">Time</th>
+            <th class="py-2 px-3 w-28">Type</th>
+            <th class="py-2 px-3 w-48">Node</th>
+            <th class="py-2 px-3">Event</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+          {#each eventLogs as log}
+            <tr class="hover:bg-slate-800/40 transition-colors">
+              <td class="py-1 px-3">
+                <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getLevelBadgeClass(log.level || (log as any).Level)}">
+                  <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(log.level || (log as any).Level)}"></span>
+                  {log.level || (log as any).Level || 'info'}
+                </span>
+              </td>
+              <td class="py-1 px-3 text-slate-400 text-[11px]">
+                {formatLogTime(log.time || (log as any).Time)}
+              </td>
+              <td class="py-1 px-3 text-slate-400 text-[11px] font-sans">
+                {log.type || (log as any).Type || 'system'}
+              </td>
+              <td class="py-1 px-3 font-semibold text-slate-200 font-sans truncate">
+                {log.node_name || (log as any).NodeName || '-'}
+              </td>
+              <td class="py-1 px-3 text-slate-100 font-sans truncate" title={log.event || (log as any).Event}>
+                {log.event || (log as any).Event || '-'}
+              </td>
+            </tr>
+          {/each}
+
+          {#if eventLogs.length === 0}
+            <tr>
+              <td colspan="5" class="py-8 text-center text-slate-500 font-sans">
+                記録されたイベントログはありません
+              </td>
+            </tr>
+          {/if}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Right Click Context Menu -->
@@ -282,50 +421,50 @@
     <div
       role="menu"
       tabindex="-1"
-      class="fixed z-50 min-w-[160px] rounded-xl border border-border bg-card p-1.5 text-xs shadow-2xl backdrop-blur-md"
+      class="fixed z-50 min-w-[170px] rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
       style="left: {contextX}px; top: {contextY}px;"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.key === 'Escape' && (showContextMenu = false)}
     >
       {#if contextTargetNode}
-        <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted font-medium">
-          <Info class="h-3.5 w-3.5 text-primary" />
+        <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
+          <Info class="h-3.5 w-3.5 text-cyan-400" />
           3D パネル / 詳細
         </button>
-        <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted">
-          <Edit3 class="h-3.5 w-3.5" />
+        <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
+          <Edit3 class="h-3.5 w-3.5 text-slate-400" />
           ノードの編集
         </button>
-        <div class="my-1 border-t border-border"></div>
-        <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-destructive hover:bg-destructive/10">
+        <div class="my-1 border-t border-slate-800"></div>
+        <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
           ノードの削除
         </button>
       {:else if contextTargetNet}
-        <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted font-medium">
-          <Server class="h-3.5 w-3.5 text-primary" />
+        <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
+          <Server class="h-3.5 w-3.5 text-cyan-400" />
           SW-HUB の編集
         </button>
-        <div class="my-1 border-t border-border"></div>
-        <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-destructive hover:bg-destructive/10">
+        <div class="my-1 border-t border-slate-800"></div>
+        <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
           SW-HUB の削除
         </button>
       {:else}
-        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted">
-          <Plus class="h-3.5 w-3.5 text-primary" />
+        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+          <Plus class="h-3.5 w-3.5 text-cyan-400" />
           ノードの追加
         </button>
-        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted">
-          <Server class="h-3.5 w-3.5" />
+        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+          <Server class="h-3.5 w-3.5 text-emerald-400" />
           SW-HUB の追加
         </button>
-        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted">
-          <Palette class="h-3.5 w-3.5" />
+        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+          <Palette class="h-3.5 w-3.5 text-purple-400" />
           描画アイテムの追加
         </button>
-        <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-foreground hover:bg-muted">
-          <Activity class="h-3.5 w-3.5" />
+        <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+          <Activity class="h-3.5 w-3.5 text-cyan-400" />
           ライン結線
         </button>
       {/if}

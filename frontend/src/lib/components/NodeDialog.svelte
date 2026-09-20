@@ -38,12 +38,14 @@
   const handleSave = async () => {
     if (!name || !ip) return;
     const n: NodeEnt = {
-      ...(node || { id: "", state: "normal" }),
+      ...(node || { id: "", state: "normal", x: 320, y: 200 }),
       name,
       ip,
       mac,
       descr,
       icon,
+      x: typeof node?.x === "number" && node.x > 0 ? node.x : 320,
+      y: typeof node?.y === "number" && node.y > 0 ? node.y : 200,
     };
     (n as any).snmp_mode = snmpMode;
     (n as any).community = community;
