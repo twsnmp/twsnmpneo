@@ -162,5 +162,26 @@
 
   <!-- Global Modals & Drawers -->
   <ConfigModal bind:show={showConfig} />
-  <AIAssistant bind:show={showAI} />
+
+  {#if showAI}
+    <div
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      class="fixed inset-0 z-50 flex justify-end"
+      onkeydown={(e) => e.key === "Escape" && (showAI = false)}
+    >
+      <button
+        type="button"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm cursor-default"
+        aria-label="AIアシスタントを閉じる"
+        onclick={() => (showAI = false)}
+      ></button>
+      <div
+        class="relative z-10 h-full w-full max-w-lg bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col"
+      >
+        <AIAssistant onClose={() => (showAI = false)} />
+      </div>
+    </div>
+  {/if}
 </div>

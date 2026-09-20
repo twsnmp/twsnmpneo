@@ -483,6 +483,22 @@ export async function saveMapConf(conf: any): Promise<any> {
   return res.json();
 }
 
+export async function fetchNotifyConf(): Promise<any> {
+  const res = await fetch(`${API_BASE}/notify/conf`);
+  if (!res.ok) throw new Error(`Fetch notify conf failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function saveNotifyConf(conf: any): Promise<any> {
+  const res = await fetch(`${API_BASE}/notify/conf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(conf),
+  });
+  if (!res.ok) throw new Error(`Save notify conf failed: ${res.statusText}`);
+  return res.json();
+}
+
 export async function fetchPollings(): Promise<PollingEnt[]> {
   const res = await fetch(`${API_BASE}/pollings`);
   if (!res.ok) throw new Error(`Fetch pollings failed: ${res.statusText}`);

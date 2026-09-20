@@ -252,6 +252,25 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, &conf)
 		})
 
+		// Notify Conf
+		apiGroup.GET("/notify/conf", func(c echo.Context) error {
+			conf, err := cfg.Store.GetNotifyConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, conf)
+		})
+		apiGroup.POST("/notify/conf", func(c echo.Context) error {
+			var conf datastore.NotifyConfEnt
+			if err := c.Bind(&conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveNotifyConf(c.Request().Context(), &conf); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, &conf)
+		})
+
 		// Event Logs
 		apiGroup.GET("/logs/events", func(c echo.Context) error {
 			logs, err := cfg.Store.ListEventLogs(c.Request().Context(), 100)
