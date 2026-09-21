@@ -267,7 +267,7 @@
 
     selectedNetwork = {
       id: "",
-      name: "SW-HUB",
+      name: "ネットワーク",
       ip: "192.168.1.254",
       x: clampedX,
       y: clampedY,
@@ -598,11 +598,11 @@
         </button>
       {:else if contextTargetNet}
         <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Server class="h-3.5 w-3.5 text-cyan-400" />
-          SW-HUB の編集
+          <Network class="h-3.5 w-3.5 text-cyan-400" />
+          ネットワークの編集
         </button>
         <button onclick={handleOpenNetworkLines} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
-          <Network class="h-3.5 w-3.5 text-emerald-400" />
+          <Activity class="h-3.5 w-3.5 text-emerald-400" />
           ライン編集
         </button>
         <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
@@ -612,7 +612,7 @@
         <div class="my-1 border-t border-slate-800"></div>
         <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
-          SW-HUB の削除
+          ネットワークの削除
         </button>
       {:else if contextTargetItem}
         <button onclick={handleEditTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
@@ -630,8 +630,8 @@
           ノードの追加
         </button>
         <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Server class="h-3.5 w-3.5 text-emerald-400" />
-          SW-HUB の追加
+          <Network class="h-3.5 w-3.5 text-emerald-400" />
+          ネットワークの追加
         </button>
         <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-400" />

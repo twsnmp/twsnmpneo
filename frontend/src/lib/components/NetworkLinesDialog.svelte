@@ -26,7 +26,7 @@
   let netId = $derived(network ? (network.id || (network as any).ID || "") : "");
   let netPrefix = $derived("NET:" + netId);
 
-  // Filter lines connected to this SW-HUB
+  // Filter lines connected to this network
   let hubLines = $derived.by(() => {
     if (!netId) return [];
     return lines.filter((l) => {
@@ -115,9 +115,9 @@
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-100">
-              {network.name || (network as any).Name || "SW-HUB"} - 接続ライン編集
+              {network.name || (network as any).Name || "ネットワーク"} - 接続ライン編集
             </h2>
-            <p class="text-[11px] text-slate-400">スイッチ各ポートに接続されているラインの一覧と管理</p>
+            <p class="text-[11px] text-slate-400">ネットワーク各ポートに接続されているラインの一覧と管理</p>
           </div>
         </div>
         <button
@@ -136,7 +136,7 @@
           <div class="flex flex-col items-center justify-center py-12 text-slate-500">
             <Link class="h-10 w-10 mb-3 opacity-30" />
             <p class="text-sm font-semibold">接続されているラインはありません</p>
-            <p class="text-xs text-slate-500 mt-1">Shiftキーを押しながらノードとSW-HUBを選択して接続するか、接続先探索を実行してください</p>
+            <p class="text-xs text-slate-500 mt-1">Shiftキーを押しながらノードとネットワークを選択して接続するか、接続先探索を実行してください</p>
           </div>
         {:else}
           <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg">

@@ -189,7 +189,7 @@
           <div class="flex flex-col items-center justify-center py-12 text-slate-500">
             <Search class="h-10 w-10 mb-3 opacity-30" />
             <p class="text-sm font-semibold">接続可能な候補が見つかりませんでした</p>
-            <p class="text-xs text-slate-500 mt-1">SW-HUBのIPアドレスやSNMP設定、または同一サブネット内のノード登録を確認してください</p>
+            <p class="text-xs text-slate-500 mt-1">ネットワークのIPアドレスやSNMP設定、または同一サブネット内のノード登録を確認してください</p>
           </div>
         {:else}
           <div class="flex items-center justify-between px-1">

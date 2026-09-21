@@ -16,8 +16,8 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
      - Port the p5.js canvas rendering engine from `twsnmpfk/frontend/src/lib/map.ts` directly into TWSNMP NEO.
      - Preserve identical rendering and operational mechanics for:
        - **Nodes**: Standard icon fonts, custom uploaded image icons, alert blinking, state-colored glows, label positioning.
-       - **Networks (SW-HUB Port Panel)**: Graphical container representing a switching hub (managed or unmanaged SW-HUB) on the map. Renders each port box with port image (`port.png`), Link UP/DOWN green/grey LED circles, port numbers/names, configurable horizontal wrap layout (`HPorts`), and serves as exact port-level connection endpoints (`getLinePos`) for connecting lines.
-       - **Lines**: Node-to-node and node-to-network (SW-HUB port) connections, state colors, bandwidth utilization thickness, and packet-flow directional animations.
+       - **Networks (ネットワーク / Network Port Panel)**: Graphical container representing a network (switching hub, router, subnet, managed or unmanaged network) on the map. Renders each port box with port image (`port.png`), Link UP/DOWN green/grey LED circles, port numbers/names, configurable horizontal wrap layout (`HPorts`), and serves as exact port-level connection endpoints (`getLinePos`) for connecting lines.
+       - **Lines**: Node-to-node and node-to-network port connections, state colors, bandwidth utilization thickness, and packet-flow directional animations.
        - **Draw Items (All 11 Types)**: Text, Rectangles, Ellipses, Images, Polling Gauges, Classic Gauges, Bar Charts, Line Charts, and KPI Cards with real-time value binding.
        - **Interactions**: Drag & drop placement, multi-selection, zoom/pan navigation, background images, context menus (node edit, polling, MIB browser, Ping, etc.).
        - **Audio**: Sound alerts (warning beeps, Ping response sounds).
@@ -207,13 +207,13 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - State rendering: Normal (no glow), Low (amber glow/blink), High (red glow/blink), Unknown (grey).
   - Icons: Support Material Design Icons (MDI font code) and uploaded PNG/SVG custom icons from datastore.
   - Labels: Formatted node name, IP address, font scaling.
-* **Network Node (SW-HUB Port Panel)**:
-  - Container box rendered with border and background representing managed/unmanaged switching hubs.
-  - Displays header with Network/HUB Name, error message or status.
+* **Network Node (ネットワーク / Network Port Panel)**:
+  - Container box rendered with border and background representing managed/unmanaged networks (switches, routers, subnets).
+  - Displays header with Network Name, error message or status.
   - Renders grid of ports with `port.png` texture, LED circle (green for UP, grey for DOWN), port number/name labels.
   - Line termination calculations (`getLinePos`) use specific port coordinates (`NET:<networkID>`) rather than center of container.
 * **Lines (Connections)**:
-  - Source-to-Destination drawing between nodes or between a node and a specific SW-HUB port.
+  - Source-to-Destination drawing between nodes or between a node and a specific network port.
   - State color inheritance: Red for high, orange for low, blue/green for normal.
   - Dynamic line thickness and animated dash flow representing traffic bandwidth utilization.
 * **Draw Items (All 11 Types)**:
@@ -255,7 +255,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - Input fields: Name, IP Address, MAC Address, Address Mode (IP/MAC), Icon selector, Custom Image icon selector, SNMP Version (v1/v2c/v3), Community, v3 User/Auth/Priv, SSH User/Key, URL, Location coordinate (lat,lng), AutoAck toggle.
   - Integration with `NodeAutoDetectDialog`: Automatic SNMP detection of sysName, sysDescr, interfaces, and suggested pollings.
 * **Network Editor (`NetworkDialog.svelte`)**:
-  - Input fields: SW-HUB Name, IP Address, Description, SNMP settings (v1/v2c/v3, Community, User, Password), URL, Unmanaged toggle.
+  - Input fields: Network Name, IP Address, Description, SNMP settings (v1/v2c/v3, Community, User, Password), URL, Unmanaged toggle.
   - Port layout configurations: Total Ports (e.g. 8, 16, 24, 48), Horizontal Port Wrap (`HPorts`), LLDP auto-detection toggle, ARP watch toggle.
   - Interactive Port Definitions Table: List of ports with ID, Name, State (up/down), bound Polling, X/Y offsets, and port definition import/export capabilities.
 * **Draw Item Editor (`DrawItemDialog.svelte`)**:

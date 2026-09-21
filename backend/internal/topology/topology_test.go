@@ -20,7 +20,7 @@ func TestTopologyDiscovery(t *testing.T) {
 	// Add test network
 	net1 := &datastore.NetworkEnt{
 		ID:        "hub1",
-		Name:      "SW-HUB-1",
+		Name:      "Network-1",
 		IP:        "192.168.1.254",
 		Unmanaged: true,
 		Ports: []datastore.PortEnt{

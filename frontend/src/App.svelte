@@ -132,7 +132,7 @@
 
       <!-- Help Button -->
       <button
-        onclick={() => alert("TWSNMP NEO ヘルプ: マップ上で右クリックするとノードやSW-HUBの追加、編集、削除メニューが表示されます。")}
+        onclick={() => alert("TWSNMP NEO ヘルプ: マップ上で右クリックするとノードやネットワークの追加、編集、削除メニューが表示されます。")}
         title="ヘルプ"
         class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
       >

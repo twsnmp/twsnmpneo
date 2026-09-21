@@ -222,7 +222,7 @@ export function normalizeNode(raw: any): NodeEnt {
 export function normalizeNetwork(raw: any): NetworkEnt {
   if (!raw) return { id: '', name: '', ip: '', x: 300, y: 150, w: 420, h: 90, ports: [] };
   const id = raw.id || raw.ID || '';
-  const name = raw.name || raw.Name || 'SW-HUB';
+  const name = raw.name || raw.Name || 'ネットワーク';
   const ip = raw.ip || raw.IP || '';
   const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 300);
   const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 150);

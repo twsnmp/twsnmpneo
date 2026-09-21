@@ -188,7 +188,7 @@
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-100">{line?.id ? "ライン（結線）の編集" : "ライン（結線）の接続"}</h2>
-            <p class="text-[11px] text-slate-400">ノードおよびSW-HUBポート間の結線設定</p>
+            <p class="text-[11px] text-slate-400">ノードおよびネットワークポート間の結線設定</p>
           </div>
         </div>
         <button
@@ -216,8 +216,8 @@
           <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-3">
             <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
               {#if isNet1}
-                <Server class="w-4 h-4 text-cyan-400" />
-                <span>SW-HUB 1</span>
+                <Network class="w-4 h-4 text-cyan-400" />
+                <span>ネットワーク 1</span>
               {:else}
                 <Laptop class="w-4 h-4 text-emerald-400" />
                 <span>ノード 1</span>
@@ -250,8 +250,8 @@
           <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-3">
             <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
               {#if isNet2}
-                <Server class="w-4 h-4 text-cyan-400" />
-                <span>SW-HUB 2</span>
+                <Network class="w-4 h-4 text-cyan-400" />
+                <span>ネットワーク 2</span>
               {:else}
                 <Laptop class="w-4 h-4 text-emerald-400" />
                 <span>ノード 2</span>

@@ -345,7 +345,7 @@ const getLinePos = (id: string, polling: string) => {
         }
       }
     }
-    // Fallback if port not specified or not found: use first port or center of SW-HUB
+    // Fallback if port not specified or not found: use first port or center of network
     if (pi < 0) {
       if (ports.length > 0) {
         pi = 0;
@@ -597,7 +597,7 @@ const mapMain = (p5: P5) => {
       return false;
     }
 
-    // 4. Hit test SW-HUB networks
+    // 4. Hit test networks
     let hitNetId = "";
     for (const k in networks) {
       const net = networks[k];
@@ -679,9 +679,9 @@ const mapMain = (p5: P5) => {
 
     // 1. Draw draw items (background layers)
     drawItems(p5, dark);
-    // 2. Draw SW-HUB networks
+    // 2. Draw networks
     drawNetworks(p5, dark);
-    // 3. Draw lines (rendered in front of SW-HUB into ports)
+    // 3. Draw lines (rendered in front of networks into ports)
     drawLines(p5, dark);
     // 4. Draw nodes (rendered in front)
     drawNodes(p5, dark);
@@ -736,13 +736,13 @@ const mapMain = (p5: P5) => {
       p5.textFont("Roboto, sans-serif");
       p5.textSize(fontSize);
       p5.fill(dark ? "#f1f5f9" : "#1e293b");
-      p5.text(net.name || (net as any).Name || "SW-HUB", 10, fontSize + 8);
+      p5.text(net.name || (net as any).Name || "ネットワーク", 10, fontSize + 8);
 
       const ports = net.ports || (net as any).Ports || [];
       const netError = net.error || (net as any).Error || "";
       if (ports.length < 1) {
         p5.fill(netError ? "#ef4444" : "#10b981");
-        p5.text(netError ? netError : "SW-HUB (No ports)", 15, fontSize * 2 + 15);
+        p5.text(netError ? netError : "ネットワーク (ポートなし)", 15, fontSize * 2 + 15);
       } else {
         p5.textSize(8);
         for (const pt of ports) {
@@ -804,7 +804,7 @@ const mapMain = (p5: P5) => {
       p5.fill(stColor);
       p5.circle(dotX, dotY, lw + 4);
 
-      // Port terminal jack indicator on SW-HUB so connection is clearly visible
+      // Port terminal jack indicator on network so connection is clearly visible
       if (nid1.startsWith("NET:")) {
         p5.noStroke();
         p5.fill(stColor1);

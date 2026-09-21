@@ -390,7 +390,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("SW-HUB %s を%sしました", n.Name, action),
+				Event: fmt.Sprintf("ネットワーク %s を%sしました", n.Name, action),
 			})
 			return c.JSON(http.StatusOK, &n)
 		})
@@ -408,7 +408,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "warn",
-				Event: fmt.Sprintf("SW-HUB %s を削除しました", name),
+				Event: fmt.Sprintf("ネットワーク %s を削除しました", name),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})

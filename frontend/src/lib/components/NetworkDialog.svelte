@@ -34,7 +34,7 @@
           ports = Array.isArray(rawPorts) ? JSON.parse(JSON.stringify(rawPorts)) : [];
           if (ports.length === 0) generateDefaultPorts();
         } else {
-          name = "SW-HUB";
+          name = "ネットワーク";
           ip = "";
           descr = "";
           totalPorts = 8;
@@ -68,7 +68,7 @@
 
   const handleSave = async () => {
     if (!name) {
-      saveError = "SW-HUB 名称は必須入力です。";
+      saveError = "ネットワーク名は必須入力です。";
       return;
     }
     if (unmanaged && ports.length !== totalPorts) {
@@ -113,11 +113,11 @@
       <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
-            <Server class="h-5 w-5" />
+            <Network class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100">{network?.id ? "SW-HUB（ネットワークノード）の編集" : "SW-HUB の追加"}</h2>
-            <p class="text-[11px] text-slate-400">スイッチングHUBのポートレイアウトおよび管理接続設定</p>
+            <h2 class="text-base font-bold text-slate-100">{network?.id ? "ネットワークの編集" : "ネットワークの追加"}</h2>
+            <p class="text-[11px] text-slate-400">ネットワークのポートレイアウトおよび管理接続設定</p>
           </div>
         </div>
         <button
@@ -142,19 +142,19 @@
         <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
           <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
             <Network class="w-4 h-4 text-cyan-400" />
-            SW-HUB パラメータ
+            ネットワーク パラメータ
           </h3>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label for="hub-name" class="block text-xs font-semibold text-slate-400 mb-1.5">
-                SW-HUB 名称 <span class="text-rose-400">*</span>
+                ネットワーク名 <span class="text-rose-400">*</span>
               </label>
               <input
                 id="hub-name"
                 type="text"
                 bind:value={name}
-                placeholder="例: Core-SW-01"
+                placeholder="例: Network-01"
                 class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -217,7 +217,7 @@
                   bind:checked={unmanaged}
                   class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20"
                 />
-                <span class="text-xs text-slate-300 font-medium">アンマネージド (非管理) HUB としてポートを自動生成・配置</span>
+                <span class="text-xs text-slate-300 font-medium">非管理ネットワークとしてポートを自動生成・配置</span>
               </label>
             </div>
           </div>
