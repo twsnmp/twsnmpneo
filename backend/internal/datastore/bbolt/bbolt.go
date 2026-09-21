@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
@@ -566,6 +567,8 @@ func (s *Store) SaveLocConf(_ context.Context, conf *datastore.LocConfEnt) error
 
 // --- Event Log Operations ---
 
+var eventSeq uint32
+
 func (s *Store) AddEventLog(_ context.Context, event *datastore.EventLogEnt) error {
 	if event == nil {
 		return datastore.ErrInvalidParams
@@ -578,8 +581,10 @@ func (s *Store) AddEventLog(_ context.Context, event *datastore.EventLogEnt) err
 		return fmt.Errorf("marshal event log: %w", err)
 	}
 
-	key := make([]byte, 8)
-	binary.BigEndian.PutUint64(key, uint64(event.Time))
+	seq := atomic.AddUint32(&eventSeq, 1)
+	key := make([]byte, 12)
+	binary.BigEndian.PutUint64(key[0:8], uint64(event.Time))
+	binary.BigEndian.PutUint32(key[8:12], seq)
 
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		return tx.Bucket(bucketEventLog).Put(key, data)

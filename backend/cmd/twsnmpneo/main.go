@@ -13,6 +13,7 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/api"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
@@ -103,6 +104,47 @@ func main() {
 	// Setup context with graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Record system startup event log
+	_ = store.AddEventLog(ctx, &datastore.EventLogEnt{
+		Time:  time.Now().UnixNano(),
+		Type:  "system",
+		Level: "info",
+		Event: fmt.Sprintf("TWSNMP NEO %s サービスを起動しました (Webポート: %d)", version, *port),
+	})
+
+	// Ensure default Ping polling exists for all nodes with IP
+	existingNodes, _ := store.ListNodes(ctx)
+	existingPolls, _ := store.ListPollings(ctx)
+	pollMap := make(map[string]bool)
+	for _, p := range existingPolls {
+		pollMap[p.NodeID] = true
+	}
+	for _, n := range existingNodes {
+		if n.IP != "" && !pollMap[n.ID] {
+			pID := datastore.GenerateID()
+			_ = store.SavePolling(ctx, &datastore.PollingEnt{
+				ID:       pID,
+				Name:     "Ping",
+				NodeID:   n.ID,
+				Type:     "ping",
+				PollInt:  60,
+				Timeout:  1,
+				Retry:    1,
+				LogMode:  datastore.LogModeOnChange,
+				State:    "unknown",
+				NextTime: time.Now().UnixNano(),
+			})
+			_ = store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "system",
+				Level:    "info",
+				NodeName: n.Name,
+				NodeID:   n.ID,
+				Event:    fmt.Sprintf("ノード %s (%s) の Ping ポーリングを開始しました", n.Name, n.IP),
+			})
+		}
+	}
 
 	// Initialize Polling Manager
 	pollMgr := polling.NewManager(polling.Config{

@@ -117,9 +117,41 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := c.Bind(&n); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
+			isNew := n.ID == ""
+			if isNew {
+				n.ID = datastore.GenerateID()
+			}
 			if err := cfg.Store.SaveNode(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			action := "更新"
+			if isNew {
+				action = "追加"
+				// Auto-create default Ping polling if node has IP
+				if n.IP != "" {
+					pID := datastore.GenerateID()
+					_ = cfg.Store.SavePolling(c.Request().Context(), &datastore.PollingEnt{
+						ID:       pID,
+						Name:     "Ping",
+						NodeID:   n.ID,
+						Type:     "ping",
+						PollInt:  60,
+						Timeout:  1,
+						Retry:    1,
+						LogMode:  datastore.LogModeOnChange,
+						State:    "unknown",
+						NextTime: time.Now().UnixNano(),
+					})
+				}
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "user",
+				Level:    "info",
+				NodeName: n.Name,
+				NodeID:   n.ID,
+				Event:    fmt.Sprintf("ノード %s (%s) を%sしました", n.Name, n.IP, action),
+			})
 			return c.JSON(http.StatusOK, &n)
 		})
 		apiGroup.GET("/nodes/:id", func(c echo.Context) error {
@@ -130,9 +162,23 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, node)
 		})
 		apiGroup.DELETE("/nodes/:id", func(c echo.Context) error {
-			if err := cfg.Store.DeleteNode(c.Request().Context(), c.Param("id")); err != nil {
+			id := c.Param("id")
+			node, _ := cfg.Store.GetNode(c.Request().Context(), id)
+			name := id
+			if node != nil {
+				name = node.Name
+			}
+			if err := cfg.Store.DeleteNode(c.Request().Context(), id); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "user",
+				Level:    "warn",
+				NodeName: name,
+				NodeID:   id,
+				Event:    fmt.Sprintf("ノード %s を削除しました", name),
+			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
@@ -149,15 +195,38 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := c.Bind(&p); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
+			isNew := p.ID == ""
+			if isNew {
+				p.ID = datastore.GenerateID()
+			}
 			if err := cfg.Store.SavePolling(c.Request().Context(), &p); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "user",
+				Level:    "info",
+				NodeID:   p.NodeID,
+				Event:    fmt.Sprintf("ポーリング %s を保存しました", p.Name),
+			})
 			return c.JSON(http.StatusOK, &p)
 		})
 		apiGroup.DELETE("/pollings/:id", func(c echo.Context) error {
-			if err := cfg.Store.DeletePolling(c.Request().Context(), c.Param("id")); err != nil {
+			id := c.Param("id")
+			p, _ := cfg.Store.GetPolling(c.Request().Context(), id)
+			name := id
+			if p != nil {
+				name = p.Name
+			}
+			if err := cfg.Store.DeletePolling(c.Request().Context(), id); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "warn",
+				Event: fmt.Sprintf("ポーリング %s を削除しました", name),
+			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
@@ -174,15 +243,37 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := c.Bind(&l); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
+			isNew := l.ID == ""
+			if isNew {
+				l.ID = datastore.GenerateID()
+			}
 			if err := cfg.Store.SaveLine(c.Request().Context(), &l); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf("ラインを結線/更新しました (%s - %s)", l.NodeID1, l.NodeID2),
+			})
 			return c.JSON(http.StatusOK, &l)
 		})
 		apiGroup.DELETE("/lines/:id", func(c echo.Context) error {
-			if err := cfg.Store.DeleteLine(c.Request().Context(), c.Param("id")); err != nil {
+			id := c.Param("id")
+			line, _ := cfg.Store.GetLine(c.Request().Context(), id)
+			info := id
+			if line != nil {
+				info = fmt.Sprintf("%s - %s", line.NodeID1, line.NodeID2)
+			}
+			if err := cfg.Store.DeleteLine(c.Request().Context(), id); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf("ラインを切断/削除しました (%s)", info),
+			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
@@ -260,6 +351,14 @@ func NewServer(cfg Config) (*Server, error) {
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			if count > 0 {
+				_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+					Time:  time.Now().UnixNano(),
+					Type:  "system",
+					Level: "info",
+					Event: fmt.Sprintf("自動トポロジー探索により %d 本のラインを結線しました", count),
+				})
+			}
 			return c.JSON(http.StatusOK, map[string]int{"connected": count})
 		})
 
@@ -276,15 +375,41 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := c.Bind(&n); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
+			isNew := n.ID == ""
+			if isNew {
+				n.ID = datastore.GenerateID()
+			}
 			if err := cfg.Store.SaveNetwork(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			action := "更新"
+			if isNew {
+				action = "追加"
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf("SW-HUB %s を%sしました", n.Name, action),
+			})
 			return c.JSON(http.StatusOK, &n)
 		})
 		apiGroup.DELETE("/networks/:id", func(c echo.Context) error {
-			if err := cfg.Store.DeleteNetwork(c.Request().Context(), c.Param("id")); err != nil {
+			id := c.Param("id")
+			nw, _ := cfg.Store.GetNetwork(c.Request().Context(), id)
+			name := id
+			if nw != nil {
+				name = nw.Name
+			}
+			if err := cfg.Store.DeleteNetwork(c.Request().Context(), id); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "warn",
+				Event: fmt.Sprintf("SW-HUB %s を削除しました", name),
+			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
@@ -301,15 +426,36 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := c.Bind(&item); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
+			isNew := item.ID == ""
+			if isNew {
+				item.ID = datastore.GenerateID()
+			}
 			if err := cfg.Store.SaveDrawItem(c.Request().Context(), &item); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			action := "更新"
+			if isNew {
+				action = "追加"
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf("描画アイテム %s を%sしました", item.Text, action),
+			})
 			return c.JSON(http.StatusOK, &item)
 		})
 		apiGroup.DELETE("/drawitems/:id", func(c echo.Context) error {
-			if err := cfg.Store.DeleteDrawItem(c.Request().Context(), c.Param("id")); err != nil {
+			id := c.Param("id")
+			if err := cfg.Store.DeleteDrawItem(c.Request().Context(), id); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: "描画アイテムを削除しました",
+			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 

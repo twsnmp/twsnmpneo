@@ -517,13 +517,6 @@
         <span class="text-xs font-bold text-slate-200">リアルタイム イベントログ (Event Log)</span>
         <span class="text-[11px] font-mono text-slate-400">({eventLogs.length} 件)</span>
       </div>
-      <div class="text-[11px] text-slate-400 font-mono">
-        <span>ノード: <strong class="text-cyan-400">{nodes.length}</strong></span>
-        <span class="mx-1.5">•</span>
-        <span>SW-HUB: <strong class="text-emerald-400">{networks.length}</strong></span>
-        <span class="mx-1.5">•</span>
-        <span>結線: <strong class="text-purple-400">{lines.length}</strong></span>
-      </div>
     </div>
 
     <!-- twnoaa style table container -->

@@ -142,7 +142,7 @@ func (m *Manager) ExecuteOne(ctx context.Context, p *datastore.PollingEnt) (*Res
 		_ = m.store.SavePolling(ctx, p)
 
 		// Record state change event log
-		if oldState != "" && oldState != res.State {
+		if oldState != res.State {
 			nodeName := p.NodeID
 			if node != nil {
 				nodeName = node.Name
@@ -152,6 +152,16 @@ func (m *Manager) ExecuteOne(ctx context.Context, p *datastore.PollingEnt) (*Res
 				level = "warn"
 			} else if res.State == StateHigh {
 				level = "high"
+			} else if res.State == StateNormal {
+				if oldState == StateWarn || oldState == StateHigh {
+					level = "repair"
+				} else {
+					level = "info"
+				}
+			}
+			dispOld := oldState
+			if dispOld == "" {
+				dispOld = "unknown"
 			}
 			_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
 				Time:      now,
@@ -159,9 +169,15 @@ func (m *Manager) ExecuteOne(ctx context.Context, p *datastore.PollingEnt) (*Res
 				Level:     level,
 				NodeName:  nodeName,
 				NodeID:    p.NodeID,
-				Event:     fmt.Sprintf("Polling %s state changed: %s -> %s (%s)", p.Name, oldState, res.State, res.Message),
+				Event:     fmt.Sprintf("ポーリング %s: %s -> %s (%s)", p.Name, dispOld, res.State, res.Message),
 				LastLevel: oldState,
 			})
+		}
+
+		// Update node state to match polling result
+		if node != nil && node.State != res.State {
+			node.State = res.State
+			_ = m.store.SaveNode(ctx, node)
 		}
 	}
 

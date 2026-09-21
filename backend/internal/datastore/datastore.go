@@ -2,6 +2,8 @@ package datastore
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 )
 
@@ -12,6 +14,13 @@ var (
 	ErrInvalidParams  = errors.New("invalid parameters")
 	ErrDBNotOpen      = errors.New("database not open")
 )
+
+// GenerateID generates a random 16-hex character ID matching twsnmpfk.
+func GenerateID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
 
 // DataStore is the interface for managing topology and configuration persistence.
 type DataStore interface {
