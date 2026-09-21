@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { iconList, addrModeList, snmpModeList } from "../common";
   import { saveNode, type NodeEnt } from "../api";
   import { X, Save, Cpu, Shield, Key, Network, Globe } from "@lucide/svelte";
@@ -33,42 +34,44 @@
 
   $effect(() => {
     if (show) {
-      saveError = "";
-      if (node) {
-        name = node.name || (node as any).Name || "";
-        ip = node.ip || (node as any).IP || "";
-        mac = node.mac || (node as any).MAC || "";
-        descr = node.descr || (node as any).Descr || "";
-        icon = node.icon || (node as any).Icon || "desktop";
-        addrMode = (node as any).addr_mode || (node as any).AddrMode || "ip";
-        autoAck = (node as any).auto_ack ?? (node as any).AutoAck ?? false;
-        url = (node as any).url || (node as any).URL || "";
+      untrack(() => {
+        saveError = "";
+        if (node) {
+          name = node.name || (node as any).Name || "";
+          ip = node.ip || (node as any).IP || "";
+          mac = node.mac || (node as any).MAC || "";
+          descr = node.descr || (node as any).Descr || "";
+          icon = node.icon || (node as any).Icon || "desktop";
+          addrMode = (node as any).addr_mode || (node as any).AddrMode || "ip";
+          autoAck = (node as any).auto_ack ?? (node as any).AutoAck ?? false;
+          url = (node as any).url || (node as any).URL || "";
 
-        snmpMode = (node as any).snmp_mode || (node as any).SnmpMode || "v2c";
-        community = (node as any).community || (node as any).Community || "public";
-        snmpPort = Number((node as any).snmp_port || (node as any).SnmpPort || 161);
-        user = (node as any).user || (node as any).User || "";
-        password = (node as any).password || (node as any).Password || "";
+          snmpMode = (node as any).snmp_mode || (node as any).SnmpMode || "v2c";
+          community = (node as any).community || (node as any).Community || "public";
+          snmpPort = Number((node as any).snmp_port || (node as any).SnmpPort || 161);
+          user = (node as any).user || (node as any).User || "";
+          password = (node as any).password || (node as any).Password || "";
 
-        sshUser = (node as any).ssh_user || (node as any).SSHUser || "";
-        publicKey = (node as any).public_key || (node as any).PublicKey || "";
-      } else {
-        name = "新規ノード";
-        ip = "192.168.1.10";
-        mac = "";
-        descr = "";
-        icon = "desktop";
-        addrMode = "ip";
-        autoAck = false;
-        url = "";
-        snmpMode = "v2c";
-        community = "public";
-        snmpPort = 161;
-        user = "";
-        password = "";
-        sshUser = "";
-        publicKey = "";
-      }
+          sshUser = (node as any).ssh_user || (node as any).SSHUser || "";
+          publicKey = (node as any).public_key || (node as any).PublicKey || "";
+        } else {
+          name = "新規ノード";
+          ip = "192.168.1.10";
+          mac = "";
+          descr = "";
+          icon = "desktop";
+          addrMode = "ip";
+          autoAck = false;
+          url = "";
+          snmpMode = "v2c";
+          community = "public";
+          snmpPort = 161;
+          user = "";
+          password = "";
+          sshUser = "";
+          publicKey = "";
+        }
+      });
     }
   });
 

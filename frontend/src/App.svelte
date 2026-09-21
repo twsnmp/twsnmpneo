@@ -184,4 +184,7 @@
       </div>
     </div>
   {/if}
+
+  <!-- Preload Material Design Icons font so browser immediately fetches woff2 -->
+  <span class="mdi mdi-monitor pointer-events-none fixed -top-[9999px] -left-[9999px] opacity-0" aria-hidden="true"></span>
 </div>

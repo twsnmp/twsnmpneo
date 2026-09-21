@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { saveNetwork, type NetworkEnt } from "../api";
   import { X, Save, Server, Plus, Trash2, Network } from "@lucide/svelte";
 
@@ -19,26 +20,28 @@
 
   $effect(() => {
     if (show) {
-      saveError = "";
-      if (network) {
-        name = network.name || network.Name || "";
-        ip = network.ip || network.IP || "";
-        descr = network.descr || network.Descr || "";
-        const rawPorts = network.ports || network.Ports;
-        totalPorts = Array.isArray(rawPorts) ? rawPorts.length : 8;
-        hPorts = network.h_ports || network.HPorts || 8;
-        unmanaged = network.unmanaged ?? network.Unmanaged ?? true;
-        ports = Array.isArray(rawPorts) ? JSON.parse(JSON.stringify(rawPorts)) : [];
-        if (ports.length === 0) generateDefaultPorts();
-      } else {
-        name = "SW-HUB";
-        ip = "";
-        descr = "";
-        totalPorts = 8;
-        hPorts = 8;
-        unmanaged = true;
-        generateDefaultPorts();
-      }
+      untrack(() => {
+        saveError = "";
+        if (network) {
+          name = network.name || network.Name || "";
+          ip = network.ip || network.IP || "";
+          descr = network.descr || network.Descr || "";
+          const rawPorts = network.ports || network.Ports;
+          totalPorts = Array.isArray(rawPorts) ? rawPorts.length : 8;
+          hPorts = network.h_ports || network.HPorts || 8;
+          unmanaged = network.unmanaged ?? network.Unmanaged ?? true;
+          ports = Array.isArray(rawPorts) ? JSON.parse(JSON.stringify(rawPorts)) : [];
+          if (ports.length === 0) generateDefaultPorts();
+        } else {
+          name = "SW-HUB";
+          ip = "";
+          descr = "";
+          totalPorts = 8;
+          hPorts = 8;
+          unmanaged = true;
+          generateDefaultPorts();
+        }
+      });
     }
   });
 

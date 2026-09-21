@@ -26,11 +26,14 @@
 
   const filteredNodes = $derived(
     nodes.filter((n) => {
-      const matchSearch =
-        n.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.ip.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (n.descr && n.descr.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchStatus = statusFilter === "all" || n.state === statusFilter;
+      if (!n) return false;
+      const q = (searchQuery || "").toLowerCase();
+      const name = (n.name || (n as any).Name || "").toLowerCase();
+      const ip = (n.ip || (n as any).IP || "").toLowerCase();
+      const descr = (n.descr || (n as any).Descr || "").toLowerCase();
+      const matchSearch = !q || name.includes(q) || ip.includes(q) || descr.includes(q);
+      const st = (n.state || (n as any).State || "normal").toLowerCase();
+      const matchStatus = statusFilter === "all" || st === statusFilter.toLowerCase();
       return matchSearch && matchStatus;
     })
   );
@@ -143,21 +146,27 @@
         </thead>
         <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
           {#each filteredNodes as n}
+            {@const st = n.state || (n as any).State || "normal"}
+            {@const nname = n.name || (n as any).Name || "Node"}
+            {@const nip = n.ip || (n as any).IP || ""}
+            {@const nmac = n.mac || (n as any).MAC || "-"}
+            {@const ndescr = n.descr || (n as any).Descr || "-"}
+            {@const nid = n.id || (n as any).ID || ""}
             <tr class="hover:bg-slate-800/40 transition-colors">
               <td class="py-2 px-3.5">
-                <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(n.state)}">
-                  <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(n.state)}"></span>
-                  {getStateName(n.state)}
+                <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(st)}">
+                  <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(st)}"></span>
+                  {getStateName(st)}
                 </span>
               </td>
               <td class="py-2 px-3.5 font-bold text-slate-100 font-sans">
                 <button onclick={() => handleDetail(n)} class="hover:text-cyan-400 hover:underline">
-                  {n.name}
+                  {nname}
                 </button>
               </td>
-              <td class="py-2 px-3.5 text-cyan-400 font-mono">{n.ip}</td>
-              <td class="py-2 px-3.5 text-slate-400 font-mono">{n.mac || "-"}</td>
-              <td class="py-2 px-3.5 text-slate-300 font-sans truncate">{n.descr || "-"}</td>
+              <td class="py-2 px-3.5 text-cyan-400 font-mono">{nip}</td>
+              <td class="py-2 px-3.5 text-slate-400 font-mono">{nmac}</td>
+              <td class="py-2 px-3.5 text-slate-300 font-sans truncate">{ndescr}</td>
               <td class="py-2 px-3.5 text-right">
                 <div class="flex items-center justify-end gap-1.5 font-sans">
                   <button onclick={() => handleDetail(n)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-cyan-400 transition-colors" title="3Dパネル・詳細">
@@ -166,7 +175,7 @@
                   <button onclick={() => handleEdit(n)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors" title="編集">
                     <Edit3 class="h-4 w-4" />
                   </button>
-                  <button onclick={() => handleDelete(n.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors" title="削除">
+                  <button onclick={() => handleDelete(nid)} class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors" title="削除">
                     <Trash2 class="h-4 w-4" />
                   </button>
                 </div>

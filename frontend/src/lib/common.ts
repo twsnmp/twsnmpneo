@@ -40,10 +40,10 @@ export const snmpModeList = [
 ];
 
 export const iconList = [
-  { name: 'デスクトップ', icon: 'mdi-desktop-mac', value: 'desktop', code: 0xf01c4 },
+  { name: 'デスクトップ', icon: 'mdi-monitor', value: 'desktop', code: 0xf0379 },
   { name: 'デスクトップ (Classic)', icon: 'mdi-desktop-classic', value: 'desktop-classic', code: 0xf07c0 },
   { name: 'ノートPC', icon: 'mdi-laptop', value: 'laptop', code: 0xf0322 },
-  { name: 'タブレット', icon: 'mdi-tablet-ipad', value: 'tablet', code: 0xf04f8 },
+  { name: 'タブレット', icon: 'mdi-tablet', value: 'tablet', code: 0xf04f6 },
   { name: 'サーバー', icon: 'mdi-server', value: 'server', code: 0xf048b },
   { name: 'ネットワーク機器', icon: 'mdi-ip-network', value: 'hdd', code: 0xf0a60 },
   { name: 'IPデバイス', icon: 'mdi-ip-network', value: 'ip', code: 0xf0a60 },
@@ -80,7 +80,7 @@ export const getIcon = (icon: string): string => {
 };
 
 export const getIconCode = (icon: string): string => {
-  return iconCodeMap.get(icon) || String.fromCodePoint(0xf0a39);
+  return iconCodeMap.get(icon) || String.fromCodePoint(0xf0379);
 };
 
 export const formatTime = (date: any, format = '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}') => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { saveDrawItem, type DrawItemEnt, type NodeEnt, type PollingEnt } from "../api";
   import { X, Save, Palette, Gauge, BarChart3, TrendingUp, CreditCard, Type, Square } from "@lucide/svelte";
 
@@ -32,28 +33,30 @@
 
   $effect(() => {
     if (show) {
-      saveError = "";
-      if (item) {
-        type = item.type || (item as any).Type || 2;
-        text = item.text || (item as any).Text || "";
-        color = item.color || (item as any).Color || "#06b6d4";
-        size = item.size || 14;
-        w = item.w || (item as any).W || 200;
-        h = item.h || (item as any).H || 80;
-        nodeId = item.node_id || "";
-        pollingId = item.polling_id || "";
-        value = item.value ?? 50;
-      } else {
-        type = 2;
-        text = "ラベル";
-        color = "#06b6d4";
-        size = 14;
-        w = 200;
-        h = 80;
-        nodeId = "";
-        pollingId = "";
-        value = 50;
-      }
+      untrack(() => {
+        saveError = "";
+        if (item) {
+          type = item.type || (item as any).Type || 2;
+          text = item.text || (item as any).Text || "";
+          color = item.color || (item as any).Color || "#06b6d4";
+          size = item.size || 14;
+          w = item.w || (item as any).W || 200;
+          h = item.h || (item as any).H || 80;
+          nodeId = item.node_id || "";
+          pollingId = item.polling_id || "";
+          value = item.value ?? 50;
+        } else {
+          type = 2;
+          text = "ラベル";
+          color = "#06b6d4";
+          size = 14;
+          w = 200;
+          h = 80;
+          nodeId = "";
+          pollingId = "";
+          value = 50;
+        }
+      });
     }
   });
 

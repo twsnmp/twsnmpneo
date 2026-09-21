@@ -93,6 +93,11 @@ export const initMAP = async (div: HTMLElement, cb: any) => {
   div.oncontextmenu = (e) => {
     e.preventDefault();
   };
+  if (typeof document !== "undefined" && (document as any).fonts) {
+    (document as any).fonts.ready.then(() => {
+      mapRedraw = true;
+    });
+  }
   _mapP5 = new P5(mapMain, div);
 };
 
@@ -145,7 +150,9 @@ export const updateMAP = async () => {
   }
 
   if (!portImage && _mapP5) {
-    portImage = _mapP5.loadImage(portImgUrl);
+    portImage = _mapP5.loadImage(portImgUrl, () => {
+      mapRedraw = true;
+    });
   }
 
   _setMapState();
@@ -247,24 +254,27 @@ const getLinePos = (id: string, polling: string) => {
     const a = id.split(":");
     if (a.length !== 2) return undefined;
     const net = networks[a[1]];
-    if (!net || !net.ports) return undefined;
+    if (!net) return undefined;
+    const ports = net.ports || net.Ports || [];
     let pi = -1;
-    for (let i = 0; i < net.ports.length; i++) {
-      if (net.ports[i].id === polling) {
+    for (let i = 0; i < ports.length; i++) {
+      if ((ports[i].id || ports[i].ID) === polling) {
         pi = i;
         break;
       }
     }
     if (pi < 0) return undefined;
+    const px = (ports[pi].x ?? ports[pi].X ?? 0) * 45 + 10 + 20;
+    const py = (ports[pi].y ?? ports[pi].Y ?? 0) * 55 + fontSize + 20 + 10;
     return {
-      X: (net.x || 0) + (net.ports[pi].x || 0) * 45 + 10 + 20,
-      Y: (net.y || 0) + (net.ports[pi].y || 0) * 55 + fontSize + 20 + 10,
+      X: (net.x ?? net.X ?? 0) + px,
+      Y: (net.y ?? net.Y ?? 0) + py,
     };
   }
   if (!nodes[id]) return undefined;
   return {
-    X: nodes[id].x || 0,
-    Y: (nodes[id].y || 0) + 6,
+    X: nodes[id].x ?? (nodes[id] as any).X ?? 0,
+    Y: (nodes[id].y ?? (nodes[id] as any).Y ?? 0) + 6,
   };
 };
 
@@ -276,19 +286,25 @@ const mapMain = (p5: P5) => {
   let dragging = false;
   let draggingElements = false;
   let lastClickTime = 0;
-  const draggedNodes: any[] = [];
-  const draggedItems: any[] = [];
+  let clickInCanvas = false;
 
   p5.setup = () => {
-    p5.createCanvas(p5.windowWidth, p5.windowHeight);
-    p5.frameRate(20);
+    const parentEl = (p5 as any)._userNode as HTMLElement | undefined;
+    const w = parentEl && parentEl.clientWidth > 0 ? parentEl.clientWidth : p5.windowWidth;
+    const h = parentEl && parentEl.clientHeight > 0 ? parentEl.clientHeight : Math.floor(p5.windowHeight * 0.6);
+    const c = p5.createCanvas(w, h);
+    c.mousePressed(canvasMousePressed);
+    p5.frameRate(30);
     p5.strokeWeight(1);
     p5.textFont("Roboto, sans-serif");
     updateMAP();
   };
 
   p5.windowResized = () => {
-    p5.resizeCanvas(p5.windowWidth, p5.windowHeight);
+    const parentEl = (p5 as any)._userNode as HTMLElement | undefined;
+    const w = parentEl && parentEl.clientWidth > 0 ? parentEl.clientWidth : p5.windowWidth;
+    const h = parentEl && parentEl.clientHeight > 0 ? parentEl.clientHeight : Math.floor(p5.windowHeight * 0.6);
+    p5.resizeCanvas(w, h);
     mapRedraw = true;
   };
 
@@ -305,7 +321,7 @@ const mapMain = (p5: P5) => {
     // Draw lines
     drawLines(p5);
     // Draw SW-HUB networks
-    drawNetworks(p5);
+    drawNetworks(p5, dark);
     // Draw draw items
     drawItems(p5, dark);
     // Draw nodes
@@ -314,44 +330,62 @@ const mapMain = (p5: P5) => {
     p5.pop();
   };
 
-  const drawNetworks = (p5: P5) => {
+  const drawNetworks = (p5: P5, dark: boolean) => {
     for (const k in networks) {
       const net = networks[k];
       p5.push();
-      p5.translate(net.x || 0, net.y || 0);
+      const nx = net.x ?? (net as any).X ?? 0;
+      const ny = net.y ?? (net as any).Y ?? 0;
+      p5.translate(nx, ny);
 
-      if (selectedNetwork === (net.id || (net as any).ID)) {
+      const netId = net.id || (net as any).ID;
+      if (selectedNetwork === netId) {
         p5.stroke("#06b6d4");
         p5.strokeWeight(2);
-      } else if (net.error) {
+      } else if (net.error || (net as any).Error) {
         p5.stroke("#ef4444");
       } else {
         p5.stroke("#334155");
       }
       p5.fill(dark ? "rgba(15, 23, 42, 0.9)" : "rgba(243,244,246,0.9)");
-      const nw = net.w || 320;
-      const nh = net.h || 140;
+      const nw = net.w || (net as any).W || 320;
+      const nh = net.h || (net as any).H || 140;
       p5.rect(0, 0, nw, nh, 8);
 
       p5.stroke("#9ca3af");
       p5.strokeWeight(1);
+      p5.textFont("Roboto, sans-serif");
       p5.textSize(fontSize);
-      p5.fill("#f3f4f6");
-      p5.text(net.name || "SW-HUB", 10, fontSize + 8);
+      p5.fill(dark ? "#f1f5f9" : "#1e293b");
+      p5.text(net.name || (net as any).Name || "SW-HUB", 10, fontSize + 8);
 
-      if (!net.ports || net.ports.length < 1) {
-        p5.fill(net.error ? "#ef4444" : "#10b981");
-        p5.text(net.error ? net.error : "SW-HUB (No ports)", 15, fontSize * 2 + 15);
-      } else if (portImage) {
+      const ports = net.ports || (net as any).Ports || [];
+      const netError = net.error || (net as any).Error || "";
+      if (ports.length < 1) {
+        p5.fill(netError ? "#ef4444" : "#10b981");
+        p5.text(netError ? netError : "SW-HUB (No ports)", 15, fontSize * 2 + 15);
+      } else {
         p5.textSize(8);
-        for (const pt of net.ports) {
-          const px = (pt.x || 0) * 45 + 10;
-          const py = (pt.y || 0) * 55 + fontSize + 15;
-          p5.image(portImage, px, py, 40, 40);
-          p5.fill(pt.state === "up" ? "#10b981" : "#6b7280");
-          p5.circle(px + 6, py + 6, 8);
-          p5.fill("#f3f4f6");
-          p5.text(pt.name || "", px + 2, py + 40 + 10);
+        for (const pt of ports) {
+          const px = ((pt.x ?? pt.X) || 0) * 45 + 10;
+          const py = ((pt.y ?? pt.Y) || 0) * 55 + fontSize + 15;
+          if (portImage && portImage.width > 0) {
+            p5.image(portImage, px, py, 40, 40);
+          } else {
+            // High quality RJ45 port socket graphic
+            p5.stroke(dark ? "#475569" : "#94a3b8");
+            p5.strokeWeight(1);
+            p5.fill(dark ? "#1e293b" : "#e2e8f0");
+            p5.rect(px, py, 38, 38, 4);
+            p5.fill(dark ? "#0f172a" : "#64748b");
+            p5.rect(px + 6, py + 8, 26, 22, 2);
+          }
+          const st = (pt.state || pt.State || "none").toLowerCase();
+          p5.noStroke();
+          p5.fill(st === "up" ? "#10b981" : "#64748b");
+          p5.circle(px + 8, py + 8, 7);
+          p5.fill(dark ? "#f1f5f9" : "#1e293b");
+          p5.text(pt.name || pt.Name || "", px + 4, py + 40 + 8);
         }
       }
       p5.pop();
@@ -413,55 +447,64 @@ const mapMain = (p5: P5) => {
   const drawNodes = (p5: P5, dark: boolean) => {
     for (const k in nodes) {
       const n = nodes[k];
-      const nx = n.x || 0;
-      const ny = n.y || 0;
-      const icon = getIconCode(n.icon || "desktop");
+      const nid = n.id || (n as any).ID || "";
+      const nx = n.x ?? (n as any).X ?? 0;
+      const ny = n.y ?? (n as any).Y ?? 0;
+      const nname = n.name || (n as any).Name || "Node";
+      const nip = n.ip || (n as any).IP || "";
+      const nstate = n.state || (n as any).State || "normal";
+      const nicon = n.icon || (n as any).Icon || "desktop";
+      const nimage = n.image || (n as any).Image || "";
+      const icon = getIconCode(nicon);
 
       p5.push();
       p5.translate(nx, ny);
 
-      const isSelected = selectedNodes.includes(n.id);
-      const stColor = getStateColor(n.state);
+      const isSelected = selectedNodes.includes(nid);
+      const stColor = getStateColor(nstate);
 
       if (isSelected) {
-        p5.stroke("#3b82f6");
-        p5.strokeWeight(2);
-        p5.fill(dark ? "rgba(31,41,55,0.9)" : "rgba(243,244,246,0.9)");
-        p5.rect(-iconSize / 2 - 8, -iconSize / 2 - 8, iconSize + 16, iconSize + 16 + fontSize * 2, 8);
+        p5.stroke(stColor);
+        p5.strokeWeight(1.5);
+        p5.fill(dark ? "rgba(15, 23, 42, 0.8)" : "rgba(243,244,246,0.8)");
+        const selW = iconSize + 16;
+        const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
+        p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
       }
 
-      // State indicator glow/circle
-      p5.noStroke();
-      p5.fill(stColor);
-      p5.circle(0, 0, iconSize + 6);
-
-      // Icon center
-      p5.fill(dark ? 23 : 252);
-      p5.circle(0, 0, iconSize);
-
-      // Icon text/glyph
-      p5.textAlign(p5.CENTER, p5.CENTER);
-      p5.textSize(iconSize * 0.6);
-      p5.fill(stColor);
-      p5.text(icon, 0, 0);
+      if (nimage && imageMap.has(nimage)) {
+        const img = imageMap.get(nimage);
+        p5.tint(stColor);
+        p5.image(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
+        p5.noTint();
+      } else {
+        // Icon glyph matching twsnmpfk: full size MDI icon directly in status color
+        p5.textFont("Material Design Icons");
+        p5.textAlign(p5.CENTER, p5.CENTER);
+        p5.textSize(iconSize);
+        p5.fill(stColor);
+        p5.text(icon, 0, 0);
+      }
 
       // Node label
+      p5.textFont("Roboto, sans-serif");
+      p5.textAlign(p5.CENTER, p5.CENTER);
       p5.textSize(fontSize);
-      p5.fill(dark ? "#f3f4f6" : "#1f2937");
-      p5.text(n.name, 0, iconSize / 2 + fontSize);
+      p5.fill(dark ? 250 : 23);
+      p5.text(nname, 0, iconSize / 2 + 8 + fontSize / 2);
 
-      if (showNodeInfo && n.ip) {
-        p5.textSize(Math.max(fontSize - 2, 9));
-        p5.fill("#9ca3af");
-        p5.text(n.ip, 0, iconSize / 2 + fontSize * 2);
+      if (showNodeInfo && nip) {
+        p5.textSize(Math.max(fontSize - 2, 8));
+        p5.text(nip, 0, iconSize / 2 + 8 + fontSize + fontSize / 2);
       }
 
       p5.pop();
     }
   };
 
-  p5.mousePressed = () => {
+  const canvasMousePressed = () => {
     if (readOnly) return;
+    clickInCanvas = true;
     const mx = (p5.mouseX - moveX) / scale;
     const my = (p5.mouseY - moveY) / scale;
 
@@ -474,18 +517,25 @@ const mapMain = (p5: P5) => {
       let clickedNode = "";
       for (const k in nodes) {
         const n = nodes[k];
-        const nx = n.x || 0;
-        const ny = n.y || 0;
+        const nx = n.x ?? (n as any).X ?? 0;
+        const ny = n.y ?? (n as any).Y ?? 0;
         const dist = Math.hypot(mx - nx, my - ny);
         if (dist <= iconSize) {
-          clickedNode = n.id;
+          clickedNode = n.id || (n as any).ID;
           break;
         }
       }
 
       if (clickedNode) {
         if (isDbl) {
-          if (mapCallBack) mapCallBack({ Cmd: "nodeDoubleClicked", Param: clickedNode });
+          if (mapCallBack) {
+            mapCallBack({
+              type: "dblclick",
+              Cmd: "nodeDoubleClicked",
+              nodeId: clickedNode,
+              Param: clickedNode,
+            });
+          }
           return;
         }
         if (!selectedNodes.includes(clickedNode)) {
@@ -505,17 +555,26 @@ const mapMain = (p5: P5) => {
       let clickedNet = "";
       for (const k in networks) {
         const net = networks[k];
-        const nw = net.w || 320;
-        const nh = net.h || 140;
-        if (mx >= (net.x || 0) && mx <= (net.x || 0) + nw && my >= (net.y || 0) && my <= (net.y || 0) + nh) {
-          clickedNet = net.id;
+        const nw = net.w || (net as any).W || 320;
+        const nh = net.h || (net as any).H || 140;
+        const nx = net.x ?? (net as any).X ?? 0;
+        const ny = net.y ?? (net as any).Y ?? 0;
+        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+          clickedNet = net.id || (net as any).ID;
           break;
         }
       }
 
       if (clickedNet) {
         if (isDbl) {
-          if (mapCallBack) mapCallBack({ Cmd: "networkDoubleClicked", Param: clickedNet });
+          if (mapCallBack) {
+            mapCallBack({
+              type: "dblclick",
+              Cmd: "networkDoubleClicked",
+              networkId: clickedNet,
+              Param: clickedNet,
+            });
+          }
           return;
         }
         selectedNetwork = clickedNet;
@@ -541,26 +600,33 @@ const mapMain = (p5: P5) => {
       let targetNode = "";
       for (const k in nodes) {
         const n = nodes[k];
-        const dist = Math.hypot(mx - (n.x || 0), my - (n.y || 0));
+        const nx = n.x ?? (n as any).X ?? 0;
+        const ny = n.y ?? (n as any).Y ?? 0;
+        const dist = Math.hypot(mx - nx, my - ny);
         if (dist <= iconSize) {
-          targetNode = n.id;
+          targetNode = n.id || (n as any).ID;
           break;
         }
       }
       let targetNet = "";
       for (const k in networks) {
         const net = networks[k];
-        const nw = net.w || 320;
-        const nh = net.h || 140;
-        if (mx >= (net.x || 0) && mx <= (net.x || 0) + nw && my >= (net.y || 0) && my <= (net.y || 0) + nh) {
-          targetNet = net.id;
+        const nw = net.w || (net as any).W || 320;
+        const nh = net.h || (net as any).H || 140;
+        const nx = net.x ?? (net as any).X ?? 0;
+        const ny = net.y ?? (net as any).Y ?? 0;
+        if (mx >= nx && mx <= nx + nw && my >= ny && my <= ny + nh) {
+          targetNet = net.id || (net as any).ID;
           break;
         }
       }
 
       if (mapCallBack) {
         mapCallBack({
+          type: "contextmenu",
           Cmd: "contextMenu",
+          nodeId: targetNode,
+          networkId: targetNet,
           Node: targetNode,
           Network: targetNet,
           x: p5.mouseX,
@@ -573,7 +639,7 @@ const mapMain = (p5: P5) => {
   };
 
   p5.mouseDragged = () => {
-    if (readOnly) return;
+    if (readOnly || !clickInCanvas) return;
     if (dragging) {
       moveX += p5.mouseX - dragX;
       moveY += p5.mouseY - dragY;
@@ -614,6 +680,7 @@ const mapMain = (p5: P5) => {
     }
     dragging = false;
     draggingElements = false;
+    clickInCanvas = false;
   };
 
   p5.mouseWheel = (event: WheelEvent) => {

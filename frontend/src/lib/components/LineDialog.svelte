@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { saveLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../api";
   import { X, Save, GitCommitHorizontal, Trash2, Network } from "@lucide/svelte";
 
@@ -20,18 +21,20 @@
 
   $effect(() => {
     if (show) {
-      saveError = "";
-      if (line) {
-        nodeId1 = line.node_id1 || (line as any).NodeID1 || "";
-        nodeId2 = line.node_id2 || (line as any).NodeID2 || "";
-        width = line.width || (line as any).Width || 2;
-        state = line.state || (line as any).State || "normal";
-      } else {
-        nodeId1 = nodes[0]?.id || "";
-        nodeId2 = nodes[1]?.id || "";
-        width = 2;
-        state = "normal";
-      }
+      untrack(() => {
+        saveError = "";
+        if (line) {
+          nodeId1 = line.node_id1 || (line as any).NodeID1 || "";
+          nodeId2 = line.node_id2 || (line as any).NodeID2 || "";
+          width = line.width || (line as any).Width || 2;
+          state = line.state || (line as any).State || "normal";
+        } else {
+          nodeId1 = nodes[0]?.id || "";
+          nodeId2 = nodes[1]?.id || "";
+          width = 2;
+          state = "normal";
+        }
+      });
     }
   });
 
