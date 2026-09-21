@@ -15,6 +15,8 @@
   import NetworkDialog from "../components/NetworkDialog.svelte";
   import DrawItemDialog from "../components/DrawItemDialog.svelte";
   import LineDialog from "../components/LineDialog.svelte";
+  import NetworkLinesDialog from "../components/NetworkLinesDialog.svelte";
+  import FindNeighborDialog from "../components/FindNeighborDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
   import {
     fetchNodes,
@@ -56,6 +58,8 @@
     AlignCenterHorizontal,
     AlignCenterVertical,
     CircleDot,
+    Compass,
+    Network,
   } from "@lucide/svelte";
 
   let nodes = $state<NodeEnt[]>([]);
@@ -77,6 +81,12 @@
 
   let showLineDialog = $state(false);
   let selectedLine = $state<LineEnt | null>(null);
+
+  let showNetworkLinesDialog = $state(false);
+  let targetHubNetwork = $state<NetworkEnt | null>(null);
+
+  let showFindNeighborDialog = $state(false);
+  let findNeighborTargetId = $state("");
 
   let showNodeDetailModal = $state(false);
   let detailNode = $state<NodeEnt | null>(null);
@@ -180,6 +190,28 @@
             await deleteNetwork(ev.Param).catch(console.error);
             await reloadAllData();
           })();
+        } else if (ev?.type === "editLine" || ev?.Cmd === "editLine") {
+          if (ev.Param && ev.Param.length === 2) {
+            const id1 = ev.Param[0];
+            const id2 = ev.Param[1];
+            const existing = lines.find((l) => {
+              const n1 = l.node_id1 || (l as any).NodeID1;
+              const n2 = l.node_id2 || (l as any).NodeID2;
+              return (n1 === id1 && n2 === id2) || (n1 === id2 && n2 === id1);
+            });
+            if (existing) {
+              selectedLine = { ...existing };
+            } else {
+              selectedLine = {
+                id: "",
+                node_id1: id1,
+                node_id2: id2,
+                state: "normal",
+                width: 2,
+              };
+            }
+            showLineDialog = true;
+          }
         }
       });
     }
@@ -328,6 +360,32 @@
       await reloadAllData();
     }
     showContextMenu = false;
+  };
+
+  const handleFindNeighborNode = () => {
+    findNeighborTargetId = "NODE:" + contextTargetNode;
+    showFindNeighborDialog = true;
+    showContextMenu = false;
+  };
+
+  const handleFindNeighborNet = () => {
+    findNeighborTargetId = "NET:" + contextTargetNet;
+    showFindNeighborDialog = true;
+    showContextMenu = false;
+  };
+
+  const handleOpenNetworkLines = () => {
+    const net = networks.find((item) => (item.id || item.ID) === contextTargetNet);
+    if (net) {
+      targetHubNetwork = net;
+      showNetworkLinesDialog = true;
+    }
+    showContextMenu = false;
+  };
+
+  const handleEditLineFromHub = (l: LineEnt) => {
+    selectedLine = { ...l };
+    showLineDialog = true;
   };
 
   const handleEditTargetDrawItem = () => {
@@ -536,6 +594,10 @@
           <Edit3 class="h-3.5 w-3.5 text-slate-400" />
           ノードの編集
         </button>
+        <button onclick={handleFindNeighborNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
+          <Compass class="h-3.5 w-3.5 text-indigo-400" />
+          接続先を探す
+        </button>
         <div class="my-1 border-t border-slate-800"></div>
         <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
@@ -545,6 +607,14 @@
         <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
           <Server class="h-3.5 w-3.5 text-cyan-400" />
           SW-HUB の編集
+        </button>
+        <button onclick={handleOpenNetworkLines} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
+          <Network class="h-3.5 w-3.5 text-emerald-400" />
+          ライン編集
+        </button>
+        <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
+          <Compass class="h-3.5 w-3.5 text-indigo-400" />
+          接続先を探す
         </button>
         <div class="my-1 border-t border-slate-800"></div>
         <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
@@ -624,5 +694,22 @@
   <NetworkDialog bind:show={showNetworkDialog} network={selectedNetwork} onSave={reloadAllData} />
   <DrawItemDialog bind:show={showDrawItemDialog} item={selectedDrawItem} {nodes} {pollings} onSave={reloadAllData} />
   <LineDialog bind:show={showLineDialog} line={selectedLine} {nodes} {networks} {pollings} onSave={reloadAllData} onDelete={() => reloadAllData()} />
+  <NetworkLinesDialog
+    bind:show={showNetworkLinesDialog}
+    network={targetHubNetwork}
+    {lines}
+    {nodes}
+    {networks}
+    {pollings}
+    onEditLine={handleEditLineFromHub}
+    onDeleteLine={() => reloadAllData()}
+  />
+  <FindNeighborDialog
+    bind:show={showFindNeighborDialog}
+    targetId={findNeighborTargetId}
+    {nodes}
+    {networks}
+    onConnect={reloadAllData}
+  />
   <NodeDetailModal bind:show={showNodeDetailModal} node={detailNode} {pollings} logs={eventLogs} />
 </div>

@@ -335,20 +335,35 @@ const getLinePos = (id: string, polling: string) => {
     if (a.length !== 2) return undefined;
     const net = networks[a[1]];
     if (!net) return undefined;
-    const ports = net.ports || net.Ports || [];
+    const ports = net.ports || (net as any).Ports || [];
     let pi = -1;
-    for (let i = 0; i < ports.length; i++) {
-      if ((ports[i].id || ports[i].ID) === polling) {
-        pi = i;
-        break;
+    if (polling) {
+      for (let i = 0; i < ports.length; i++) {
+        if ((ports[i].id || (ports[i] as any).ID) === polling) {
+          pi = i;
+          break;
+        }
       }
     }
-    if (pi < 0) return undefined;
-    const px = (ports[pi].x ?? ports[pi].X ?? 0) * 45 + 10 + 20;
-    const py = (ports[pi].y ?? ports[pi].Y ?? 0) * 55 + fontSize + 20 + 10;
+    // Fallback if port not specified or not found: use first port or center of SW-HUB
+    if (pi < 0) {
+      if (ports.length > 0) {
+        pi = 0;
+      } else {
+        const nw = net.w || (net as any).W || 320;
+        const nh = net.h || (net as any).H || 140;
+        return {
+          X: (net.x ?? (net as any).X ?? 0) + nw / 2,
+          Y: (net.y ?? (net as any).Y ?? 0) + nh / 2,
+        };
+      }
+    }
+    // Port center: port is 40x40 at (X * 45 + 10, Y * 55 + fontSize + 15)
+    const px = ((ports[pi].x ?? (ports[pi] as any).X) || 0) * 45 + 10 + 20;
+    const py = ((ports[pi].y ?? (ports[pi] as any).Y) || 0) * 55 + fontSize + 15 + 20;
     return {
-      X: (net.x ?? net.X ?? 0) + px,
-      Y: (net.y ?? net.Y ?? 0) + py,
+      X: (net.x ?? (net as any).X ?? 0) + px,
+      Y: (net.y ?? (net as any).Y ?? 0) + py,
     };
   }
   if (!nodes[id]) return undefined;
@@ -662,13 +677,13 @@ const mapMain = (p5: P5) => {
       p5.scale(scale);
     }
 
-    // Draw lines
-    drawLines(p5);
-    // Draw SW-HUB networks
-    drawNetworks(p5, dark);
-    // Draw draw items
+    // 1. Draw draw items (background layers)
     drawItems(p5, dark);
-    // Draw nodes
+    // 2. Draw SW-HUB networks
+    drawNetworks(p5, dark);
+    // 3. Draw lines (rendered in front of SW-HUB into ports)
+    drawLines(p5, dark);
+    // 4. Draw nodes (rendered in front)
     drawNodes(p5, dark);
 
     // Draw selection box in dragMode 1
@@ -756,25 +771,63 @@ const mapMain = (p5: P5) => {
     }
   };
 
-  const drawLines = (p5: P5) => {
+  const drawLines = (p5: P5, dark: boolean) => {
     for (const l of lines) {
-      const p1 = getLinePos(l.node_id1, (l as any).polling_id1 || "");
-      const p2 = getLinePos(l.node_id2, (l as any).polling_id2 || "");
+      const nid1 = l.node_id1 || (l as any).NodeID1 || "";
+      const pid1 = l.polling_id1 || (l as any).PollingID1 || (l as any).port || "";
+      const nid2 = l.node_id2 || (l as any).NodeID2 || "";
+      const pid2 = l.polling_id2 || (l as any).PollingID2 || "";
+      const p1 = getLinePos(nid1, pid1);
+      const p2 = getLinePos(nid2, pid2);
       if (!p1 || !p2) continue;
 
-      p5.push();
+      const lw = l.width || (l as any).Width || 2;
       const stColor = getStateColor(l.state || "normal");
-      p5.stroke(stColor);
-      p5.strokeWeight(l.width || 2);
-      p5.line(p1.X, p1.Y, p2.X, p2.Y);
+      const stColor1 = getStateColor(l.state1 || l.state || "normal");
+      const stColor2 = getStateColor(l.state2 || l.state || "normal");
+      const xm = (p1.X + p2.X) / 2;
+      const ym = (p1.Y + p2.Y) / 2;
 
-      // Packet animation dots
+      p5.push();
+      // Draw two line segments (half-and-half state color matching twsnmpfk)
+      p5.strokeWeight(lw);
+      p5.stroke(stColor1);
+      p5.line(p1.X, p1.Y, xm, ym);
+      p5.stroke(stColor2);
+      p5.line(xm, ym, p2.X, p2.Y);
+
+      // Packet animation dot
       const t = (p5.frameCount % 40) / 40;
       const dotX = p1.X + (p2.X - p1.X) * t;
       const dotY = p1.Y + (p2.Y - p1.Y) * t;
       p5.noStroke();
       p5.fill(stColor);
-      p5.circle(dotX, dotY, (l.width || 2) + 4);
+      p5.circle(dotX, dotY, lw + 4);
+
+      // Port terminal jack indicator on SW-HUB so connection is clearly visible
+      if (nid1.startsWith("NET:")) {
+        p5.noStroke();
+        p5.fill(stColor1);
+        p5.circle(p1.X, p1.Y, lw + 6);
+        p5.fill("#38bdf8");
+        p5.circle(p1.X, p1.Y, Math.max(3, lw));
+      }
+      if (nid2.startsWith("NET:")) {
+        p5.noStroke();
+        p5.fill(stColor2);
+        p5.circle(p2.X, p2.Y, lw + 6);
+        p5.fill("#38bdf8");
+        p5.circle(p2.X, p2.Y, Math.max(3, lw));
+      }
+
+      // Line Info label if present
+      const infoText = l.info || (l as any).Info;
+      if (infoText) {
+        p5.textSize(fontSize - 2);
+        p5.fill(dark ? "#94a3b8" : "#475569");
+        p5.text(infoText, xm + 6, ym - 6);
+      }
+
       p5.pop();
     }
   };
@@ -997,6 +1050,7 @@ const mapMain = (p5: P5) => {
     return false;
   };
 
+  let selectedNetwork2 = "";
   const setSelectNetwork = (second: boolean = false) => {
     const x = p5.mouseX / scale;
     const y = p5.mouseY / scale;
@@ -1008,12 +1062,65 @@ const mapMain = (p5: P5) => {
       const nw = net.w || (net as any).W || 320;
       const nh = net.h || (net as any).H || 140;
       if (x >= nx && x <= nx + nw && y >= ny && y <= ny + nh) {
-        selectedNetwork = nid;
+        if (second) {
+          selectedNetwork2 = nid;
+        } else {
+          selectedNetwork = nid;
+        }
         return true;
       }
     }
-    selectedNetwork = "";
+    if (!second) {
+      selectedNetwork = "";
+    }
     return false;
+  };
+
+  const checkLine = (e?: MouseEvent) => {
+    const isShift = (p5.keyIsDown && p5.keyIsDown(p5.SHIFT)) || (e && e.shiftKey);
+    if (!isShift) {
+      return false;
+    }
+    if (selectedNetwork !== "") {
+      if (setSelectNode(true)) {
+        return true;
+      }
+      if (setSelectNetwork(true)) {
+        return true;
+      }
+    } else if (selectedNodes.length === 1) {
+      if (setSelectNode(true)) {
+        return true;
+      }
+      if (setSelectNetwork(false)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const editLine = () => {
+    const targets: string[] = [...selectedNodes];
+    if (selectedNetwork !== "") {
+      targets.push("NET:" + selectedNetwork);
+    }
+    if (selectedNetwork2 !== "") {
+      targets.push("NET:" + selectedNetwork2);
+    }
+    if (targets.length !== 2) {
+      return;
+    }
+    if (mapCallBack) {
+      mapCallBack({
+        Cmd: "editLine",
+        type: "editLine",
+        Param: targets,
+      });
+    }
+    selectedNodes.length = 0;
+    selectedNetwork = "";
+    selectedNetwork2 = "";
+    mapRedraw = true;
   };
 
   const canvasMousePressed = (e?: MouseEvent) => {
@@ -1023,6 +1130,12 @@ const mapMain = (p5: P5) => {
     }
     clickInCanvas = true;
     mapRedraw = true;
+
+    if (checkLine(e)) {
+      editLine();
+      dragMode = 0;
+      return false;
+    }
 
     const mx = p5.mouseX / scale;
     const my = p5.mouseY / scale;

@@ -34,13 +34,37 @@ export interface LineEnt {
   node_id2: string;
   state: string;
   width: number;
+  polling_id1?: string;
+  polling_id2?: string;
+  polling_id?: string;
+  info?: string;
+  port?: string;
+  state1?: string;
+  state2?: string;
 
   // Compatibility aliases
   ID?: string;
   NodeID1?: string;
   NodeID2?: string;
+  PollingID1?: string;
+  PollingID2?: string;
+  PollingID?: string;
   State?: string;
+  State1?: string;
+  State2?: string;
   Width?: number;
+  Info?: string;
+  Port?: string;
+}
+
+export interface NeighborLineEnt extends LineEnt {
+  Confidence?: string; // "strict" | "speculative"
+  Reason?: string;     // "LLDP" | "CDP" | "STP" | "FDB-Edge" | "Subnet Heuristic" | "AI"
+}
+
+export interface FindNeighborNetworksAndLinesResp {
+  Networks: NetworkEnt[];
+  Lines: NeighborLineEnt[];
 }
 
 export interface PollingEnt {
@@ -241,16 +265,30 @@ export function normalizeLine(raw: any): LineEnt {
   const id = raw.id || raw.ID || '';
   const node_id1 = raw.node_id1 || raw.NodeID1 || '';
   const node_id2 = raw.node_id2 || raw.NodeID2 || '';
+  const polling_id1 = raw.polling_id1 || raw.PollingID1 || '';
+  const polling_id2 = raw.polling_id2 || raw.PollingID2 || '';
+  const polling_id = raw.polling_id || raw.PollingID || '';
   const state = raw.state || raw.State || 'normal';
+  const state1 = raw.state1 || raw.State1 || '';
+  const state2 = raw.state2 || raw.State2 || '';
   const width = typeof raw.width === 'number' ? raw.width : (typeof raw.Width === 'number' ? raw.Width : 2);
+  const info = raw.info || raw.Info || '';
+  const port = raw.port || raw.Port || '';
 
   return {
     ...raw,
     id, ID: id,
     node_id1, NodeID1: node_id1,
     node_id2, NodeID2: node_id2,
+    polling_id1, PollingID1: polling_id1,
+    polling_id2, PollingID2: polling_id2,
+    polling_id, PollingID: polling_id,
     state, State: state,
+    state1, State1: state1,
+    state2, State2: state2,
     width, Width: width,
+    info, Info: info,
+    port, Port: port,
   };
 }
 
@@ -373,9 +411,16 @@ export async function saveLine(line: Partial<LineEnt>): Promise<LineEnt> {
   const payload = {
     ID: line.id || line.ID || '',
     NodeID1: line.node_id1 || line.NodeID1 || '',
+    PollingID1: line.polling_id1 || line.PollingID1 || '',
+    State1: line.state1 || line.State1 || '',
     NodeID2: line.node_id2 || line.NodeID2 || '',
+    PollingID2: line.polling_id2 || line.PollingID2 || '',
+    State2: line.state2 || line.State2 || '',
+    PollingID: line.polling_id || line.PollingID || '',
     State: line.state || line.State || 'normal',
     Width: typeof line.width === 'number' ? line.width : (typeof line.Width === 'number' ? line.Width : 2),
+    Info: line.info || line.Info || '',
+    Port: line.port || line.Port || '',
   };
   const res = await fetch(`${API_BASE}/lines`, {
     method: 'POST',
@@ -390,6 +435,45 @@ export async function saveLine(line: Partial<LineEnt>): Promise<LineEnt> {
 export async function deleteLine(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/lines/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete line failed: ${res.statusText}`);
+}
+
+export async function fetchNeighbors(id: string): Promise<FindNeighborNetworksAndLinesResp> {
+  const cleanId = id.trim();
+  const res = await fetch(`${API_BASE}/topology/neighbors/${cleanId}`);
+  if (!res.ok) throw new Error(`Fetch neighbors failed: ${res.statusText}`);
+  const data = await res.json();
+  return {
+    Networks: (data.Networks || []).map(normalizeNetwork),
+    Lines: (data.Lines || []).map((l: any) => ({
+      ...normalizeLine(l),
+      Confidence: l.Confidence || 'speculative',
+      Reason: l.Reason || l.Info || '',
+    })),
+  };
+}
+
+export async function connectLines(lines: Partial<LineEnt>[]): Promise<{ connected: number }> {
+  const payload = lines.map((line) => ({
+    ID: line.id || line.ID || '',
+    NodeID1: line.node_id1 || line.NodeID1 || '',
+    PollingID1: line.polling_id1 || line.PollingID1 || '',
+    State1: line.state1 || line.State1 || '',
+    NodeID2: line.node_id2 || line.NodeID2 || '',
+    PollingID2: line.polling_id2 || line.PollingID2 || '',
+    State2: line.state2 || line.State2 || '',
+    PollingID: line.polling_id || line.PollingID || '',
+    State: line.state || line.State || 'normal',
+    Width: typeof line.width === 'number' ? line.width : (typeof line.Width === 'number' ? line.Width : 2),
+    Info: line.info || line.Info || '',
+    Port: line.port || line.Port || '',
+  }));
+  const res = await fetch(`${API_BASE}/topology/connect-lines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Connect lines failed: ${res.statusText}`);
+  return res.json();
 }
 
 export async function fetchNetworks(): Promise<NetworkEnt[]> {

@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -13,6 +15,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 	"github.com/twsnmp/twsnmpneo/backend/web"
 )
 
@@ -181,6 +184,83 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+
+		// Topology Discovery
+		apiGroup.GET("/topology/neighbors/:id", func(c echo.Context) error {
+			rawID := c.Param("id")
+			id, err := url.PathUnescape(rawID)
+			if err != nil {
+				id = rawID
+			}
+			id = strings.ReplaceAll(id, "%3A", ":")
+
+			// 1. If ID has NET: prefix, or is found as a Network
+			if strings.HasPrefix(id, "NET:") {
+				netID := strings.TrimPrefix(id, "NET:")
+				nw, err := cfg.Store.GetNetwork(c.Request().Context(), netID)
+				if err == nil && nw != nil {
+					resp, err := topology.FindTopologyForNetwork(c.Request().Context(), cfg.Store, nw)
+					if err != nil {
+						return c.JSON(http.StatusOK, &topology.FindNeighborNetworksAndLinesResp{
+							Networks: []*datastore.NetworkEnt{},
+							Lines:    []topology.NeighborLineEnt{},
+						})
+					}
+					return c.JSON(http.StatusOK, resp)
+				}
+				// Fallback: check if netID is a node ID
+				if node, err := cfg.Store.GetNode(c.Request().Context(), netID); err == nil && node != nil {
+					lines, _ := topology.FindNodeConnection(c.Request().Context(), cfg.Store, node.ID)
+					return c.JSON(http.StatusOK, &topology.FindNeighborNetworksAndLinesResp{
+						Networks: []*datastore.NetworkEnt{},
+						Lines:    lines,
+					})
+				}
+				return c.JSON(http.StatusOK, &topology.FindNeighborNetworksAndLinesResp{
+					Networks: []*datastore.NetworkEnt{},
+					Lines:    []topology.NeighborLineEnt{},
+				})
+			}
+
+			// 2. If ID has NODE: prefix, or is found as a Node
+			cleanID := strings.TrimPrefix(id, "NODE:")
+			node, err := cfg.Store.GetNode(c.Request().Context(), cleanID)
+			if err == nil && node != nil {
+				lines, err := topology.FindNodeConnection(c.Request().Context(), cfg.Store, cleanID)
+				if err != nil {
+					lines = []topology.NeighborLineEnt{}
+				}
+				return c.JSON(http.StatusOK, &topology.FindNeighborNetworksAndLinesResp{
+					Networks: []*datastore.NetworkEnt{},
+					Lines:    lines,
+				})
+			}
+
+			// 3. Fallback: check if cleanID is actually a Network ID
+			if nw, err := cfg.Store.GetNetwork(c.Request().Context(), cleanID); err == nil && nw != nil {
+				resp, _ := topology.FindTopologyForNetwork(c.Request().Context(), cfg.Store, nw)
+				if resp != nil {
+					return c.JSON(http.StatusOK, resp)
+				}
+			}
+
+			return c.JSON(http.StatusOK, &topology.FindNeighborNetworksAndLinesResp{
+				Networks: []*datastore.NetworkEnt{},
+				Lines:    []topology.NeighborLineEnt{},
+			})
+		})
+
+		apiGroup.POST("/topology/connect-lines", func(c echo.Context) error {
+			var lines []datastore.LineEnt
+			if err := c.Bind(&lines); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			count, err := topology.ConnectCandidateLines(c.Request().Context(), cfg.Store, lines)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]int{"connected": count})
 		})
 
 		// Networks
