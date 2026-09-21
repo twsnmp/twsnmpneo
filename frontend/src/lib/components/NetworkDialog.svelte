@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { saveNetwork, type NetworkEnt } from "../api";
+  import { checkNetworkPos } from "../map/map";
   import { X, Save, Server, Plus, Trash2, Network } from "@lucide/svelte";
 
   let { show = $bindable(false), network = $bindable<any>(null), onSave = () => {} } = $props<{
@@ -87,6 +88,7 @@
       w: Math.max(hPorts * 45 + 30, 200),
       h: Math.ceil(ports.length / hPorts) * 60 + 50,
     };
+    checkNetworkPos(net);
 
     try {
       const saved = await saveNetwork(net);

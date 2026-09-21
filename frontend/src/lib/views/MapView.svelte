@@ -1,6 +1,16 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { initMAP, updateMAP, resetMap, zoom } from "../map/map";
+  import {
+    initMAP,
+    updateMAP,
+    resetMap,
+    zoom,
+    horizontal,
+    vertical,
+    circle,
+    getNodeBounds,
+    getMapSize,
+  } from "../map/map";
   import NodeDialog from "../components/NodeDialog.svelte";
   import NetworkDialog from "../components/NetworkDialog.svelte";
   import DrawItemDialog from "../components/DrawItemDialog.svelte";
@@ -43,6 +53,9 @@
     XCircle,
     HelpCircle,
     RotateCcw,
+    AlignCenterHorizontal,
+    AlignCenterVertical,
+    CircleDot,
   } from "@lucide/svelte";
 
   let nodes = $state<NodeEnt[]>([]);
@@ -72,8 +85,17 @@
   let showContextMenu = $state(false);
   let contextX = $state(0);
   let contextY = $state(0);
+  let contextMapX = $state(0);
+  let contextMapY = $state(0);
   let contextTargetNode = $state("");
   let contextTargetNet = $state("");
+  let contextTargetItem = $state("");
+
+  // Multi-node format menu state
+  let showFormatMenu = $state(false);
+  let formatNodesList = $state<string[]>([]);
+  let formatPosX = $state(0);
+  let formatPosY = $state(0);
 
   let refreshTimer: any = null;
 
@@ -103,18 +125,61 @@
     const canvasDiv = document.getElementById("p5-map-canvas");
     if (canvasDiv) {
       await initMAP(canvasDiv, (ev: any) => {
-        if (ev?.type === "contextmenu") {
-          contextX = ev.x;
-          contextY = ev.y;
-          contextTargetNode = ev.nodeId || "";
-          contextTargetNet = ev.networkId || "";
+        if (ev?.type === "contextmenu" || ev?.Cmd === "contextMenu") {
+          contextX = Math.min(ev.x, window.innerWidth - 200);
+          contextY = Math.min(ev.y, window.innerHeight - 260);
+          contextMapX = ev.mapX ?? 300;
+          contextMapY = ev.mapY ?? 200;
+          contextTargetNode = ev.nodeId || ev.Node || "";
+          contextTargetNet = ev.networkId || ev.Network || "";
+          contextTargetItem = ev.itemId || ev.DrawItem || "";
+          showFormatMenu = false;
           showContextMenu = true;
-        } else if (ev?.type === "dblclick" && ev.nodeId) {
-          const n = nodes.find((item) => (item.id || item.ID) === ev.nodeId);
-          if (n) {
-            detailNode = n;
-            showNodeDetailModal = true;
+        } else if (ev?.type === "formatNodes" || ev?.Cmd === "formatNodes") {
+          formatNodesList = ev.Nodes || [];
+          formatPosX = Math.min(ev.x, window.innerWidth - 200);
+          formatPosY = Math.min(ev.y, window.innerHeight - 220);
+          showContextMenu = false;
+          showFormatMenu = true;
+        } else if (ev?.type === "dblclick") {
+          if (ev.nodeId) {
+            const n = nodes.find((item) => (item.id || item.ID) === ev.nodeId);
+            if (n) {
+              detailNode = n;
+              showNodeDetailModal = true;
+            }
+          } else if (ev.networkId) {
+            const net = networks.find((item) => (item.id || item.ID) === ev.networkId);
+            if (net) {
+              selectedNetwork = { ...net };
+              showNetworkDialog = true;
+            }
+          } else if (ev.itemId) {
+            const it = drawItems.find((item) => (item.id || item.ID) === ev.itemId);
+            if (it) {
+              selectedDrawItem = { ...it };
+              showDrawItemDialog = true;
+            }
           }
+        } else if (ev?.Cmd === "deleteNodes" && ev.Param) {
+          (async () => {
+            for (const id of ev.Param) {
+              await deleteNode(id).catch(console.error);
+            }
+            await reloadAllData();
+          })();
+        } else if (ev?.Cmd === "deleteDrawItems" && ev.Param) {
+          (async () => {
+            for (const id of ev.Param) {
+              await deleteDrawItem(id).catch(console.error);
+            }
+            await reloadAllData();
+          })();
+        } else if (ev?.Cmd === "deleteNetwork" && ev.Param) {
+          (async () => {
+            await deleteNetwork(ev.Param).catch(console.error);
+            await reloadAllData();
+          })();
         }
       });
     }
@@ -139,6 +204,13 @@
   });
 
   const handleOpenAddNode = () => {
+    const { halfW, topH, bottomH } = getNodeBounds();
+    const mapSize = getMapSize();
+    const targetX = contextMapX > 0 ? contextMapX : 320;
+    const targetY = contextMapY > 0 ? contextMapY : 200;
+    const clampedX = Math.max(halfW, Math.min(mapSize.width - halfW, targetX));
+    const clampedY = Math.max(topH, Math.min(mapSize.height - bottomH, targetY));
+
     selectedNode = {
       id: "",
       name: "新規ノード",
@@ -147,20 +219,26 @@
       descr: "",
       icon: "desktop",
       state: "normal",
-      x: contextX > 0 ? contextX : 320,
-      y: contextY > 0 ? contextY : 200,
+      x: clampedX,
+      y: clampedY,
     };
     showNodeDialog = true;
     showContextMenu = false;
   };
 
   const handleOpenAddNetwork = () => {
+    const mapSize = getMapSize();
+    const targetX = contextMapX > 0 ? contextMapX : 240;
+    const targetY = contextMapY > 0 ? contextMapY : 120;
+    const clampedX = Math.max(8, Math.min(mapSize.width - 420 - 8, targetX));
+    const clampedY = Math.max(8, Math.min(mapSize.height - 90 - 8, targetY));
+
     selectedNetwork = {
       id: "",
       name: "SW-HUB",
       ip: "192.168.1.254",
-      x: contextX > 0 ? contextX : 240,
-      y: contextY > 0 ? contextY : 120,
+      x: clampedX,
+      y: clampedY,
       w: 420,
       h: 90,
       h_ports: 8,
@@ -189,11 +267,17 @@
   };
 
   const handleOpenAddDrawItem = () => {
+    const mapSize = getMapSize();
+    const targetX = contextMapX > 0 ? contextMapX : 200;
+    const targetY = contextMapY > 0 ? contextMapY : 200;
+    const clampedX = Math.max(8, Math.min(mapSize.width - 120 - 8, targetX));
+    const clampedY = Math.max(8, Math.min(mapSize.height - 40 - 8, targetY));
+
     selectedDrawItem = {
       id: "",
       type: 0,
-      x: contextX > 0 ? contextX : 200,
-      y: contextY > 0 ? contextY : 200,
+      x: clampedX,
+      y: clampedY,
       w: 120,
       h: 40,
       text: "新規アイテム",
@@ -246,6 +330,40 @@
     showContextMenu = false;
   };
 
+  const handleEditTargetDrawItem = () => {
+    const it = drawItems.find((item) => (item.id || item.ID) === contextTargetItem);
+    if (it) {
+      selectedDrawItem = { ...it };
+      showDrawItemDialog = true;
+    }
+    showContextMenu = false;
+  };
+
+  const handleDeleteTargetDrawItem = async () => {
+    if (contextTargetItem) {
+      await deleteDrawItem(contextTargetItem);
+      await reloadAllData();
+    }
+    showContextMenu = false;
+  };
+
+  const handleFormat = async (type: 'horizontal' | 'vertical' | 'circle') => {
+    showFormatMenu = false;
+    if (type === 'horizontal') await horizontal(formatNodesList);
+    else if (type === 'vertical') await vertical(formatNodesList);
+    else if (type === 'circle') await circle(formatNodesList);
+    await reloadAllData();
+  };
+
+  const handleDeleteSelectedNodes = async () => {
+    showFormatMenu = false;
+    for (const id of formatNodesList) {
+      await deleteNode(id).catch(console.error);
+    }
+    formatNodesList = [];
+    await reloadAllData();
+  };
+
   const formatLogTime = (ts: number): string => {
     if (!ts) return "-";
     const d = new Date(ts > 1e12 ? ts / 1e6 : ts * 1000);
@@ -272,51 +390,33 @@
   };
 </script>
 
-<svelte:window onclick={() => (showContextMenu = false)} />
+<svelte:window
+  onclick={(e) => {
+    if (e.button === 0) {
+      showContextMenu = false;
+      showFormatMenu = false;
+    }
+  }}
+  onkeydown={(e) => {
+    if (e.key === "Escape") {
+      showContextMenu = false;
+      showFormatMenu = false;
+    }
+  }}
+/>
 
 <!-- Two-tier layout matching twsnmpfk Image 1 + twnoaa styling -->
 <div class="flex h-[calc(100vh-4.25rem)] w-full flex-col overflow-hidden bg-[#0b1329]">
   <!-- Upper Section: Topology Map Canvas (approx 62%) -->
   <div class="relative h-[62%] w-full overflow-hidden border-b border-slate-800">
-    <!-- Top-left Quick Action Toolbar -->
-    <div class="absolute top-3 left-4 z-20 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/90 p-1.5 shadow-xl backdrop-blur-md">
-      <button
-        onclick={handleOpenAddNode}
-        class="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-cyan-600/30 hover:bg-cyan-500 transition-all"
-      >
-        <Plus class="h-3.5 w-3.5" />
-        ノード追加
-      </button>
-      <button
-        onclick={handleOpenAddNetwork}
-        class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
-      >
-        <Server class="h-3.5 w-3.5 text-cyan-400" />
-        SW-HUB追加
-      </button>
-      <button
-        onclick={handleOpenAddLine}
-        class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
-      >
-        <Activity class="h-3.5 w-3.5 text-emerald-400" />
-        ライン結線
-      </button>
-      <button
-        onclick={handleOpenAddDrawItem}
-        class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
-      >
-        <Palette class="h-3.5 w-3.5 text-purple-400" />
-        描画アイテム
-      </button>
-
-      <div class="mx-1 h-4 w-[1px] bg-slate-800"></div>
-
+    <!-- Top-right Pinned Reload Button -->
+    <div class="absolute top-3 right-4 z-20">
       <button
         onclick={reloadAllData}
         title="再読み込み"
-        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transition-all backdrop-blur-md active:scale-95"
       >
-        <RefreshCw class="h-4 w-4 text-cyan-400" />
+        <RefreshCw class="h-4 w-4" />
       </button>
     </div>
 
@@ -347,8 +447,8 @@
       </div>
     </div>
 
-    <!-- p5.js Canvas Container -->
-    <div id="p5-map-canvas" class="h-full w-full"></div>
+    <!-- p5.js Canvas Container with native scrolling matching twsnmpfk -->
+    <div id="p5-map-canvas" class="h-full w-full overflow-auto"></div>
   </div>
 
   <!-- Lower Section: Realtime Event Log Table (approx 38%) matching Image 1 + twnoaa style -->
@@ -421,9 +521,10 @@
     <div
       role="menu"
       tabindex="-1"
-      class="fixed z-50 min-w-[170px] rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
+      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
       style="left: {contextX}px; top: {contextY}px;"
       onclick={(e) => e.stopPropagation()}
+      oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onkeydown={(e) => e.key === 'Escape' && (showContextMenu = false)}
     >
       {#if contextTargetNode}
@@ -450,24 +551,71 @@
           <Trash2 class="h-3.5 w-3.5" />
           SW-HUB の削除
         </button>
+      {:else if contextTargetItem}
+        <button onclick={handleEditTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
+          <Palette class="h-3.5 w-3.5 text-purple-400" />
+          描画アイテムの編集
+        </button>
+        <div class="my-1 border-t border-slate-800"></div>
+        <button onclick={handleDeleteTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+          <Trash2 class="h-3.5 w-3.5" />
+          描画アイテムの削除
+        </button>
       {:else}
-        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
           <Plus class="h-3.5 w-3.5 text-cyan-400" />
           ノードの追加
         </button>
-        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
           <Server class="h-3.5 w-3.5 text-emerald-400" />
           SW-HUB の追加
         </button>
-        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-400" />
           描画アイテムの追加
         </button>
-        <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
           <Activity class="h-3.5 w-3.5 text-cyan-400" />
           ライン結線
         </button>
+        <div class="my-1 border-t border-slate-800"></div>
+        <button onclick={reloadAllData} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800">
+          <RefreshCw class="h-3.5 w-3.5 text-slate-400" />
+          再読み込み
+        </button>
       {/if}
+    </div>
+  {/if}
+
+  <!-- Multi-Node Alignment Context Menu -->
+  {#if showFormatMenu}
+    <div
+      role="menu"
+      tabindex="-1"
+      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
+      style="left: {formatPosX}px; top: {formatPosY}px;"
+      onclick={(e) => e.stopPropagation()}
+      oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onkeydown={(e) => e.key === 'Escape' && (showFormatMenu = false)}
+    >
+      <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-400">選択ノード ({formatNodesList.length}個)</div>
+      <button onclick={() => handleFormat('horizontal')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <AlignCenterHorizontal class="h-3.5 w-3.5 text-cyan-400" />
+        水平に整列
+      </button>
+      <button onclick={() => handleFormat('vertical')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <AlignCenterVertical class="h-3.5 w-3.5 text-cyan-400" />
+        垂直に整列
+      </button>
+      <button onclick={() => handleFormat('circle')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
+        <CircleDot class="h-3.5 w-3.5 text-cyan-400" />
+        円形に配置
+      </button>
+      <div class="my-1 border-t border-slate-800"></div>
+      <button onclick={handleDeleteSelectedNodes} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+        <Trash2 class="h-3.5 w-3.5" />
+        選択ノードを削除
+      </button>
     </div>
   {/if}
 

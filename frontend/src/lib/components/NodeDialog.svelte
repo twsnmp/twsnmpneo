@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { iconList, addrModeList, snmpModeList } from "../common";
   import { saveNode, type NodeEnt } from "../api";
+  import { checkNodePos } from "../map/map";
   import { X, Save, Cpu, Shield, Key, Network, Globe } from "@lucide/svelte";
 
   let { show = $bindable(false), node = $bindable<NodeEnt | null>(null), onSave = () => {} } = $props<{
@@ -100,6 +101,7 @@
       x: typeof node?.x === "number" && node.x > 0 ? node.x : 320,
       y: typeof node?.y === "number" && node.y > 0 ? node.y : 200,
     };
+    checkNodePos(n);
 
     try {
       const saved = await saveNode(n);

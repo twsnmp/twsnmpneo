@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { saveDrawItem, type DrawItemEnt, type NodeEnt, type PollingEnt } from "../api";
+  import { checkItemPos } from "../map/map";
   import { X, Save, Palette, Gauge, BarChart3, TrendingUp, CreditCard, Type, Square } from "@lucide/svelte";
 
   let { show = $bindable(false), item = $bindable<DrawItemEnt | null>(null), nodes = [], pollings = [], onSave = () => {} } = $props<{
@@ -62,7 +63,10 @@
 
   const handleSave = async () => {
     const it: DrawItemEnt = {
-      ...(item || { x: 100, y: 100 }),
+      ...(item || {}),
+      id: item?.id || (item as any)?.ID || "",
+      x: typeof item?.x === "number" ? item.x : (typeof (item as any)?.X === "number" ? (item as any).X : 200),
+      y: typeof item?.y === "number" ? item.y : (typeof (item as any)?.Y === "number" ? (item as any).Y : 200),
       type,
       text,
       color,
@@ -74,6 +78,7 @@
       value: Number(value) || 0,
       values: [20, 45, 30, 60, 50, 75, Number(value) || 0],
     };
+    checkItemPos(it);
 
     try {
       const saved = await saveDrawItem(it);
