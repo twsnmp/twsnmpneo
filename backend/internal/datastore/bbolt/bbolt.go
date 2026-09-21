@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -105,7 +106,7 @@ func New(dbPath string) (*Store, error) {
 }
 
 func (s *Store) loadCache() error {
-	return s.db.View(func(tx *bbolt.Tx) error {
+	err := s.db.View(func(tx *bbolt.Tx) error {
 		// Load nodes
 		if b := tx.Bucket(bucketNodes); b != nil {
 			_ = b.ForEach(func(k, v []byte) error {
@@ -172,6 +173,83 @@ func (s *Store) loadCache() error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Clean up any orphaned pollings or lines left from previously deleted nodes
+	s.cleanupOrphans()
+	return nil
+}
+
+// cleanupOrphans purges pollings and lines whose referencing nodes or networks no longer exist (matches twsnmpfk spec).
+func (s *Store) cleanupOrphans() {
+	nodeMap := make(map[string]bool)
+	s.nodes.Range(func(k, _ any) bool {
+		nodeMap[k.(string)] = true
+		return true
+	})
+
+	netMap := make(map[string]bool)
+	s.networks.Range(func(k, _ any) bool {
+		netMap[k.(string)] = true
+		return true
+	})
+
+	var delPollings []string
+	s.pollings.Range(func(k, v any) bool {
+		p := v.(*datastore.PollingEnt)
+		if p.NodeID != "" && !nodeMap[p.NodeID] {
+			delPollings = append(delPollings, p.ID)
+		}
+		return true
+	})
+
+	var delLines []string
+	s.lines.Range(func(k, v any) bool {
+		l := v.(*datastore.LineEnt)
+		ok1 := false
+		if strings.HasPrefix(l.NodeID1, "NET:") {
+			ok1 = netMap[strings.TrimPrefix(l.NodeID1, "NET:")]
+		} else {
+			ok1 = nodeMap[l.NodeID1]
+		}
+
+		ok2 := false
+		if strings.HasPrefix(l.NodeID2, "NET:") {
+			ok2 = netMap[strings.TrimPrefix(l.NodeID2, "NET:")]
+		} else {
+			ok2 = nodeMap[l.NodeID2]
+		}
+
+		if !ok1 || !ok2 {
+			delLines = append(delLines, l.ID)
+		}
+		return true
+	})
+
+	if len(delPollings) > 0 || len(delLines) > 0 {
+		_ = s.db.Update(func(tx *bbolt.Tx) error {
+			if pb := tx.Bucket(bucketPollings); pb != nil {
+				for _, pid := range delPollings {
+					_ = pb.Delete([]byte(pid))
+				}
+			}
+			if lb := tx.Bucket(bucketLines); lb != nil {
+				for _, lid := range delLines {
+					_ = lb.Delete([]byte(lid))
+				}
+			}
+			return nil
+		})
+		for _, pid := range delPollings {
+			s.pollings.Delete(pid)
+		}
+		for _, lid := range delLines {
+			s.lines.Delete(lid)
+		}
+		slog.Info("Cleaned up orphaned entries", "pollings", len(delPollings), "lines", len(delLines))
+	}
 }
 
 func (s *Store) initDefaultMapConf() {
@@ -253,13 +331,84 @@ func (s *Store) DeleteNode(_ context.Context, id string) error {
 	if id == "" {
 		return datastore.ErrInvalidID
 	}
+
+	// 1. Identify pollings associated with this node
+	var delPollings []string
+	s.pollings.Range(func(k, v any) bool {
+		p := v.(*datastore.PollingEnt)
+		if p.NodeID == id {
+			delPollings = append(delPollings, p.ID)
+		}
+		return true
+	})
+
+	// 2. Identify lines connected to this node or using its pollings
+	var delLines []string
+	s.lines.Range(func(k, v any) bool {
+		l := v.(*datastore.LineEnt)
+		if l.NodeID1 == id || l.NodeID2 == id {
+			delLines = append(delLines, l.ID)
+			return true
+		}
+		for _, pid := range delPollings {
+			if l.PollingID1 == pid || l.PollingID2 == pid || l.PollingID == pid {
+				delLines = append(delLines, l.ID)
+				return true
+			}
+		}
+		return true
+	})
+
+	// 3. Delete from DB atomically
 	err := s.db.Update(func(tx *bbolt.Tx) error {
-		return tx.Bucket(bucketNodes).Delete([]byte(id))
+		if nb := tx.Bucket(bucketNodes); nb != nil {
+			if err := nb.Delete([]byte(id)); err != nil {
+				return err
+			}
+		}
+		if pb := tx.Bucket(bucketPollings); pb != nil {
+			for _, pid := range delPollings {
+				_ = pb.Delete([]byte(pid))
+			}
+		}
+		if lb := tx.Bucket(bucketLines); lb != nil {
+			for _, lid := range delLines {
+				_ = lb.Delete([]byte(lid))
+			}
+		}
+		// Clear PollingID binding on draw items for deleted pollings
+		if ib := tx.Bucket(bucketItems); ib != nil {
+			s.items.Range(func(k, v any) bool {
+				item := v.(*datastore.DrawItemEnt)
+				for _, pid := range delPollings {
+					if item.PollingID == pid {
+						item.PollingID = ""
+						if data, err := json.Marshal(item); err == nil {
+							_ = ib.Put([]byte(item.ID), data)
+						}
+						break
+					}
+				}
+				return true
+			})
+		}
+		return nil
 	})
 	if err != nil {
 		return err
 	}
+
+	// 4. Delete from memory caches
 	s.nodes.Delete(id)
+	for _, pid := range delPollings {
+		s.pollings.Delete(pid)
+	}
+	for _, lid := range delLines {
+		s.lines.Delete(lid)
+	}
+
+	// 5. Cleanup any potential remaining orphans
+	s.cleanupOrphans()
 	return nil
 }
 
@@ -361,13 +510,38 @@ func (s *Store) DeleteNetwork(_ context.Context, id string) error {
 	if id == "" {
 		return datastore.ErrInvalidID
 	}
+
+	netTarget := "NET:" + id
+	var delLines []string
+	s.lines.Range(func(k, v any) bool {
+		l := v.(*datastore.LineEnt)
+		if l.NodeID1 == netTarget || l.NodeID2 == netTarget || l.NodeID1 == id || l.NodeID2 == id {
+			delLines = append(delLines, l.ID)
+		}
+		return true
+	})
+
 	err := s.db.Update(func(tx *bbolt.Tx) error {
-		return tx.Bucket(bucketNetworks).Delete([]byte(id))
+		if nb := tx.Bucket(bucketNetworks); nb != nil {
+			if err := nb.Delete([]byte(id)); err != nil {
+				return err
+			}
+		}
+		if lb := tx.Bucket(bucketLines); lb != nil {
+			for _, lid := range delLines {
+				_ = lb.Delete([]byte(lid))
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return err
 	}
 	s.networks.Delete(id)
+	for _, lid := range delLines {
+		s.lines.Delete(lid)
+	}
+	s.cleanupOrphans()
 	return nil
 }
 
@@ -469,13 +643,49 @@ func (s *Store) DeletePolling(_ context.Context, id string) error {
 	if id == "" {
 		return datastore.ErrInvalidID
 	}
+
+	var delLines []string
+	s.lines.Range(func(k, v any) bool {
+		l := v.(*datastore.LineEnt)
+		if l.PollingID1 == id || l.PollingID2 == id || l.PollingID == id {
+			delLines = append(delLines, l.ID)
+		}
+		return true
+	})
+
 	err := s.db.Update(func(tx *bbolt.Tx) error {
-		return tx.Bucket(bucketPollings).Delete([]byte(id))
+		if pb := tx.Bucket(bucketPollings); pb != nil {
+			if err := pb.Delete([]byte(id)); err != nil {
+				return err
+			}
+		}
+		if lb := tx.Bucket(bucketLines); lb != nil {
+			for _, lid := range delLines {
+				_ = lb.Delete([]byte(lid))
+			}
+		}
+		// Clear PollingID binding on draw items
+		if ib := tx.Bucket(bucketItems); ib != nil {
+			s.items.Range(func(k, v any) bool {
+				item := v.(*datastore.DrawItemEnt)
+				if item.PollingID == id {
+					item.PollingID = ""
+					if data, err := json.Marshal(item); err == nil {
+						_ = ib.Put([]byte(item.ID), data)
+					}
+				}
+				return true
+			})
+		}
+		return nil
 	})
 	if err != nil {
 		return err
 	}
 	s.pollings.Delete(id)
+	for _, lid := range delLines {
+		s.lines.Delete(lid)
+	}
 	return nil
 }
 

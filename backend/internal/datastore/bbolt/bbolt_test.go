@@ -403,3 +403,110 @@ func TestStore_ErrorCases(t *testing.T) {
 	}
 }
 
+func TestStore_DeleteNodeCascade(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Create Node 1 and Node 2
+	n1 := &datastore.NodeEnt{Name: "Node1", IP: "192.168.1.1"}
+	if err := store.SaveNode(ctx, n1); err != nil {
+		t.Fatalf("save node 1 failed: %v", err)
+	}
+	n2 := &datastore.NodeEnt{Name: "Node2", IP: "192.168.1.2"}
+	if err := store.SaveNode(ctx, n2); err != nil {
+		t.Fatalf("save node 2 failed: %v", err)
+	}
+
+	// Create Polling on Node 1
+	p1 := &datastore.PollingEnt{Name: "Ping1", NodeID: n1.ID, Type: "ping"}
+	if err := store.SavePolling(ctx, p1); err != nil {
+		t.Fatalf("save polling failed: %v", err)
+	}
+
+	// Create Line between Node 1 and Node 2 referencing Polling 1
+	l1 := &datastore.LineEnt{NodeID1: n1.ID, NodeID2: n2.ID, PollingID: p1.ID}
+	if err := store.SaveLine(ctx, l1); err != nil {
+		t.Fatalf("save line failed: %v", err)
+	}
+
+	// Verify they all exist
+	if _, err := store.GetNode(ctx, n1.ID); err != nil {
+		t.Fatalf("node 1 not found")
+	}
+	if _, err := store.GetPolling(ctx, p1.ID); err != nil {
+		t.Fatalf("polling 1 not found")
+	}
+	if _, err := store.GetLine(ctx, l1.ID); err != nil {
+		t.Fatalf("line 1 not found")
+	}
+
+	// Delete Node 1
+	if err := store.DeleteNode(ctx, n1.ID); err != nil {
+		t.Fatalf("delete node 1 failed: %v", err)
+	}
+
+	// Verify Node 1 is deleted
+	if _, err := store.GetNode(ctx, n1.ID); err != datastore.ErrNotFound {
+		t.Errorf("expected node 1 to be deleted, got %v", err)
+	}
+
+	// Verify Polling 1 was cascade deleted
+	if _, err := store.GetPolling(ctx, p1.ID); err != datastore.ErrNotFound {
+		t.Errorf("expected polling 1 to be cascade deleted, got %v", err)
+	}
+
+	// Verify Line 1 was cascade deleted
+	if _, err := store.GetLine(ctx, l1.ID); err != datastore.ErrNotFound {
+		t.Errorf("expected line 1 to be cascade deleted, got %v", err)
+	}
+
+	// Verify Node 2 still exists
+	if _, err := store.GetNode(ctx, n2.ID); err != nil {
+		t.Errorf("expected node 2 to still exist, got %v", err)
+	}
+}
+
+func TestStore_CleanupOrphansOnLoad(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "orphan_test.db")
+	ctx := context.Background()
+
+	// 1. First store instance: save nodes, polling, and line
+	s1, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("new store failed: %v", err)
+	}
+
+	n1 := &datastore.NodeEnt{Name: "Node1", IP: "10.0.0.1"}
+	_ = s1.SaveNode(ctx, n1)
+	n2 := &datastore.NodeEnt{Name: "Node2", IP: "10.0.0.2"}
+	_ = s1.SaveNode(ctx, n2)
+
+	p := &datastore.PollingEnt{Name: "TempPoll", NodeID: n1.ID, Type: "ping"}
+	_ = s1.SavePolling(ctx, p)
+
+	l := &datastore.LineEnt{NodeID1: n1.ID, NodeID2: n2.ID}
+	_ = s1.SaveLine(ctx, l)
+
+	// Delete Node 1 with cascade
+	if err := s1.DeleteNode(ctx, n1.ID); err != nil {
+		t.Fatalf("delete node failed: %v", err)
+	}
+	_ = s1.Close()
+
+	// 2. Second store instance: opening should confirm no orphaned polling or line
+	s2, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("reopen store failed: %v", err)
+	}
+	defer s2.Close()
+
+	if _, err := s2.GetPolling(ctx, p.ID); err != datastore.ErrNotFound {
+		t.Errorf("expected polling to remain deleted on reload, got %v", err)
+	}
+	if _, err := s2.GetLine(ctx, l.ID); err != datastore.ErrNotFound {
+		t.Errorf("expected line to remain deleted on reload, got %v", err)
+	}
+}
+
