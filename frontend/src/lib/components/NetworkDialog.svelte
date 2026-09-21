@@ -160,7 +160,7 @@
             </div>
 
             <div>
-              <label for="hub-ip" class="block text-xs font-semibold text-slate-400 mb-1.5">管理 IP アドレス (任意)</label>
+              <label for="hub-ip" class="block text-xs font-semibold text-slate-400 mb-1.5">IP アドレス</label>
               <input
                 id="hub-ip"
                 type="text"

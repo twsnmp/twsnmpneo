@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import MapView from "./lib/views/MapView.svelte";
-  import NodeListView from "./lib/views/NodeListView.svelte";
-  import PollingListView from "./lib/views/PollingListView.svelte";
+  import ListView from "./lib/views/ListView.svelte";
   import LogView from "./lib/views/LogView.svelte";
   import ReportView from "./lib/views/ReportView.svelte";
   import ToolView from "./lib/views/ToolView.svelte";
@@ -12,8 +11,7 @@
   import { fetchMapConf } from "./lib/api";
   import {
     Network,
-    Laptop,
-    CheckSquare,
+    Layers,
     Calendar,
     BarChart3,
     Wrench,
@@ -26,7 +24,7 @@
     Activity,
   } from "@lucide/svelte";
 
-  type PageType = "map" | "nodes" | "pollings" | "logs" | "reports" | "tools" | "system";
+  type PageType = "map" | "list" | "logs" | "reports" | "tools" | "system";
 
   let currentPage = $state<PageType>("map");
   let isDark = $state(true);
@@ -55,8 +53,7 @@
 
   const navItems = [
     { id: "map", label: "Map", icon: Network },
-    { id: "nodes", label: "Node", icon: Laptop },
-    { id: "pollings", label: "Polling", icon: CheckSquare },
+    { id: "list", label: "List", icon: Layers },
     { id: "logs", label: "Log", icon: Calendar },
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "tools", label: "Tools", icon: Wrench },
@@ -145,10 +142,8 @@
   <main class="flex-1 overflow-hidden relative">
     {#if currentPage === "map"}
       <MapView />
-    {:else if currentPage === "nodes"}
-      <NodeListView />
-    {:else if currentPage === "pollings"}
-      <PollingListView />
+    {:else if currentPage === "list"}
+      <ListView />
     {:else if currentPage === "logs"}
       <LogView />
     {:else if currentPage === "reports"}

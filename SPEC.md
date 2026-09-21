@@ -129,8 +129,7 @@ twsnmpneo/
 │   │   │   ├── views/            # Main navigation page views
 │   │   │   │   ├── MapView.svelte            # Topology map view + bottom log drawer
 │   │   │   │   ├── LocationView.svelte       # Geographic GIS map view (MapLibre)
-│   │   │   │   ├── NodeListView.svelte       # Node inventory management
-│   │   │   │   ├── PollingListView.svelte    # Polling task inventory
+│   │   │   │   ├── ListView.svelte           # Integrated inventory management (Node, Polling, Network, Line, DrawItem)
 │   │   │   │   ├── DiscoverView.svelte       # Network discovery sweep
 │   │   │   │   ├── LogView.svelte            # Comprehensive logs (Event, Syslog, Trap, Flow, sFlow, ARP, OTel)
 │   │   │   │   ├── ReportView.svelte         # Analytics reports (Device, IPAM, Flow, Windows, Sensor, Cert, AI)
@@ -167,18 +166,17 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Quick node selection dropdown, zoom controls, full-screen map toggle, and refresh trigger.
 2. **Location View (`LocationView.svelte`)**:
    - Geographic GIS map powered by MapLibre / OpenStreetMap displaying nodes plotted by coordinates (`Loc` property).
-3. **Node View (`NodeListView.svelte`)**:
-   - Full data table with search, status filters (normal, low, high, repair), MAC vendor identification, bulk state clearing, and bulk deletion.
-   - Triggers `NodeDialog.svelte` (add/edit) and `NodeDetailModal.svelte` (hardware/panel/telemetry inspection).
-4. **Polling View (`PollingListView.svelte`)**:
-   - Complete inventory of polling tasks with real-time status indicators, interval, timeout, error logging, and bulk activate/deactivate.
-   - Triggers `PollingDialog.svelte` and time-series telemetry charts.
-5. **Discovery View (`DiscoverView.svelte`)**:
+3. **List View (`ListView.svelte`)**:
+   - Integrated inventory management view featuring a left sidebar category switcher matching `ReportView.svelte`.
+   - Supports 5 resource categories: **Nodes**, **Pollings**, **Networks**, **Lines**, and **Draw Items**.
+   - Includes real-time detection and safe deletion of orphaned lines (missing endpoints) and off-screen / non-interactable map items.
+   - Integrates `NodeDialog`, `NodeDetailModal`, `PollingDialog`, `NetworkDialog`, `LineDialog`, and `DrawItemDialog`.
+4. **Discovery View (`DiscoverView.svelte`)**:
    - IP range sweep input (CIDR/ranges), concurrent Ping/SNMP scan progress bar, discovered node table, and one-click node/polling generation.
-6. **Log View (`LogView.svelte`)**:
+5. **Log View (`LogView.svelte`)**:
    - Dedicated tabs for **EventLog**, **Syslog**, **SNMP TRAP**, **NetFlow / IPFIX**, **sFlow / sFlow Counter**, **ARP Watch**, and **OpenTelemetry**.
    - Features columnar filters, regex search, time range pickers, histogram visualization, CSV export, and inline AI troubleshooting (`LogAIDialog`).
-7. **Report View (`ReportView.svelte`)**:
+6. **Report View (`ReportView.svelte`)**:
    - Grouped analytics suites:
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
      - **IPAM & IP Analytics**: Subnet usage heatmaps, IPv4 list, IPv6 list, host communication graphs.
@@ -187,15 +185,15 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **Sensor & IoT Analytics**: Environmental (temp/humidity), Power consumption, Motion sensors, SDR RF power, MQTT clients/topics.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
      - **AI Anomaly**: AI anomaly scores across nodes and pollings.
-8. **Tool View (`ToolView.svelte`)**:
+7. **Tool View (`ToolView.svelte`)**:
    - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface.
    - **Ping Tool**: Continuous Ping with real-time response time graph and sound alerts.
    - **gNMI Tool**: Capabilities, Get, and Subscribe explorer.
    - **WOL**: Wake-on-LAN magic packet dispatcher.
-9. **Config View (`ConfigModal.svelte`)**:
+8. **Config View (`ConfigModal.svelte`)**:
    - Comprehensive multi-tab configuration: Map options, Notification credentials (Email, Slack, LINE, Teams, Webhook), AI credentials, Custom Icons, MIB Module manager, Grok pattern editor, and Datastore backup/restore/FC migration.
-10. **System View (`SystemView.svelte`)**:
-    - Host CPU/memory telemetry, internal daemon process health, version check, and licensing info.
+9. **System View (`SystemView.svelte`)**:
+   - Host CPU/memory telemetry, internal daemon process health, version check, and licensing info.
 
 ---
 
