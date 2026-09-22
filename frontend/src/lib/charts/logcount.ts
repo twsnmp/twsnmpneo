@@ -11,14 +11,13 @@ export const showLogCountChart = (
   const el = typeof dom === 'string' ? document.getElementById(dom) : dom;
   if (!el) return undefined;
 
-  if (chartInstance) {
-    chartInstance.dispose();
+  const existing = echarts.getInstanceByDom(el);
+  if (existing) {
+    existing.dispose();
   }
   chartInstance = echarts.init(el, 'dark');
 
-  const data: [Date, number][] = [];
-  let count = 0;
-  let ctm: number | undefined;
+  const minuteMap = new Map<number, number>();
   let st = Infinity;
   let lt = 0;
 
@@ -28,41 +27,36 @@ export const showLogCountChart = (
     return ta - tb;
   });
 
-  const addChartData = (currentMinute: number, nextMinute: number) => {
-    let t = new Date(currentMinute * 60 * 1000);
-    data.push([t, count]);
-    currentMinute++;
-    for (; currentMinute < nextMinute; currentMinute++) {
-      t = new Date(currentMinute * 60 * 1000);
-      data.push([t, 0]);
-    }
-    return currentMinute;
-  };
-
   sortedLogs.forEach((e) => {
     const rawTime = e.time ?? e.Time ?? 0;
     if (!rawTime) return;
     const tMs = rawTime > 1e16 ? rawTime / 1e6 : (rawTime > 1e13 ? rawTime / 1e3 : (rawTime > 1e10 ? rawTime : rawTime * 1000));
-    const newCtm = Math.floor(tMs / (60 * 1000));
-
-    if (ctm === undefined) {
-      ctm = newCtm;
-    }
-    if (ctm !== newCtm) {
-      ctm = addChartData(ctm, newCtm);
-      count = 0;
-    }
-    count++;
+    const minute = Math.floor(tMs / (60 * 1000));
+    minuteMap.set(minute, (minuteMap.get(minute) || 0) + 1);
     if (st > rawTime) st = rawTime;
     if (lt < rawTime) lt = rawTime;
   });
 
-  if (ctm !== undefined) {
-    addChartData(ctm, ctm + 1);
+  const data: [Date, number][] = [];
+  if (minuteMap.size > 0) {
+    const minutes = Array.from(minuteMap.keys()).sort((a, b) => a - b);
+    const minM = minutes[0];
+    const maxM = minutes[minutes.length - 1];
+
+    for (let m = minM; m <= maxM; m++) {
+      const t = new Date(m * 60 * 1000);
+      data.push([t, minuteMap.get(m) || 0]);
+    }
   }
 
   const option: echarts.EChartsOption = {
     backgroundColor: 'transparent',
+    title: {
+      show: false,
+    },
+    legend: {
+      show: false,
+    },
     grid: {
       left: 55,
       right: 25,
@@ -92,8 +86,8 @@ export const showLogCountChart = (
         height: 16,
         borderColor: '#334155',
         backgroundColor: '#020617',
-        fillerColor: 'rgba(6, 182, 212, 0.2)',
-        handleStyle: { color: '#06b6d4' },
+        fillerColor: 'rgba(31, 120, 180, 0.3)',
+        handleStyle: { color: '#1f78b4' },
         textStyle: { color: '#64748b', fontSize: 9 },
       },
       {
@@ -102,17 +96,19 @@ export const showLogCountChart = (
     ],
     xAxis: {
       type: 'time',
+      name: 'Time',
+      nameTextStyle: { color: '#64748b', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       axisLabel: {
         color: '#94a3b8',
         fontSize: 10,
-        formatter: (val: any) => echarts.time.format(new Date(val), '{MM}/{dd} {HH}:{mm}', false),
+        formatter: (val: any) => echarts.time.format(new Date(val), '{yyyy}/{MM}/{dd} {HH}:{mm}', false),
       },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
-      name: '件数',
+      name: 'Log count',
       nameTextStyle: { color: '#64748b', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       axisLabel: { color: '#94a3b8', fontSize: 10 },
@@ -120,15 +116,15 @@ export const showLogCountChart = (
     },
     series: [
       {
-        name: '受信件数',
+        name: 'Log count',
         type: 'bar',
-        color: '#06b6d4',
+        color: '#1f78b4',
         data,
       },
     ],
   };
 
-  chartInstance.setOption(option);
+  chartInstance.setOption(option, true);
   chartInstance.resize();
 
   if (zoomCallback) {

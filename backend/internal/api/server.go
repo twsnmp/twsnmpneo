@@ -16,6 +16,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 	"github.com/twsnmp/twsnmpneo/backend/web"
 )
@@ -611,6 +612,14 @@ func NewServer(cfg Config) (*Server, error) {
 				}
 			}
 			return c.JSON(http.StatusOK, counts)
+		})
+
+		// MIB Browser & Modules
+		apiGroup.GET("/mib/tree", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, mib.GetMIBTree())
+		})
+		apiGroup.GET("/mib/modules", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, mib.GetMIBModules())
 		})
 	}
 

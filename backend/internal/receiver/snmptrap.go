@@ -10,13 +10,16 @@ import (
 	"time"
 
 	"github.com/gosnmp/gosnmp"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 )
 
 // TrapConfig holds options for the SNMP TRAP receiver.
 type TrapConfig struct {
 	Port      int
 	Community string
+	Store     datastore.DataStore
 	LogStore  *parquet.Store
 }
 
@@ -24,6 +27,7 @@ type TrapConfig struct {
 type TrapServer struct {
 	port      int
 	community string
+	store     datastore.DataStore
 	logStore  *parquet.Store
 	listener  *gosnmp.TrapListener
 	mu        sync.Mutex
@@ -31,18 +35,20 @@ type TrapServer struct {
 
 // TrapMessage represents a parsed SNMP trap.
 type TrapMessage struct {
-	Time      int64             `json:"time"`
-	SrcIP     string            `json:"srcIP"`
-	Enterprise string           `json:"enterprise,omitempty"`
-	Generic   int               `json:"generic,omitempty"`
-	Specific  int               `json:"specific,omitempty"`
-	Variables map[string]string `json:"variables"`
+	Time        int64  `json:"Time"`
+	FromAddress string `json:"FromAddress"`
+	TrapType    string `json:"TrapType"`
+	Variables   string `json:"Variables"`
+	Enterprise  string `json:"Enterprise,omitempty"`
+	Generic     int    `json:"GenericTrap,omitempty"`
+	Specific    int    `json:"SpecificTrap,omitempty"`
 }
 
 func NewTrapServer(cfg TrapConfig) *TrapServer {
 	return &TrapServer{
 		port:      cfg.Port,
 		community: cfg.Community,
+		store:     cfg.Store,
 		logStore:  cfg.LogStore,
 	}
 }
@@ -102,18 +108,31 @@ func (s *TrapServer) handleTrap(packet *gosnmp.SnmpPacket, addr *net.UDPAddr) {
 		srcIP = addr.IP.String()
 	}
 
-	now := time.Now().UnixNano()
-	msg := &TrapMessage{
-		Time:       now,
-		SrcIP:      srcIP,
-		Enterprise: packet.Enterprise,
-		Generic:    packet.GenericTrap,
-		Specific:   packet.SpecificTrap,
-		Variables:  make(map[string]string),
+	nodeName := ""
+	if s.store != nil && srcIP != "" {
+		if nodes, err := s.store.ListNodes(context.Background()); err == nil {
+			for _, n := range nodes {
+				if n.IP == srcIP {
+					nodeName = n.Name
+					break
+				}
+			}
+		}
 	}
 
-	for _, v := range packet.Variables {
-		msg.Variables[v.Name] = fmt.Sprintf("%v", v.Value)
+	trapType, variables, fromAddress := mib.DecodeTrap(packet, srcIP, nodeName)
+
+	now := time.Now().UnixNano()
+	msg := &TrapMessage{
+		Time:        now,
+		FromAddress: fromAddress,
+		TrapType:    trapType,
+		Variables:   variables,
+	}
+	if packet.Enterprise != "" {
+		msg.Enterprise = mib.OIDToName(packet.Enterprise)
+		msg.Generic = packet.GenericTrap
+		msg.Specific = packet.SpecificTrap
 	}
 
 	if s.logStore != nil {
@@ -121,7 +140,7 @@ func (s *TrapServer) handleTrap(packet *gosnmp.SnmpPacket, addr *net.UDPAddr) {
 		_ = s.logStore.WriteLog(&parquet.ParquetLogRecord{
 			Time: now,
 			Type: "trap",
-			Src:  srcIP,
+			Src:  fromAddress,
 			Log:  string(rawJSON),
 		})
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/gosnmp/gosnmp"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 )
 
 // SNMPPoller queries SNMP agents for MIB values.
@@ -22,13 +23,11 @@ func (p *SNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		}, nil
 	}
 
-	oid := pe.Params
-	if oid == "" {
-		oid = ".1.3.6.1.2.1.1.1.0" // sysDescr.0
+	oidParam := pe.Params
+	if oidParam == "" {
+		oidParam = ".1.3.6.1.2.1.1.1.0" // sysDescr.0
 	}
-	if !strings.HasPrefix(oid, ".") {
-		oid = "." + oid
-	}
+	oid := mib.NameToOID(oidParam)
 
 	port := uint16(161)
 	if node.SnmpPort > 0 {
@@ -87,7 +86,11 @@ func (p *SNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		}, nil
 	}
 
-	valStr := formatSNMPValue(resp.Variables[0])
+	name := mib.OIDToName(resp.Variables[0].Name)
+	valStr := mib.GetMIBValueString(name, &resp.Variables[0], false)
+	if valStr == "" {
+		valStr = formatSNMPValue(resp.Variables[0])
+	}
 
 	// Optional filter comparison
 	if pe.Filter != "" && !strings.Contains(valStr, pe.Filter) {

@@ -41,6 +41,7 @@ func NewManager(cfg Config) *Manager {
 		}),
 		trap: NewTrapServer(TrapConfig{
 			Port:     cfg.TrapPort,
+			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
 		}),
 		netflow: NewNetFlowServer(NetFlowConfig{

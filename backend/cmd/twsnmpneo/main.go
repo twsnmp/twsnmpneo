@@ -16,6 +16,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
@@ -96,6 +97,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer pqStore.Close()
+
+	// Initialize MIB subsystem
+	if err := mib.Init(*dataDir); err != nil {
+		slog.Warn("Failed to initialize MIB subsystem", "error", err)
+	}
 
 	// Initialize Private PKI
 	pkiDir := filepath.Join(*dataDir, "pki")

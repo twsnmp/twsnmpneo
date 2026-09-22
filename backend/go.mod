@@ -13,6 +13,13 @@ require (
 )
 
 require (
+	github.com/alecthomas/participle v0.4.1 // indirect
+	github.com/pkg/errors v0.8.1 // indirect
+	github.com/sleepinggenius2/gosmi v0.3.2 // indirect
+	github.com/twsnmp/go-mibdb v0.0.0-20210104220414-91387072cee7 // indirect
+)
+
+require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect

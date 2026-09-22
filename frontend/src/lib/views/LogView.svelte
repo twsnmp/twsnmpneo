@@ -135,9 +135,8 @@
     ],
     trap: [
       { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "src", label: "送信元 (From)", width: "w-40", sortable: true },
-      { key: "trapType", label: "TRAP種別", width: "w-36", sortable: true },
-      { key: "enterprise", label: "Enterprise", width: "w-44", sortable: true },
+      { key: "src", label: "送信元 (From)", width: "w-48", sortable: true },
+      { key: "trapType", label: "TRAP種別", width: "w-40", sortable: true },
       { key: "variables", label: "変数 (Variables)", sortable: true },
     ],
     netflow: [
@@ -335,9 +334,9 @@
           }
 
           // Trap
-          const trapType = parsed.trapType ?? parsed.TrapType ?? "";
-          const enterprise = parsed.enterprise ?? parsed.Enterprise ?? "";
-          const variables = parsed.variables ? JSON.stringify(parsed.variables) : "";
+          const trapType = parsed.TrapType ?? parsed.trapType ?? "";
+          const trapFrom = parsed.FromAddress ?? parsed.fromAddress ?? parsed.srcIP ?? src;
+          const variables = parsed.Variables ?? parsed.variables ?? "";
 
           // NetFlow
           const dst = parsed.dstIP ? `${parsed.dstIP}:${parsed.dstPort || 0}` : (parsed.DstAddr ? `${parsed.DstAddr}:${parsed.DstPort || 0}` : "-");
@@ -366,14 +365,13 @@
           return {
             raw: pl,
             time,
-            src,
+            src: activeTab === "trap" ? trapFrom : src,
             level,
             host,
             type: activeTab === "syslog" ? syslogType : (parsed.type ?? parsed.Type ?? ""),
             tag,
             message,
             trapType,
-            enterprise,
             variables,
             dst,
             netflowSrc,
@@ -842,9 +840,9 @@
                     {#if col.key === "time"}
                       <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
                     {:else if col.key === "level" || col.key === "state"}
-                      <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getLevelBadge(item.level || item.state)}">
-                        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.level || item.state)}"></span>
-                        {item.level || item.state}
+                      <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getLevelBadge(item.level || item.state || 'info')}">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.level || item.state || 'info')}"></span>
+                        {item.level || item.state || 'info'}
                       </span>
                     {:else if col.key === "bytes" && typeof item.bytes === "number"}
                       <span class="font-sans text-[11px] text-slate-300 leading-tight">{renderBytes(item.bytes)}</span>

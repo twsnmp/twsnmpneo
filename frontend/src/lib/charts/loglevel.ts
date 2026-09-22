@@ -11,8 +11,9 @@ export const showLogLevelChart = (
   const el = typeof dom === 'string' ? document.getElementById(dom) : dom;
   if (!el) return undefined;
 
-  if (chartInstance) {
-    chartInstance.dispose();
+  const existing = echarts.getInstanceByDom(el);
+  if (existing) {
+    existing.dispose();
   }
   chartInstance = echarts.init(el, 'dark');
 
@@ -126,7 +127,7 @@ export const showLogLevelChart = (
     xAxis: {
       type: 'time',
       name: 'Time',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10, margin: 2 },
+      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       axisLabel: {
         color: '#94a3b8',
@@ -138,7 +139,7 @@ export const showLogLevelChart = (
     yAxis: {
       type: 'value',
       name: 'Log count',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10, margin: 2 },
+      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       axisLabel: { color: '#94a3b8', fontSize: 10 },
       splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
@@ -175,7 +176,7 @@ export const showLogLevelChart = (
     ],
   };
 
-  chartInstance.setOption(option);
+  chartInstance.setOption(option, true);
   chartInstance.resize();
 
   if (zoomCallback) {
