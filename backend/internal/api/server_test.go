@@ -180,7 +180,7 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		Level: "info",
 		Event: "Server Started",
 	})
-	req = httptest.NewRequest(http.MethodGet, "/api/logs/events", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/events?level=info&limit=100", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Server Started") {
@@ -195,11 +195,27 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	})
 	_ = pqStore.Flush()
 
-	req = httptest.NewRequest(http.MethodGet, "/api/logs/query?type=syslog", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/query?type=syslog&limit=50", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "interface up") {
 		t.Errorf("query logs failed: code %d, body: %s", rec.Code, rec.Body.String())
+	}
+
+	// Test DELETE /api/logs/events
+	delEvReq := httptest.NewRequest(http.MethodDelete, "/api/logs/events", nil)
+	delEvRec := httptest.NewRecorder()
+	e.ServeHTTP(delEvRec, delEvReq)
+	if delEvRec.Code != http.StatusOK {
+		t.Errorf("delete event logs returned %d", delEvRec.Code)
+	}
+
+	// Test DELETE /api/logs/query?type=syslog
+	delPqReq := httptest.NewRequest(http.MethodDelete, "/api/logs/query?type=syslog", nil)
+	delPqRec := httptest.NewRecorder()
+	e.ServeHTTP(delPqRec, delPqReq)
+	if delPqRec.Code != http.StatusOK {
+		t.Errorf("delete parquet logs returned %d", delPqRec.Code)
 	}
 
 	// 8. AI Ask & Diagnose (using local tensai provider configured above)

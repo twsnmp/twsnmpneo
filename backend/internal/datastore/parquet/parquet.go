@@ -287,7 +287,10 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 
 	limit := filter.Limit
 	if limit <= 0 {
-		limit = 100
+		limit = 10000
+	}
+	if limit > 20000 {
+		limit = 20000
 	}
 
 	// Determine directories to scan
@@ -422,6 +425,34 @@ func (s *Store) Rotate(retentionDays int) (int, error) {
 		return nil
 	})
 	return deleted, err
+}
+
+// DeleteLogs removes all parquet files for the given logType, or all types if empty.
+func (s *Store) DeleteLogs(_ context.Context, logType string) error {
+	s.mu.Lock()
+	if logType != "" {
+		delete(s.typeBuffers, logType)
+	} else {
+		s.typeBuffers = make(map[string][]*ParquetLogRecord)
+		s.bufferCount = 0
+	}
+	s.mu.Unlock()
+
+	if logType != "" {
+		typeDir := filepath.Join(s.dir, logType)
+		return os.RemoveAll(typeDir)
+	}
+
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			_ = os.RemoveAll(filepath.Join(s.dir, e.Name()))
+		}
+	}
+	return nil
 }
 
 // Close flushes all data and terminates background threads.

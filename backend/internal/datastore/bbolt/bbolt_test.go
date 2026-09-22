@@ -304,6 +304,27 @@ func TestStore_EventLogs(t *testing.T) {
 	if logs[0].Event != "Ping Timeout" {
 		t.Errorf("expected first log to be Ping Timeout, got %s", logs[0].Event)
 	}
+
+	// Query with level filter
+	qHigh, err := store.QueryEventLogs(ctx, datastore.EventLogFilter{Level: "high"})
+	if err != nil || len(qHigh) != 1 || qHigh[0].Event != "Ping Timeout" {
+		t.Fatalf("query high level logs failed: %v, count=%d", err, len(qHigh))
+	}
+
+	// Query with keyword filter
+	qCPU, err := store.QueryEventLogs(ctx, datastore.EventLogFilter{Filter: "CPU"})
+	if err != nil || len(qCPU) != 1 || qCPU[0].Event != "High CPU" {
+		t.Fatalf("query keyword filter logs failed: %v, count=%d", err, len(qCPU))
+	}
+
+	// Delete all event logs
+	if err := store.DeleteEventLogs(ctx); err != nil {
+		t.Fatalf("delete event logs failed: %v", err)
+	}
+	delLogs, err := store.ListEventLogs(ctx, 10)
+	if err != nil || len(delLogs) != 0 {
+		t.Fatalf("expected 0 logs after delete, got %d (err=%v)", len(delLogs), err)
+	}
 }
 
 func TestStore_PersistenceReload(t *testing.T) {

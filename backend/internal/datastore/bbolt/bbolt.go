@@ -801,11 +801,29 @@ func (s *Store) AddEventLog(_ context.Context, event *datastore.EventLogEnt) err
 	})
 }
 
-func (s *Store) ListEventLogs(_ context.Context, limit int) ([]*datastore.EventLogEnt, error) {
+func (s *Store) ListEventLogs(ctx context.Context, limit int) ([]*datastore.EventLogEnt, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	logs := make([]*datastore.EventLogEnt, 0, limit)
+	return s.QueryEventLogs(ctx, datastore.EventLogFilter{Limit: limit})
+}
+
+func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFilter) ([]*datastore.EventLogEnt, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 10000
+	}
+	if limit > 20000 {
+		limit = 20000
+	}
+	logs := make([]*datastore.EventLogEnt, 0, min(limit, 1000))
+	keyword := strings.ToLower(filter.Filter)
+	targetLevel := strings.ToLower(filter.Level)
+	targetType := strings.ToLower(filter.Type)
+	targetNodeName := strings.ToLower(filter.NodeName)
 
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketEventLog)
@@ -814,16 +832,76 @@ func (s *Store) ListEventLogs(_ context.Context, limit int) ([]*datastore.EventL
 		}
 		c := b.Cursor()
 		count := 0
-		for k, v := c.Last(); k != nil && count < limit; k, v = c.Prev() {
-			var ev datastore.EventLogEnt
-			if err := json.Unmarshal(v, &ev); err == nil {
-				logs = append(logs, &ev)
-				count++
+
+		var k, v []byte
+		if filter.EndTime > 0 {
+			endKey := make([]byte, 12)
+			binary.BigEndian.PutUint64(endKey[0:8], uint64(filter.EndTime))
+			binary.BigEndian.PutUint32(endKey[8:12], 0xFFFFFFFF)
+			k, v = c.Seek(endKey)
+			if k == nil {
+				k, v = c.Last()
 			}
+		} else {
+			k, v = c.Last()
+		}
+
+		for ; k != nil && count < limit; k, v = c.Prev() {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			var ev datastore.EventLogEnt
+			if err := json.Unmarshal(v, &ev); err != nil {
+				continue
+			}
+
+			if filter.EndTime > 0 && ev.Time > filter.EndTime {
+				continue
+			}
+			if filter.StartTime > 0 && ev.Time < filter.StartTime {
+				break // Keys are monotonically increasing by timestamp, stop early
+			}
+			if filter.NodeID != "" && ev.NodeID != filter.NodeID {
+				continue
+			}
+			if targetNodeName != "" && !strings.Contains(strings.ToLower(ev.NodeName), targetNodeName) {
+				continue
+			}
+			if targetLevel != "" && targetLevel != "all" && !strings.EqualFold(ev.Level, targetLevel) {
+				continue
+			}
+			if targetType != "" && targetType != "all" && !strings.EqualFold(ev.Type, targetType) {
+				continue
+			}
+			if keyword != "" {
+				evLower := strings.ToLower(ev.Event)
+				nodeLower := strings.ToLower(ev.NodeName)
+				typeLower := strings.ToLower(ev.Type)
+				levelLower := strings.ToLower(ev.Level)
+				if !strings.Contains(evLower, keyword) &&
+					!strings.Contains(nodeLower, keyword) &&
+					!strings.Contains(typeLower, keyword) &&
+					!strings.Contains(levelLower, keyword) {
+					continue
+				}
+			}
+
+			logs = append(logs, &ev)
+			count++
 		}
 		return nil
 	})
 	return logs, err
+}
+
+func (s *Store) DeleteEventLogs(_ context.Context) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		if err := tx.DeleteBucket(bucketEventLog); err != nil && err != bbolt.ErrBucketNotFound {
+			return err
+		}
+		_, err := tx.CreateBucketIfNotExists(bucketEventLog)
+		return err
+	})
 }
 
 func (s *Store) CountEventLogs(_ context.Context) (int64, error) {
@@ -838,4 +916,5 @@ func (s *Store) CountEventLogs(_ context.Context) (int64, error) {
 	})
 	return count, err
 }
+
 

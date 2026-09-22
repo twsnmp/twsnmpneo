@@ -111,6 +111,20 @@ func TestStore_WriteAndQuery(t *testing.T) {
 	if len(srcFiltered) != 4 {
 		t.Fatalf("expected 4 trap matches, got %d", len(srcFiltered))
 	}
+
+	// 5. DeleteLogs by type
+	if err := store.DeleteLogs(ctx, "trap"); err != nil {
+		t.Fatalf("delete trap logs failed: %v", err)
+	}
+	afterDel, err := store.Query(ctx, parquet.LogFilter{Type: "trap"})
+	if err != nil || len(afterDel) != 0 {
+		t.Fatalf("expected 0 trap records after delete, got %d (err=%v)", len(afterDel), err)
+	}
+	// syslog should still remain
+	sysRemaining, err := store.Query(ctx, parquet.LogFilter{Type: "syslog"})
+	if err != nil || len(sysRemaining) != 6 {
+		t.Fatalf("expected 6 syslog records remaining, got %d (err=%v)", len(sysRemaining), err)
+	}
 }
 
 func TestStore_Rotate(t *testing.T) {

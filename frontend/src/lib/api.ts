@@ -618,11 +618,39 @@ export async function deletePolling(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete polling failed: ${res.statusText}`);
 }
 
-export async function fetchEventLogs(): Promise<EventLogEnt[]> {
-  const res = await fetch(`${API_BASE}/logs/events`);
+export interface EventLogQueryFilter {
+  start?: number;
+  end?: number;
+  level?: string;
+  type?: string;
+  nodeId?: string;
+  nodeName?: string;
+  filter?: string;
+  limit?: number;
+}
+
+export async function fetchEventLogs(filter?: EventLogQueryFilter): Promise<EventLogEnt[]> {
+  const params = new URLSearchParams();
+  if (filter) {
+    if (filter.start) params.set('start', String(filter.start));
+    if (filter.end) params.set('end', String(filter.end));
+    if (filter.level && filter.level !== 'all') params.set('level', filter.level);
+    if (filter.type && filter.type !== 'all') params.set('type', filter.type);
+    if (filter.nodeId) params.set('nodeId', filter.nodeId);
+    if (filter.nodeName) params.set('nodeName', filter.nodeName);
+    if (filter.filter) params.set('filter', filter.filter);
+    if (filter.limit) params.set('limit', String(filter.limit));
+  }
+  const queryStr = params.toString();
+  const res = await fetch(`${API_BASE}/logs/events${queryStr ? '?' + queryStr : ''}`);
   if (!res.ok) throw new Error(`Fetch event logs failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeEventLog);
+}
+
+export async function deleteEventLogs(): Promise<void> {
+  const res = await fetch(`${API_BASE}/logs/events`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete event logs failed: ${res.statusText}`);
 }
 
 export function normalizeParquetLog(raw: any): ParquetLogRecord {
@@ -641,14 +669,37 @@ export function normalizeParquetLog(raw: any): ParquetLogRecord {
   };
 }
 
-export async function queryParquetLogs(type = '', filter = ''): Promise<ParquetLogRecord[]> {
+export interface ParquetLogQueryFilter {
+  type?: string;
+  filter?: string;
+  src?: string;
+  start?: number;
+  end?: number;
+  limit?: number;
+}
+
+export async function queryParquetLogs(typeOrFilter: string | ParquetLogQueryFilter = '', filterStr = ''): Promise<ParquetLogRecord[]> {
   const params = new URLSearchParams();
-  if (type) params.set('type', type);
-  if (filter) params.set('filter', filter);
+  if (typeof typeOrFilter === 'object') {
+    if (typeOrFilter.type) params.set('type', typeOrFilter.type);
+    if (typeOrFilter.filter) params.set('filter', typeOrFilter.filter);
+    if (typeOrFilter.src) params.set('src', typeOrFilter.src);
+    if (typeOrFilter.start) params.set('start', String(typeOrFilter.start));
+    if (typeOrFilter.end) params.set('end', String(typeOrFilter.end));
+    if (typeOrFilter.limit) params.set('limit', String(typeOrFilter.limit));
+  } else {
+    if (typeOrFilter) params.set('type', typeOrFilter);
+    if (filterStr) params.set('filter', filterStr);
+  }
   const res = await fetch(`${API_BASE}/logs/query?${params.toString()}`);
   if (!res.ok) throw new Error(`Query parquet logs failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeParquetLog);
+}
+
+export async function deleteParquetLogs(logType: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/logs/query?type=${encodeURIComponent(logType)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete parquet logs failed: ${res.statusText}`);
 }
 
 export async function getLogCounts(): Promise<Record<string, number>> {

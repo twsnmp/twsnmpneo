@@ -500,19 +500,6 @@ func NewServer(cfg Config) (*Server, error) {
 
 		// Event Logs
 		apiGroup.GET("/logs/events", func(c echo.Context) error {
-			logs, err := cfg.Store.ListEventLogs(c.Request().Context(), 100)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			}
-			return c.JSON(http.StatusOK, logs)
-		})
-	}
-
-	// Parquet Logs Query
-	if cfg.LogStore != nil {
-		apiGroup.GET("/logs/query", func(c echo.Context) error {
-			logType := c.QueryParam("type")
-			filter := c.QueryParam("filter")
 			var startTime int64
 			var endTime int64
 			if s := c.QueryParam("start"); s != "" {
@@ -521,10 +508,67 @@ func NewServer(cfg Config) (*Server, error) {
 			if e := c.QueryParam("end"); e != "" {
 				endTime, _ = strconv.ParseInt(e, 10, 64)
 			}
+			limit := 10000
+			if l := c.QueryParam("limit"); l != "" {
+				if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
+			logs, err := cfg.Store.QueryEventLogs(c.Request().Context(), datastore.EventLogFilter{
+				StartTime: startTime,
+				EndTime:   endTime,
+				Level:     c.QueryParam("level"),
+				Type:      c.QueryParam("type"),
+				NodeID:    c.QueryParam("nodeId"),
+				NodeName:  c.QueryParam("nodeName"),
+				Filter:    c.QueryParam("filter"),
+				Limit:     limit,
+			})
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, logs)
+		})
+
+		apiGroup.DELETE("/logs/events", func(c echo.Context) error {
+			if err := cfg.Store.DeleteEventLogs(c.Request().Context()); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "warn",
+				Event: "すべてのイベントログを消去しました",
+			})
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+	}
+
+	// Parquet Logs Query
+	if cfg.LogStore != nil {
+		apiGroup.GET("/logs/query", func(c echo.Context) error {
+			logType := c.QueryParam("type")
+			filter := c.QueryParam("filter")
+			src := c.QueryParam("src")
+			var startTime int64
+			var endTime int64
+			if s := c.QueryParam("start"); s != "" {
+				startTime, _ = strconv.ParseInt(s, 10, 64)
+			}
+			if e := c.QueryParam("end"); e != "" {
+				endTime, _ = strconv.ParseInt(e, 10, 64)
+			}
+			limit := 10000
+			if l := c.QueryParam("limit"); l != "" {
+				if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
 			logs, err := cfg.LogStore.Query(c.Request().Context(), parquet.LogFilter{
 				Type:      logType,
 				Filter:    filter,
-				Limit:     100,
+				Src:       src,
+				Limit:     limit,
 				StartTime: startTime,
 				EndTime:   endTime,
 			})
@@ -532,6 +576,26 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, logs)
+		})
+
+		apiGroup.DELETE("/logs/query", func(c echo.Context) error {
+			logType := c.QueryParam("type")
+			if err := cfg.LogStore.DeleteLogs(c.Request().Context(), logType); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if cfg.Store != nil {
+				typeStr := logType
+				if typeStr == "" {
+					typeStr = "all"
+				}
+				_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+					Time:  time.Now().UnixNano(),
+					Type:  "user",
+					Level: "warn",
+					Event: fmt.Sprintf("%s ログを消去しました", typeStr),
+				})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
 		apiGroup.GET("/logs/counts", func(c echo.Context) error {

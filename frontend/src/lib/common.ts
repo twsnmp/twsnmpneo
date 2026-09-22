@@ -133,3 +133,31 @@ export const renderTime = (t: number) => {
   return formatTimeStr(t);
 };
 
+export const renderDuration = (sec: number): string => {
+  if (!sec || sec <= 0) return '0秒';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}日`);
+  if (h > 0) parts.push(`${h}時間`);
+  if (m > 0) parts.push(`${m}分`);
+  if (s > 0 || parts.length === 0) parts.push(`${s}秒`);
+  return parts.join(' ');
+};
+
+export const renderBytes = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+export const renderSLA = (sla: number): string => {
+  if (typeof sla !== 'number' || isNaN(sla)) return '100.000%';
+  const val = Math.max(0, Math.min(100, sla));
+  return val.toFixed(3) + '%';
+};
+

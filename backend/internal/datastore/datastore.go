@@ -68,5 +68,7 @@ type DataStore interface {
 	// Event Logs
 	AddEventLog(ctx context.Context, event *EventLogEnt) error
 	ListEventLogs(ctx context.Context, limit int) ([]*EventLogEnt, error)
+	QueryEventLogs(ctx context.Context, filter EventLogFilter) ([]*EventLogEnt, error)
+	DeleteEventLogs(ctx context.Context) error
 	CountEventLogs(ctx context.Context) (int64, error)
 }

@@ -181,6 +181,18 @@ type EventLogEnt struct {
 	Downtime  int64  `json:"Downtime,omitempty"`
 }
 
+// EventLogFilter defines query search options for event logs.
+type EventLogFilter struct {
+	StartTime int64  `json:"start"`
+	EndTime   int64  `json:"end"`
+	Level     string `json:"level"`
+	Type      string `json:"type"`
+	NodeID    string `json:"nodeId"`
+	NodeName  string `json:"nodeName"`
+	Filter    string `json:"filter"`
+	Limit     int    `json:"limit"`
+}
+
 // BackImageEnt holds background image settings for map rendering.
 type BackImageEnt struct {
 	X      int    `json:"X"`
