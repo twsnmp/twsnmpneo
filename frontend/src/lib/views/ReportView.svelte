@@ -9,7 +9,7 @@
     type PollingEnt,
     type EventLogEnt
   } from "../api";
-  import { getStateColor, getStateName } from "../common";
+  import { getStateColor, getStateName, formatTimeStr } from "../common";
   import {
     Laptop,
     Network,
@@ -631,7 +631,7 @@
               {:else}
                 {#each logs as l}
                   <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3.5 text-cyan-400 whitespace-nowrap">{new Date(l.time * 1000).toLocaleString()}</td>
+                    <td class="p-3.5 text-cyan-400 whitespace-nowrap">{formatTimeStr(l.time)}</td>
                     <td class="p-3.5">
                       <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border" style="background-color: {getStateColor(l.level)}20; border-color: {getStateColor(l.level)}50; color: {getStateColor(l.level)}">
                         {l.level}

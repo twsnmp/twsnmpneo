@@ -11,12 +11,15 @@ import (
 
 // Config holds options for all receivers managed together.
 type Config struct {
-	Store       datastore.DataStore
-	LogStore    *parquet.Store
-	SyslogUDP   int
-	SyslogTCP   int
-	TrapPort    int
-	NetFlowPort int
+	Store        datastore.DataStore
+	LogStore     *parquet.Store
+	SyslogUDP    int
+	SyslogTCP    int
+	TrapPort     int
+	NetFlowPort  int
+	OTelPort     int
+	MQTTPort     int
+	MqttToSyslog bool
 }
 
 // Manager controls the lifecycle of all embedded protocol receivers.
@@ -24,6 +27,8 @@ type Manager struct {
 	syslog  *SyslogServer
 	trap    *TrapServer
 	netflow *NetFlowServer
+	otel    *OTelServer
+	mqtt    *MQTTServer
 }
 
 // NewManager creates an instance of the receiver manager.
@@ -41,6 +46,15 @@ func NewManager(cfg Config) *Manager {
 		netflow: NewNetFlowServer(NetFlowConfig{
 			Port:     cfg.NetFlowPort,
 			LogStore: cfg.LogStore,
+		}),
+		otel: NewOTelServer(OTelConfig{
+			Port:     cfg.OTelPort,
+			LogStore: cfg.LogStore,
+		}),
+		mqtt: NewMQTTServer(MQTTConfig{
+			Port:         cfg.MQTTPort,
+			LogStore:     cfg.LogStore,
+			MqttToSyslog: cfg.MqttToSyslog,
 		}),
 	}
 }
@@ -67,6 +81,18 @@ func (m *Manager) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		_ = m.netflow.Start(ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = m.otel.Start(ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = m.mqtt.Start(ctx)
 	}()
 
 	<-ctx.Done()

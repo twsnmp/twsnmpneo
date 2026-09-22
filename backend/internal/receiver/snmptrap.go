@@ -57,7 +57,7 @@ func (s *TrapServer) Start(ctx context.Context) error {
 		s.handleTrap(packet, addr)
 	}
 
-	listenAddr := fmt.Sprintf("0.0.0.0:%d", s.port)
+	listenAddr := fmt.Sprintf(":%d", s.port)
 	slog.Info("Starting SNMP TRAP receiver", "addr", listenAddr)
 
 	errCh := make(chan error, 1)
@@ -71,8 +71,16 @@ func (s *TrapServer) Start(ctx context.Context) error {
 	s.listener = tl
 	s.mu.Unlock()
 
-	// Wait until listening socket is actually ready
-	<-tl.Listening()
+	// Wait until listening socket is actually ready or error occurs
+	select {
+	case <-tl.Listening():
+		slog.Info("Started SNMP TRAP receiver", "addr", listenAddr)
+	case err := <-errCh:
+		slog.Warn("Failed to start SNMP TRAP receiver", "addr", listenAddr, "error", err)
+		return fmt.Errorf("listen snmptrap: %w", err)
+	case <-ctx.Done():
+		return nil
+	}
 
 	select {
 	case <-ctx.Done():

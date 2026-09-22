@@ -33,12 +33,19 @@ func main() {
 		port        = flag.Int("port", 8080, "Web interface port")
 		syslogUDP   = flag.Int("syslog-udp", 0, "Syslog UDP port (0 to disable or default)")
 		syslogTCP   = flag.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
-		trapPort    = flag.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable)")
-		netflowPort = flag.Int("netflow-port", 0, "NetFlow UDP port (0 to disable)")
+		trapPort    = flag.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable or default 162)")
+		netflowPort = flag.Int("netflow-port", 0, "NetFlow UDP port (0 to disable or default 2055)")
+		otelPort    = flag.Int("otel-port", 0, "OpenTelemetry OTLP HTTP port (0 to disable or default 4318)")
+		mqttPort    = flag.Int("mqtt-port", 0, "MQTT broker port (0 to disable or default 1883)")
 		debug       = flag.Bool("debug", false, "Enable debug logging")
 		verFlag     = flag.Bool("version", false, "Show version and exit")
 	)
 	flag.Parse()
+
+	explicitFlags := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) {
+		explicitFlags[f.Name] = true
+	})
 
 	if *verFlag {
 		fmt.Printf("twsnmpneo %s (commit: %s, date: %s)\n", version, commit, date)
@@ -159,14 +166,50 @@ func main() {
 		}
 	}()
 
+	// Resolve receiver ports from CLI flags and MapConf
+	mapConf, _ := store.GetMapConf(ctx)
+
+	sUDP := *syslogUDP
+	if !explicitFlags["syslog-udp"] && (mapConf == nil || mapConf.EnableSyslogd) {
+		sUDP = 514
+	}
+	sTCP := *syslogTCP
+	if !explicitFlags["syslog-tcp"] && (mapConf == nil || mapConf.EnableSyslogd) {
+		sTCP = 514
+	}
+	tPort := *trapPort
+	if !explicitFlags["trap-port"] && (mapConf == nil || mapConf.EnableTrapd) {
+		tPort = 162
+	}
+	nfPort := *netflowPort
+	if !explicitFlags["netflow-port"] && (mapConf == nil || mapConf.EnableNetflowd) {
+		nfPort = 2055
+	}
+	oPort := *otelPort
+	if !explicitFlags["otel-port"] && (mapConf == nil || mapConf.EnableOTel) {
+		oPort = 4318
+	}
+	mPort := *mqttPort
+	if !explicitFlags["mqtt-port"] && (mapConf == nil || mapConf.EnableMqtt) {
+		mPort = 1883
+	}
+
+	mqttToSyslog := false
+	if mapConf != nil {
+		mqttToSyslog = mapConf.MqttToSyslog
+	}
+
 	// Initialize Protocol Receivers
 	recvMgr := receiver.NewManager(receiver.Config{
-		Store:       store,
-		LogStore:    pqStore,
-		SyslogUDP:   *syslogUDP,
-		SyslogTCP:   *syslogTCP,
-		TrapPort:    *trapPort,
-		NetFlowPort: *netflowPort,
+		Store:        store,
+		LogStore:     pqStore,
+		SyslogUDP:    sUDP,
+		SyslogTCP:    sTCP,
+		TrapPort:     tPort,
+		NetFlowPort:  nfPort,
+		OTelPort:     oPort,
+		MQTTPort:     mPort,
+		MqttToSyslog: mqttToSyslog,
 	})
 	go func() {
 		if err := recvMgr.Start(ctx); err != nil {

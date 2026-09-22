@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { initVPanel, setVPanel } from "../map/vpanel";
-  import { getStateColor, getStateName } from "../common";
+  import { getStateColor, getStateName, formatTimeStr } from "../common";
   import type { NodeEnt, PollingEnt, EventLogEnt } from "../api";
   import { X, Box, ListTree, Activity, FileText, CheckCircle2, RotateCw, ZoomIn, ZoomOut, Cpu } from "@lucide/svelte";
 
@@ -212,7 +212,7 @@
             {#each logs.filter((l) => l.node_id === node?.id || l.node_name === node?.name) as l}
               <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-3 shadow-md space-y-1">
                 <div class="flex items-center justify-between text-[11px] text-slate-400">
-                  <span class="text-cyan-400">{new Date(l.time * 1000).toLocaleString()}</span>
+                  <span class="text-cyan-400">{formatTimeStr(l.time)}</span>
                   <span class="font-semibold uppercase text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{l.type}</span>
                 </div>
                 <div class="text-slate-100 font-sans text-xs">{l.event}</div>

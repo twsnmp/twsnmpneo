@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -512,12 +513,20 @@ func NewServer(cfg Config) (*Server, error) {
 		apiGroup.GET("/logs/query", func(c echo.Context) error {
 			logType := c.QueryParam("type")
 			filter := c.QueryParam("filter")
+			var startTime int64
+			var endTime int64
+			if s := c.QueryParam("start"); s != "" {
+				startTime, _ = strconv.ParseInt(s, 10, 64)
+			}
+			if e := c.QueryParam("end"); e != "" {
+				endTime, _ = strconv.ParseInt(e, 10, 64)
+			}
 			logs, err := cfg.LogStore.Query(c.Request().Context(), parquet.LogFilter{
 				Type:      logType,
 				Filter:    filter,
 				Limit:     100,
-				StartTime: time.Now().Add(-24 * time.Hour).UnixNano(),
-				EndTime:   time.Now().UnixNano(),
+				StartTime: startTime,
+				EndTime:   endTime,
 			})
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

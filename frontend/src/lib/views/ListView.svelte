@@ -17,7 +17,7 @@
     type LineEnt,
     type DrawItemEnt,
   } from "../api";
-  import { getStateColor, getStateName } from "../common";
+  import { getStateColor, getStateName, formatTimeStr } from "../common";
   import NodeDialog from "../components/NodeDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
   import PollingDialog from "../components/PollingDialog.svelte";
@@ -632,7 +632,7 @@
                     {p.last_val !== undefined ? p.last_val.toFixed(2) + " ms" : "-"}
                   </td>
                   <td class="py-2 px-3.5 text-slate-400 text-[11px]">
-                    {p.last_time ? new Date(p.last_time * 1000).toLocaleString() : "-"}
+                    {formatTimeStr(p.last_time)}
                   </td>
                   <td class="py-2 px-3.5 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">

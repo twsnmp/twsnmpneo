@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -19,11 +20,11 @@ import (
 
 // ParquetLogRecord defines the schema for columnar log persistence.
 type ParquetLogRecord struct {
-	Time      int64  `parquet:"time,snappy"`
-	Timestamp int64  `parquet:"timestamp,timestamp(nanosecond),snappy"`
-	Type      string `parquet:"type,dict,snappy"`
-	Src       string `parquet:"src,dict,snappy"`
-	Log       string `parquet:"log,zstd"`
+	Time      int64  `parquet:"time,snappy" json:"time"`
+	Timestamp int64  `parquet:"timestamp,timestamp(nanosecond),snappy" json:"timestamp"`
+	Type      string `parquet:"type,dict,snappy" json:"type"`
+	Src       string `parquet:"src,dict,snappy" json:"src"`
+	Log       string `parquet:"log,zstd" json:"log"`
 }
 
 // LogFilter defines query search options across Parquet files.
@@ -134,6 +135,7 @@ func (s *Store) WriteLog(record *ParquetLogRecord) error {
 
 // Flush writes all in-memory buffered records to Parquet files on disk.
 func (s *Store) Flush() error {
+	st := time.Now()
 	s.mu.Lock()
 	if s.bufferCount == 0 {
 		s.mu.Unlock()
@@ -144,10 +146,32 @@ func (s *Store) Flush() error {
 	s.bufferCount = 0
 	s.mu.Unlock()
 
+	sc := 0
+	nfc := 0
+	tc := 0
+	ac := 0
+	sf := 0
+	oc := 0
+
 	var firstErr error
 	for logType, records := range toFlush {
-		if len(records) == 0 {
+		count := len(records)
+		if count == 0 {
 			continue
+		}
+		switch logType {
+		case "syslog":
+			sc += count
+		case "netflow":
+			nfc += count
+		case "trap", "snmptrap":
+			tc += count
+		case "arplog", "arp":
+			ac += count
+		case "sflow", "sflowCounter":
+			sf += count
+		default:
+			oc += count
 		}
 		if err := s.writeParquetFile(logType, records); err != nil {
 			slog.Error("Failed to flush parquet file", "type", logType, "error", err)
@@ -156,6 +180,7 @@ func (s *Store) Flush() error {
 			}
 		}
 	}
+	log.Printf("syslog=%d,netflow=%d,trap=%d,arplog=%d,sflow=%d,other=%d,dur=%v", sc, nfc, tc, ac, sf, oc, time.Since(st))
 	return firstErr
 }
 
@@ -182,7 +207,6 @@ func (s *Store) writeParquetFile(logType string, records []*ParquetLogRecord) er
 	defer f.Close()
 
 	writer := parquet.NewGenericWriter[ParquetLogRecord](f)
-	defer writer.Close()
 
 	valRecords := make([]ParquetLogRecord, len(records))
 	for i, r := range records {
@@ -191,7 +215,11 @@ func (s *Store) writeParquetFile(logType string, records []*ParquetLogRecord) er
 
 	_, err = writer.Write(valRecords)
 	if err != nil {
+		_ = writer.Close()
 		return fmt.Errorf("write parquet data: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("close parquet writer: %w", err)
 	}
 	return nil
 }

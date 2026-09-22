@@ -171,6 +171,11 @@ export interface ParquetLogRecord {
   type: string;
   src: string;
   log: string;
+
+  Time?: number;
+  Type?: string;
+  Src?: string;
+  Log?: string;
 }
 
 export interface SystemHealth {
@@ -620,13 +625,30 @@ export async function fetchEventLogs(): Promise<EventLogEnt[]> {
   return (Array.isArray(list) ? list : []).map(normalizeEventLog);
 }
 
+export function normalizeParquetLog(raw: any): ParquetLogRecord {
+  if (!raw) return { time: 0, type: '', src: '', log: '' };
+  const time = typeof raw.time === 'number' ? raw.time : (typeof raw.Time === 'number' ? raw.Time : 0);
+  const type = raw.type || raw.Type || '';
+  const src = raw.src || raw.Src || '';
+  const log = raw.log || raw.Log || '';
+
+  return {
+    ...raw,
+    time, Time: time,
+    type, Type: type,
+    src, Src: src,
+    log, Log: log,
+  };
+}
+
 export async function queryParquetLogs(type = '', filter = ''): Promise<ParquetLogRecord[]> {
   const params = new URLSearchParams();
   if (type) params.set('type', type);
   if (filter) params.set('filter', filter);
   const res = await fetch(`${API_BASE}/logs/query?${params.toString()}`);
   if (!res.ok) throw new Error(`Query parquet logs failed: ${res.statusText}`);
-  return res.json();
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizeParquetLog);
 }
 
 export async function askAI(prompt: string, system = ''): Promise<string> {

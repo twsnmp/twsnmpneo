@@ -76,6 +76,14 @@
         <div class="font-medium text-foreground">内蔵 MCP サーバー</div>
         <div class="mt-1 font-mono text-emerald-500">SSE /api/mcp/sse</div>
       </div>
+      <div class="rounded-lg border border-border p-3">
+        <div class="font-medium text-foreground">OpenTelemetry 受信機</div>
+        <div class="mt-1 font-mono text-emerald-500">HTTP :4318 (OTLP)</div>
+      </div>
+      <div class="rounded-lg border border-border p-3">
+        <div class="font-medium text-foreground">MQTT ブローカー</div>
+        <div class="mt-1 font-mono text-emerald-500">TCP :1883</div>
+      </div>
     </div>
   </div>
 </div>

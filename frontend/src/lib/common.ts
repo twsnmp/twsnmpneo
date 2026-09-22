@@ -84,11 +84,52 @@ export const getIconCode = (icon: string): string => {
 };
 
 export const formatTime = (date: any, format = '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}') => {
-  return echarts.time.format(date, format, false);
+  try {
+    return echarts.time.format(date, format, false);
+  } catch {
+    const d = date instanceof Date ? date : new Date(date);
+    return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+  }
+};
+
+export const formatTimeStr = (t: number | string | Date | undefined | null): string => {
+  if (t === undefined || t === null || t === '') return '-';
+  if (t instanceof Date) {
+    return isNaN(t.getTime()) ? '-' : formatTime(t);
+  }
+  let ms: number;
+  if (typeof t === 'string') {
+    const num = Number(t);
+    if (!isNaN(num) && num > 0) {
+      t = num;
+    } else {
+      const d = new Date(t);
+      return isNaN(d.getTime()) ? String(t) : formatTime(d);
+    }
+  }
+  if (typeof t === 'number') {
+    if (t <= 0) return '-';
+    if (t > 1e16) {
+      // Nanoseconds (e.g., 1.7e18) -> divide by 1,000,000 to get ms
+      ms = Math.floor(t / 1e6);
+    } else if (t > 1e13) {
+      // Microseconds (e.g., 1.7e15) -> divide by 1,000 to get ms
+      ms = Math.floor(t / 1e3);
+    } else if (t > 1e10) {
+      // Milliseconds (e.g., 1.7e12)
+      ms = t;
+    } else {
+      // Seconds (e.g., 1.7e9) -> multiply by 1,000 to get ms
+      ms = t * 1000;
+    }
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? '-' : formatTime(d);
+  }
+  return '-';
 };
 
 export const renderTime = (t: number) => {
-  if (t < 1) return '';
-  const d = new Date(t / (1000 * 1000));
-  return formatTime(d);
+  if (!t || t < 1) return '';
+  return formatTimeStr(t);
 };
+
