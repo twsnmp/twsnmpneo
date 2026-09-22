@@ -103,6 +103,11 @@ func main() {
 		slog.Warn("Failed to initialize MIB subsystem", "error", err)
 	}
 
+	// Initialize GeoIP subsystem
+	if err := datastore.InitGeoIP(*dataDir); err != nil {
+		slog.Warn("Failed to initialize GeoIP database", "error", err)
+	}
+
 	// Initialize Private PKI
 	pkiDir := filepath.Join(*dataDir, "pki")
 	pkiMgr, err := pki.New(pki.Config{
@@ -235,6 +240,7 @@ func main() {
 		Port:      *port,
 		Debug:     *debug,
 		Version:   version,
+		DataDir:   *dataDir,
 		Store:     store,
 		LogStore:  pqStore,
 		MCPServer: mcpServer,

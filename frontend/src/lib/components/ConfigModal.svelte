@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fetchMapConf, saveMapConf, fetchNotifyConf, saveNotifyConf } from "../api";
+  import { fetchMapConf, saveMapConf, fetchNotifyConf, saveNotifyConf, uploadGeoIP, deleteGeoIP } from "../api";
   import {
     X,
     Save,
@@ -15,7 +15,10 @@
     Radio,
     Sparkles,
     Cpu,
-    Network
+    Network,
+    Globe,
+    Upload,
+    Trash2
   } from "@lucide/svelte";
 
   let { show = $bindable(false) } = $props<{ show: boolean }>();
@@ -108,6 +111,7 @@
         mcpEndpoint = conf.MCPEndpoint ?? conf.mcp_endpoint ?? "";
         mcpToken = conf.MCPToken ?? conf.mcp_token ?? "";
         logFormat = conf.LogFormat ?? conf.log_format ?? "parquet";
+        geoIPInfo = conf.GeoIPInfo ?? conf.geo_ip_info ?? "";
       }
 
       const nConf = await fetchNotifyConf().catch(() => null);
@@ -125,6 +129,47 @@
       }
     } catch (e) {
       console.error("Failed to load configuration:", e);
+    }
+  }
+
+  // GeoIP database handlers
+  let geoIPInfo = $state("");
+  let geoIPLoading = $state(false);
+  let geoIPFileInput: HTMLInputElement | undefined = $state();
+
+  async function handleUploadGeoIP(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (!target.files || target.files.length === 0) return;
+    const file = target.files[0];
+    geoIPLoading = true;
+    saveMsg = "";
+    saveError = "";
+    try {
+      const res = await uploadGeoIP(file);
+      saveMsg = `IP位置情報DB (GeoIP) を更新しました (Ver: ${res.version || "有効"})`;
+      await loadConfig();
+    } catch (err: any) {
+      saveError = `GeoIP DB更新失敗: ${err.message || err}`;
+    } finally {
+      geoIPLoading = false;
+      if (geoIPFileInput) geoIPFileInput.value = "";
+    }
+  }
+
+  async function handleDeleteGeoIP() {
+    if (!confirm("本当にIP位置情報DB (GeoIP) を削除しますか？")) return;
+    geoIPLoading = true;
+    saveMsg = "";
+    saveError = "";
+    try {
+      await deleteGeoIP();
+      saveMsg = "IP位置情報DB (GeoIP) を削除しました";
+      geoIPInfo = "";
+      await loadConfig();
+    } catch (err: any) {
+      saveError = `GeoIP DB削除失敗: ${err.message || err}`;
+    } finally {
+      geoIPLoading = false;
     }
   }
 
@@ -432,6 +477,69 @@
                     </div>
                   </div>
                 {/if}
+              </div>
+
+              <!-- GeoIP Database Section (TWSNMP FC / FK Compatible) -->
+              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <Globe class="w-4 h-4 text-cyan-400" />
+                    IP位置情報データベース (GeoIP)
+                  </h3>
+                  {#if geoIPInfo}
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      データベース有効 (Ver: {geoIPInfo})
+                    </span>
+                  {:else}
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-400">
+                      未登録
+                    </span>
+                  {/if}
+                </div>
+
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                  NetFlow や各種ログの IP アドレスから地理的位置（国・緯度経度・都市名）を検索するための MaxMind GeoIP2 / GeoLite2 形式のバイナリデータベース (<code class="text-cyan-400">.mmdb</code>) を管理します。
+                </p>
+
+                <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4 space-y-3">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="space-y-0.5">
+                      <span class="block text-xs font-semibold text-slate-300">GeoIP データベースファイル (.mmdb)</span>
+                      <span class="block text-[11px] text-slate-500">GeoLite2-City.mmdb などを選択してアップロードします</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept=".mmdb"
+                        bind:this={geoIPFileInput}
+                        onchange={handleUploadGeoIP}
+                        class="hidden"
+                        id="geoip-file-input"
+                      />
+                      <label
+                        for="geoip-file-input"
+                        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-2 text-xs font-semibold text-cyan-300 transition-colors cursor-pointer {geoIPLoading ? 'opacity-50 pointer-events-none' : ''}"
+                      >
+                        <Upload class="w-3.5 h-3.5" />
+                        <span>{geoIPLoading ? "適用中..." : "ファイルを選択して適用"}</span>
+                      </label>
+
+                      {#if geoIPInfo}
+                        <button
+                          type="button"
+                          onclick={handleDeleteGeoIP}
+                          disabled={geoIPLoading}
+                          class="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-xs font-semibold text-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <Trash2 class="w-3.5 h-3.5" />
+                          <span>削除</span>
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

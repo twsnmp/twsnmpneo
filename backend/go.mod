@@ -14,8 +14,11 @@ require (
 
 require (
 	github.com/alecthomas/participle v0.4.1 // indirect
+	github.com/oschwald/geoip2-golang v1.11.0 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sleepinggenius2/gosmi v0.3.2 // indirect
+	github.com/tehmaze/netflow v0.0.0-20170921210347-852af103667f // indirect
 	github.com/twsnmp/go-mibdb v0.0.0-20210104220414-91387072cee7 // indirect
 )
 

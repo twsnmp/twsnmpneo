@@ -305,6 +305,21 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
 		t.Errorf("unexpected status for SPA path: %d", rec.Code)
 	}
+
+	// 10. Test GeoIP endpoints
+	req = httptest.NewRequest(http.MethodDelete, "/api/conf/geoip", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for DELETE /api/conf/geoip, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/map/conf", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for GET /api/map/conf, got %d", rec.Code)
+	}
 }
 
 func TestAPIServer_StartShutdown(t *testing.T) {

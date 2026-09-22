@@ -1,15 +1,23 @@
 package receiver
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/tehmaze/netflow"
+	"github.com/tehmaze/netflow/ipfix"
+	"github.com/tehmaze/netflow/netflow5"
+	"github.com/tehmaze/netflow/netflow9"
+	"github.com/tehmaze/netflow/read"
+	"github.com/tehmaze/netflow/session"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 )
 
@@ -19,44 +27,20 @@ type NetFlowConfig struct {
 	LogStore *parquet.Store
 }
 
-type v9TemplateField struct {
-	Type   uint16
-	Length uint16
-}
-
-type v9Template struct {
-	fields   []v9TemplateField
-	totalLen int
-}
-
 // NetFlowServer ingests NetFlow v5, v9, and IPFIX (v10) packets over UDP.
 type NetFlowServer struct {
-	port      int
-	logStore  *parquet.Store
-	mu        sync.RWMutex
-	templates map[string]*v9Template
-}
-
-// NetFlowRecord holds decoded flow information.
-type NetFlowRecord struct {
-	Time     int64  `json:"time"`
-	Version  uint16 `json:"version"`
-	SrcIP    string `json:"srcIP"`
-	DstIP    string `json:"dstIP"`
-	SrcPort  uint16 `json:"srcPort"`
-	DstPort  uint16 `json:"dstPort"`
-	Protocol uint8  `json:"protocol"`
-	Packets  uint32 `json:"packets"`
-	Bytes    uint32 `json:"bytes"`
-	Info     string `json:"info,omitempty"`
+	port     int
+	logStore *parquet.Store
+	mu       sync.Mutex
+	decoders map[string]*netflow.Decoder
 }
 
 // NewNetFlowServer creates a new NetFlow receiver.
 func NewNetFlowServer(cfg NetFlowConfig) *NetFlowServer {
 	return &NetFlowServer{
-		port:      cfg.Port,
-		logStore:  cfg.LogStore,
-		templates: make(map[string]*v9Template),
+		port:     cfg.Port,
+		logStore: cfg.LogStore,
+		decoders: make(map[string]*netflow.Decoder),
 	}
 }
 
@@ -96,237 +80,245 @@ func (s *NetFlowServer) Start(ctx context.Context) error {
 		if udpAddr, ok := remoteAddr.(*net.UDPAddr); ok {
 			fromIP = udpAddr.IP.String()
 		}
-		s.handlePacket(buf[:n], fromIP)
+		s.handlePacket(buf[:n], fromIP, remoteAddr.String())
 	}
 }
 
-func (s *NetFlowServer) handlePacket(data []byte, fromIP string) {
+func (s *NetFlowServer) getDecoder(remoteStr string) *netflow.Decoder {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d, found := s.decoders[remoteStr]
+	if !found {
+		sess := session.New()
+		d = netflow.NewDecoder(sess)
+		s.decoders[remoteStr] = d
+	}
+	return d
+}
+
+func (s *NetFlowServer) handlePacket(data []byte, fromIP string, remoteStr string) {
 	if len(data) < 4 {
 		return
 	}
-	version := binary.BigEndian.Uint16(data[0:2])
+
+	d := s.getDecoder(remoteStr)
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Warn("Recovered from netflow decode panic", "error", r, "from", fromIP)
+		}
+	}()
+
+	m, err := d.Read(bytes.NewBuffer(data))
+	if err != nil {
+		slog.Debug("Failed to decode netflow packet", "error", err, "from", fromIP)
+		return
+	}
+
 	now := time.Now().UnixNano()
 
-	recordsDecoded := 0
-
-	switch version {
-	case 5:
-		// NetFlow v5 (Header: 24 bytes, each Record: 48 bytes)
-		if len(data) >= 24 {
-			count := int(binary.BigEndian.Uint16(data[2:4]))
-			offset := 24
-			for i := 0; i < count && offset+48 <= len(data); i++ {
-				rec := data[offset : offset+48]
-				srcIP := net.IP(rec[0:4]).String()
-				dstIP := net.IP(rec[4:8]).String()
-				packets := binary.BigEndian.Uint32(rec[16:20])
-				bytes := binary.BigEndian.Uint32(rec[20:24])
-				srcPort := binary.BigEndian.Uint16(rec[32:34])
-				dstPort := binary.BigEndian.Uint16(rec[34:36])
-				prot := rec[38]
-
-				s.saveRecord(&NetFlowRecord{
-					Time:     now,
-					Version:  version,
-					SrcIP:    srcIP,
-					DstIP:    dstIP,
-					SrcPort:  srcPort,
-					DstPort:  dstPort,
-					Protocol: prot,
-					Packets:  packets,
-					Bytes:    bytes,
-				}, fromIP)
-				recordsDecoded++
-				offset += 48
-			}
-		}
-
-	case 9:
-		// NetFlow v9 (Header: 20 bytes)
-		if len(data) >= 20 {
-			sourceID := binary.BigEndian.Uint32(data[16:20])
-			offset := 20
-			for offset+4 <= len(data) {
-				flowsetID := binary.BigEndian.Uint16(data[offset : offset+2])
-				flowsetLen := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
-				if flowsetLen < 4 || offset+flowsetLen > len(data) {
-					break
-				}
-				fsData := data[offset+4 : offset+flowsetLen]
-
-				if flowsetID == 0 {
-					// Template FlowSet
-					s.parseV9Templates(fromIP, sourceID, fsData)
-				} else if flowsetID >= 256 {
-					// Data FlowSet
-					n := s.parseV9DataFlowSet(fromIP, sourceID, flowsetID, fsData, now)
-					recordsDecoded += n
-				}
-				offset += flowsetLen
-			}
-		}
-
-	case 10:
-		// IPFIX (Header: 16 bytes)
-		if len(data) >= 16 {
-			domainID := binary.BigEndian.Uint32(data[12:16])
-			offset := 16
-			for offset+4 <= len(data) {
-				setID := binary.BigEndian.Uint16(data[offset : offset+2])
-				setLen := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
-				if setLen < 4 || offset+setLen > len(data) {
-					break
-				}
-				setData := data[offset+4 : offset+setLen]
-
-				if setID == 2 {
-					// IPFIX Template Set
-					s.parseV9Templates(fromIP, domainID, setData)
-				} else if setID >= 256 {
-					// IPFIX Data Set
-					n := s.parseV9DataFlowSet(fromIP, domainID, setID, setData, now)
-					recordsDecoded += n
-				}
-				offset += setLen
-			}
-		}
-	}
-
-	// Fallback: If no individual records could be extracted, write packet summary
-	// so the traffic is always recorded in Parquet and visible in the UI
-	if recordsDecoded == 0 {
-		s.saveRecord(&NetFlowRecord{
-			Time:    now,
-			Version: version,
-			SrcIP:   fromIP,
-			DstIP:   "-",
-			Bytes:   uint32(len(data)),
-			Info:    fmt.Sprintf("NetFlow v%d packet (%d bytes)", version, len(data)),
-		}, fromIP)
+	switch p := m.(type) {
+	case *netflow5.Packet:
+		s.handleNetFlow5(p, fromIP, now)
+	case *netflow9.Packet:
+		s.handleNetFlow9(p, fromIP, now)
+	case *ipfix.Message:
+		s.handleIPFIX(p, fromIP, now)
 	}
 }
 
-func (s *NetFlowServer) parseV9Templates(fromIP string, sourceID uint32, data []byte) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	offset := 0
-	for offset+4 <= len(data) {
-		tmplID := binary.BigEndian.Uint16(data[offset : offset+2])
-		fieldCount := int(binary.BigEndian.Uint16(data[offset+2 : offset+4]))
-		offset += 4
-
-		tmpl := &v9Template{
-			fields: make([]v9TemplateField, 0, fieldCount),
+func (s *NetFlowServer) handleNetFlow5(p *netflow5.Packet, fromIP string, now int64) {
+	for _, r := range p.Records {
+		record := &datastore.NetFlowEnt{
+			Time:     now,
+			SrcAddr:  r.SrcAddr.String(),
+			SrcPort:  int(r.SrcPort),
+			DstAddr:  r.DstAddr.String(),
+			DstPort:  int(r.DstPort),
+			Bytes:    int(r.Bytes),
+			Packets:  int(r.Packets),
+			TCPFlags: read.TCPFlags(r.TCPFlags),
+			Protocol: read.Protocol(r.Protocol),
+			ToS:      int(r.ToS),
+			Dur:      float64(r.Last-r.First) / 100.0,
 		}
-
-		for i := 0; i < fieldCount && offset+4 <= len(data); i++ {
-			fType := binary.BigEndian.Uint16(data[offset : offset+2])
-			fLen := binary.BigEndian.Uint16(data[offset+2 : offset+4])
-			offset += 4
-
-			tmpl.fields = append(tmpl.fields, v9TemplateField{
-				Type:   fType,
-				Length: fLen,
-			})
-			tmpl.totalLen += int(fLen)
+		if record.Protocol == "" {
+			record.Protocol = fmt.Sprintf("%d", r.Protocol)
 		}
+		record.SrcLoc = datastore.GetLoc(record.SrcAddr)
+		record.DstLoc = datastore.GetLoc(record.DstAddr)
 
-		key := fmt.Sprintf("%s:%d:%d", fromIP, sourceID, tmplID)
-		s.templates[key] = tmpl
+		s.saveRecord(record, fromIP)
 	}
 }
 
-func (s *NetFlowServer) parseV9DataFlowSet(fromIP string, sourceID uint32, tmplID uint16, data []byte, now int64) int {
-	s.mu.RLock()
-	key := fmt.Sprintf("%s:%d:%d", fromIP, sourceID, tmplID)
-	tmpl, exists := s.templates[key]
-	s.mu.RUnlock()
-
-	if !exists || tmpl.totalLen <= 0 {
-		// Template not known yet, save summary for flowset
-		s.saveRecord(&NetFlowRecord{
-			Time:    now,
-			Version: 9,
-			SrcIP:   fromIP,
-			DstIP:   "-",
-			Bytes:   uint32(len(data)),
-			Info:    fmt.Sprintf("Data FlowSet %d (%d bytes)", tmplID, len(data)),
-		}, fromIP)
-		return 1
-	}
-
-	offset := 0
-	count := 0
-	for offset+tmpl.totalLen <= len(data) {
-		rec := data[offset : offset+tmpl.totalLen]
-		flow := &NetFlowRecord{
-			Time:    now,
-			Version: 9,
-			SrcIP:   fromIP,
-			DstIP:   "-",
+func (s *NetFlowServer) handleNetFlow9(p *netflow9.Packet, fromIP string, now int64) {
+	for _, ds := range p.DataFlowSets {
+		if ds.Records == nil {
+			continue
 		}
-
-		fOffset := 0
-		for _, f := range tmpl.fields {
-			if fOffset+int(f.Length) > len(rec) {
-				break
+		for _, dr := range ds.Records {
+			record := &datastore.NetFlowEnt{
+				Time: now,
 			}
-			val := rec[fOffset : fOffset+int(f.Length)]
-			fOffset += int(f.Length)
+			first := 0
+			last := 0
+			icmpType := 0
 
-			switch f.Type {
-			case 1: // IN_BYTES
-				if len(val) == 4 {
-					flow.Bytes = binary.BigEndian.Uint32(val)
-				} else if len(val) == 8 {
-					flow.Bytes = uint32(binary.BigEndian.Uint64(val))
+			for _, f := range dr.Fields {
+				if f.Translated == nil {
+					continue
 				}
-			case 2: // IN_PKTS
-				if len(val) == 4 {
-					flow.Packets = binary.BigEndian.Uint32(val)
-				} else if len(val) == 8 {
-					flow.Packets = uint32(binary.BigEndian.Uint64(val))
-				}
-			case 4: // PROTOCOL
-				if len(val) > 0 {
-					flow.Protocol = val[0]
-				}
-			case 7: // L4_SRC_PORT
-				if len(val) >= 2 {
-					flow.SrcPort = binary.BigEndian.Uint16(val)
-				}
-			case 8: // IPV4_SRC_ADDR
-				if len(val) >= 4 {
-					flow.SrcIP = net.IP(val[:4]).String()
-				}
-			case 11: // L4_DST_PORT
-				if len(val) >= 2 {
-					flow.DstPort = binary.BigEndian.Uint16(val)
-				}
-			case 12: // IPV4_DST_ADDR
-				if len(val) >= 4 {
-					flow.DstIP = net.IP(val[:4]).String()
-				}
-			case 27: // IPV6_SRC_ADDR
-				if len(val) >= 16 {
-					flow.SrcIP = net.IP(val[:16]).String()
-				}
-			case 28: // IPV6_DST_ADDR
-				if len(val) >= 16 {
-					flow.DstIP = net.IP(val[:16]).String()
+				switch f.Translated.Name {
+				case "sourceIPv4Address", "sourceIPv6Address":
+					record.SrcAddr = getStringFromFieldValue(f.Translated.Value)
+				case "sourceMacAddress", "postSourceMacAddress":
+					record.SrcMAC = getStringFromFieldValue(f.Translated.Value)
+				case "sourceTransportPort":
+					record.SrcPort = getIntFromFieldValue(f.Translated.Value)
+				case "destinationIPv4Address", "destinationIPv6Address":
+					record.DstAddr = getStringFromFieldValue(f.Translated.Value)
+				case "destinationMacAddress", "postDestinationMacAddress":
+					record.DstMAC = getStringFromFieldValue(f.Translated.Value)
+				case "destinationTransportPort":
+					record.DstPort = getIntFromFieldValue(f.Translated.Value)
+				case "octetDeltaCount":
+					record.Bytes = getIntFromFieldValue(f.Translated.Value)
+				case "packetDeltaCount":
+					record.Packets = getIntFromFieldValue(f.Translated.Value)
+				case "flowStartSysUpTime":
+					first = getIntFromFieldValue(f.Translated.Value)
+				case "flowEndSysUpTime":
+					last = getIntFromFieldValue(f.Translated.Value)
+				case "flowStartMilliseconds", "flowStartSeconds", "flowStartNanoSeconds":
+					record.Start = getInt64FromFieldValue(f.Translated.Value)
+				case "flowEndMilliseconds", "flowEndSeconds", "flowEndNanoSeconds":
+					record.End = getInt64FromFieldValue(f.Translated.Value)
+				case "tcpControlBits":
+					record.TCPFlags = read.TCPFlags(uint8(getIntFromFieldValue(f.Translated.Value)))
+				case "protocolIdentifier":
+					record.Protocol = formatProtocol(uint8(getIntFromFieldValue(f.Translated.Value)))
+				case "ipClassOfService":
+					record.ToS = getIntFromFieldValue(f.Translated.Value)
+				case "icmpTypeCodeIPv6", "icmpTypeCodeIPv4":
+					icmpType = getIntFromFieldValue(f.Translated.Value)
 				}
 			}
-		}
 
-		s.saveRecord(flow, fromIP)
-		count++
-		offset += tmpl.totalLen
+			if last > 0 {
+				record.Dur = float64(last-first) / 100.0
+			} else if record.Start > 0 && record.End > record.Start {
+				record.Dur = float64(record.End-record.Start) / (1000 * 1000 * 1000)
+			}
+
+			record.SrcLoc = datastore.GetLoc(record.SrcAddr)
+			record.DstLoc = datastore.GetLoc(record.DstAddr)
+
+			if icmpType > 0 && strings.Contains(record.Protocol, "icmp") {
+				record.SrcPort = icmpType / 256
+				record.DstPort = icmpType % 256
+			}
+
+			s.saveRecord(record, fromIP)
+		}
 	}
-	return count
 }
 
-func (s *NetFlowServer) saveRecord(flow *NetFlowRecord, fromIP string) {
+func (s *NetFlowServer) handleIPFIX(p *ipfix.Message, fromIP string, now int64) {
+	for _, ds := range p.DataSets {
+		if ds.Records == nil {
+			continue
+		}
+		for _, dr := range ds.Records {
+			record := &datastore.NetFlowEnt{
+				Time: now,
+			}
+			first := 0
+			last := 0
+			icmpType := 0
+
+			for _, f := range dr.Fields {
+				if f.Translated == nil {
+					continue
+				}
+				switch f.Translated.Name {
+				case "sourceIPv4Address", "sourceIPv6Address":
+					record.SrcAddr = getStringFromFieldValue(f.Translated.Value)
+				case "sourceMacAddress", "postSourceMacAddress":
+					record.SrcMAC = getStringFromFieldValue(f.Translated.Value)
+				case "sourceTransportPort":
+					record.SrcPort = getIntFromFieldValue(f.Translated.Value)
+				case "destinationIPv4Address", "destinationIPv6Address":
+					record.DstAddr = getStringFromFieldValue(f.Translated.Value)
+				case "destinationMacAddress", "postDestinationMacAddress":
+					record.DstMAC = getStringFromFieldValue(f.Translated.Value)
+				case "destinationTransportPort":
+					record.DstPort = getIntFromFieldValue(f.Translated.Value)
+				case "octetDeltaCount":
+					record.Bytes = getIntFromFieldValue(f.Translated.Value)
+				case "packetDeltaCount":
+					record.Packets = getIntFromFieldValue(f.Translated.Value)
+				case "flowStartSysUpTime":
+					first = getIntFromFieldValue(f.Translated.Value)
+				case "flowEndSysUpTime":
+					last = getIntFromFieldValue(f.Translated.Value)
+				case "flowStartMilliseconds", "flowStartSeconds", "flowStartNanoSeconds":
+					record.Start = getInt64FromFieldValue(f.Translated.Value)
+				case "flowEndMilliseconds", "flowEndSeconds", "flowEndNanoSeconds":
+					record.End = getInt64FromFieldValue(f.Translated.Value)
+				case "tcpControlBits":
+					record.TCPFlags = read.TCPFlags(uint8(getIntFromFieldValue(f.Translated.Value)))
+				case "protocolIdentifier":
+					record.Protocol = formatProtocol(uint8(getIntFromFieldValue(f.Translated.Value)))
+				case "ipClassOfService":
+					record.ToS = getIntFromFieldValue(f.Translated.Value)
+				case "icmpTypeCodeIPv6", "icmpTypeCodeIPv4":
+					icmpType = getIntFromFieldValue(f.Translated.Value)
+				}
+			}
+
+			if last > 0 {
+				record.Dur = float64(last-first) / 100.0
+			} else if record.Start > 0 && record.End > record.Start {
+				record.Dur = float64(record.End-record.Start) / (1000 * 1000 * 1000)
+			}
+
+			record.SrcLoc = datastore.GetLoc(record.SrcAddr)
+			record.DstLoc = datastore.GetLoc(record.DstAddr)
+
+			if icmpType > 0 && strings.Contains(record.Protocol, "icmp") {
+				record.SrcPort = icmpType / 256
+				record.DstPort = icmpType % 256
+			}
+
+			s.saveRecord(record, fromIP)
+		}
+	}
+}
+
+func formatProtocol(pi uint8) string {
+	switch pi {
+	case 1:
+		return "icmp"
+	case 2:
+		return "igmp"
+	case 6:
+		return "tcp"
+	case 8:
+		return "egp"
+	case 17:
+		return "udp"
+	case 58:
+		return "ipv6-icmp"
+	default:
+		p := read.Protocol(pi)
+		if p == "" {
+			return fmt.Sprintf("%d", pi)
+		}
+		return p
+	}
+}
+
+func (s *NetFlowServer) saveRecord(flow *datastore.NetFlowEnt, fromIP string) {
 	if s.logStore == nil {
 		return
 	}
@@ -334,13 +326,88 @@ func (s *NetFlowServer) saveRecord(flow *NetFlowRecord, fromIP string) {
 	if err != nil {
 		return
 	}
+
+	// Use flow's actual source IP as ParquetLogRecord.Src. Fallback to fromIP if flow.SrcAddr is empty.
+	logSrc := flow.SrcAddr
+	if logSrc == "" {
+		logSrc = fromIP
+	}
+
 	err = s.logStore.WriteLog(&parquet.ParquetLogRecord{
 		Time: flow.Time,
 		Type: "netflow",
-		Src:  fromIP,
+		Src:  logSrc,
 		Log:  string(rawJSON),
 	})
 	if err != nil {
 		slog.Warn("Failed to write NetFlow record to store", "error", err)
 	}
+}
+
+func getStringFromFieldValue(i any) string {
+	switch v := i.(type) {
+	case string:
+		return v
+	case net.IPAddr:
+		return v.String()
+	case net.IP:
+		return v.String()
+	case net.HardwareAddr:
+		return v.String()
+	}
+	return ""
+}
+
+func getInt64FromFieldValue(i any) int64 {
+	switch v := i.(type) {
+	case int:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case uint32:
+		return int64(v)
+	case int16:
+		return int64(v)
+	case uint16:
+		return int64(v)
+	case int8:
+		return int64(v)
+	case uint8:
+		return int64(v)
+	case int64:
+		return v
+	case uint64:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case time.Time:
+		return v.UnixNano()
+	}
+	return 0
+}
+
+func getIntFromFieldValue(i any) int {
+	switch v := i.(type) {
+	case int:
+		return v
+	case int32:
+		return int(v)
+	case uint32:
+		return int(v)
+	case int16:
+		return int(v)
+	case uint16:
+		return int(v)
+	case int8:
+		return int(v)
+	case uint8:
+		return int(v)
+	case int64:
+		return int(v)
+	case uint64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+	return 0
 }

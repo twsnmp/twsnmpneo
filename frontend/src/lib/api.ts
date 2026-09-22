@@ -588,6 +588,28 @@ export async function saveNotifyConf(conf: any): Promise<any> {
   return res.json();
 }
 
+export async function uploadGeoIP(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/conf/geoip`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Upload GeoIP DB failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteGeoIP(): Promise<any> {
+  const res = await fetch(`${API_BASE}/conf/geoip`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Delete GeoIP DB failed: ${res.statusText}`);
+  return res.json();
+}
+
 export async function fetchPollings(): Promise<PollingEnt[]> {
   const res = await fetch(`${API_BASE}/pollings`);
   if (!res.ok) throw new Error(`Fetch pollings failed: ${res.statusText}`);

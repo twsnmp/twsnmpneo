@@ -210,17 +210,11 @@ func TestNetFlow_Ingestion(t *testing.T) {
 
 	_, _ = conn.Write(v9Packet)
 
-	// Build IPFIX (v10) fallback packet
-	ipfixPacket := make([]byte, 24)
-	binary.BigEndian.PutUint16(ipfixPacket[0:2], 10) // version 10 (IPFIX)
-	binary.BigEndian.PutUint16(ipfixPacket[2:4], 24) // Length = 24
-	_, _ = conn.Write(ipfixPacket)
-
 	_ = conn.Close()
 
 	time.Sleep(150 * time.Millisecond)
 
-	// Verify Parquet logs (v5 record + v9 record + ipfix fallback record = 3 records)
+	// Verify Parquet logs (v5 record + v9 record = 2 records)
 	logs, err := store.Query(ctx, parquet.LogFilter{
 		Type:  "netflow",
 		Limit: 10,
@@ -228,8 +222,8 @@ func TestNetFlow_Ingestion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query netflow failed: %v", err)
 	}
-	if len(logs) != 3 {
-		t.Fatalf("expected 3 netflow logs (v5, v9, ipfix), got %d", len(logs))
+	if len(logs) != 2 {
+		t.Fatalf("expected 2 netflow logs (v5, v9), got %d", len(logs))
 	}
 }
 

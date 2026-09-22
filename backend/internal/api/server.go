@@ -33,6 +33,7 @@ type Config struct {
 	Port      int
 	Debug     bool
 	Version   string
+	DataDir   string
 	Store     datastore.DataStore
 	LogStore  *parquet.Store
 	MCPServer *ai.MCPServer
@@ -462,13 +463,18 @@ func NewServer(cfg Config) (*Server, error) {
 		})
 
 		// Map Conf
-		apiGroup.GET("/map/conf", func(c echo.Context) error {
+		getMapConfHandler := func(c echo.Context) error {
 			conf, err := cfg.Store.GetMapConf(c.Request().Context())
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			if conf != nil {
+				conf.GeoIPInfo = datastore.GetGeoIPInfo()
+			}
 			return c.JSON(http.StatusOK, conf)
-		})
+		}
+		apiGroup.GET("/map/conf", getMapConfHandler)
+		apiGroup.GET("/conf/map", getMapConfHandler)
 		apiGroup.POST("/map/conf", func(c echo.Context) error {
 			var conf datastore.MapConfEnt
 			if err := c.Bind(&conf); err != nil {
@@ -477,8 +483,63 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := cfg.Store.SaveMapConf(c.Request().Context(), &conf); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			conf.GeoIPInfo = datastore.GetGeoIPInfo()
 			return c.JSON(http.StatusOK, &conf)
 		})
+
+		// GeoIP DB endpoints (TWSNMP FC / FK compatible)
+		postGeoIPHandler := func(c echo.Context) error {
+			f, err := c.FormFile("file")
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "file field required"})
+			}
+			if f.Size > 200*1024*1024 {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "file size exceeds 200MB limit"})
+			}
+			src, err := f.Open()
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to open uploaded file"})
+			}
+			defer src.Close()
+
+			targetDir := cfg.DataDir
+			if targetDir == "" {
+				targetDir = "./data"
+			}
+			if err := datastore.UpdateGeoIP(targetDir, src); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("invalid geoip database: %v", err)})
+			}
+
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: "IP位置情報DBを更新しました",
+			})
+			return c.JSON(http.StatusOK, map[string]string{"resp": "ok", "version": datastore.GetGeoIPInfo()})
+		}
+
+		deleteGeoIPHandler := func(c echo.Context) error {
+			targetDir := cfg.DataDir
+			if targetDir == "" {
+				targetDir = "./data"
+			}
+			if err := datastore.DeleteGeoIP(targetDir); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: "IP位置情報DBを削除しました",
+			})
+			return c.JSON(http.StatusOK, map[string]string{"resp": "ok"})
+		}
+
+		apiGroup.POST("/conf/geoip", postGeoIPHandler)
+		apiGroup.DELETE("/conf/geoip", deleteGeoIPHandler)
+		apiGroup.POST("/map/geoip", postGeoIPHandler)
+		apiGroup.DELETE("/map/geoip", deleteGeoIPHandler)
 
 		// Notify Conf
 		apiGroup.GET("/notify/conf", func(c echo.Context) error {

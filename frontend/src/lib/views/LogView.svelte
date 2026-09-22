@@ -140,13 +140,20 @@
       { key: "variables", label: "変数 (Variables)", sortable: true },
     ],
     netflow: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "src", label: "送信元 (Src)", width: "w-44", sortable: true },
-      { key: "dst", label: "宛先 (Dst)", width: "w-44", sortable: true },
-      { key: "protocol", label: "プロトコル", width: "w-24", align: "center", sortable: true },
-      { key: "packets", label: "パケット", width: "w-24", align: "right", sortable: true },
-      { key: "bytes", label: "バイト数", width: "w-28", align: "right", sortable: true },
-      { key: "info", label: "情報", sortable: true },
+      { key: "time", label: "Time", width: "w-44", sortable: true },
+      { key: "srcAddr", label: "Src Addr", width: "w-40", sortable: true },
+      { key: "srcPort", label: "Port", width: "w-16", align: "right", sortable: true },
+      { key: "srcLoc", label: "Location", width: "w-28", sortable: true },
+      { key: "srcMac", label: "MAC", width: "w-36", sortable: true },
+      { key: "dstAddr", label: "Dst Addr", width: "w-40", sortable: true },
+      { key: "dstPort", label: "Port", width: "w-16", align: "right", sortable: true },
+      { key: "dstLoc", label: "Location", width: "w-28", sortable: true },
+      { key: "dstMac", label: "MAC", width: "w-36", sortable: true },
+      { key: "protocol", label: "Protocol", width: "w-20", align: "center", sortable: true },
+      { key: "tcpFlags", label: "TCP Flags", width: "w-24", sortable: true },
+      { key: "packets", label: "Packets", width: "w-20", align: "right", sortable: true },
+      { key: "bytes", label: "Bytes", width: "w-24", align: "right", sortable: true },
+      { key: "dur", label: "Duration", width: "w-20", align: "right", sortable: true },
     ],
     sflow: [
       { key: "time", label: "日時", width: "w-44", sortable: true },
@@ -339,11 +346,24 @@
           const variables = parsed.Variables ?? parsed.variables ?? "";
 
           // NetFlow
+          const nfSrcAddr = parsed.SrcAddr ?? parsed.srcIP ?? src;
+          const nfSrcPort = parsed.SrcPort ?? parsed.srcPort ?? 0;
+          const nfSrcLoc = parsed.SrcLoc ?? parsed.srcLoc ?? "";
+          const nfSrcMac = parsed.SrcMAC ?? parsed.srcMAC ?? "";
+          const nfDstAddr = parsed.DstAddr ?? parsed.dstIP ?? "-";
+          const nfDstPort = parsed.DstPort ?? parsed.dstPort ?? 0;
+          const nfDstLoc = parsed.DstLoc ?? parsed.dstLoc ?? "";
+          const nfDstMac = parsed.DstMAC ?? parsed.dstMAC ?? "";
+          const nfProtocol = parsed.Protocol ?? parsed.protocol ?? "-";
+          const nfTcpFlags = parsed.TCPFlags ?? parsed.tcpFlags ?? "";
+          const nfPackets = parsed.Packets ?? parsed.packets ?? 0;
+          const nfBytes = parsed.Bytes ?? parsed.bytes ?? 0;
+          const nfDur = parsed.Dur ?? parsed.dur ?? 0;
           const dst = parsed.dstIP ? `${parsed.dstIP}:${parsed.dstPort || 0}` : (parsed.DstAddr ? `${parsed.DstAddr}:${parsed.DstPort || 0}` : "-");
           const netflowSrc = parsed.srcIP ? `${parsed.srcIP}:${parsed.srcPort || 0}` : (parsed.SrcAddr ? `${parsed.SrcAddr}:${parsed.SrcPort || 0}` : src);
-          const protocol = parsed.protocol ?? parsed.Protocol ?? "-";
-          const packets = parsed.packets ?? parsed.Packets ?? 0;
-          const bytes = parsed.bytes ?? parsed.Bytes ?? 0;
+          const protocol = nfProtocol;
+          const packets = nfPackets;
+          const bytes = nfBytes;
           const info = parsed.info ?? parsed.Info ?? rawLog;
 
           // ARP
@@ -365,7 +385,7 @@
           return {
             raw: pl,
             time,
-            src: activeTab === "trap" ? trapFrom : src,
+            src: activeTab === "trap" ? trapFrom : (activeTab === "netflow" ? nfSrcAddr : src),
             level,
             host,
             type: activeTab === "syslog" ? syslogType : (parsed.type ?? parsed.Type ?? ""),
@@ -375,6 +395,16 @@
             variables,
             dst,
             netflowSrc,
+            srcAddr: nfSrcAddr,
+            srcPort: nfSrcPort,
+            srcLoc: nfSrcLoc,
+            srcMac: nfSrcMac,
+            dstAddr: nfDstAddr,
+            dstPort: nfDstPort,
+            dstLoc: nfDstLoc,
+            dstMac: nfDstMac,
+            tcpFlags: nfTcpFlags,
+            dur: nfDur,
             protocol,
             packets,
             bytes,
@@ -390,7 +420,7 @@
             payload,
             scope,
             log: rawLog,
-            fullText: `${rawLog} ${src} ${tag} ${host} ${syslogType} ${topic} ${ip}`,
+            fullText: `${rawLog} ${src} ${tag} ${host} ${syslogType} ${topic} ${ip} ${nfSrcAddr} ${nfDstAddr}`,
           };
         })
   );
@@ -535,8 +565,9 @@
         cols
           .map((c) => {
             let val = row[c.key];
-            if (c.key === "time") val = activeTab === "syslog" ? renderTimeMili(val) : formatTimeStr(val);
+            if (c.key === "time") val = (activeTab === "syslog" || activeTab === "netflow") ? renderTimeMili(val) : formatTimeStr(val);
             if (c.key === "bytes" && typeof val === "number") val = renderBytes(val);
+            if (c.key === "dur" && typeof val === "number") val = val === 0 ? "0" : val.toFixed(2);
             return `"${String(val ?? "").replace(/"/g, '""')}"`;
           })
           .join(",")
@@ -838,7 +869,7 @@
                 {#each visibleColumns as col}
                   <td class="py-1 px-2.5 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
                     {#if col.key === "time"}
-                      <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
+                      <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" || activeTab === "netflow" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
                     {:else if col.key === "level" || col.key === "state"}
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getLevelBadge(item.level || item.state || 'info')}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.level || item.state || 'info')}"></span>
@@ -848,6 +879,14 @@
                       <span class="font-sans text-[11px] text-slate-300 leading-tight">{renderBytes(item.bytes)}</span>
                     {:else if col.key === "packets" && typeof item.packets === "number"}
                       <span class="text-[11px] text-slate-300 leading-tight">{item.packets.toLocaleString()}</span>
+                    {:else if col.key === "dur"}
+                      <span class="text-[11px] text-slate-300 leading-tight">{typeof item.dur === 'number' ? (item.dur === 0 ? '0' : item.dur.toFixed(2)) : (item.dur || '0')}</span>
+                    {:else if col.key === "srcLoc" || col.key === "dstLoc" || col.key === "srcMac" || col.key === "dstMac" || col.key === "tcpFlags"}
+                      <span class="text-slate-400 text-[11px] font-sans truncate leading-tight">{item[col.key] || ""}</span>
+                    {:else if col.key === "srcPort" || col.key === "dstPort"}
+                      <span class="text-slate-300 text-[11px] font-sans leading-tight">{item[col.key] || 0}</span>
+                    {:else if col.key === "srcAddr" || col.key === "dstAddr"}
+                      <span class="font-sans text-slate-200 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
                     {:else if col.key === "event" || col.key === "message" || col.key === "payload" || col.key === "log"}
                       <span class="font-sans text-slate-100 break-all text-[11px] leading-tight line-clamp-1">{item[col.key] || "-"}</span>
                     {:else if col.key === "node" || col.key === "host" || col.key === "src" || col.key === "ip"}
