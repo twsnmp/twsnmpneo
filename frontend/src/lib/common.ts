@@ -161,3 +161,72 @@ export const renderSLA = (sla: number): string => {
   return val.toFixed(3) + '%';
 };
 
+export const renderTimeMili = (t: number | string | Date | undefined | null): string => {
+  if (t === undefined || t === null || t === '') return '-';
+  let ms: number = 0;
+  if (typeof t === 'number') {
+    if (t <= 0) return '-';
+    if (t > 1e16) ms = Math.floor(t / 1e6);
+    else if (t > 1e13) ms = Math.floor(t / 1e3);
+    else if (t > 1e10) ms = t;
+    else ms = t * 1000;
+  } else if (typeof t === 'string') {
+    const num = Number(t);
+    if (!isNaN(num) && num > 0) {
+      return renderTimeMili(num);
+    }
+    const d = new Date(t);
+    if (!isNaN(d.getTime())) ms = d.getTime();
+    else return t;
+  } else if (t instanceof Date) {
+    if (!isNaN(t.getTime())) ms = t.getTime();
+    else return '-';
+  }
+  const d = new Date(ms);
+  return formatTime(d, '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}.{SSS}');
+};
+
+export const severityNames = [
+  'emerg',
+  'alert',
+  'crit',
+  'err',
+  'warning',
+  'notice',
+  'info',
+  'debug',
+];
+
+export const facilityNames = [
+  'kern',
+  'user',
+  'mail',
+  'daemon',
+  'auth',
+  'syslog',
+  'lpr',
+  'news',
+  'uucp',
+  'cron',
+  'authpriv',
+  'ftp',
+  'ntp',
+  'logaudit',
+  'logalert',
+  'clock',
+  'local0',
+  'local1',
+  'local2',
+  'local3',
+  'local4',
+  'local5',
+  'local6',
+  'local7',
+];
+
+export const getSyslogType = (sv: number, fac: number): string => {
+  const sName = sv >= 0 && sv < severityNames.length ? severityNames[sv] : 'unknown';
+  const fName = fac >= 0 && fac < facilityNames.length ? facilityNames[fac] : 'unknown';
+  return `${sName}:${fName}`;
+};
+

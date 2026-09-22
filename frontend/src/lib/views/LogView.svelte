@@ -14,8 +14,10 @@
     getStateColor,
     getStateName,
     formatTimeStr,
+    renderTimeMili,
     renderDuration,
     renderBytes,
+    getSyslogType,
   } from "../common";
   import { showLogLevelChart, resizeLogLevelChart, disposeLogLevelChart } from "../charts/loglevel";
   import { showLogCountChart, resizeLogCountChart, disposeLogCountChart } from "../charts/logcount";
@@ -124,10 +126,11 @@
       { key: "event", label: "イベント内容", sortable: true },
     ],
     syslog: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
       { key: "level", label: "レベル", width: "w-24", align: "center", sortable: true },
-      { key: "host", label: "ホスト (Src)", width: "w-40", sortable: true },
-      { key: "tag", label: "タグ (Tag)", width: "w-32", sortable: true },
+      { key: "time", label: "日時", width: "w-48", sortable: true },
+      { key: "host", label: "ホスト", width: "w-40", sortable: true },
+      { key: "type", label: "タイプ", width: "w-28", sortable: true },
+      { key: "tag", label: "タグ", width: "w-32", sortable: true },
       { key: "message", label: "メッセージ", sortable: true },
     ],
     trap: [
@@ -306,10 +309,30 @@
           const src = pl.src ?? pl.Src ?? parsed.src ?? parsed.host ?? parsed.srcIP ?? parsed.IP ?? "";
 
           // Syslog
-          const level = (parsed.severity !== undefined ? (parsed.severity <= 2 ? "high" : parsed.severity <= 4 ? "warn" : "info") : (parsed.level ?? "info")).toLowerCase();
-          const host = parsed.host ?? parsed.Host ?? src;
-          const tag = parsed.tag ?? parsed.Tag ?? "";
-          const message = parsed.message ?? parsed.Message ?? rawLog;
+          let sv = typeof parsed.severity === "number" ? parsed.severity : (typeof parsed.Severity === "number" ? parsed.Severity : -1);
+          let fac = typeof parsed.facility === "number" ? parsed.facility : (typeof parsed.Facility === "number" ? parsed.Facility : -1);
+          let level = (parsed.level ?? parsed.Level ?? "").toLowerCase();
+          if (sv >= 0) {
+            if (sv < 3) level = "high";
+            else if (sv < 4) level = "low";
+            else if (sv === 4) level = "warn";
+            else if (sv === 7) level = "debug";
+            else level = "info";
+          } else if (!level) {
+            level = "info";
+          }
+          const host = parsed.hostname ?? parsed.Hostname ?? parsed.host ?? parsed.Host ?? src;
+          const syslogType = parsed.type ?? parsed.Type ?? (sv >= 0 && fac >= 0 ? getSyslogType(sv, fac) : "");
+          const tag = parsed.tag ?? parsed.Tag ?? parsed.app_name ?? parsed.appName ?? "";
+          let message = parsed.content ?? parsed.Content ?? "";
+          if (!message) {
+            const parts = [parsed.proc_id, parsed.msg_id, parsed.message ?? parsed.Message, parsed.structured_data].filter((x) => typeof x === "string" && x.length > 0 && x !== "-");
+            if (parts.length > 0) {
+              message = parts.join(" ");
+            } else {
+              message = parsed.message ?? parsed.Message ?? rawLog;
+            }
+          }
 
           // Trap
           const trapType = parsed.trapType ?? parsed.TrapType ?? "";
@@ -346,6 +369,7 @@
             src,
             level,
             host,
+            type: activeTab === "syslog" ? syslogType : (parsed.type ?? parsed.Type ?? ""),
             tag,
             message,
             trapType,
@@ -368,7 +392,7 @@
             payload,
             scope,
             log: rawLog,
-            fullText: `${rawLog} ${src} ${tag} ${host} ${topic} ${ip}`,
+            fullText: `${rawLog} ${src} ${tag} ${host} ${syslogType} ${topic} ${ip}`,
           };
         })
   );
@@ -513,7 +537,7 @@
         cols
           .map((c) => {
             let val = row[c.key];
-            if (c.key === "time") val = formatTimeStr(val);
+            if (c.key === "time") val = activeTab === "syslog" ? renderTimeMili(val) : formatTimeStr(val);
             if (c.key === "bytes" && typeof val === "number") val = renderBytes(val);
             return `"${String(val ?? "").replace(/"/g, '""')}"`;
           })
@@ -650,7 +674,7 @@
             グラフを隠す ▲
           </button>
         </div>
-        <div id="logReceptionChart" class="h-32 w-full"></div>
+        <div id="logReceptionChart" class="h-64 min-h-[250px] w-full"></div>
       </div>
     {:else}
       <div class="flex justify-end shrink-0">
@@ -788,62 +812,62 @@
             <tr>
               {#each visibleColumns as col}
                 <th
-                  class="py-2.5 px-3.5 {col.width || ''} {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} {col.sortable ? 'cursor-pointer select-none hover:text-slate-200' : ''}"
+                  class="py-1 px-2.5 {col.width || ''} {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} {col.sortable ? 'cursor-pointer select-none hover:text-slate-200' : ''}"
                   onclick={() => col.sortable && handleSort(col.key)}
                 >
-                  <div class="inline-flex items-center gap-1.5">
+                  <div class="inline-flex items-center gap-1">
                     <span>{col.label}</span>
                     {#if col.sortable}
                       {#if sortColumn === col.key}
                         {#if sortDirection === "asc"}
-                          <ArrowUp class="h-3 w-3 text-cyan-400" />
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
                         {:else}
-                          <ArrowDown class="h-3 w-3 text-cyan-400" />
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
                         {/if}
                       {:else}
-                        <ArrowUpDown class="h-3 w-3 text-slate-600" />
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
                       {/if}
                     {/if}
                   </div>
                 </th>
               {/each}
-              <th class="py-2.5 px-3.5 text-center w-14">AI</th>
+              <th class="py-1 px-2 text-center w-10">AI</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+          <tbody class="divide-y divide-slate-800/40 font-mono text-slate-300">
             {#each paginatedLogs as item}
               <tr class="hover:bg-slate-800/40 transition-colors">
                 {#each visibleColumns as col}
-                  <td class="py-2 px-3.5 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
+                  <td class="py-1 px-2.5 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
                     {#if col.key === "time"}
-                      <span class="text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(item.time)}</span>
+                      <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
                     {:else if col.key === "level" || col.key === "state"}
-                      <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getLevelBadge(item.level || item.state)}">
-                        <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(item.level || item.state)}"></span>
+                      <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getLevelBadge(item.level || item.state)}">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.level || item.state)}"></span>
                         {item.level || item.state}
                       </span>
                     {:else if col.key === "bytes" && typeof item.bytes === "number"}
-                      <span class="font-sans text-[11px] text-slate-300">{renderBytes(item.bytes)}</span>
+                      <span class="font-sans text-[11px] text-slate-300 leading-tight">{renderBytes(item.bytes)}</span>
                     {:else if col.key === "packets" && typeof item.packets === "number"}
-                      <span class="text-[11px] text-slate-300">{item.packets.toLocaleString()}</span>
+                      <span class="text-[11px] text-slate-300 leading-tight">{item.packets.toLocaleString()}</span>
                     {:else if col.key === "event" || col.key === "message" || col.key === "payload" || col.key === "log"}
-                      <span class="font-sans text-slate-100 break-all text-[11px] line-clamp-2">{item[col.key] || "-"}</span>
+                      <span class="font-sans text-slate-100 break-all text-[11px] leading-tight line-clamp-1">{item[col.key] || "-"}</span>
                     {:else if col.key === "node" || col.key === "host" || col.key === "src" || col.key === "ip"}
-                      <span class="font-semibold text-cyan-400 text-[11px] truncate">{item[col.key] || "-"}</span>
+                      <span class="font-semibold text-cyan-400 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
                     {:else}
-                      <span class="text-slate-200 text-[11px] font-sans truncate">{item[col.key] || "-"}</span>
+                      <span class="text-slate-200 text-[11px] font-sans truncate leading-tight">{item[col.key] || "-"}</span>
                     {/if}
                   </td>
                 {/each}
-                <td class="py-2 px-3.5 text-center font-sans">
+                <td class="py-1 px-2 text-center font-sans">
                   <button
                     type="button"
                     onclick={() => handleAskAI(item.fullText)}
                     title="AIログ診断"
                     aria-label="AIログ診断"
-                    class="inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-1.5 text-cyan-300 hover:bg-cyan-500/20 hover:text-cyan-200 transition-all cursor-pointer"
+                    class="inline-flex items-center justify-center rounded border border-cyan-500/30 bg-cyan-500/10 p-0.5 text-cyan-300 hover:bg-cyan-500/20 hover:text-cyan-200 transition-all cursor-pointer"
                   >
-                    <Sparkles class="h-3.5 w-3.5" />
+                    <Sparkles class="h-3 w-3" />
                   </button>
                 </td>
               </tr>

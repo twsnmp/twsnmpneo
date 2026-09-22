@@ -40,4 +40,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250102185135-69823020774d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250102185135-69823020774d // indirect
 	google.golang.org/grpc v1.69.2 // indirect
+	gopkg.in/mcuadros/go-syslog.v2 v2.3.0
 )

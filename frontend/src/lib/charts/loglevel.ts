@@ -20,7 +20,6 @@ export const showLogLevelChart = (
     high: [],
     low: [],
     warn: [],
-    normal: [],
     other: [],
   };
 
@@ -28,19 +27,18 @@ export const showLogLevelChart = (
     high: 0,
     low: 0,
     warn: 0,
-    normal: 0,
     other: 0,
   };
 
   const addChartData = (ctm: number, newCtm: number) => {
     let t = new Date(ctm * 60 * 1000);
-    for (const k of ['high', 'low', 'warn', 'normal', 'other']) {
+    for (const k of ['high', 'low', 'warn', 'other']) {
       data[k].push([t, count[k]]);
     }
     ctm++;
     for (; ctm < newCtm; ctm++) {
       t = new Date(ctm * 60 * 1000);
-      for (const k of ['high', 'low', 'warn', 'normal', 'other']) {
+      for (const k of ['high', 'low', 'warn', 'other']) {
         data[k].push([t, 0]);
       }
     }
@@ -62,7 +60,7 @@ export const showLogLevelChart = (
     if (!rawTime) return;
     const tMs = rawTime > 1e16 ? rawTime / 1e6 : (rawTime > 1e13 ? rawTime / 1e3 : (rawTime > 1e10 ? rawTime : rawTime * 1000));
     const lvlKey = (e.level ?? e.Level ?? '').toLowerCase();
-    const lvl = data[lvlKey] ? lvlKey : 'other';
+    const lvl = (lvlKey === 'high' || lvlKey === 'low' || lvlKey === 'warn') ? lvlKey : 'other';
     const newCtm = Math.floor(tMs / (60 * 1000));
 
     if (ctm === undefined) {
@@ -85,9 +83,9 @@ export const showLogLevelChart = (
     backgroundColor: 'transparent',
     grid: {
       left: 55,
-      right: 25,
-      top: 35,
-      bottom: 45,
+      right: 35,
+      top: 40,
+      bottom: 50,
     },
     tooltip: {
       trigger: 'axis',
@@ -121,62 +119,57 @@ export const showLogLevelChart = (
       },
     ],
     legend: {
-      top: 5,
+      top: 10,
       textStyle: { color: '#cbd5e1', fontSize: 11 },
-      data: ['重度 (High)', '軽度 (Low)', '注意 (Warn)', '正常 (Normal)', 'その他 (Info/Other)'],
+      data: ['High', 'Low', 'Warn', 'Other'],
     },
     xAxis: {
       type: 'time',
+      name: 'Time',
+      nameTextStyle: { color: '#94a3b8', fontSize: 10, margin: 2 },
       axisLine: { lineStyle: { color: '#334155' } },
       axisLabel: {
         color: '#94a3b8',
         fontSize: 10,
-        formatter: (val: any) => echarts.time.format(new Date(val), '{MM}/{dd} {HH}:{mm}', false),
+        formatter: (val: any) => echarts.time.format(new Date(val), '{yyyy}/{MM}/{dd} {HH}:{mm}', false),
       },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
-      name: '件数',
-      nameTextStyle: { color: '#64748b', fontSize: 10 },
+      name: 'Log count',
+      nameTextStyle: { color: '#94a3b8', fontSize: 10, margin: 2 },
       axisLine: { lineStyle: { color: '#334155' } },
       axisLabel: { color: '#94a3b8', fontSize: 10 },
       splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
     },
     series: [
       {
-        name: '重度 (High)',
+        name: 'High',
         type: 'bar',
         stack: 'count',
-        color: '#ef4444',
+        color: '#e31a1c',
         data: data.high,
       },
       {
-        name: '軽度 (Low)',
+        name: 'Low',
         type: 'bar',
         stack: 'count',
-        color: '#f87171',
+        color: '#fb9a99',
         data: data.low,
       },
       {
-        name: '注意 (Warn)',
+        name: 'Warn',
         type: 'bar',
         stack: 'count',
-        color: '#eab308',
+        color: '#dfdf22',
         data: data.warn,
       },
       {
-        name: '正常 (Normal)',
+        name: 'Other',
         type: 'bar',
         stack: 'count',
-        color: '#10b981',
-        data: data.normal,
-      },
-      {
-        name: 'その他 (Info/Other)',
-        type: 'bar',
-        stack: 'count',
-        color: '#06b6d4',
+        color: '#1f78b4',
         data: data.other,
       },
     ],

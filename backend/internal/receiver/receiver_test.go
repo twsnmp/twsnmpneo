@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,15 +100,46 @@ func TestSyslog_UDPAndTCP(t *testing.T) {
 }
 
 func TestSyslog_Parser(t *testing.T) {
-	msg := receiver.ParseSyslog("<134>web01 sshd: Accepted publickey", "192.168.1.50")
-	if msg.Facility != 16 || msg.Severity != 6 {
-		t.Errorf("expected fac 16, sev 6, got fac %d, sev %d", msg.Facility, msg.Severity)
+	// 1. RFC3164 test
+	msg := receiver.ParseSyslog("<14>Sep 20 12:00:00 myhost sudo: pam_unix authentication failure", "192.168.1.50")
+	if msg.Facility != 1 || msg.Severity != 6 {
+		t.Errorf("expected fac 1, sev 6, got fac %d, sev %d", msg.Facility, msg.Severity)
 	}
-	if msg.Tag != "web01 sshd" {
+	if msg.Host != "myhost" {
+		t.Errorf("unexpected host: %s", msg.Host)
+	}
+	if msg.Tag != "sudo" {
 		t.Errorf("unexpected tag: %s", msg.Tag)
 	}
-	if msg.Message != "Accepted publickey" {
+	if msg.Message != "pam_unix authentication failure" {
 		t.Errorf("unexpected message: %s", msg.Message)
+	}
+
+	// 2. Realistic kernel syslog test matching user issue
+	msg2 := receiver.ParseSyslog("<30>Sep 22 00:19:40 yamai-VPCF12AFJ kernel: NVRM: GPU 0000:01:00.0 is already bound to nouveau.", "192.168.1.100")
+	if msg2.Host != "yamai-VPCF12AFJ" {
+		t.Errorf("expected host yamai-VPCF12AFJ, got %s", msg2.Host)
+	}
+	if msg2.Tag != "kernel" {
+		t.Errorf("expected tag kernel, got %s", msg2.Tag)
+	}
+	if msg2.Message != "NVRM: GPU 0000:01:00.0 is already bound to nouveau." {
+		t.Errorf("expected message NVRM:..., got %s", msg2.Message)
+	}
+
+	// 3. RFC5424 test
+	msg3 := receiver.ParseSyslog("<34>1 2003-10-11T22:14:15.003Z mymachine.example.com su - ID47 - 'su root' failed for lonvick on /dev/pts/8", "10.0.0.1")
+	if msg3.Facility != 4 || msg3.Severity != 2 {
+		t.Errorf("expected fac 4, sev 2, got fac %d, sev %d", msg3.Facility, msg3.Severity)
+	}
+	if msg3.Host != "mymachine.example.com" {
+		t.Errorf("expected host mymachine.example.com, got %s", msg3.Host)
+	}
+	if msg3.Tag != "su" {
+		t.Errorf("expected tag su, got %s", msg3.Tag)
+	}
+	if !strings.Contains(msg3.Message, "'su root' failed for lonvick on /dev/pts/8") {
+		t.Errorf("unexpected message: %s", msg3.Message)
 	}
 }
 

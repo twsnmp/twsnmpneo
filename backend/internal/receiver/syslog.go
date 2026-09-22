@@ -1,18 +1,18 @@
 package receiver
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"gopkg.in/mcuadros/go-syslog.v2"
+	"gopkg.in/mcuadros/go-syslog.v2/format"
 )
 
 // SyslogConfig holds options for the Syslog receiver.
@@ -22,7 +22,7 @@ type SyslogConfig struct {
 	LogStore *parquet.Store
 }
 
-// SyslogServer receives and parses Syslog messages over UDP and TCP.
+// SyslogServer receives and parses Syslog messages over UDP and TCP using go-syslog.
 type SyslogServer struct {
 	udpPort  int
 	tcpPort  int
@@ -33,16 +33,14 @@ type SyslogServer struct {
 
 // SyslogMessage holds parsed Syslog fields.
 type SyslogMessage struct {
-	Time      int64  `json:"time"`
-	Facility  int    `json:"facility"`
-	Severity  int    `json:"severity"`
-	Host      string `json:"host"`
-	Tag       string `json:"tag"`
-	Message   string `json:"message"`
-	Raw       string `json:"raw"`
+	Time     int64  `json:"time"`
+	Facility int    `json:"facility"`
+	Severity int    `json:"severity"`
+	Host     string `json:"host"`
+	Tag      string `json:"tag"`
+	Message  string `json:"message"`
+	Raw      string `json:"raw"`
 }
-
-var syslogPattern = regexp.MustCompile(`^<(\d{1,3})>(.*)$`)
 
 func NewSyslogServer(cfg SyslogConfig) *SyslogServer {
 	return &SyslogServer{
@@ -57,148 +55,179 @@ func (s *SyslogServer) Start(ctx context.Context) error {
 	s.running = true
 	s.mu.Unlock()
 
-	var wg sync.WaitGroup
+	syslogCh := make(syslog.LogPartsChannel, 2000)
+	server := syslog.NewServer()
+	server.SetFormat(syslog.Automatic)
+	server.SetHandler(syslog.NewChannelHandler(syslogCh))
 
-	// Start UDP listener
 	if s.udpPort > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			s.startUDP(ctx)
-		}()
+		addr := fmt.Sprintf("0.0.0.0:%d", s.udpPort)
+		if err := server.ListenUDP(addr); err != nil {
+			slog.Error("Failed to start UDP syslog listener", "addr", addr, "error", err)
+		} else {
+			slog.Info("Started UDP Syslog receiver", "addr", addr)
+		}
 	}
 
-	// Start TCP listener
 	if s.tcpPort > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			s.startTCP(ctx)
-		}()
+		addr := fmt.Sprintf("0.0.0.0:%d", s.tcpPort)
+		if err := server.ListenTCP(addr); err != nil {
+			slog.Error("Failed to start TCP syslog listener", "addr", addr, "error", err)
+		} else {
+			slog.Info("Started TCP Syslog receiver", "addr", addr)
+		}
 	}
 
-	<-ctx.Done()
-	slog.Info("Stopping Syslog receiver...")
-	wg.Wait()
-	return nil
-}
-
-func (s *SyslogServer) startUDP(ctx context.Context) {
-	addr := fmt.Sprintf(":%d", s.udpPort)
-	conn, err := net.ListenPacket("udp", addr)
-	if err != nil {
-		slog.Error("Failed to start UDP syslog listener", "addr", addr, "error", err)
-		return
+	if err := server.Boot(); err != nil {
+		slog.Error("Failed to boot syslog server", "error", err)
+		return err
 	}
-	defer conn.Close()
-
-	slog.Info("Started UDP Syslog receiver", "addr", addr)
-	buf := make([]byte, 8192)
-
-	go func() {
-		<-ctx.Done()
-		_ = conn.Close()
-	}()
 
 	for {
-		n, remoteAddr, err := conn.ReadFrom(buf)
-		if err != nil {
-			if ctx.Err() != nil {
-				return
+		select {
+		case <-ctx.Done():
+			slog.Info("Stopping Syslog receiver...")
+			_ = server.Kill()
+			return nil
+		case sl, ok := <-syslogCh:
+			if !ok {
+				return nil
 			}
-			continue
+			s.handleLogParts(sl)
 		}
-		srcIP := ""
-		if udpAddr, ok := remoteAddr.(*net.UDPAddr); ok {
-			srcIP = udpAddr.IP.String()
-		}
-		s.handleMessage(buf[:n], srcIP)
 	}
 }
 
-func (s *SyslogServer) startTCP(ctx context.Context) {
-	addr := fmt.Sprintf(":%d", s.tcpPort)
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		slog.Error("Failed to start TCP syslog listener", "addr", addr, "error", err)
+func (s *SyslogServer) handleLogParts(sl format.LogParts) {
+	if sl == nil {
 		return
 	}
-	defer l.Close()
-
-	slog.Info("Started TCP Syslog receiver", "addr", addr)
-
-	go func() {
-		<-ctx.Done()
-		_ = l.Close()
-	}()
-
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			if ctx.Err() != nil {
-				return
+	host, _ := sl["hostname"].(string)
+	if host == "" {
+		if client, ok := sl["client"].(string); ok && client != "" {
+			if h, _, err := net.SplitHostPort(client); err == nil {
+				host = h
+			} else {
+				host = client
 			}
-			continue
 		}
-		go s.handleTCPConn(ctx, conn)
-	}
-}
-
-func (s *SyslogServer) handleTCPConn(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
-	srcIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-	scanner := bufio.NewScanner(conn)
-
-	for scanner.Scan() {
-		if ctx.Err() != nil {
-			return
+		if host != "" {
+			sl["hostname"] = host
 		}
-		s.handleMessage(scanner.Bytes(), srcIP)
 	}
-}
 
-func (s *SyslogServer) handleMessage(data []byte, srcIP string) {
-	msgStr := string(data)
-	msg := ParseSyslog(msgStr, srcIP)
+	timeNano := time.Now().UnixNano()
+	if ts, ok := sl["timestamp"].(time.Time); ok && !ts.IsZero() {
+		timeNano = ts.UnixNano()
+	}
 
 	if s.logStore != nil {
-		rawJSON, _ := json.Marshal(msg)
-		_ = s.logStore.WriteLog(&parquet.ParquetLogRecord{
-			Time: msg.Time,
-			Type: "syslog",
-			Src:  msg.Host,
-			Log:  string(rawJSON),
-		})
+		rawJSON, err := json.Marshal(sl)
+		if err == nil {
+			_ = s.logStore.WriteLog(&parquet.ParquetLogRecord{
+				Time: timeNano,
+				Type: "syslog",
+				Src:  host,
+				Log:  string(rawJSON),
+			})
+		}
 	}
 }
 
-// ParseSyslog parses a raw syslog string into structured fields.
+// ParseSyslog parses a raw syslog string into structured SyslogMessage using go-syslog.
 func ParseSyslog(raw, srcIP string) *SyslogMessage {
+	parts := ParseSyslogParts([]byte(raw), srcIP)
 	now := time.Now().UnixNano()
-	msg := &SyslogMessage{
+	if ts, ok := parts["timestamp"].(time.Time); ok && !ts.IsZero() {
+		now = ts.UnixNano()
+	}
+
+	fac := 1
+	if f, ok := parts["facility"].(int); ok {
+		fac = f
+	} else if f, ok := parts["facility"].(float64); ok {
+		fac = int(f)
+	}
+
+	sev := 6
+	if s, ok := parts["severity"].(int); ok {
+		sev = s
+	} else if s, ok := parts["severity"].(float64); ok {
+		sev = int(s)
+	}
+
+	host, _ := parts["hostname"].(string)
+	if host == "" {
+		host = srcIP
+	}
+
+	tag, _ := parts["tag"].(string)
+	if tag == "" {
+		tag, _ = parts["app_name"].(string)
+	}
+
+	message, _ := parts["content"].(string)
+	if message == "" {
+		var partsList []string
+		for _, k := range []string{"proc_id", "msg_id", "message", "structured_data"} {
+			if m, ok := parts[k].(string); ok && m != "" {
+				partsList = append(partsList, m)
+			}
+		}
+		if len(partsList) > 0 {
+			message = strings.Join(partsList, " ")
+		} else {
+			if m, ok := parts["message"].(string); ok && m != "" {
+				message = m
+			} else {
+				message = raw
+			}
+		}
+	}
+
+	return &SyslogMessage{
 		Time:     now,
-		Host:     srcIP,
+		Facility: fac,
+		Severity: sev,
+		Host:     host,
+		Tag:      tag,
+		Message:  message,
 		Raw:      raw,
-		Facility: 1, // User level
-		Severity: 6, // Info
-		Message:  raw,
+	}
+}
+
+// ParseSyslogParts parses raw bytes into syslog LogParts map.
+func ParseSyslogParts(raw []byte, srcIP string) format.LogParts {
+	parser := (&format.Automatic{}).GetParser(raw)
+	if err := parser.Parse(); err == nil {
+		parts := parser.Dump()
+		if parts == nil {
+			parts = make(format.LogParts)
+		}
+		if srcIP != "" {
+			if _, ok := parts["client"]; !ok {
+				parts["client"] = srcIP
+			}
+		}
+		if h, _ := parts["hostname"].(string); h == "" {
+			if srcIP != "" {
+				if h2, _, err := net.SplitHostPort(srcIP); err == nil {
+					parts["hostname"] = h2
+				} else {
+					parts["hostname"] = srcIP
+				}
+			}
+		}
+		return parts
 	}
 
-	match := syslogPattern.FindStringSubmatch(raw)
-	if len(match) == 3 {
-		var pri int
-		if _, err := fmt.Sscanf(match[1], "%d", &pri); err == nil {
-			msg.Facility = pri / 8
-			msg.Severity = pri % 8
-		}
-		rest := strings.TrimSpace(match[2])
-		msg.Message = rest
-
-		// Check for tag
-		if idx := strings.Index(rest, ":"); idx > 0 && idx < 32 {
-			msg.Tag = strings.TrimSpace(rest[:idx])
-			msg.Message = strings.TrimSpace(rest[idx+1:])
-		}
-	}
-	return msg
+	// Fallback for non-RFC lines
+	parts := make(format.LogParts)
+	parts["client"] = srcIP
+	parts["hostname"] = srcIP
+	parts["content"] = string(raw)
+	parts["facility"] = 1
+	parts["severity"] = 6
+	parts["timestamp"] = time.Now()
+	return parts
 }
