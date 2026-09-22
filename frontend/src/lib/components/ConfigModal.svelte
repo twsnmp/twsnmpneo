@@ -44,6 +44,7 @@
   let enableSyslogd = $state(true);
   let enableTrapd = $state(true);
   let enableNetflowd = $state(false);
+  let enableSFlowd = $state(false);
   let enableArpWatch = $state(false);
   let enableSshd = $state(false);
   let enableTcpd = $state(false);
@@ -95,6 +96,7 @@
         enableSyslogd = conf.EnableSyslogd ?? conf.enable_syslogd ?? true;
         enableTrapd = conf.EnableTrapd ?? conf.enable_trapd ?? true;
         enableNetflowd = conf.EnableNetflowd ?? conf.enable_netflowd ?? false;
+        enableSFlowd = conf.EnableSFlowd ?? conf.enable_sflowd ?? false;
         enableArpWatch = conf.EnableArpWatch ?? conf.enable_arp_watch ?? false;
         enableSshd = conf.EnableSshd ?? conf.enable_sshd ?? false;
         enableTcpd = conf.EnableTcpd ?? conf.enable_tcpd ?? false;
@@ -201,6 +203,7 @@
         EnableSyslogd: Boolean(enableSyslogd),
         EnableTrapd: Boolean(enableTrapd),
         EnableNetflowd: Boolean(enableNetflowd),
+        EnableSFlowd: Boolean(enableSFlowd),
         EnableArpWatch: Boolean(enableArpWatch),
         EnableSshd: Boolean(enableSshd),
         EnableTcpd: Boolean(enableTcpd),
@@ -573,6 +576,14 @@
                     <div>
                       <span class="block font-semibold text-slate-200 text-xs">NetFlow サーバー</span>
                       <span class="block text-[11px] text-slate-400">UDP 2055番ポートでフロー収集</span>
+                    </div>
+                  </label>
+
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableSFlowd} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                    <div>
+                      <span class="block font-semibold text-slate-200 text-xs">sFlow サーバー</span>
+                      <span class="block text-[11px] text-slate-400">UDP 6343番ポートでフロー収集</span>
                     </div>
                   </label>
 

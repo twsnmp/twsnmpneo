@@ -262,6 +262,30 @@ type NetFlowEnt struct {
 	Dur      float64 `json:"Dur"`
 }
 
+// SFlowEnt represents a decoded sFlow flow sample entry.
+type SFlowEnt struct {
+	Time     int64  `json:"Time"`
+	SrcAddr  string `json:"SrcAddr"`
+	SrcPort  int    `json:"SrcPort"`
+	SrcLoc   string `json:"SrcLoc"`
+	SrcMAC   string `json:"SrcMAC"`
+	DstAddr  string `json:"DstAddr"`
+	DstPort  int    `json:"DstPort"`
+	DstLoc   string `json:"DstLoc"`
+	DstMAC   string `json:"DstMAC"`
+	Bytes    int    `json:"Bytes"`
+	TCPFlags string `json:"TCPFlags"`
+	Protocol string `json:"Protocol"`
+	Reason   int    `json:"Reason"`
+}
+
+// SFlowCounterEnt represents an sFlow counter sample entry.
+type SFlowCounterEnt struct {
+	Type   string `json:"Type"`
+	Remote string `json:"Remote"`
+	Data   string `json:"Data"`
+}
+
 // LocConfEnt holds GIS/geographic map configuration.
 type LocConfEnt struct {
 	Style    string  `json:"Style"`

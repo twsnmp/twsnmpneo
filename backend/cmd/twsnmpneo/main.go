@@ -36,6 +36,7 @@ func main() {
 		syslogTCP   = flag.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
 		trapPort    = flag.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable or default 162)")
 		netflowPort = flag.Int("netflow-port", 0, "NetFlow UDP port (0 to disable or default 2055)")
+		sflowPort   = flag.Int("sflow-port", 0, "sFlow UDP port (0 to disable or default 6343)")
 		otelPort    = flag.Int("otel-port", 0, "OpenTelemetry OTLP HTTP port (0 to disable or default 4318)")
 		mqttPort    = flag.Int("mqtt-port", 0, "MQTT broker port (0 to disable or default 1883)")
 		debug       = flag.Bool("debug", false, "Enable debug logging")
@@ -196,6 +197,10 @@ func main() {
 	if !explicitFlags["netflow-port"] && (mapConf == nil || mapConf.EnableNetflowd) {
 		nfPort = 2055
 	}
+	sfPort := *sflowPort
+	if !explicitFlags["sflow-port"] && (mapConf == nil || mapConf.EnableSFlowd) {
+		sfPort = 6343
+	}
 	oPort := *otelPort
 	if !explicitFlags["otel-port"] && (mapConf == nil || mapConf.EnableOTel) {
 		oPort = 4318
@@ -218,6 +223,7 @@ func main() {
 		SyslogTCP:    sTCP,
 		TrapPort:     tPort,
 		NetFlowPort:  nfPort,
+		SFlowPort:    sfPort,
 		OTelPort:     oPort,
 		MQTTPort:     mPort,
 		MqttToSyslog: mqttToSyslog,

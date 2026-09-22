@@ -156,12 +156,25 @@
       { key: "dur", label: "Duration", width: "w-20", align: "right", sortable: true },
     ],
     sflow: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "agent", label: "エージェント", width: "w-40", sortable: true },
-      { key: "src", label: "送信元 (Src)", width: "w-44", sortable: true },
-      { key: "dst", label: "宛先 (Dst)", width: "w-44", sortable: true },
-      { key: "protocol", label: "プロトコル", width: "w-24", align: "center", sortable: true },
-      { key: "bytes", label: "バイト数", width: "w-28", align: "right", sortable: true },
+      { key: "time", label: "Time", width: "w-44", sortable: true },
+      { key: "srcAddr", label: "Src Addr", width: "w-36", sortable: true },
+      { key: "srcPort", label: "Port", width: "w-16", align: "right", sortable: true },
+      { key: "srcLoc", label: "Location", width: "w-28", sortable: true },
+      { key: "srcMac", label: "MAC", width: "w-36", sortable: true },
+      { key: "dstAddr", label: "Dst Addr", width: "w-36", sortable: true },
+      { key: "dstPort", label: "Port", width: "w-16", align: "right", sortable: true },
+      { key: "dstLoc", label: "Location", width: "w-28", sortable: true },
+      { key: "dstMac", label: "MAC", width: "w-36", sortable: true },
+      { key: "protocol", label: "Protocol", width: "w-20", align: "center", sortable: true },
+      { key: "tcpFlags", label: "TCP Flags", width: "w-24", sortable: true },
+      { key: "bytes", label: "Bytes", width: "w-24", align: "right", sortable: true },
+      { key: "reason", label: "Discard reason", width: "w-28", align: "right", sortable: true },
+    ],
+    sflowCounter: [
+      { key: "time", label: "Time", width: "w-44", sortable: true },
+      { key: "remote", label: "Src Addr", width: "w-36", sortable: true },
+      { key: "counterType", label: "Type", width: "w-44", sortable: true },
+      { key: "counterData", label: "Data", sortable: true },
     ],
     arp: [
       { key: "time", label: "日時", width: "w-44", sortable: true },
@@ -186,17 +199,25 @@
     ],
   };
 
-  const currentColumns = $derived(categoryColumns[activeTab] || []);
+  let sflowCounter = $state(false);
+
+  const currentColumns = $derived(
+    activeTab === "sflow" && sflowCounter
+      ? (categoryColumns as any)["sflowCounter"]
+      : categoryColumns[activeTab] || []
+  );
 
   const visibleColumns = $derived(
-    currentColumns.filter((col) => {
-      const key = `${activeTab}_${col.key}`;
+    currentColumns.filter((col: ColumnDef) => {
+      const colTab = activeTab === "sflow" && sflowCounter ? "sflowCounter" : activeTab;
+      const key = `${colTab}_${col.key}`;
       return columnVisibility[key] !== false;
     })
   );
 
   const toggleColumn = (key: string) => {
-    const colKey = `${activeTab}_${key}`;
+    const colTab = activeTab === "sflow" && sflowCounter ? "sflowCounter" : activeTab;
+    const colKey = `${colTab}_${key}`;
     columnVisibility[colKey] = columnVisibility[colKey] === false ? true : false;
   };
 
@@ -214,6 +235,28 @@
       return JSON.parse(str);
     } catch {
       return null;
+    }
+  };
+
+  const formatCounterData = (dataVal: any) => {
+    if (!dataVal) return "-";
+    try {
+      let o = dataVal;
+      if (typeof o === "string") {
+        try {
+          o = JSON.parse(o);
+        } catch {
+          return o;
+        }
+      }
+      if (typeof o !== "object" || o === null) return String(o);
+      const parts: string[] = [];
+      for (const k of Object.keys(o)) {
+        parts.push(`${k}=${o[k]}`);
+      }
+      return parts.join(" ");
+    } catch {
+      return String(dataVal);
     }
   };
 
@@ -243,8 +286,9 @@
         if (filterState.start) startTime = new Date(filterState.start).getTime() * 1e6;
         if (filterState.end) endTime = new Date(filterState.end).getTime() * 1e6;
 
+        const queryType = activeTab === "arp" ? "arplog" : (activeTab === "sflow" && sflowCounter ? "sflowCounter" : activeTab);
         const pq = await queryParquetLogs({
-          type: activeTab === "arp" ? "arplog" : activeTab,
+          type: queryType,
           src: filterState.source || undefined,
           filter: filterState.keyword || undefined,
           start: startTime || undefined,
@@ -281,6 +325,10 @@
     protocol?: string;
     packets?: number;
     bytes?: number;
+    reason?: number;
+    remote?: string;
+    counterType?: string;
+    counterData?: string;
     info?: string;
     state?: string;
     ip?: string;
@@ -382,13 +430,23 @@
           // OTel
           const scope = parsed.scope ?? parsed.service ?? parsed.Scope ?? "";
 
+          // sFlow fields
+          const sfReason = typeof parsed.Reason === "number" ? parsed.Reason : (typeof parsed.reason === "number" ? parsed.reason : 0);
+          const sfRemote = parsed.Remote ?? parsed.remote ?? src;
+          const sfCounterType = parsed.Type ?? parsed.type ?? "";
+          let sfCounterData = parsed.Data ?? parsed.data ?? "";
+          if (!sfCounterData && activeTab === "sflow" && sflowCounter) {
+            sfCounterData = rawLog;
+          }
+          const formattedCounterData = formatCounterData(sfCounterData);
+
           return {
             raw: pl,
             time,
-            src: activeTab === "trap" ? trapFrom : (activeTab === "netflow" ? nfSrcAddr : src),
+            src: activeTab === "trap" ? trapFrom : (activeTab === "netflow" ? nfSrcAddr : (activeTab === "sflow" ? (sflowCounter ? sfRemote : nfSrcAddr) : src)),
             level,
             host,
-            type: activeTab === "syslog" ? syslogType : (parsed.type ?? parsed.Type ?? ""),
+            type: activeTab === "syslog" ? syslogType : (activeTab === "sflow" && sflowCounter ? sfCounterType : (parsed.type ?? parsed.Type ?? "")),
             tag,
             message,
             trapType,
@@ -408,6 +466,10 @@
             protocol,
             packets,
             bytes,
+            reason: sfReason,
+            remote: sfRemote,
+            counterType: sfCounterType,
+            counterData: sfCounterData,
             info,
             state,
             ip,
@@ -420,7 +482,7 @@
             payload,
             scope,
             log: rawLog,
-            fullText: `${rawLog} ${src} ${tag} ${host} ${syslogType} ${topic} ${ip} ${nfSrcAddr} ${nfDstAddr}`,
+            fullText: `${rawLog} ${src} ${tag} ${host} ${syslogType} ${topic} ${ip} ${nfSrcAddr} ${nfDstAddr} ${sfRemote} ${sfCounterType} ${formattedCounterData}`,
           };
         })
   );
@@ -545,6 +607,9 @@
     try {
       if (activeTab === "event") {
         await deleteEventLogs();
+      } else if (activeTab === "sflow") {
+        await deleteParquetLogs("sflow");
+        await deleteParquetLogs("sflowCounter");
       } else {
         await deleteParquetLogs(activeTab === "arp" ? "arplog" : activeTab);
       }
@@ -556,18 +621,20 @@
   };
 
   const exportCSV = () => {
-    const filename = `twsnmp_${activeTab}_logs_${Date.now()}.csv`;
+    const tabName = activeTab === "sflow" && sflowCounter ? "sflow_counter" : activeTab;
+    const filename = `twsnmp_${tabName}_logs_${Date.now()}.csv`;
     const cols = visibleColumns;
-    let csv = cols.map((c) => `"${c.label}"`).join(",") + "\n";
+    let csv = "\uFEFF" + cols.map((c) => `"${c.label}"`).join(",") + "\n";
 
     csv += sortedLogs
       .map((row: any) =>
         cols
           .map((c) => {
             let val = row[c.key];
-            if (c.key === "time") val = (activeTab === "syslog" || activeTab === "netflow") ? renderTimeMili(val) : formatTimeStr(val);
+            if (c.key === "time") val = (activeTab === "syslog" || activeTab === "netflow" || activeTab === "sflow") ? renderTimeMili(val) : formatTimeStr(val);
             if (c.key === "bytes" && typeof val === "number") val = renderBytes(val);
             if (c.key === "dur" && typeof val === "number") val = val === 0 ? "0" : val.toFixed(2);
+            if (c.key === "counterData") val = formatCounterData(val);
             return `"${String(val ?? "").replace(/"/g, '""')}"`;
           })
           .join(",")
@@ -579,6 +646,12 @@
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
+  };
+
+  const exportExcel = () => {
+    const tabName = activeTab === "sflow" && sflowCounter ? "sflow_counter" : activeTab;
+    const filename = `twsnmp_${tabName}_logs_${Date.now()}.csv`;
+    exportCSV();
   };
 
   const getLevelBadge = (level: string) => {
@@ -793,6 +866,22 @@
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2">
+        {#if activeTab === "sflow"}
+          <label class="flex items-center gap-2 cursor-pointer select-none bg-slate-800 hover:bg-slate-700/80 px-3 py-1.5 rounded-xl border border-slate-700 transition-colors">
+            <span class="text-xs font-semibold text-slate-300">Counter</span>
+            <input
+              type="checkbox"
+              bind:checked={sflowCounter}
+              onchange={() => {
+                currentPage = 1;
+                loadCurrentLogs();
+              }}
+              class="sr-only peer"
+            />
+            <div class="relative w-8 h-4 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500"></div>
+          </label>
+        {/if}
+
         <button
           type="button"
           onclick={() => (showReportModal = true)}
@@ -819,6 +908,15 @@
         >
           <Download class="h-3.5 w-3.5 text-cyan-400" />
           <span>CSV</span>
+        </button>
+
+        <button
+          type="button"
+          onclick={exportExcel}
+          class="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 hover:bg-emerald-900/40 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition-colors cursor-pointer"
+        >
+          <FileText class="h-3.5 w-3.5 text-emerald-400" />
+          <span>Excel</span>
         </button>
 
         <button
@@ -869,7 +967,7 @@
                 {#each visibleColumns as col}
                   <td class="py-1 px-2.5 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
                     {#if col.key === "time"}
-                      <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" || activeTab === "netflow" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
+                      <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" || activeTab === "netflow" || activeTab === "sflow" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
                     {:else if col.key === "level" || col.key === "state"}
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getLevelBadge(item.level || item.state || 'info')}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.level || item.state || 'info')}"></span>
@@ -881,12 +979,18 @@
                       <span class="text-[11px] text-slate-300 leading-tight">{item.packets.toLocaleString()}</span>
                     {:else if col.key === "dur"}
                       <span class="text-[11px] text-slate-300 leading-tight">{typeof item.dur === 'number' ? (item.dur === 0 ? '0' : item.dur.toFixed(2)) : (item.dur || '0')}</span>
+                    {:else if col.key === "reason"}
+                      <span class="text-slate-300 text-[11px] font-sans leading-tight">{item.reason ? item.reason : ""}</span>
                     {:else if col.key === "srcLoc" || col.key === "dstLoc" || col.key === "srcMac" || col.key === "dstMac" || col.key === "tcpFlags"}
                       <span class="text-slate-400 text-[11px] font-sans truncate leading-tight">{item[col.key] || ""}</span>
                     {:else if col.key === "srcPort" || col.key === "dstPort"}
                       <span class="text-slate-300 text-[11px] font-sans leading-tight">{item[col.key] || 0}</span>
-                    {:else if col.key === "srcAddr" || col.key === "dstAddr"}
+                    {:else if col.key === "srcAddr" || col.key === "dstAddr" || col.key === "remote"}
                       <span class="font-sans text-slate-200 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
+                    {:else if col.key === "counterType"}
+                      <span class="font-semibold text-cyan-400 text-[11px] truncate leading-tight">{item.counterType || "-"}</span>
+                    {:else if col.key === "counterData"}
+                      <span class="font-sans text-slate-200 break-all text-[11px] leading-relaxed select-text">{formatCounterData(item.counterData)}</span>
                     {:else if col.key === "event" || col.key === "message" || col.key === "payload" || col.key === "log"}
                       <span class="font-sans text-slate-100 break-all text-[11px] leading-tight line-clamp-1">{item[col.key] || "-"}</span>
                     {:else if col.key === "node" || col.key === "host" || col.key === "src" || col.key === "ip"}

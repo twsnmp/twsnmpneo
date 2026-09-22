@@ -13,7 +13,9 @@ require (
 )
 
 require (
+	github.com/Cistern/sflow v0.0.0-20240622235316-ed105e3cf9fb // indirect
 	github.com/alecthomas/participle v0.4.1 // indirect
+	github.com/google/gopacket v1.1.19 // indirect
 	github.com/oschwald/geoip2-golang v1.11.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect

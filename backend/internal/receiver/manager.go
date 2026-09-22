@@ -17,6 +17,7 @@ type Config struct {
 	SyslogTCP    int
 	TrapPort     int
 	NetFlowPort  int
+	SFlowPort    int
 	OTelPort     int
 	MQTTPort     int
 	MqttToSyslog bool
@@ -27,6 +28,7 @@ type Manager struct {
 	syslog  *SyslogServer
 	trap    *TrapServer
 	netflow *NetFlowServer
+	sflow   *SFlowServer
 	otel    *OTelServer
 	mqtt    *MQTTServer
 }
@@ -46,6 +48,10 @@ func NewManager(cfg Config) *Manager {
 		}),
 		netflow: NewNetFlowServer(NetFlowConfig{
 			Port:     cfg.NetFlowPort,
+			LogStore: cfg.LogStore,
+		}),
+		sflow: NewSFlowServer(SFlowConfig{
+			Port:     cfg.SFlowPort,
 			LogStore: cfg.LogStore,
 		}),
 		otel: NewOTelServer(OTelConfig{
@@ -82,6 +88,12 @@ func (m *Manager) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		_ = m.netflow.Start(ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = m.sflow.Start(ctx)
 	}()
 
 	wg.Add(1)
