@@ -651,6 +651,12 @@ export async function queryParquetLogs(type = '', filter = ''): Promise<ParquetL
   return (Array.isArray(list) ? list : []).map(normalizeParquetLog);
 }
 
+export async function getLogCounts(): Promise<Record<string, number>> {
+  const res = await fetch(`${API_BASE}/logs/counts`);
+  if (!res.ok) return {};
+  return res.json();
+}
+
 export async function askAI(prompt: string, system = ''): Promise<string> {
   const res = await fetch(`${API_BASE}/ai/ask`, {
     method: 'POST',

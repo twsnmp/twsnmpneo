@@ -68,4 +68,5 @@ type DataStore interface {
 	// Event Logs
 	AddEventLog(ctx context.Context, event *EventLogEnt) error
 	ListEventLogs(ctx context.Context, limit int) ([]*EventLogEnt, error)
+	CountEventLogs(ctx context.Context) (int64, error)
 }

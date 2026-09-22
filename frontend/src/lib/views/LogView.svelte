@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fetchEventLogs, queryParquetLogs, askAI, type EventLogEnt, type ParquetLogRecord } from "../api";
+  import { fetchEventLogs, queryParquetLogs, getLogCounts, askAI, type EventLogEnt, type ParquetLogRecord } from "../api";
   import { getStateColor, getStateName, formatTimeStr } from "../common";
   import {
     Search,
@@ -21,6 +21,7 @@
   let activeTab = $state<LogCategory>("event");
   let eventLogs = $state<EventLogEnt[]>([]);
   let parquetLogs = $state<ParquetLogRecord[]>([]);
+  let logCounts = $state<Record<string, number>>({});
   let searchQuery = $state("");
   let levelFilter = $state("all");
   let loading = $state(false);
@@ -41,11 +42,24 @@
   let aiAnswer = $state("");
   let aiLoading = $state(false);
 
+  const refreshCounts = async () => {
+    try {
+      const counts = await getLogCounts();
+      if (counts) {
+        logCounts = counts;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const loadCurrentLogs = async () => {
     loading = true;
     try {
+      refreshCounts();
       if (activeTab === "event") {
         eventLogs = await fetchEventLogs();
+        logCounts["event"] = eventLogs.length;
       } else {
         parquetLogs = await queryParquetLogs(activeTab, searchQuery);
       }
@@ -56,7 +70,10 @@
     }
   };
 
-  onMount(loadCurrentLogs);
+  onMount(() => {
+    loadCurrentLogs();
+    refreshCounts();
+  });
 
   $effect(() => {
     activeTab;
@@ -161,7 +178,7 @@
       </div>
 
       {#each categories as cat}
-        {@const count = cat.id === "event" ? eventLogs.length : (activeTab === cat.id ? parquetLogs.length : undefined)}
+        {@const count = logCounts[cat.id] ?? (cat.id === "event" ? eventLogs.length : (activeTab === cat.id ? parquetLogs.length : 0))}
         <button
           type="button"
           onclick={() => {
@@ -176,11 +193,9 @@
             <cat.icon class="h-4 w-4 shrink-0 {activeTab === cat.id ? 'text-white' : 'text-cyan-400'}" />
             <span class="truncate">{cat.name}</span>
           </div>
-          {#if count !== undefined}
-            <span class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeTab === cat.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}">
-              {count}
-            </span>
-          {/if}
+          <span class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeTab === cat.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}">
+            {count}
+          </span>
         </button>
       {/each}
     </div>

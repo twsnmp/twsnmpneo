@@ -825,3 +825,17 @@ func (s *Store) ListEventLogs(_ context.Context, limit int) ([]*datastore.EventL
 	})
 	return logs, err
 }
+
+func (s *Store) CountEventLogs(_ context.Context) (int64, error) {
+	var count int64
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketEventLog)
+		if b == nil {
+			return nil
+		}
+		count = int64(b.Stats().KeyN)
+		return nil
+	})
+	return count, err
+}
+

@@ -224,6 +224,59 @@ func (s *Store) writeParquetFile(logType string, records []*ParquetLogRecord) er
 	return nil
 }
 
+// CountByType returns the number of records stored for each log type.
+func (s *Store) CountByType(ctx context.Context) (map[string]int64, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	_ = s.Flush()
+
+	counts := make(map[string]int64)
+
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return counts, nil
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		logType := e.Name()
+		typeDir := filepath.Join(s.dir, logType)
+		fileEntries, err := os.ReadDir(typeDir)
+		if err != nil {
+			continue
+		}
+
+		var total int64
+		for _, fe := range fileEntries {
+			if fe.IsDir() || !strings.HasSuffix(fe.Name(), ".parquet") {
+				continue
+			}
+			filePath := filepath.Join(typeDir, fe.Name())
+			f, err := os.Open(filePath)
+			if err != nil {
+				continue
+			}
+			stat, err := f.Stat()
+			if err != nil {
+				_ = f.Close()
+				continue
+			}
+			pf, err := parquet.OpenFile(f, stat.Size())
+			if err != nil {
+				_ = f.Close()
+				continue
+			}
+			total += pf.NumRows()
+			_ = f.Close()
+		}
+		counts[logType] = total
+	}
+	return counts, nil
+}
+
 // Query searches across parquet files matching the filter.
 func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecord, error) {
 	if err := ctx.Err(); err != nil {

@@ -533,6 +533,21 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			return c.JSON(http.StatusOK, logs)
 		})
+
+		apiGroup.GET("/logs/counts", func(c echo.Context) error {
+			counts := make(map[string]int64)
+			if cnt, err := cfg.Store.CountEventLogs(c.Request().Context()); err == nil {
+				counts["event"] = cnt
+			}
+			if cfg.LogStore != nil {
+				if pqCounts, err := cfg.LogStore.CountByType(c.Request().Context()); err == nil {
+					for k, v := range pqCounts {
+						counts[k] = v
+					}
+				}
+			}
+			return c.JSON(http.StatusOK, counts)
+		})
 	}
 
 	// Diagnostic Tools APIs (Ping, WOL)
