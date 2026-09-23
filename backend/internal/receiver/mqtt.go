@@ -3,7 +3,9 @@ package receiver
 import (
 	"bufio"
 	"context"
+	"crypto/sha1" // #nosec G505
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,12 +13,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 )
 
 // MQTTConfig holds configuration for the embedded MQTT broker.
 type MQTTConfig struct {
 	Port         int
+	Store        datastore.DataStore
 	LogStore     *parquet.Store
 	MqttToSyslog bool
 }
@@ -24,18 +28,23 @@ type MQTTConfig struct {
 // MQTTServer is an embedded MQTT message broker for IoT sensor data.
 type MQTTServer struct {
 	port         int
+	store        datastore.DataStore
 	logStore     *parquet.Store
 	mqttToSyslog bool
 	listener     net.Listener
 	mu           sync.Mutex
+	statMu       sync.RWMutex
+	stats        map[string]*datastore.MqttStatEnt
 }
 
 // NewMQTTServer creates an instance of the embedded MQTT broker.
 func NewMQTTServer(cfg MQTTConfig) *MQTTServer {
 	return &MQTTServer{
 		port:         cfg.Port,
+		store:        cfg.Store,
 		logStore:     cfg.LogStore,
 		mqttToSyslog: cfg.MqttToSyslog,
+		stats:        make(map[string]*datastore.MqttStatEnt),
 	}
 }
 
@@ -43,6 +52,17 @@ func NewMQTTServer(cfg MQTTConfig) *MQTTServer {
 func (s *MQTTServer) Start(ctx context.Context) error {
 	if s.port <= 0 {
 		return nil
+	}
+
+	// Pre-load stats from datastore
+	if s.store != nil {
+		if list, err := s.store.ListMqttStats(ctx); err == nil {
+			s.statMu.Lock()
+			for _, st := range list {
+				s.stats[st.ID] = st
+			}
+			s.statMu.Unlock()
+		}
 	}
 
 	addr := fmt.Sprintf(":%d", s.port)
@@ -85,6 +105,8 @@ func (s *MQTTServer) handleClient(ctx context.Context, conn net.Conn) {
 		srcIP = conn.RemoteAddr().String()
 	}
 
+	clientID := srcIP
+
 	reader := bufio.NewReader(conn)
 	for {
 		if ctx.Err() != nil {
@@ -114,6 +136,11 @@ func (s *MQTTServer) handleClient(ctx context.Context, conn net.Conn) {
 
 		switch packetType {
 		case 1: // CONNECT
+			parsedID := parseClientID(payload)
+			if parsedID != "" {
+				clientID = parsedID
+			}
+
 			// Respond with CONNACK: Return Code 0 (Connection Accepted)
 			connack := []byte{0x20, 0x02, 0x00, 0x00}
 			_, _ = conn.Write(connack)
@@ -134,15 +161,51 @@ func (s *MQTTServer) handleClient(ctx context.Context, conn net.Conn) {
 					}
 
 					msgContent := string(payload[offset:])
-					logText := fmt.Sprintf("[%s] %s", topic, msgContent)
+
+					// Update MQTT statistics
+					s.updateStat(clientID, srcIP, topic, []byte(msgContent))
+
+					// Write structured log to Parquet
+					now := time.Now().UnixNano()
+					logEnt := datastore.MqttLogEnt{
+						Time:     now,
+						Topic:    topic,
+						ClientID: clientID,
+						Remote:   srcIP,
+						Payload:  msgContent,
+					}
+					jsonLog, err := json.Marshal(logEnt)
+					logText := string(jsonLog)
+					if err != nil {
+						logText = fmt.Sprintf("[%s] %s", topic, msgContent)
+					}
 
 					if s.logStore != nil {
 						_ = s.logStore.WriteLog(&parquet.ParquetLogRecord{
-							Time: time.Now().UnixNano(),
+							Time: now,
 							Type: "mqtt",
 							Src:  srcIP,
 							Log:  logText,
 						})
+
+						// If MqttToSyslog is enabled, also forward to syslog in Parquet
+						if s.mqttToSyslog {
+							syslogMap := map[string]any{
+								"content":  msgContent,
+								"tag":      fmt.Sprintf("mqtt:%s", topic),
+								"severity": 6,
+								"facility": 17,
+								"hostname": clientID,
+							}
+							if sj, err := json.Marshal(syslogMap); err == nil {
+								_ = s.logStore.WriteLog(&parquet.ParquetLogRecord{
+									Time: now,
+									Type: "syslog",
+									Src:  srcIP,
+									Log:  string(sj),
+								})
+							}
+						}
 					}
 
 					// If QoS 1, send PUBACK
@@ -173,6 +236,57 @@ func (s *MQTTServer) handleClient(ctx context.Context, conn net.Conn) {
 			// Ignore other packet types
 		}
 	}
+}
+
+func (s *MQTTServer) updateStat(clientID, remote, topic string, payload []byte) {
+	// #nosec G401
+	k := fmt.Sprintf("%x", sha1.Sum([]byte(fmt.Sprintf("%s\t%s", clientID, topic))))
+	now := time.Now().UnixNano()
+
+	s.statMu.Lock()
+	ent, ok := s.stats[k]
+	if ok {
+		ent.Bytes += int64(len(payload))
+		ent.Count++
+		ent.Remote = remote
+		ent.Last = now
+		ent.Value = string(payload)
+	} else {
+		ent = &datastore.MqttStatEnt{
+			ID:       k,
+			ClientID: clientID,
+			Topic:    topic,
+			Remote:   remote,
+			Count:    1,
+			Bytes:    int64(len(payload)),
+			First:    now,
+			Last:     now,
+			Value:    string(payload),
+		}
+		s.stats[k] = ent
+	}
+	s.statMu.Unlock()
+
+	if s.store != nil {
+		_ = s.store.SaveMqttStat(context.Background(), ent)
+	}
+}
+
+// parseClientID extracts the Client Identifier from an MQTT CONNECT payload.
+func parseClientID(payload []byte) string {
+	if len(payload) < 2 {
+		return ""
+	}
+	protoLen := int(binary.BigEndian.Uint16(payload[0:2]))
+	offset := 2 + protoLen + 1 + 1 + 2 // protoName + protoLevel(1) + flags(1) + keepAlive(2)
+	if len(payload) >= offset+2 {
+		idLen := int(binary.BigEndian.Uint16(payload[offset : offset+2]))
+		offset += 2
+		if len(payload) >= offset+idLen && idLen > 0 {
+			return string(payload[offset : offset+idLen])
+		}
+	}
+	return ""
 }
 
 func readRemainingLength(r io.Reader) (int, error) {

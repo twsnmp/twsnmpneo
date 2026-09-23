@@ -531,3 +531,90 @@ func TestStore_CleanupOrphansOnLoad(t *testing.T) {
 	}
 }
 
+func TestStore_MqttStatOperations(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	now := time.Now().UnixNano()
+	s1 := &datastore.MqttStatEnt{
+		ID:       "stat-1",
+		ClientID: "client-1",
+		Topic:    "sensor/temp",
+		Remote:   "192.168.1.50",
+		Count:    10,
+		Bytes:    1024,
+		First:    now,
+		Last:     now,
+		Value:    "23.5",
+	}
+	s2 := &datastore.MqttStatEnt{
+		ID:       "stat-2",
+		ClientID: "client-2",
+		Topic:    "sensor/humidity",
+		Remote:   "192.168.1.51",
+		Count:    5,
+		Bytes:    512,
+		First:    time.Now().AddDate(0, 0, -20).UnixNano(),
+		Last:     time.Now().AddDate(0, 0, -20).UnixNano(), // old
+		Value:    "60",
+	}
+
+	if err := store.SaveMqttStat(ctx, s1); err != nil {
+		t.Fatalf("save mqtt stat failed: %v", err)
+	}
+	if err := store.SaveMqttStats(ctx, []*datastore.MqttStatEnt{s2}); err != nil {
+		t.Fatalf("save mqtt stats failed: %v", err)
+	}
+
+	list, err := store.ListMqttStats(ctx)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("list mqtt stats failed: count=%d, err=%v", len(list), err)
+	}
+
+	// Verify State calculation: s1 should be normal, s2 should be low (older than 5 days)
+	var found1, found2 *datastore.MqttStatEnt
+	for _, it := range list {
+		if it.ID == "stat-1" {
+			found1 = it
+		}
+		if it.ID == "stat-2" {
+			found2 = it
+		}
+	}
+	if found1 == nil || found1.State != "normal" {
+		t.Errorf("expected stat-1 state normal, got %+v", found1)
+	}
+	if found2 == nil || found2.State != "low" {
+		t.Errorf("expected stat-2 state low, got %+v", found2)
+	}
+
+	// Clean old stats older than 14 days -> stat-2 should be removed
+	if err := store.CleanOldMqttStats(ctx, 14); err != nil {
+		t.Fatalf("clean old stats failed: %v", err)
+	}
+	listAfterClean, _ := store.ListMqttStats(ctx)
+	if len(listAfterClean) != 1 || listAfterClean[0].ID != "stat-1" {
+		t.Errorf("expected only stat-1 remaining after clean, got count=%d", len(listAfterClean))
+	}
+
+	// Delete single stat
+	if err := store.DeleteMqttStats(ctx, []string{"stat-1"}); err != nil {
+		t.Fatalf("delete mqtt stats failed: %v", err)
+	}
+	listAfterDel, _ := store.ListMqttStats(ctx)
+	if len(listAfterDel) != 0 {
+		t.Errorf("expected empty list after delete, got %d", len(listAfterDel))
+	}
+
+	// DeleteAllMqttStats
+	_ = store.SaveMqttStat(ctx, s1)
+	if err := store.DeleteAllMqttStats(ctx); err != nil {
+		t.Fatalf("delete all mqtt stats failed: %v", err)
+	}
+	listEmpty, _ := store.ListMqttStats(ctx)
+	if len(listEmpty) != 0 {
+		t.Errorf("expected empty list after delete all, got %d", len(listEmpty))
+	}
+}
+

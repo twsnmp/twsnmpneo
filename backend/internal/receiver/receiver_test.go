@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,9 +13,40 @@ import (
 	"time"
 
 	"github.com/gosnmp/gosnmp"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
 )
+
+func setupTestStores(t *testing.T) (datastore.DataStore, *parquet.Store, func()) {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "twsnmpneo-receiver-test-*")
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+
+	bStore, err := bbolt.New(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("create bbolt store: %v", err)
+	}
+
+	pqStore, err := parquet.New(parquet.Config{
+		Dir:            filepath.Join(dir, "logs"),
+		BufferSize:     2,
+		BufferInterval: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("create parquet store: %v", err)
+	}
+
+	cleanup := func() {
+		_ = bStore.Close()
+		_ = pqStore.Close()
+		_ = os.RemoveAll(dir)
+	}
+	return bStore, pqStore, cleanup
+}
 
 func setupTestLogStore(t *testing.T) (*parquet.Store, string, func()) {
 	t.Helper()
@@ -341,7 +373,7 @@ func TestOTel_Ingestion(t *testing.T) {
 }
 
 func TestMQTT_Ingestion(t *testing.T) {
-	store, _, cleanup := setupTestLogStore(t)
+	bStore, logStore, cleanup := setupTestStores(t)
 	defer cleanup()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -356,13 +388,78 @@ func TestMQTT_Ingestion(t *testing.T) {
 	_ = l.Close()
 
 	srv := receiver.NewMQTTServer(receiver.MQTTConfig{
-		Port:     port,
-		LogStore: store,
+		Port:         port,
+		Store:        bStore,
+		LogStore:     logStore,
+		MqttToSyslog: true,
 	})
 
 	go func() {
 		_ = srv.Start(ctx)
 	}()
 	time.Sleep(50 * time.Millisecond)
+
+	// Connect to broker
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		t.Fatalf("failed to connect to mqtt broker: %v", err)
+	}
+	defer conn.Close()
+
+	// Send CONNECT packet (ClientID: "test-device-1")
+	// Variable header (10 bytes): "MQTT"(4) + level(4) + flags(2) + keepalive(60)
+	// Payload: clientID len (2) + "test-device-1" (13)
+	connectPacket := []byte{
+		0x10, 0x19, // remaining length 25
+		0x00, 0x04, 'M', 'Q', 'T', 'T',
+		0x04,       // level
+		0x02,       // clean session
+		0x00, 0x3c, // keepalive
+		0x00, 0x0d, // clientID len 13
+		't', 'e', 's', 't', '-', 'd', 'e', 'v', 'i', 'c', 'e', '-', '1',
+	}
+	if _, err := conn.Write(connectPacket); err != nil {
+		t.Fatalf("failed to write CONNECT packet: %v", err)
+	}
+
+	// Read CONNACK
+	connack := make([]byte, 4)
+	if _, err := io.ReadFull(conn, connack); err != nil {
+		t.Fatalf("failed to read CONNACK: %v", err)
+	}
+	if connack[0] != 0x20 || connack[3] != 0x00 {
+		t.Fatalf("unexpected CONNACK response: %v", connack)
+	}
+
+	// Send PUBLISH packet (topic: "home/temp", payload: "22.5")
+	publishPacket := []byte{
+		0x30, 0x0f, // remaining length 15
+		0x00, 0x09, // topic len 9
+		'h', 'o', 'm', 'e', '/', 't', 'e', 'm', 'p',
+		'2', '2', '.', '5',
+	}
+	if _, err := conn.Write(publishPacket); err != nil {
+		t.Fatalf("failed to write PUBLISH packet: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	_ = logStore.Flush()
+
+	// Verify stat was saved in bStore
+	stats, err := bStore.ListMqttStats(ctx)
+	if err != nil || len(stats) == 0 {
+		t.Fatalf("expected mqtt stat saved, count=%d, err=%v", len(stats), err)
+	}
+	if stats[0].ClientID != "test-device-1" || stats[0].Topic != "home/temp" || stats[0].Value != "22.5" {
+		t.Errorf("unexpected mqtt stat: %+v", stats[0])
+	}
+
+	// Verify log was saved in logStore (Parquet)
+	logs, err := logStore.Query(ctx, parquet.LogFilter{Type: "mqtt", Limit: 10})
+	if err != nil || len(logs) == 0 {
+		t.Fatalf("expected parquet mqtt log, got count=%d, err=%v", len(logs), err)
+	}
+	if !strings.Contains(logs[0].Log, "test-device-1") || !strings.Contains(logs[0].Log, "home/temp") {
+		t.Errorf("unexpected log content: %s", logs[0].Log)
+	}
 }
 

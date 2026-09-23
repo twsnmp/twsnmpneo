@@ -484,3 +484,81 @@ func TestAPIServer_OTelEndpoints(t *testing.T) {
 	}
 }
 
+func TestAPIServer_MqttEndpoints(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Seed MQTT stat and log
+	stat := &datastore.MqttStatEnt{
+		ID:       "stat-api-1",
+		ClientID: "test-client",
+		Topic:    "devices/temp",
+		Remote:   "192.168.1.100",
+		Count:    10,
+		Bytes:    2048,
+		First:    time.Now().UnixNano(),
+		Last:     time.Now().UnixNano(),
+		Value:    "25.2",
+	}
+	_ = bStore.SaveMqttStat(ctx, stat)
+
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: time.Now().UnixNano(),
+		Type: "mqtt",
+		Src:  "192.168.1.100",
+		Log:  `{"topic":"devices/temp","clientID":"test-client","remote":"192.168.1.100","payload":"25.2"}`,
+	})
+	_ = pqStore.Flush()
+
+	srv, err := api.NewServer(api.Config{
+		Port:      9099,
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+	})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	e := srv.GetEcho()
+
+	// 1. GET /api/mqtt/stats
+	req := httptest.NewRequest(http.MethodGet, "/api/mqtt/stats", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET /api/mqtt/stats failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "devices/temp") {
+		t.Errorf("expected devices/temp in response, got %s", rec.Body.String())
+	}
+
+	// 2. GET /api/logs/query?type=mqtt
+	req = httptest.NewRequest(http.MethodGet, "/api/logs/query?type=mqtt", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET /api/logs/query?type=mqtt failed: code %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "test-client") {
+		t.Errorf("expected test-client in mqtt logs query response, got %s", rec.Body.String())
+	}
+
+	// 3. DELETE /api/mqtt/stats?id=stat-api-1
+	req = httptest.NewRequest(http.MethodDelete, "/api/mqtt/stats?id=stat-api-1", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("DELETE /api/mqtt/stats failed: code %d", rec.Code)
+	}
+
+	// 4. DELETE /api/mqtt/stats/all
+	_ = bStore.SaveMqttStat(ctx, stat)
+	req = httptest.NewRequest(http.MethodDelete, "/api/mqtt/stats/all", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("DELETE /api/mqtt/stats/all failed: code %d", rec.Code)
+	}
+}
+

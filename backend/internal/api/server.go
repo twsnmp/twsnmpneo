@@ -758,6 +758,55 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, mib.GetMIBModules())
 		})
 
+		// MQTT Stats
+		mqttGroup := apiGroup.Group("/mqtt")
+		mqttGroup.GET("/stats", func(c echo.Context) error {
+			stats, err := cfg.Store.ListMqttStats(c.Request().Context())
+			if err != nil || stats == nil {
+				return c.JSON(http.StatusOK, []*datastore.MqttStatEnt{})
+			}
+			return c.JSON(http.StatusOK, stats)
+		})
+		mqttGroup.DELETE("/stats", func(c echo.Context) error {
+			id := c.QueryParam("id")
+			var req struct {
+				IDs []string `json:"ids"`
+			}
+			_ = c.Bind(&req)
+
+			var targetIDs []string
+			if id != "" {
+				targetIDs = append(targetIDs, id)
+			}
+			targetIDs = append(targetIDs, req.IDs...)
+
+			if len(targetIDs) == 0 {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "no id specified"})
+			}
+			if err := cfg.Store.DeleteMqttStats(c.Request().Context(), targetIDs); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf("MQTT統計を削除しました (%d件)", len(targetIDs)),
+			})
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+		mqttGroup.DELETE("/stats/all", func(c echo.Context) error {
+			if err := cfg.Store.DeleteAllMqttStats(c.Request().Context()); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "warn",
+				Event: "すべてのMQTT統計を削除しました",
+			})
+			return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})
+		})
+
 		// OpenTelemetry (OTel)
 		otelGroup := apiGroup.Group("/otel")
 		otelGroup.GET("/metrics", func(c echo.Context) error {

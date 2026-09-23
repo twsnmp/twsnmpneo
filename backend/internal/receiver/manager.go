@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
@@ -30,6 +31,7 @@ type Config struct {
 
 // Manager controls the lifecycle of all embedded protocol receivers.
 type Manager struct {
+	cfg      Config
 	syslog   *SyslogServer
 	trap     *TrapServer
 	netflow  *NetFlowServer
@@ -42,6 +44,7 @@ type Manager struct {
 // NewManager creates an instance of the receiver manager.
 func NewManager(cfg Config) *Manager {
 	return &Manager{
+		cfg: cfg,
 		syslog: NewSyslogServer(SyslogConfig{
 			UDPPort:  cfg.SyslogUDP,
 			TCPPort:  cfg.SyslogTCP,
@@ -69,6 +72,7 @@ func NewManager(cfg Config) *Manager {
 		}),
 		mqtt: NewMQTTServer(MQTTConfig{
 			Port:         cfg.MQTTPort,
+			Store:        cfg.Store,
 			LogStore:     cfg.LogStore,
 			MqttToSyslog: cfg.MqttToSyslog,
 		}),
@@ -130,10 +134,48 @@ func (m *Manager) Start(ctx context.Context) error {
 		_ = m.arpWatch.Start(ctx)
 	}()
 
+	// Periodic Parquet log rotation & datastore retention cleaner
+	go m.startRetentionCleaner(ctx)
+
 	<-ctx.Done()
 	slog.Info("Stopping Protocol Receivers...")
 	wg.Wait()
 	return nil
+}
+
+func (m *Manager) startRetentionCleaner(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	m.cleanOldData(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			m.cleanOldData(ctx)
+		}
+	}
+}
+
+func (m *Manager) cleanOldData(ctx context.Context) {
+	logDays := 14
+	if m.cfg.Store != nil {
+		if conf, err := m.cfg.Store.GetMapConf(ctx); err == nil && conf != nil && conf.LogDays > 0 {
+			logDays = conf.LogDays
+		}
+	}
+
+	if m.cfg.LogStore != nil {
+		if rotated, err := m.cfg.LogStore.Rotate(logDays); err == nil && rotated > 0 {
+			slog.Info("Rotated old parquet log files", "deletedFiles", rotated, "retentionDays", logDays)
+		}
+	}
+
+	if m.cfg.Store != nil {
+		_ = m.cfg.Store.CleanOldMqttStats(ctx, logDays)
+	}
 }
 
 // GetArpTable returns all known ARP table entries from the ARP watch engine.

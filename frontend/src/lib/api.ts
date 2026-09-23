@@ -1031,3 +1031,83 @@ export async function deleteAllOTelData(): Promise<boolean> {
   return res.ok;
 }
 
+// MQTT Statistics
+export interface MqttStatEnt {
+  ID: string;
+  State: string; // normal, warn, low
+  ClientID: string;
+  Topic: string;
+  Remote: string;
+  Count: number;
+  Bytes: number;
+  First: number;
+  Last: number;
+  Value: string;
+}
+
+export async function fetchMqttStats(): Promise<MqttStatEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/mqtt/stats`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteMqttStats(ids: string[]): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/mqtt/stats`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteAllMqttStats(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/mqtt/stats/all`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchMqttLogs(params: {
+  filter?: string;
+  src?: string;
+  start?: number;
+  end?: number;
+  limit?: number;
+}): Promise<ParquetLogRecord[]> {
+  try {
+    const q = new URLSearchParams();
+    q.set('type', 'mqtt');
+    if (params.filter) q.set('filter', params.filter);
+    if (params.src) q.set('src', params.src);
+    if (params.start) q.set('start', String(params.start));
+    if (params.end) q.set('end', String(params.end));
+    if (params.limit) q.set('limit', String(params.limit));
+    const res = await fetch(`${API_BASE}/logs/query?${q}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (Array.isArray(data) ? data : []).map(normalizeParquetLog);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteMqttLogs(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/logs/query?type=mqtt`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+

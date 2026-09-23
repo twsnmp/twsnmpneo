@@ -131,7 +131,9 @@ twsnmpneo/
 │   │   │   │   ├── LocationView.svelte       # Geographic GIS map view (MapLibre)
 │   │   │   │   ├── ListView.svelte           # Integrated inventory management (Node, Polling, Network, Line, DrawItem)
 │   │   │   │   ├── DiscoverView.svelte       # Network discovery sweep
-│   │   │   │   ├── LogView.svelte            # Comprehensive logs (Event, Syslog, Trap, Flow, sFlow, ARP, OTel)
+│   │   │   │   ├── LogView.svelte            # Comprehensive logs (Event, Syslog, Trap, Flow, sFlow, ARP)
+│   │   │   │   ├── OTelView.svelte           # Dedicated OpenTelemetry metrics, traces, and DAG viewer
+│   │   │   │   ├── MQTTView.svelte           # Dedicated MQTT topic statistics, reports, and log viewer
 │   │   │   │   ├── ReportView.svelte         # Analytics reports (Device, IPAM, Flow, Windows, Sensor, Cert, AI)
 │   │   │   │   ├── ToolView.svelte           # Tools (MIB Browser, Ping, gNMI, WOL)
 │   │   │   │   └── SystemView.svelte         # System status & metrics
@@ -174,9 +176,17 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 4. **Discovery View (`DiscoverView.svelte`)**:
    - IP range sweep input (CIDR/ranges), concurrent Ping/SNMP scan progress bar, discovered node table, and one-click node/polling generation.
 5. **Log View (`LogView.svelte`)**:
-   - Dedicated tabs for **EventLog**, **Syslog**, **SNMP TRAP**, **NetFlow / IPFIX**, **sFlow / sFlow Counter**, **ARP Watch**, and **OpenTelemetry**.
+   - Dedicated tabs for **EventLog**, **Syslog**, **SNMP TRAP**, **NetFlow / IPFIX**, **sFlow / sFlow Counter**, and **ARP Watch**.
    - Features columnar filters, regex search, time range pickers, histogram visualization, CSV export, and inline AI troubleshooting (`LogAIDialog`).
-6. **Report View (`ReportView.svelte`)**:
+6. **OpenTelemetry View (`OTelView.svelte`)**:
+   - Dedicated telemetry viewer with tabs for **Metrics** (time-series / histogram), **Traces** (duration scatter chart, timeline span hierarchy, interactive service DAG graph), and **Logs**.
+7. **MQTT View (`MQTTView.svelte`)**:
+   - Dedicated MQTT topic monitor with tabs for **統計 (Stats)** and **ログ (Logs)**.
+   - Stats view displays full TWSNMP FK compatibility: row expander with pretty-printed payload code block, State (Normal/Warn/Low), Client ID, Remote IP, Topic, Count, Bytes, First Time, and Last Time.
+   - Action buttons for Multi-selection, Create Polling / AI Assist, Copy Topic, Delete, Delete All, Report, and Reload.
+   - Integrated 7-tab MQTT analytics report modal (`MQTTReportModal.svelte`) powered by Apache ECharts.
+   - Logs view displays independent Parquet logs (`type: mqtt`) with date filtering, search, CSV export, and automatic rotation based on `MapConf.LogDays`.
+8. **Report View (`ReportView.svelte`)**:
    - Grouped analytics suites:
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
      - **IPAM & IP Analytics**: Subnet usage heatmaps, IPv4 list, IPv6 list, host communication graphs.

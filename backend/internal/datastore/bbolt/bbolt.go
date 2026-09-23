@@ -32,6 +32,7 @@ var (
 	bucketArp        = []byte("arp")
 	bucketOTelMetric = []byte("otelMetric")
 	bucketOTelTrace  = []byte("otelTrace")
+	bucketMqttStat   = []byte("mqttStat")
 
 	keyMapConf    = []byte("mapConf")
 	keyNotifyConf = []byte("notifyConf")
@@ -52,6 +53,7 @@ type Store struct {
 	items       sync.Map // string -> *datastore.DrawItemEnt
 	pollings    sync.Map // string -> *datastore.PollingEnt
 	otelMetrics sync.Map // string -> *datastore.OTelMetricEnt
+	mqttStats   sync.Map // string -> *datastore.MqttStatEnt
 
 	mapConf    datastore.MapConfEnt
 	notifyConf datastore.NotifyConfEnt
@@ -90,6 +92,7 @@ func New(dbPath string) (*Store, error) {
 			bucketArp,
 			bucketOTelMetric,
 			bucketOTelTrace,
+			bucketMqttStat,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
@@ -191,6 +194,16 @@ func (s *Store) loadCache() error {
 				var m datastore.OTelMetricEnt
 				if err := json.Unmarshal(v, &m); err == nil {
 					s.otelMetrics.Store(string(k), &m)
+				}
+				return nil
+			})
+		}
+		// Load MQTT stats
+		if b := tx.Bucket(bucketMqttStat); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var ms datastore.MqttStatEnt
+				if err := json.Unmarshal(v, &ms); err == nil {
+					s.mqttStats.Store(ms.ID, &ms)
 				}
 				return nil
 			})
@@ -1447,6 +1460,159 @@ func (s *Store) CleanOldOTelData(_ context.Context, retentionHours int) error {
 			for _, bk := range delBuckets {
 				_ = root.DeleteBucket(bk)
 			}
+		}
+		return nil
+	})
+}
+
+// ListMqttStats returns all MQTT topic statistics with dynamic State computation.
+func (s *Store) ListMqttStats(_ context.Context) ([]*datastore.MqttStatEnt, error) {
+	now := time.Now()
+	warnTime := now.AddDate(0, 0, -1).UnixNano()
+	lowTime := now.AddDate(0, 0, -5).UnixNano()
+
+	var ret []*datastore.MqttStatEnt
+	s.mqttStats.Range(func(_, v any) bool {
+		if stat, ok := v.(*datastore.MqttStatEnt); ok {
+			cp := *stat
+			if cp.Last < lowTime {
+				cp.State = "low"
+			} else if cp.Last < warnTime {
+				cp.State = "warn"
+			} else {
+				cp.State = "normal"
+			}
+			ret = append(ret, &cp)
+		}
+		return true
+	})
+
+	sort.Slice(ret, func(i, j int) bool {
+		if ret[i].Topic == ret[j].Topic {
+			return ret[i].ClientID < ret[j].ClientID
+		}
+		return ret[i].Topic < ret[j].Topic
+	})
+
+	return ret, nil
+}
+
+// SaveMqttStat stores or updates a single MQTT stat in cache and bbolt.
+func (s *Store) SaveMqttStat(_ context.Context, stat *datastore.MqttStatEnt) error {
+	if stat == nil || stat.ID == "" {
+		return fmt.Errorf("invalid mqtt stat")
+	}
+	s.mqttStats.Store(stat.ID, stat)
+
+	data, err := json.Marshal(stat)
+	if err != nil {
+		return err
+	}
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketMqttStat)
+		if b == nil {
+			return fmt.Errorf("bucket not found")
+		}
+		return b.Put([]byte(stat.ID), data)
+	})
+}
+
+// SaveMqttStats batch stores MQTT stats in cache and bbolt.
+func (s *Store) SaveMqttStats(_ context.Context, stats []*datastore.MqttStatEnt) error {
+	if len(stats) == 0 {
+		return nil
+	}
+	for _, stat := range stats {
+		if stat != nil && stat.ID != "" {
+			s.mqttStats.Store(stat.ID, stat)
+		}
+	}
+
+	return s.db.Batch(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketMqttStat)
+		if b == nil {
+			return fmt.Errorf("bucket not found")
+		}
+		for _, stat := range stats {
+			if stat != nil && stat.ID != "" {
+				data, err := json.Marshal(stat)
+				if err == nil {
+					_ = b.Put([]byte(stat.ID), data)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// DeleteMqttStats removes specific MQTT stats by their IDs.
+func (s *Store) DeleteMqttStats(_ context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	for _, id := range ids {
+		s.mqttStats.Delete(id)
+	}
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketMqttStat)
+		if b == nil {
+			return nil
+		}
+		for _, id := range ids {
+			_ = b.Delete([]byte(id))
+		}
+		return nil
+	})
+}
+
+// DeleteAllMqttStats purges all MQTT stats from memory and disk.
+func (s *Store) DeleteAllMqttStats(_ context.Context) error {
+	s.mqttStats.Range(func(k, _ any) bool {
+		s.mqttStats.Delete(k)
+		return true
+	})
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		_ = tx.DeleteBucket(bucketMqttStat)
+		_, err := tx.CreateBucketIfNotExists(bucketMqttStat)
+		return err
+	})
+}
+
+// CleanOldMqttStats deletes MQTT stats whose last message is older than days.
+func (s *Store) CleanOldMqttStats(_ context.Context, days int) error {
+	if days <= 0 {
+		days = 14
+	}
+	cutoff := time.Now().AddDate(0, 0, -days).UnixNano()
+
+	var delIDs []string
+	s.mqttStats.Range(func(k, v any) bool {
+		if stat, ok := v.(*datastore.MqttStatEnt); ok {
+			if stat.Last < cutoff {
+				delIDs = append(delIDs, k.(string))
+			}
+		}
+		return true
+	})
+
+	if len(delIDs) == 0 {
+		return nil
+	}
+
+	for _, id := range delIDs {
+		s.mqttStats.Delete(id)
+	}
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketMqttStat)
+		if b == nil {
+			return nil
+		}
+		for _, id := range delIDs {
+			_ = b.Delete([]byte(id))
 		}
 		return nil
 	})

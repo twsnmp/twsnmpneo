@@ -451,3 +451,26 @@ type OTelLogEnt struct {
 	Message      string            `json:"message"`
 	Attributes   map[string]string `json:"attributes,omitempty"`
 }
+
+// MqttStatEnt represents statistical state for an MQTT client and topic.
+type MqttStatEnt struct {
+	ID       string `json:"ID"`
+	State    string `json:"State"`
+	ClientID string `json:"ClientID"`
+	Topic    string `json:"Topic"`
+	Remote   string `json:"Remote"`
+	Count    int    `json:"Count"`
+	Bytes    int64  `json:"Bytes"`
+	First    int64  `json:"First"`
+	Last     int64  `json:"Last"`
+	Value    string `json:"Value"`
+}
+
+// MqttLogEnt represents a structured MQTT log stored in Parquet.
+type MqttLogEnt struct {
+	Time     int64  `json:"time"`
+	Topic    string `json:"topic"`
+	ClientID string `json:"clientID"`
+	Remote   string `json:"remote"`
+	Payload  string `json:"payload"`
+}

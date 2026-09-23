@@ -4,6 +4,7 @@
   import ListView from "./lib/views/ListView.svelte";
   import LogView from "./lib/views/LogView.svelte";
   import OTelView from "./lib/views/OTelView.svelte";
+  import MQTTView from "./lib/views/MQTTView.svelte";
   import ReportView from "./lib/views/ReportView.svelte";
   import ToolView from "./lib/views/ToolView.svelte";
   import SystemView from "./lib/views/SystemView.svelte";
@@ -23,9 +24,10 @@
     Bot,
     HelpCircle,
     Activity,
+    Radio,
   } from "@lucide/svelte";
 
-  type PageType = "map" | "list" | "logs" | "otel" | "reports" | "tools" | "system";
+  type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "tools" | "system";
 
   let currentPage = $state<PageType>("map");
   let isDark = $state(true);
@@ -57,6 +59,7 @@
     { id: "list", label: "List", icon: Layers },
     { id: "logs", label: "Log", icon: Calendar },
     { id: "otel", label: "OTel", icon: Activity, mdi: "mdi-telescope" },
+    { id: "mqtt", label: "MQTT", icon: Radio, mdi: "mdi-access-point-network" },
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "system", label: "System", icon: Info },
@@ -154,6 +157,8 @@
       <LogView />
     {:else if currentPage === "otel"}
       <OTelView />
+    {:else if currentPage === "mqtt"}
+      <MQTTView />
     {:else if currentPage === "reports"}
       <ReportView />
     {:else if currentPage === "tools"}

@@ -50,7 +50,7 @@
     X,
   } from "@lucide/svelte";
 
-  type LogCategory = "event" | "syslog" | "trap" | "netflow" | "sflow" | "arp" | "mqtt";
+  type LogCategory = "event" | "syslog" | "trap" | "netflow" | "sflow" | "arp";
 
   let activeTab = $state<LogCategory>("event");
   let eventLogs = $state<EventLogEnt[]>([]);
@@ -104,7 +104,6 @@
     { id: "netflow", name: "NetFlow", icon: BarChart3 },
     { id: "sflow", name: "sFlow", icon: Activity },
     { id: "arp", name: "ARP Watch", icon: Server },
-    { id: "mqtt", name: "MQTT", icon: Radio },
   ];
 
   // Column Definitions per Category
@@ -183,12 +182,6 @@
       { key: "newMac", label: "新MACアドレス", width: "w-36", sortable: true },
       { key: "newVendor", label: "新ベンダー", width: "w-36", sortable: true },
       { key: "oldMac", label: "旧MACアドレス", width: "w-36", sortable: true },
-    ],
-    mqtt: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "topic", label: "トピック", width: "w-48", sortable: true },
-      { key: "client", label: "クライアントID", width: "w-40", sortable: true },
-      { key: "payload", label: "ペイロード", sortable: true },
     ],
   };
 

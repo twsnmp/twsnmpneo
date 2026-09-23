@@ -90,4 +90,12 @@ type DataStore interface {
 	GetOTelTraceDAG(ctx context.Context, buckets []string) (*OTelTraceDAGEnt, error)
 	DeleteAllOTelData(ctx context.Context) error
 	CleanOldOTelData(ctx context.Context, retentionHours int) error
+
+	// MQTT Stats
+	ListMqttStats(ctx context.Context) ([]*MqttStatEnt, error)
+	SaveMqttStat(ctx context.Context, s *MqttStatEnt) error
+	SaveMqttStats(ctx context.Context, stats []*MqttStatEnt) error
+	DeleteMqttStats(ctx context.Context, ids []string) error
+	DeleteAllMqttStats(ctx context.Context) error
+	CleanOldMqttStats(ctx context.Context, days int) error
 }
