@@ -18,9 +18,11 @@ type Config struct {
 	TrapPort     int
 	NetFlowPort  int
 	SFlowPort    int
-	OTelPort     int
-	MQTTPort     int
-	MqttToSyslog bool
+	OTelPort       int
+	OTelRetention  int
+	OTelFrom       string
+	MQTTPort       int
+	MqttToSyslog   bool
 	EnableArpWatch bool
 	ArpWatchRange  string
 	ArpTimeout     int
@@ -59,8 +61,11 @@ func NewManager(cfg Config) *Manager {
 			LogStore: cfg.LogStore,
 		}),
 		otel: NewOTelServer(OTelConfig{
-			Port:     cfg.OTelPort,
-			LogStore: cfg.LogStore,
+			Port:      cfg.OTelPort,
+			Store:     cfg.Store,
+			LogStore:  cfg.LogStore,
+			Retention: cfg.OTelRetention,
+			From:      cfg.OTelFrom,
 		}),
 		mqtt: NewMQTTServer(MQTTConfig{
 			Port:         cfg.MQTTPort,

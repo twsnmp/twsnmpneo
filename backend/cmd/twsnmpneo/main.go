@@ -210,15 +210,31 @@ func main() {
 		mPort = 1883
 	}
 
+	slog.Info("Protocol receiver ports configured",
+		"syslog_udp", sUDP,
+		"syslog_tcp", sTCP,
+		"trap", tPort,
+		"netflow", nfPort,
+		"sflow", sfPort,
+		"otel", oPort,
+		"mqtt", mPort,
+	)
+
 	mqttToSyslog := false
 	enableArpWatch := true
 	arpWatchRange := ""
 	arpTimeout := 60
+	otelRetention := 24
+	otelFrom := ""
 	if mapConf != nil {
 		mqttToSyslog = mapConf.MqttToSyslog
 		enableArpWatch = mapConf.EnableArpWatch
 		arpWatchRange = mapConf.ArpWatchRange
 		arpTimeout = mapConf.ArpTimeout
+		if mapConf.OTelRetention > 0 {
+			otelRetention = mapConf.OTelRetention
+		}
+		otelFrom = mapConf.OTelFrom
 	}
 
 	// Initialize Protocol Receivers
@@ -231,6 +247,8 @@ func main() {
 		NetFlowPort:    nfPort,
 		SFlowPort:      sfPort,
 		OTelPort:       oPort,
+		OTelRetention:  otelRetention,
+		OTelFrom:       otelFrom,
 		MQTTPort:       mPort,
 		MqttToSyslog:   mqttToSyslog,
 		EnableArpWatch: enableArpWatch,

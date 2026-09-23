@@ -3,6 +3,7 @@ package bbolt
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -21,14 +22,16 @@ import (
 )
 
 var (
-	bucketNodes     = []byte("nodes")
-	bucketLines     = []byte("lines")
-	bucketNetworks  = []byte("networks")
-	bucketItems     = []byte("items")
-	bucketPollings  = []byte("pollings")
-	bucketConfig    = []byte("config")
-	bucketEventLog  = []byte("eventlog")
-	bucketArp       = []byte("arp")
+	bucketNodes      = []byte("nodes")
+	bucketLines      = []byte("lines")
+	bucketNetworks   = []byte("networks")
+	bucketItems      = []byte("items")
+	bucketPollings   = []byte("pollings")
+	bucketConfig     = []byte("config")
+	bucketEventLog   = []byte("eventlog")
+	bucketArp        = []byte("arp")
+	bucketOTelMetric = []byte("otelMetric")
+	bucketOTelTrace  = []byte("otelTrace")
 
 	keyMapConf    = []byte("mapConf")
 	keyNotifyConf = []byte("notifyConf")
@@ -43,11 +46,12 @@ type Store struct {
 	mu     sync.RWMutex
 
 	// In-memory cache for ultra-fast queries
-	nodes    sync.Map // string -> *datastore.NodeEnt
-	lines    sync.Map // string -> *datastore.LineEnt
-	networks sync.Map // string -> *datastore.NetworkEnt
-	items    sync.Map // string -> *datastore.DrawItemEnt
-	pollings sync.Map // string -> *datastore.PollingEnt
+	nodes       sync.Map // string -> *datastore.NodeEnt
+	lines       sync.Map // string -> *datastore.LineEnt
+	networks    sync.Map // string -> *datastore.NetworkEnt
+	items       sync.Map // string -> *datastore.DrawItemEnt
+	pollings    sync.Map // string -> *datastore.PollingEnt
+	otelMetrics sync.Map // string -> *datastore.OTelMetricEnt
 
 	mapConf    datastore.MapConfEnt
 	notifyConf datastore.NotifyConfEnt
@@ -84,6 +88,8 @@ func New(dbPath string) (*Store, error) {
 			bucketConfig,
 			bucketEventLog,
 			bucketArp,
+			bucketOTelMetric,
+			bucketOTelTrace,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
@@ -163,6 +169,12 @@ func (s *Store) loadCache() error {
 		if b := tx.Bucket(bucketConfig); b != nil {
 			if v := b.Get(keyMapConf); v != nil {
 				_ = json.Unmarshal(v, &s.mapConf)
+				var rawMap map[string]any
+				if err := json.Unmarshal(v, &rawMap); err == nil {
+					if _, hasOTel := rawMap["EnableOTel"]; !hasOTel {
+						s.mapConf.EnableOTel = true
+					}
+				}
 			} else {
 				s.initDefaultMapConf()
 			}
@@ -172,6 +184,16 @@ func (s *Store) loadCache() error {
 			if v := b.Get(keyLocConf); v != nil {
 				_ = json.Unmarshal(v, &s.locConf)
 			}
+		}
+		// Load OTel metrics
+		if b := tx.Bucket(bucketOTelMetric); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var m datastore.OTelMetricEnt
+				if err := json.Unmarshal(v, &m); err == nil {
+					s.otelMetrics.Store(string(k), &m)
+				}
+				return nil
+			})
 		}
 		return nil
 	})
@@ -263,7 +285,11 @@ func (s *Store) initDefaultMapConf() {
 		LogDays:        14,
 		SnmpMode:       "v2c",
 		Community:      "public",
+		EnableSyslogd:  true,
+		EnableTrapd:    true,
 		EnableArpWatch: true,
+		EnableOTel:     true,
+		OTelRetention:  24,
 		IconSize:       2,
 		LogFormat:      "parquet",
 	}
@@ -1005,5 +1031,426 @@ func (s *Store) ResetArpTable(_ context.Context) error {
 		return err
 	})
 }
+
+// getOTelMetricKey computes unique sha1 key for an OTel metric series.
+func getOTelMetricKey(host, service, scope, name string) string {
+	h := sha1.Sum([]byte(fmt.Sprintf("%s\t%s\t%s\t%s", host, service, scope, name)))
+	return hex.EncodeToString(h[:])
+}
+
+// ListOTelMetrics returns all registered OTel metric summary entries.
+func (s *Store) ListOTelMetrics(_ context.Context) ([]*datastore.OTelMetricEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	results := make([]*datastore.OTelMetricEnt, 0)
+	s.otelMetrics.Range(func(_, value any) bool {
+		if m, ok := value.(*datastore.OTelMetricEnt); ok {
+			results = append(results, m)
+		}
+		return true
+	})
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Last > results[j].Last
+	})
+	return results, nil
+}
+
+// GetOTelMetric returns a single metric series with its data points.
+func (s *Store) GetOTelMetric(_ context.Context, host, service, scope, name string) (*datastore.OTelMetricEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	key := getOTelMetricKey(host, service, scope, name)
+	if val, ok := s.otelMetrics.Load(key); ok {
+		if m, ok := val.(*datastore.OTelMetricEnt); ok {
+			return m, nil
+		}
+	}
+	return nil, datastore.ErrNotFound
+}
+
+// SaveOTelMetric stores or updates an OTel metric series in memory and bbolt.
+func (s *Store) SaveOTelMetric(_ context.Context, m *datastore.OTelMetricEnt) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	if m == nil {
+		return datastore.ErrInvalidParams
+	}
+
+	key := getOTelMetricKey(m.Host, m.Service, m.Scope, m.Name)
+	s.otelMetrics.Store(key, m)
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketOTelMetric)
+		if b == nil {
+			return nil
+		}
+		data, err := json.Marshal(m)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(key), data)
+	})
+}
+
+// DeleteOTelMetric removes a metric series from cache and bbolt.
+func (s *Store) DeleteOTelMetric(_ context.Context, host, service, scope, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+
+	key := getOTelMetricKey(host, service, scope, name)
+	s.otelMetrics.Delete(key)
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketOTelMetric)
+		if b == nil {
+			return nil
+		}
+		return b.Delete([]byte(key))
+	})
+}
+
+// GetOTelTraceBuckets returns a sorted list of trace time buckets (YYYY-MM-DDTHH:mm).
+func (s *Store) GetOTelTraceBuckets(_ context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	buckets := make([]string, 0)
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketOTelTrace)
+		if b == nil {
+			return nil
+		}
+		return b.ForEachBucket(func(k []byte) error {
+			buckets = append(buckets, string(k))
+			return nil
+		})
+	})
+	if err != nil {
+		return make([]string, 0), err
+	}
+	sort.Strings(buckets)
+	return buckets, nil
+}
+
+// ListOTelTraces returns summarized trace rows for given buckets.
+func (s *Store) ListOTelTraces(_ context.Context, buckets []string) ([]*datastore.OTelTraceSummaryEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	results := make([]*datastore.OTelTraceSummaryEnt, 0)
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		root := tx.Bucket(bucketOTelTrace)
+		if root == nil {
+			return nil
+		}
+		for _, bName := range buckets {
+			b := root.Bucket([]byte(bName))
+			if b == nil {
+				continue
+			}
+			_ = b.ForEach(func(k, v []byte) error {
+				var t datastore.OTelTraceEnt
+				if err := json.Unmarshal(v, &t); err != nil {
+					return nil
+				}
+				hosts := make([]string, 0)
+				services := make([]string, 0)
+				scopes := make([]string, 0)
+				hostMap := make(map[string]bool)
+				serviceMap := make(map[string]bool)
+				scopeMap := make(map[string]bool)
+
+				for _, sp := range t.Spans {
+					if sp.Host != "" && !hostMap[sp.Host] {
+						hostMap[sp.Host] = true
+						hosts = append(hosts, sp.Host)
+					}
+					if sp.Service != "" && !serviceMap[sp.Service] {
+						serviceMap[sp.Service] = true
+						services = append(services, sp.Service)
+					}
+					if sp.Scope != "" && !scopeMap[sp.Scope] {
+						scopeMap[sp.Scope] = true
+						scopes = append(scopes, sp.Scope)
+					}
+				}
+
+				results = append(results, &datastore.OTelTraceSummaryEnt{
+					Bucket:   bName,
+					TraceID:  t.TraceID,
+					Hosts:    strings.Join(hosts, " "),
+					Services: strings.Join(services, " "),
+					Scopes:   strings.Join(scopes, " "),
+					Start:    t.Start,
+					End:      t.End,
+					Dur:      t.Dur,
+					NumSpan:  len(t.Spans),
+				})
+				return nil
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Start > results[j].Start
+	})
+	return results, nil
+}
+
+// GetOTelTrace returns a complete trace entity with all its spans.
+func (s *Store) GetOTelTrace(_ context.Context, bucket, traceID string) (*datastore.OTelTraceEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	var result *datastore.OTelTraceEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		root := tx.Bucket(bucketOTelTrace)
+		if root == nil {
+			return nil
+		}
+		b := root.Bucket([]byte(bucket))
+		if b == nil {
+			return nil
+		}
+		v := b.Get([]byte(traceID))
+		if v == nil {
+			return nil
+		}
+		var t datastore.OTelTraceEnt
+		if err := json.Unmarshal(v, &t); err == nil {
+			result = &t
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, datastore.ErrNotFound
+	}
+	return result, nil
+}
+
+// SaveOTelTraces persists a slice of traces into their respective time buckets.
+func (s *Store) SaveOTelTraces(_ context.Context, traces []*datastore.OTelTraceEnt) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	if len(traces) == 0 {
+		return nil
+	}
+
+	return s.db.Batch(func(tx *bbolt.Tx) error {
+		root := tx.Bucket(bucketOTelTrace)
+		if root == nil {
+			return nil
+		}
+		for _, t := range traces {
+			if t.Bucket == "" || t.TraceID == "" {
+				continue
+			}
+			b, err := root.CreateBucketIfNotExists([]byte(t.Bucket))
+			if err != nil {
+				continue
+			}
+			data, err := json.Marshal(t)
+			if err != nil {
+				continue
+			}
+			_ = b.Put([]byte(t.TraceID), data)
+		}
+		return nil
+	})
+}
+
+// GetOTelTraceDAG builds service call dependency graph for selected buckets.
+func (s *Store) GetOTelTraceDAG(_ context.Context, buckets []string) (*datastore.OTelTraceDAGEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	ret := &datastore.OTelTraceDAGEnt{
+		Nodes: make([]datastore.OTelTraceDAGNodeEnt, 0),
+		Links: make([]datastore.OTelTraceDAGLinkEnt, 0),
+	}
+
+	spanMap := make(map[string]string)     // traceID:spanID -> service
+	nodeMap := make(map[string]int)        // service -> count
+	spanLinkMap := make(map[string]int)    // traceID:parentSpanID \t traceID:spanID -> count
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		root := tx.Bucket(bucketOTelTrace)
+		if root == nil {
+			return nil
+		}
+		for _, bName := range buckets {
+			b := root.Bucket([]byte(bName))
+			if b == nil {
+				continue
+			}
+			_ = b.ForEach(func(k, v []byte) error {
+				var t datastore.OTelTraceEnt
+				if err := json.Unmarshal(v, &t); err != nil {
+					return nil
+				}
+				for _, sp := range t.Spans {
+					sk := fmt.Sprintf("%s:%s", t.TraceID, sp.SpanID)
+					spanMap[sk] = sp.Service
+					nodeMap[sp.Service]++
+					if sp.ParentSpanID != "" {
+						lk := fmt.Sprintf("%s:%s\t%s:%s", t.TraceID, sp.ParentSpanID, t.TraceID, sp.SpanID)
+						spanLinkMap[lk]++
+					}
+				}
+				return nil
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	linkMap := make(map[string]int)
+	for k, c := range spanLinkMap {
+		parts := strings.SplitN(k, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		srcSvc, srcOk := spanMap[parts[0]]
+		dstSvc, dstOk := spanMap[parts[1]]
+		if srcOk && dstOk && srcSvc != dstSvc {
+			linkMap[fmt.Sprintf("%s\t%s", srcSvc, dstSvc)] += c
+		}
+	}
+
+	for n, c := range nodeMap {
+		ret.Nodes = append(ret.Nodes, datastore.OTelTraceDAGNodeEnt{
+			Name:  n,
+			Count: c,
+		})
+	}
+	for l, c := range linkMap {
+		parts := strings.SplitN(l, "\t", 2)
+		if len(parts) == 2 {
+			ret.Links = append(ret.Links, datastore.OTelTraceDAGLinkEnt{
+				Src:   parts[0],
+				Dst:   parts[1],
+				Count: c,
+			})
+		}
+	}
+
+	return ret, nil
+}
+
+// DeleteAllOTelData purges all OTel metrics and traces from bbolt.
+func (s *Store) DeleteAllOTelData(_ context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+
+	s.otelMetrics.Range(func(key, _ any) bool {
+		s.otelMetrics.Delete(key)
+		return true
+	})
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		_ = tx.DeleteBucket(bucketOTelMetric)
+		_, err := tx.CreateBucketIfNotExists(bucketOTelMetric)
+		if err != nil {
+			return err
+		}
+		_ = tx.DeleteBucket(bucketOTelTrace)
+		_, err = tx.CreateBucketIfNotExists(bucketOTelTrace)
+		return err
+	})
+}
+
+// CleanOldOTelData deletes metrics and trace buckets older than retention hours.
+func (s *Store) CleanOldOTelData(_ context.Context, retentionHours int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	if retentionHours <= 0 {
+		retentionHours = 24
+	}
+
+	cutoff := time.Now().Add(-time.Hour * time.Duration(retentionHours))
+	cutoffNano := cutoff.UnixNano()
+	cutoffBucket := cutoff.Format("2006-01-02T15:04")
+
+	var delMetricKeys []string
+	s.otelMetrics.Range(func(k, v any) bool {
+		if m, ok := v.(*datastore.OTelMetricEnt); ok {
+			if m.Last < cutoffNano {
+				delMetricKeys = append(delMetricKeys, k.(string))
+			}
+		}
+		return true
+	})
+	for _, k := range delMetricKeys {
+		s.otelMetrics.Delete(k)
+	}
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		if b := tx.Bucket(bucketOTelMetric); b != nil {
+			for _, k := range delMetricKeys {
+				_ = b.Delete([]byte(k))
+			}
+		}
+
+		if root := tx.Bucket(bucketOTelTrace); root != nil {
+			var delBuckets [][]byte
+			_ = root.ForEachBucket(func(k []byte) error {
+				if string(k) < cutoffBucket {
+					delBuckets = append(delBuckets, k)
+				}
+				return nil
+			})
+			for _, bk := range delBuckets {
+				_ = root.DeleteBucket(bk)
+			}
+		}
+		return nil
+	})
+}
+
 
 

@@ -378,3 +378,109 @@ func TestAPIServer_StartShutdown(t *testing.T) {
 		t.Fatal("server shutdown timed out")
 	}
 }
+
+func TestAPIServer_OTelEndpoints(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	srv, err := api.NewServer(api.Config{
+		Port:      9099,
+		Version:   "v0.1.0-api-test",
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	e := srv.GetEcho()
+	ctx := context.Background()
+
+	// Pre-populate metric and trace
+	_ = bStore.SaveOTelMetric(ctx, &datastore.OTelMetricEnt{
+		Host:    "host-1",
+		Service: "order-service",
+		Scope:   "orders",
+		Name:    "order.count",
+		Type:    "Sum",
+		Count:   10,
+		DataPoints: []*datastore.OTelMetricDataPointEnt{
+			{Time: time.Now().UnixNano(), Sum: 100},
+		},
+	})
+	_ = bStore.SaveOTelTraces(ctx, []*datastore.OTelTraceEnt{
+		{
+			Bucket:  "2026-09-23T10:00",
+			TraceID: "trace-12345",
+			Start:   time.Now().UnixNano(),
+			End:     time.Now().UnixNano() + 1000000,
+			Dur:     0.001,
+			Spans: []datastore.OTelTraceSpanEnt{
+				{
+					SpanID:  "span-1",
+					Host:    "host-1",
+					Service: "order-service",
+					Name:    "process-order",
+				},
+			},
+		},
+	})
+
+	// Test GET /api/otel/metrics
+	req := httptest.NewRequest(http.MethodGet, "/api/otel/metrics", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "order.count") {
+		t.Errorf("GET /api/otel/metrics failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Test GET /api/otel/metrics/detail
+	req = httptest.NewRequest(http.MethodGet, "/api/otel/metrics/detail?host=host-1&service=order-service&scope=orders&name=order.count", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "order.count") {
+		t.Errorf("GET /api/otel/metrics/detail failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Test GET /api/otel/traces/buckets
+	req = httptest.NewRequest(http.MethodGet, "/api/otel/traces/buckets", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "2026-09-23T10:00") {
+		t.Errorf("GET /api/otel/traces/buckets failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Test GET /api/otel/traces
+	req = httptest.NewRequest(http.MethodGet, "/api/otel/traces?bucket=2026-09-23T10:00", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "trace-12345") {
+		t.Errorf("GET /api/otel/traces failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Test GET /api/otel/traces/detail
+	req = httptest.NewRequest(http.MethodGet, "/api/otel/traces/detail?bucket=2026-09-23T10:00&traceId=trace-12345", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "trace-12345") {
+		t.Errorf("GET /api/otel/traces/detail failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Test POST /api/otel/traces/dag
+	req = httptest.NewRequest(http.MethodPost, "/api/otel/traces/dag", strings.NewReader(`{"buckets":["2026-09-23T10:00"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "order-service") {
+		t.Errorf("POST /api/otel/traces/dag failed: code %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Test DELETE /api/otel/all
+	req = httptest.NewRequest(http.MethodDelete, "/api/otel/all", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("DELETE /api/otel/all failed: code %d", rec.Code)
+	}
+}
+

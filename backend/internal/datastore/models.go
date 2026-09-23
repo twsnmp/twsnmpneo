@@ -344,3 +344,110 @@ type ArpLogEnt struct {
 	OldMAC    string `json:"OldMAC,omitempty"`
 	OldVendor string `json:"OldVendor,omitempty"`
 }
+
+// OTelMetricDataPointEnt represents a single data point within an OTel metric.
+type OTelMetricDataPointEnt struct {
+	Start          int64     `json:"Start"`
+	Time           int64     `json:"Time"`
+	Attributes     []string  `json:"Attributes"`
+	Count          uint64    `json:"Count"`
+	BucketCounts   []uint64  `json:"BucketCounts"`
+	ExplicitBounds []float64 `json:"ExplicitBounds"`
+	Sum            float64   `json:"Sum"`
+	Min            float64   `json:"Min"`
+	Max            float64   `json:"Max"`
+	Gauge          float64   `json:"Gauge"`
+	Positive       []uint64  `json:"Positive"`
+	Negative       []uint64  `json:"Negative"`
+	Scale          int64     `json:"Scale"`
+	ZeroCount      int64     `json:"ZeroCount"`
+	ZeroThreshold  float64   `json:"ZeroThreshold"`
+	Index          int       `json:"Index"`
+}
+
+// OTelMetricEnt represents an aggregated OpenTelemetry metric series.
+type OTelMetricEnt struct {
+	Host        string                    `json:"Host"`
+	Service     string                    `json:"Service"`
+	Scope       string                    `json:"Scope"`
+	Name        string                    `json:"Name"`
+	Type        string                    `json:"Type"`
+	Description string                    `json:"Description"`
+	Unit        string                    `json:"Unit"`
+	DataPoints  []*OTelMetricDataPointEnt `json:"DataPoints"`
+	Count       int                       `json:"Count"`
+	First       int64                     `json:"First"`
+	Last        int64                     `json:"Last"`
+}
+
+// OTelTraceSpanEnt represents a single span within an OpenTelemetry trace.
+type OTelTraceSpanEnt struct {
+	SpanID       string   `json:"SpanID"`
+	ParentSpanID string   `json:"ParentSpanID"`
+	Host         string   `json:"Host"`
+	Service      string   `json:"Service"`
+	Scope        string   `json:"Scope"`
+	Name         string   `json:"Name"`
+	Start        int64    `json:"Start"`
+	End          int64    `json:"End"`
+	Dur          float64  `json:"Dur"`
+	Attributes   []string `json:"Attributes"`
+}
+
+// OTelTraceEnt represents a distributed trace composed of spans.
+type OTelTraceEnt struct {
+	Bucket    string             `json:"Bucket"`
+	TraceID   string             `json:"TraceID"`
+	Start     int64              `json:"Start"`
+	End       int64              `json:"End"`
+	Dur       float64            `json:"Dur"`
+	Spans     []OTelTraceSpanEnt `json:"Spans"`
+	Last      int64              `json:"Last"`
+	SavedLast int64              `json:"-"`
+}
+
+// OTelTraceSummaryEnt represents a summarized trace row for table display.
+type OTelTraceSummaryEnt struct {
+	Bucket   string  `json:"Bucket"`
+	TraceID  string  `json:"TraceID"`
+	Hosts    string  `json:"Hosts"`
+	Services string  `json:"Services"`
+	Scopes   string  `json:"Scopes"`
+	Start    int64   `json:"Start"`
+	End      int64   `json:"End"`
+	Dur      float64 `json:"Dur"`
+	NumSpan  int     `json:"NumSpan"`
+}
+
+// OTelTraceDAGNodeEnt represents a service node in an OTel trace DAG.
+type OTelTraceDAGNodeEnt struct {
+	Name  string `json:"Name"`
+	Count int    `json:"Count"`
+}
+
+// OTelTraceDAGLinkEnt represents a directed call relationship between services.
+type OTelTraceDAGLinkEnt struct {
+	Src   string `json:"Src"`
+	Dst   string `json:"Dst"`
+	Count int    `json:"Count"`
+}
+
+// OTelTraceDAGEnt represents the service dependency graph derived from traces.
+type OTelTraceDAGEnt struct {
+	Nodes []OTelTraceDAGNodeEnt `json:"Nodes"`
+	Links []OTelTraceDAGLinkEnt `json:"Links"`
+}
+
+// OTelLogEnt represents a structured OpenTelemetry log record.
+type OTelLogEnt struct {
+	Time         int64             `json:"time"`
+	Host         string            `json:"host"`
+	Service      string            `json:"service"`
+	Scope        string            `json:"scope"`
+	TraceID      string            `json:"traceId"`
+	SpanID       string            `json:"spanId"`
+	Severity     int               `json:"severity"`     // 1-7, syslog compatible
+	SeverityText string            `json:"severityText"` // INFO, WARN, etc.
+	Message      string            `json:"message"`
+	Attributes   map[string]string `json:"attributes,omitempty"`
+}

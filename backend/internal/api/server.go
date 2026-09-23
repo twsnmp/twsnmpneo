@@ -757,6 +757,124 @@ func NewServer(cfg Config) (*Server, error) {
 		apiGroup.GET("/mib/modules", func(c echo.Context) error {
 			return c.JSON(http.StatusOK, mib.GetMIBModules())
 		})
+
+		// OpenTelemetry (OTel)
+		otelGroup := apiGroup.Group("/otel")
+		otelGroup.GET("/metrics", func(c echo.Context) error {
+			metrics, err := cfg.Store.ListOTelMetrics(c.Request().Context())
+			if err != nil || metrics == nil {
+				return c.JSON(http.StatusOK, []*datastore.OTelMetricEnt{})
+			}
+			return c.JSON(http.StatusOK, metrics)
+		})
+		otelGroup.GET("/metrics/detail", func(c echo.Context) error {
+			host := c.QueryParam("host")
+			service := c.QueryParam("service")
+			scope := c.QueryParam("scope")
+			name := c.QueryParam("name")
+			metric, err := cfg.Store.GetOTelMetric(c.Request().Context(), host, service, scope, name)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "metric not found"})
+			}
+			return c.JSON(http.StatusOK, metric)
+		})
+		otelGroup.DELETE("/metrics", func(c echo.Context) error {
+			host := c.QueryParam("host")
+			service := c.QueryParam("service")
+			scope := c.QueryParam("scope")
+			name := c.QueryParam("name")
+			_ = cfg.Store.DeleteOTelMetric(c.Request().Context(), host, service, scope, name)
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+		otelGroup.GET("/traces/buckets", func(c echo.Context) error {
+			buckets, err := cfg.Store.GetOTelTraceBuckets(c.Request().Context())
+			if err != nil || buckets == nil {
+				return c.JSON(http.StatusOK, []string{})
+			}
+			return c.JSON(http.StatusOK, buckets)
+		})
+		otelGroup.GET("/traces", func(c echo.Context) error {
+			bks := c.QueryParams()["bucket"]
+			if len(bks) == 0 {
+				if b := c.QueryParam("bucket"); b != "" {
+					bks = strings.Split(b, ",")
+				}
+			}
+			traces, err := cfg.Store.ListOTelTraces(c.Request().Context(), bks)
+			if err != nil || traces == nil {
+				return c.JSON(http.StatusOK, []*datastore.OTelTraceSummaryEnt{})
+			}
+			return c.JSON(http.StatusOK, traces)
+		})
+		otelGroup.GET("/traces/detail", func(c echo.Context) error {
+			bucket := c.QueryParam("bucket")
+			traceID := c.QueryParam("traceId")
+			trace, err := cfg.Store.GetOTelTrace(c.Request().Context(), bucket, traceID)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "trace not found"})
+			}
+			return c.JSON(http.StatusOK, trace)
+		})
+		otelGroup.POST("/traces/dag", func(c echo.Context) error {
+			var req struct {
+				Buckets []string `json:"buckets"`
+			}
+			_ = c.Bind(&req)
+			dag, err := cfg.Store.GetOTelTraceDAG(c.Request().Context(), req.Buckets)
+			if err != nil || dag == nil {
+				return c.JSON(http.StatusOK, &datastore.OTelTraceDAGEnt{
+					Nodes: []datastore.OTelTraceDAGNodeEnt{},
+					Links: []datastore.OTelTraceDAGLinkEnt{},
+				})
+			}
+			return c.JSON(http.StatusOK, dag)
+		})
+		otelGroup.GET("/logs", func(c echo.Context) error {
+			if cfg.LogStore == nil {
+				return c.JSON(http.StatusOK, []any{})
+			}
+			filter := c.QueryParam("filter")
+			src := c.QueryParam("src")
+			var startTime int64
+			var endTime int64
+			if s := c.QueryParam("start"); s != "" {
+				startTime, _ = strconv.ParseInt(s, 10, 64)
+			}
+			if e := c.QueryParam("end"); e != "" {
+				endTime, _ = strconv.ParseInt(e, 10, 64)
+			}
+			limit := 10000
+			if l := c.QueryParam("limit"); l != "" {
+				if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
+			logs, err := cfg.LogStore.Query(c.Request().Context(), parquet.LogFilter{
+				Type:      "otel",
+				Filter:    filter,
+				Src:       src,
+				Limit:     limit,
+				StartTime: startTime,
+				EndTime:   endTime,
+			})
+			if err != nil || logs == nil {
+				return c.JSON(http.StatusOK, []*parquet.ParquetLogRecord{})
+			}
+			return c.JSON(http.StatusOK, logs)
+		})
+		otelGroup.DELETE("/all", func(c echo.Context) error {
+			_ = cfg.Store.DeleteAllOTelData(c.Request().Context())
+			if cfg.LogStore != nil {
+				_ = cfg.LogStore.DeleteLogs(c.Request().Context(), "otel")
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "warn",
+				Event: "全OpenTelemetryデータを消去しました",
+			})
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
 	}
 
 	// Diagnostic Tools APIs (Ping, WOL)

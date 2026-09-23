@@ -3,6 +3,7 @@
   import MapView from "./lib/views/MapView.svelte";
   import ListView from "./lib/views/ListView.svelte";
   import LogView from "./lib/views/LogView.svelte";
+  import OTelView from "./lib/views/OTelView.svelte";
   import ReportView from "./lib/views/ReportView.svelte";
   import ToolView from "./lib/views/ToolView.svelte";
   import SystemView from "./lib/views/SystemView.svelte";
@@ -24,7 +25,7 @@
     Activity,
   } from "@lucide/svelte";
 
-  type PageType = "map" | "list" | "logs" | "reports" | "tools" | "system";
+  type PageType = "map" | "list" | "logs" | "otel" | "reports" | "tools" | "system";
 
   let currentPage = $state<PageType>("map");
   let isDark = $state(true);
@@ -55,6 +56,7 @@
     { id: "map", label: "Map", icon: Network },
     { id: "list", label: "List", icon: Layers },
     { id: "logs", label: "Log", icon: Calendar },
+    { id: "otel", label: "OTel", icon: Activity, mdi: "mdi-telescope" },
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "system", label: "System", icon: Info },
@@ -88,7 +90,11 @@
           onclick={() => (currentPage = item.id as PageType)}
           class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'}"
         >
-          <item.icon class="h-4 w-4 mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-400'}" />
+          {#if item.mdi}
+            <span class="mdi {item.mdi} text-base leading-none mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-400'}"></span>
+          {:else}
+            <item.icon class="h-4 w-4 mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-400'}" />
+          {/if}
           <span>{item.label}</span>
         </button>
       {/each}
@@ -146,6 +152,8 @@
       <ListView />
     {:else if currentPage === "logs"}
       <LogView />
+    {:else if currentPage === "otel"}
+      <OTelView />
     {:else if currentPage === "reports"}
       <ReportView />
     {:else if currentPage === "tools"}

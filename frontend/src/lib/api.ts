@@ -822,3 +822,212 @@ export async function sendWol(mac: string, ip = '255.255.255.255'): Promise<{ st
   if (!res.ok) throw new Error(`WOL failed: ${res.statusText}`);
   return res.json();
 }
+
+// OpenTelemetry (OTel) Models
+export interface OTelMetricDataPointEnt {
+  Start: number;
+  Time: number;
+  Attributes: string[];
+  Count?: number;
+  BucketCounts?: number[];
+  ExplicitBounds?: number[];
+  Sum?: number;
+  Min?: number;
+  Max?: number;
+  Gauge?: number;
+  Positive?: number[];
+  Negative?: number[];
+  Scale?: number;
+  ZeroCount?: number;
+  ZeroThreshold?: number;
+  Index: number;
+}
+
+export interface OTelMetricEnt {
+  Host: string;
+  Service: string;
+  Scope: string;
+  Name: string;
+  Type: string;
+  Description: string;
+  Unit: string;
+  DataPoints?: OTelMetricDataPointEnt[];
+  Count: number;
+  First: number;
+  Last: number;
+}
+
+export interface OTelTraceSpanEnt {
+  SpanID: string;
+  ParentSpanID: string;
+  Host: string;
+  Service: string;
+  Scope: string;
+  Name: string;
+  Start: number;
+  End: number;
+  Dur: number;
+  Attributes: string[];
+}
+
+export interface OTelTraceEnt {
+  Bucket: string;
+  TraceID: string;
+  Start: number;
+  End: number;
+  Dur: number;
+  Spans: OTelTraceSpanEnt[];
+  Last: number;
+}
+
+export interface OTelTraceSummaryEnt {
+  Bucket: string;
+  TraceID: string;
+  Hosts: string;
+  Services: string;
+  Scopes: string;
+  Start: number;
+  End: number;
+  Dur: number;
+  NumSpan: number;
+}
+
+export interface OTelTraceDAGNodeEnt {
+  Name: string;
+  Count: number;
+}
+
+export interface OTelTraceDAGLinkEnt {
+  Src: string;
+  Dst: string;
+  Count: number;
+}
+
+export interface OTelTraceDAGEnt {
+  Nodes: OTelTraceDAGNodeEnt[];
+  Links: OTelTraceDAGLinkEnt[];
+}
+
+export interface OTelLogEnt {
+  time: number;
+  host: string;
+  service: string;
+  scope: string;
+  traceId: string;
+  spanId: string;
+  severity: number;
+  severityText: string;
+  message: string;
+  attributes?: Record<string, string>;
+}
+
+// OTel API Functions
+export async function fetchOTelMetrics(): Promise<OTelMetricEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/otel/metrics`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchOTelMetricDetail(host: string, service: string, scope: string, name: string): Promise<OTelMetricEnt | null> {
+  try {
+    const params = new URLSearchParams({ host, service, scope, name });
+    const res = await fetch(`${API_BASE}/otel/metrics/detail?${params}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteOTelMetric(host: string, service: string, scope: string, name: string): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({ host, service, scope, name });
+    const res = await fetch(`${API_BASE}/otel/metrics?${params}`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchOTelTraceBuckets(): Promise<string[]> {
+  try {
+    const res = await fetch(`${API_BASE}/otel/traces/buckets`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchOTelTraces(buckets: string[]): Promise<OTelTraceSummaryEnt[]> {
+  try {
+    const params = new URLSearchParams();
+    for (const b of buckets) {
+      params.append('bucket', b);
+    }
+    const res = await fetch(`${API_BASE}/otel/traces?${params}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchOTelTraceDetail(bucket: string, traceId: string): Promise<OTelTraceEnt | null> {
+  try {
+    const params = new URLSearchParams({ bucket, traceId });
+    const res = await fetch(`${API_BASE}/otel/traces/detail?${params}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchOTelDAG(buckets: string[]): Promise<OTelTraceDAGEnt> {
+  try {
+    const res = await fetch(`${API_BASE}/otel/traces/dag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buckets }),
+    });
+    if (!res.ok) return { Nodes: [], Links: [] };
+    const data = await res.json();
+    return {
+      Nodes: Array.isArray(data?.Nodes) ? data.Nodes : [],
+      Links: Array.isArray(data?.Links) ? data.Links : [],
+    };
+  } catch {
+    return { Nodes: [], Links: [] };
+  }
+}
+
+export async function fetchOTelLogs(params: { filter?: string; src?: string; start?: number; end?: number; limit?: number }): Promise<ParquetLogRecord[]> {
+  try {
+    const q = new URLSearchParams();
+    if (params.filter) q.set('filter', params.filter);
+    if (params.src) q.set('src', params.src);
+    if (params.start) q.set('start', String(params.start));
+    if (params.end) q.set('end', String(params.end));
+    if (params.limit) q.set('limit', String(params.limit));
+    const res = await fetch(`${API_BASE}/otel/logs?${q}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (Array.isArray(data) ? data : []).map(normalizeParquetLog);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteAllOTelData(): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/otel/all`, { method: 'DELETE' });
+  return res.ok;
+}
+

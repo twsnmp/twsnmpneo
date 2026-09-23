@@ -77,4 +77,17 @@ type DataStore interface {
 	LoadArpTable(ctx context.Context) ([]*ArpEnt, error)
 	DeleteArpEntries(ctx context.Context, ips []string) error
 	ResetArpTable(ctx context.Context) error
+
+	// OpenTelemetry (OTel)
+	ListOTelMetrics(ctx context.Context) ([]*OTelMetricEnt, error)
+	GetOTelMetric(ctx context.Context, host, service, scope, name string) (*OTelMetricEnt, error)
+	SaveOTelMetric(ctx context.Context, m *OTelMetricEnt) error
+	DeleteOTelMetric(ctx context.Context, host, service, scope, name string) error
+	GetOTelTraceBuckets(ctx context.Context) ([]string, error)
+	ListOTelTraces(ctx context.Context, buckets []string) ([]*OTelTraceSummaryEnt, error)
+	GetOTelTrace(ctx context.Context, bucket, traceID string) (*OTelTraceEnt, error)
+	SaveOTelTraces(ctx context.Context, traces []*OTelTraceEnt) error
+	GetOTelTraceDAG(ctx context.Context, buckets []string) (*OTelTraceDAGEnt, error)
+	DeleteAllOTelData(ctx context.Context) error
+	CleanOldOTelData(ctx context.Context, retentionHours int) error
 }
