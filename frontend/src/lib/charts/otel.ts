@@ -1,16 +1,23 @@
 import * as echarts from 'echarts';
+import { setZoomCallback } from './utils';
 
 /**
  * Renders an interactive scatter plot of traces over time.
  * X-axis: Time, Y-axis: Duration (Seconds), Color: Duration gradient, Size: Span count.
  */
-export function showOTelTrace(div: string | HTMLElement, traces: any[]): echarts.ECharts | null {
+export function showOTelTrace(
+  div: string | HTMLElement,
+  traces: any[],
+  zoomCallback?: (st: number, et: number) => void
+): echarts.ECharts | null {
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el) return null;
 
   const chart = echarts.init(el, 'dark');
   let maxDur = 0.1;
 
+  let st = Infinity;
+  let lt = 0;
   const seriesData: any[] = [];
   traces.forEach((t: any) => {
     const ts = new Date(t.Start / (1000 * 1000));
@@ -18,6 +25,8 @@ export function showOTelTrace(div: string | HTMLElement, traces: any[]): echarts
     if (durSec > maxDur) {
       maxDur = durSec;
     }
+    if (t.Start && t.Start < st) st = t.Start;
+    if (t.End && t.End > lt) lt = t.End;
     seriesData.push([ts, durSec, t.NumSpan || 1, t.TraceID || '', t.Services || '']);
   });
 
@@ -58,6 +67,9 @@ export function showOTelTrace(div: string | HTMLElement, traces: any[]): echarts
         fillerColor: 'rgba(56, 189, 248, 0.2)',
         handleStyle: { color: '#38bdf8' },
         textStyle: { color: '#94a3b8', fontSize: 10 },
+      },
+      {
+        type: 'inside',
       },
     ],
     visualMap: {
@@ -111,6 +123,9 @@ export function showOTelTrace(div: string | HTMLElement, traces: any[]): echarts
   };
 
   chart.setOption(option);
+  if (zoomCallback) {
+    setZoomCallback(chart, zoomCallback, st, lt);
+  }
   return chart;
 }
 
@@ -334,17 +349,204 @@ export function showOTelTimeline(div: string | HTMLElement, trace: any): echarts
 }
 
 /**
+ * Renders donut chart for OTel metric types distribution.
+ */
+export function showOTelMetricTypePie(div: string | HTMLElement, metrics: any[]): echarts.ECharts | null {
+  const el = typeof div === 'string' ? document.getElementById(div) : div;
+  if (!el) return null;
+
+  const chart = echarts.init(el, 'dark');
+  const typeMap: Record<string, number> = {};
+  for (const m of metrics || []) {
+    const t = m.Type || 'Unknown';
+    typeMap[t] = (typeMap[t] || 0) + 1;
+  }
+
+  const data = Object.entries(typeMap).map(([name, value]) => ({ name, value }));
+  const colorPalette = ['#38bdf8', '#34d399', '#fbbf24', '#a855f7', '#f87171', '#6366f1', '#ec4899'];
+
+  const option: echarts.EChartsOption = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: <strong>{c}</strong> ({d}%)',
+    },
+    legend: {
+      orient: 'vertical',
+      right: '2%',
+      top: 'middle',
+      textStyle: { color: '#94a3b8', fontSize: 10 },
+      itemWidth: 10,
+      itemHeight: 10,
+    },
+    series: [
+      {
+        name: 'Metric Types',
+        type: 'pie',
+        radius: ['45%', '75%'],
+        center: ['35%', '50%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 4,
+          borderColor: '#0f172a',
+          borderWidth: 2,
+        },
+        label: {
+          show: false,
+          position: 'center',
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: '#f8fafc',
+          },
+        },
+        data: data.length > 0 ? data : [{ name: 'データなし', value: 0 }],
+        color: colorPalette,
+      },
+    ],
+  };
+
+  chart.setOption(option);
+  chart.resize();
+  return chart;
+}
+
+/**
+ * Renders horizontal bar chart for top services emitting metrics.
+ */
+export function showOTelServiceMetricBar(div: string | HTMLElement, metrics: any[]): echarts.ECharts | null {
+  const el = typeof div === 'string' ? document.getElementById(div) : div;
+  if (!el) return null;
+
+  const chart = echarts.init(el, 'dark');
+  const svcMap: Record<string, number> = {};
+  for (const m of metrics || []) {
+    const s = m.Service || 'unknown';
+    svcMap[s] = (svcMap[s] || 0) + 1;
+  }
+
+  const sorted = Object.entries(svcMap).sort((a, b) => b[1] - a[1]).slice(0, 5).reverse();
+  const categories = sorted.map((s) => s[0]);
+  const counts = sorted.map((s) => s[1]);
+
+  const option: echarts.EChartsOption = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        if (!params || params.length === 0) return '';
+        return `${params[0].name}: <strong>${params[0].value}</strong> 系列`;
+      },
+    },
+    grid: {
+      left: '10px',
+      right: '35px',
+      top: '10px',
+      bottom: '10px',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'value',
+      axisLabel: { color: '#64748b', fontSize: 9 },
+      splitLine: { lineStyle: { color: '#1e293b' } },
+    },
+    yAxis: {
+      type: 'category',
+      data: categories,
+      axisLabel: {
+        color: '#94a3b8',
+        fontSize: 10,
+        width: 100,
+        overflow: 'truncate',
+      },
+      axisLine: { lineStyle: { color: '#334155' } },
+    },
+    series: [
+      {
+        name: 'Metrics',
+        type: 'bar',
+        data: counts,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#06b6d4' },
+            { offset: 1, color: '#3b82f6' },
+          ]),
+          borderRadius: [0, 4, 4, 0],
+        },
+        label: {
+          show: true,
+          position: 'right',
+          color: '#cbd5e1',
+          fontSize: 10,
+        },
+      },
+    ],
+  };
+
+  chart.setOption(option);
+  chart.resize();
+  return chart;
+}
+
+/**
  * Renders time-series chart of metric values.
  */
-export function showOTelTimeChart(div: string | HTMLElement, dataPoints: any[]): echarts.ECharts | null {
+export function showOTelTimeChart(
+  div: string | HTMLElement,
+  dataPoints: any[],
+  filterAttr?: string
+): echarts.ECharts | null {
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el || !dataPoints || dataPoints.length === 0) return null;
 
   const chart = echarts.init(el, 'dark');
 
-  const seriesData: [Date, number][] = dataPoints.map((dp: any) => {
-    const val = dp.Sum ?? dp.Gauge ?? (dp.Count ? Number(dp.Count) : 0);
-    return [new Date(dp.Time / (1000 * 1000)), val];
+  const points = filterAttr && filterAttr !== 'all'
+    ? dataPoints.filter((dp) => (dp.Attributes?.join(' ') || '') === filterAttr)
+    : dataPoints;
+
+  const groupMap = new Map<string, any[]>();
+  for (const dp of points) {
+    const key = dp.Attributes && dp.Attributes.length > 0 ? dp.Attributes.join(' ') : 'Default';
+    if (!groupMap.has(key)) {
+      groupMap.set(key, []);
+    }
+    groupMap.get(key)!.push(dp);
+  }
+
+  const colorPalette = ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a855f7', '#6366f1', '#ec4899'];
+  const series: any[] = [];
+  const legendNames: string[] = [];
+
+  let colorIdx = 0;
+  groupMap.forEach((pts, key) => {
+    legendNames.push(key);
+    const sData = pts.map((dp: any) => {
+      const val = dp.Sum ?? dp.Gauge ?? (dp.Count ? Number(dp.Count) : 0);
+      return [new Date(dp.Time / (1000 * 1000)), val];
+    });
+
+    const c = colorPalette[colorIdx % colorPalette.length];
+    series.push({
+      name: key,
+      type: 'line',
+      showSymbol: sData.length < 50,
+      smooth: true,
+      data: sData,
+      lineStyle: { color: c, width: 2 },
+      itemStyle: { color: c },
+      areaStyle: groupMap.size === 1 ? {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(56, 189, 248, 0.3)' },
+          { offset: 1, color: 'rgba(56, 189, 248, 0.0)' },
+        ]),
+      } : undefined,
+    });
+    colorIdx++;
   });
 
   const option: echarts.EChartsOption = {
@@ -354,19 +556,25 @@ export function showOTelTimeChart(div: string | HTMLElement, dataPoints: any[]):
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
         if (!params || params.length === 0) return '';
-        const d = params[0].data;
-        return `
-          <div style="font-size:11px;">
-            <div>${echarts.time.format(d[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}', false)}</div>
-            <div>値: <strong style="color:#38bdf8;">${d[1]}</strong></div>
-          </div>
-        `;
+        const timeStr = echarts.time.format(params[0].data[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}', false);
+        let html = `<div style="font-size:11px;"><div><strong>${timeStr}</strong></div>`;
+        for (const p of params) {
+          html += `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:4px;"></span>${p.seriesName}: <strong>${p.data[1]}</strong></div>`;
+        }
+        html += `</div>`;
+        return html;
       },
     },
+    legend: groupMap.size > 1 ? {
+      data: legendNames,
+      top: 5,
+      textStyle: { color: '#94a3b8', fontSize: 10 },
+      type: 'scroll',
+    } : undefined,
     grid: {
       left: '50px',
       right: '30px',
-      top: '30px',
+      top: groupMap.size > 1 ? '40px' : '25px',
       bottom: '50px',
     },
     dataZoom: [
@@ -394,24 +602,11 @@ export function showOTelTimeChart(div: string | HTMLElement, dataPoints: any[]):
       axisLabel: { color: '#94a3b8', fontSize: 10 },
       splitLine: { lineStyle: { color: '#1e293b' } },
     },
-    series: [
-      {
-        type: 'line',
-        showSymbol: seriesData.length < 50,
-        smooth: true,
-        data: seriesData,
-        lineStyle: { color: '#38bdf8', width: 2 },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(56, 189, 248, 0.3)' },
-            { offset: 1, color: 'rgba(56, 189, 248, 0.0)' },
-          ]),
-        },
-      },
-    ],
+    series: series,
   };
 
   chart.setOption(option);
+  chart.resize();
   return chart;
 }
 
@@ -420,39 +615,61 @@ export function showOTelTimeChart(div: string | HTMLElement, dataPoints: any[]):
  */
 export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.ECharts | null {
   const el = typeof div === 'string' ? document.getElementById(div) : div;
-  if (!el || !dp || !dp.BucketCounts || dp.BucketCounts.length === 0) return null;
+  if (!el || !dp) return null;
 
   const chart = echarts.init(el, 'dark');
 
   const bounds = dp.ExplicitBounds || [];
+  const counts = dp.BucketCounts || [];
   const categories: string[] = [];
-  for (let i = 0; i < dp.BucketCounts.length; i++) {
+
+  for (let i = 0; i < counts.length; i++) {
     if (i === 0 && bounds.length > 0) {
       categories.push(`≤ ${bounds[0]}`);
-    } else if (i === dp.BucketCounts.length - 1) {
+    } else if (i === counts.length - 1) {
       categories.push(`> ${bounds[bounds.length - 1] ?? 0}`);
     } else {
-      categories.push(`${bounds[i - 1]} - ${bounds[i]}`);
+      categories.push(`${bounds[i - 1]} ~ ${bounds[i]}`);
     }
   }
 
   const option: echarts.EChartsOption = {
     backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        if (!params || params.length === 0) return '';
+        const p = params[0];
+        return `
+          <div style="font-size:11px;">
+            <div>バケット範囲: <strong>${p.name}</strong></div>
+            <div>度数 (件数): <strong style="color:#34d399;">${p.value}</strong></div>
+          </div>
+        `;
+      },
+    },
     grid: {
-      left: '50px',
+      left: '60px',
       right: '30px',
       top: '30px',
-      bottom: '40px',
+      bottom: '60px',
     },
     xAxis: {
       type: 'category',
       data: categories,
-      axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 25 },
+      axisLabel: {
+        color: '#94a3b8',
+        fontSize: 10,
+        rotate: 30,
+        interval: 0,
+      },
+      axisLine: { lineStyle: { color: '#334155' } },
     },
     yAxis: {
       type: 'value',
-      name: '件数',
+      name: '度数 (件数)',
+      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
       axisLabel: { color: '#94a3b8', fontSize: 10 },
       splitLine: { lineStyle: { color: '#1e293b' } },
     },
@@ -460,15 +677,217 @@ export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.E
       {
         name: 'Counts',
         type: 'bar',
-        data: dp.BucketCounts,
+        data: counts,
         itemStyle: {
-          color: '#34d399',
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#34d399' },
+            { offset: 1, color: '#059669' },
+          ]),
           borderRadius: [4, 4, 0, 0],
+        },
+        label: {
+          show: true,
+          position: 'top',
+          color: '#a7f3d0',
+          fontSize: 10,
         },
       },
     ],
   };
 
   chart.setOption(option);
+  chart.resize();
   return chart;
 }
+
+/**
+ * Renders an interactive stacked histogram of OpenTelemetry logs over time.
+ * Series: ERROR, WARN, INFO, DEBUG
+ */
+export function showOTelLogChart(
+  div: string | HTMLElement,
+  logs: any[],
+  zoomCallback?: (st: number, et: number) => void
+): echarts.ECharts | null {
+  const el = typeof div === 'string' ? document.getElementById(div) : div;
+  if (!el) return null;
+
+  const existing = echarts.getInstanceByDom(el);
+  if (existing) {
+    existing.dispose();
+  }
+  const chart = echarts.init(el, 'dark');
+
+  const data: Record<string, [Date, number][]> = {
+    ERROR: [],
+    WARN: [],
+    INFO: [],
+    DEBUG: [],
+  };
+
+  const count: Record<string, number> = {
+    ERROR: 0,
+    WARN: 0,
+    INFO: 0,
+    DEBUG: 0,
+  };
+
+  const addChartData = (ctm: number, newCtm: number) => {
+    let t = new Date(ctm * 60 * 1000);
+    for (const k of ['ERROR', 'WARN', 'INFO', 'DEBUG']) {
+      data[k].push([t, count[k]]);
+    }
+    ctm++;
+    for (; ctm < newCtm; ctm++) {
+      t = new Date(ctm * 60 * 1000);
+      for (const k of ['ERROR', 'WARN', 'INFO', 'DEBUG']) {
+        data[k].push([t, 0]);
+      }
+    }
+    return ctm;
+  };
+
+  const sortedLogs = [...logs].sort((a, b) => {
+    const ta = a.time ?? a.Time ?? 0;
+    const tb = b.time ?? b.Time ?? 0;
+    return ta - tb;
+  });
+
+  let ctm: number | undefined;
+  let st = Infinity;
+  let lt = 0;
+
+  sortedLogs.forEach((e) => {
+    const rawTime = e.time ?? e.Time ?? 0;
+    if (!rawTime) return;
+    const tMs = rawTime > 1e16 ? rawTime / 1e6 : (rawTime > 1e13 ? rawTime / 1e3 : (rawTime > 1e10 ? rawTime : rawTime * 1000));
+
+    let lvlKey = (e.level || e.severityText || '').toUpperCase();
+    if (lvlKey.includes('ERR') || lvlKey.includes('FATAL') || lvlKey.includes('CRIT') || (typeof e.severity === 'number' && e.severity <= 3)) {
+      lvlKey = 'ERROR';
+    } else if (lvlKey.includes('WARN') || (typeof e.severity === 'number' && e.severity === 4)) {
+      lvlKey = 'WARN';
+    } else if (lvlKey.includes('INFO') || (typeof e.severity === 'number' && (e.severity === 5 || e.severity === 6))) {
+      lvlKey = 'INFO';
+    } else {
+      lvlKey = 'DEBUG';
+    }
+
+    const newCtm = Math.floor(tMs / (60 * 1000));
+    if (ctm === undefined) {
+      ctm = newCtm;
+    }
+    if (ctm !== newCtm) {
+      ctm = addChartData(ctm, newCtm);
+      for (const k in count) count[k] = 0;
+    }
+    count[lvlKey]++;
+    if (st > rawTime) st = rawTime;
+    if (lt < rawTime) lt = rawTime;
+  });
+
+  if (ctm !== undefined) {
+    addChartData(ctm, ctm + 1);
+  }
+
+  const option: echarts.EChartsOption = {
+    backgroundColor: 'transparent',
+    grid: {
+      left: 55,
+      right: 35,
+      top: 40,
+      bottom: 50,
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      backgroundColor: '#0f172a',
+      borderColor: '#334155',
+      textStyle: { color: '#f8fafc', fontSize: 11 },
+    },
+    toolbox: {
+      iconStyle: { borderColor: '#94a3b8' },
+      feature: {
+        dataZoom: { yAxisIndex: 'none' },
+        restore: {},
+      },
+      right: 20,
+      top: 5,
+    },
+    dataZoom: [
+      {
+        type: 'slider',
+        bottom: 5,
+        height: 16,
+        borderColor: '#334155',
+        backgroundColor: '#020617',
+        fillerColor: 'rgba(6, 182, 212, 0.2)',
+        handleStyle: { color: '#06b6d4' },
+        textStyle: { color: '#64748b', fontSize: 9 },
+      },
+      {
+        type: 'inside',
+      },
+    ],
+    legend: {
+      top: 10,
+      textStyle: { color: '#cbd5e1', fontSize: 11 },
+      data: ['ERROR', 'WARN', 'INFO', 'DEBUG'],
+    },
+    xAxis: {
+      type: 'time',
+      name: 'Time',
+      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: {
+        color: '#94a3b8',
+        fontSize: 10,
+        formatter: (val: any) => echarts.time.format(new Date(val), '{yyyy}/{MM}/{dd} {HH}:{mm}', false),
+      },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      name: 'Log count',
+      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
+      axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: { color: '#94a3b8', fontSize: 10 },
+      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+    },
+    series: [
+      {
+        name: 'ERROR',
+        type: 'bar',
+        stack: 'count',
+        color: '#f43f5e',
+        data: data.ERROR,
+      },
+      {
+        name: 'WARN',
+        type: 'bar',
+        stack: 'count',
+        color: '#eab308',
+        data: data.WARN,
+      },
+      {
+        name: 'INFO',
+        type: 'bar',
+        stack: 'count',
+        color: '#06b6d4',
+        data: data.INFO,
+      },
+      {
+        name: 'DEBUG',
+        type: 'bar',
+        stack: 'count',
+        color: '#64748b',
+        data: data.DEBUG,
+      },
+    ],
+  };
+
+  chart.setOption(option, true);
+  chart.resize();
+  return chart;
+}
+

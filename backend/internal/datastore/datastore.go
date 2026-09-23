@@ -84,7 +84,7 @@ type DataStore interface {
 	SaveOTelMetric(ctx context.Context, m *OTelMetricEnt) error
 	DeleteOTelMetric(ctx context.Context, host, service, scope, name string) error
 	GetOTelTraceBuckets(ctx context.Context) ([]string, error)
-	ListOTelTraces(ctx context.Context, buckets []string) ([]*OTelTraceSummaryEnt, error)
+	ListOTelTraces(ctx context.Context, buckets []string, limit int) ([]*OTelTraceSummaryEnt, error)
 	GetOTelTrace(ctx context.Context, bucket, traceID string) (*OTelTraceEnt, error)
 	SaveOTelTraces(ctx context.Context, traces []*OTelTraceEnt) error
 	GetOTelTraceDAG(ctx context.Context, buckets []string) (*OTelTraceDAGEnt, error)

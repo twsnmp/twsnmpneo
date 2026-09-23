@@ -182,7 +182,7 @@ func TestOTel_MetricsAndTracesIngestion(t *testing.T) {
 		t.Fatalf("expected trace buckets, got err %v (len %d)", err, len(buckets))
 	}
 
-	traces, err := store.ListOTelTraces(ctx, buckets)
+	traces, err := store.ListOTelTraces(ctx, buckets, 1000)
 	if err != nil || len(traces) == 0 {
 		t.Fatalf("expected traces in store, got %v (len %d)", err, len(traces))
 	}

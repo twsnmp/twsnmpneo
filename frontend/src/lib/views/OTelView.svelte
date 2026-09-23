@@ -22,8 +22,10 @@
     showOTelTimeline,
     showOTelTimeChart,
     showOTelHistogram,
+    showOTelMetricTypePie,
+    showOTelServiceMetricBar,
+    showOTelLogChart,
   } from "../charts/otel";
-  import { showLogLevelChart } from "../charts/loglevel";
   import {
     Activity,
     BarChart3,
@@ -39,6 +41,15 @@
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
+    Layers,
+    Server,
+    ArrowUp,
+    ArrowDown,
+    ArrowUpDown,
+    Clock,
+    Zap,
+    AlertCircle,
+    AlertTriangle,
   } from "@lucide/svelte";
 
   type TabType = "metric" | "trace" | "log";
@@ -55,6 +66,7 @@
   let metricDetail = $state<OTelMetricEnt | null>(null);
   let metricChartMode = $state<"time" | "histogram">("time");
   let selectedDataPoint = $state<any>(null);
+  let selectedAttributeFilter = $state<string>("all");
 
   // Metric Pagination
   let metricPage = $state(1);
@@ -70,6 +82,12 @@
   let traceDetail = $state<OTelTraceEnt | null>(null);
   let showDAGModal = $state(false);
   let dagData = $state<OTelTraceDAGEnt | null>(null);
+  let traceTimePreset = $state<"1h" | "6h" | "24h" | "all">("24h");
+  let traceLimit = $state(5000);
+  let traceLatencyFilter = $state<"all" | "slow100" | "slow500" | "slow1000">("all");
+  let traceZoomRange = $state<{ st: number; et: number } | null>(null);
+  let traceSortKey = $state("Start");
+  let traceSortDir = $state<"asc" | "desc">("desc");
 
   // Trace Pagination
   let tracePage = $state(1);
@@ -88,6 +106,8 @@
   let logPageSize = $state(25);
 
   // Charts
+  let metricTypeChartInstance: any = null;
+  let metricServiceChartInstance: any = null;
   let traceScatterChart: any = null;
   let dagChartInstance: any = null;
   let timelineChartInstance: any = null;
@@ -96,6 +116,26 @@
 
   onMount(async () => {
     await refresh();
+    const handleResize = () => {
+      metricTypeChartInstance?.resize();
+      metricServiceChartInstance?.resize();
+      traceScatterChart?.resize();
+      logLevelChartInstance?.resize();
+      dagChartInstance?.resize();
+      timelineChartInstance?.resize();
+      metricTimeChartInstance?.resize();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      metricTypeChartInstance?.dispose();
+      metricServiceChartInstance?.dispose();
+      traceScatterChart?.dispose();
+      logLevelChartInstance?.dispose();
+      dagChartInstance?.dispose();
+      timelineChartInstance?.dispose();
+      metricTimeChartInstance?.dispose();
+    };
   });
 
   const refresh = async () => {
@@ -105,24 +145,25 @@
         const m = await fetchOTelMetrics();
         metrics = Array.isArray(m) ? m : [];
         selectedMetric = null;
+        await tick();
+        renderMetricOverviewCharts();
       } else if (activeTab === "trace") {
         const bks = await fetchOTelTraceBuckets();
         traceBuckets = Array.isArray(bks) ? bks : [];
-        if (selectedBuckets.length === 0 && traceBuckets.length > 0) {
-          selectedBuckets = [traceBuckets[traceBuckets.length - 1]];
-        } else {
-          selectedBuckets = selectedBuckets.filter((b) => traceBuckets.includes(b));
-          if (selectedBuckets.length === 0 && traceBuckets.length > 0) {
-            selectedBuckets = [traceBuckets[traceBuckets.length - 1]];
+        let queryBuckets: string[] | undefined = undefined;
+        if (traceTimePreset !== "all" && traceBuckets.length > 0) {
+          const hours = traceTimePreset === "1h" ? 1 : traceTimePreset === "6h" ? 6 : 24;
+          const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString().slice(0, 16);
+          queryBuckets = traceBuckets.filter((b) => b >= cutoff);
+          if (queryBuckets.length === 0 && traceBuckets.length > 0) {
+            queryBuckets = traceBuckets.slice(-Math.min(traceBuckets.length, hours * 60));
           }
         }
-        if (selectedBuckets.length > 0) {
-          const tr = await fetchOTelTraces(selectedBuckets);
-          traces = Array.isArray(tr) ? tr : [];
-        } else {
-          traces = [];
-        }
+        selectedBuckets = queryBuckets || [];
+        const tr = await fetchOTelTraces(queryBuckets, traceLimit);
+        traces = Array.isArray(tr) ? tr : [];
         selectedTrace = null;
+        traceZoomRange = null;
         await tick();
         renderTraceScatter();
       } else if (activeTab === "log") {
@@ -172,13 +213,21 @@
           const traceId = parsed.traceId || parsed.TraceID || parsed.traceID || "-";
           const spanId = parsed.spanId || parsed.SpanID || parsed.spanID || "-";
           const sev = typeof parsed.severity === "number" ? parsed.severity : (typeof parsed.Severity === "number" ? parsed.Severity : 6);
-          const sevText = parsed.severityText || parsed.SeverityText || (sev <= 3 ? "ERROR" : sev === 4 ? "WARN" : "INFO");
-          const message = parsed.message || parsed.Message || rawText;
+          const rawSevText = (parsed.severityText || parsed.SeverityText || "").toUpperCase();
 
-          let level = "other";
-          if (sev <= 3) level = "high";
-          else if (sev === 4) level = "warn";
-          else if (sev <= 6) level = "low";
+          let level = "INFO";
+          if (rawSevText.includes("ERR") || rawSevText.includes("FATAL") || rawSevText.includes("CRIT") || sev <= 3) {
+            level = "ERROR";
+          } else if (rawSevText.includes("WARN") || sev === 4) {
+            level = "WARN";
+          } else if (rawSevText.includes("INFO") || sev === 5 || sev === 6) {
+            level = "INFO";
+          } else {
+            level = "DEBUG";
+          }
+
+          const sevText = rawSevText || level;
+          const message = parsed.message || parsed.Message || rawText;
 
           return {
             time,
@@ -210,7 +259,53 @@
     await refresh();
   };
 
-  // --- Metric Handlers ---
+  const renderMetricOverviewCharts = () => {
+    const pieEl = document.getElementById("metricTypeChart");
+    if (pieEl) {
+      if (metricTypeChartInstance) metricTypeChartInstance.dispose();
+      metricTypeChartInstance = showOTelMetricTypePie(pieEl, metrics || []);
+    }
+    const barEl = document.getElementById("metricServiceChart");
+    if (barEl) {
+      if (metricServiceChartInstance) metricServiceChartInstance.dispose();
+      metricServiceChartInstance = showOTelServiceMetricBar(barEl, metrics || []);
+    }
+  };
+
+  // --- Metric Handlers & Derived ---
+  const metricKPIs = $derived.by(() => {
+    const list = metrics || [];
+    const totalMetrics = list.length;
+    const services = new Set(list.map((m) => m.Service).filter(Boolean));
+    const hosts = new Set(list.map((m) => m.Host).filter(Boolean));
+    const totalCount = list.reduce((acc, m) => acc + (m.Count || 0), 0);
+    return {
+      totalMetrics,
+      serviceCount: services.size,
+      hostCount: hosts.size,
+      totalCount,
+    };
+  });
+
+  const metricAttributesList = $derived.by(() => {
+    if (!metricDetail?.DataPoints) return [];
+    const set = new Set<string>();
+    for (const dp of metricDetail.DataPoints) {
+      if (dp.Attributes && dp.Attributes.length > 0) {
+        set.add(dp.Attributes.join(" "));
+      }
+    }
+    return Array.from(set);
+  });
+
+  const filteredModalDataPoints = $derived.by(() => {
+    if (!metricDetail?.DataPoints) return [];
+    if (selectedAttributeFilter === "all") return metricDetail.DataPoints;
+    return metricDetail.DataPoints.filter(
+      (dp) => (dp.Attributes?.join(" ") || "") === selectedAttributeFilter
+    );
+  });
+
   const filteredMetrics = $derived(
     (metrics || []).filter((m) => {
       if (!metricSearch) return true;
@@ -245,8 +340,9 @@
         selectedMetric.Name
       );
       metricDetail = d;
+      selectedAttributeFilter = "all";
       selectedDataPoint = d?.DataPoints && d.DataPoints.length > 0 ? d.DataPoints[0] : null;
-      metricChartMode = d?.Type === "Histogram" ? "histogram" : "time";
+      metricChartMode = d?.Type === "Histogram" || d?.Type === "ExponentialHistogram" ? "histogram" : "time";
       showMetricReport = true;
       await tick();
       renderMetricChart();
@@ -258,21 +354,64 @@
   };
 
   const renderMetricChart = () => {
-    if (!metricDetail?.DataPoints || metricDetail.DataPoints.length === 0) return;
-    if (metricChartMode === "histogram" && selectedDataPoint?.BucketCounts) {
-      if (metricTimeChartInstance) {
-        metricTimeChartInstance.dispose();
-        metricTimeChartInstance = null;
-      }
-      showOTelHistogram("metricReportChart", selectedDataPoint);
+    const el = document.getElementById("metricReportChart");
+    if (!el || !metricDetail?.DataPoints || metricDetail.DataPoints.length === 0) return;
+    if (metricTimeChartInstance) {
+      metricTimeChartInstance.dispose();
+      metricTimeChartInstance = null;
+    }
+    if (metricChartMode === "histogram") {
+      const dp = selectedDataPoint || metricDetail.DataPoints[0];
+      metricTimeChartInstance = showOTelHistogram(el, dp);
     } else {
-      showOTelTimeChart("metricReportChart", metricDetail.DataPoints);
+      metricTimeChartInstance = showOTelTimeChart(el, metricDetail.DataPoints, selectedAttributeFilter);
+    }
+    metricTimeChartInstance?.resize();
+  };
+
+  // --- Trace Handlers & Derived ---
+  const traceKPIs = $derived.by(() => {
+    const list = traces || [];
+    const total = list.length;
+    if (total === 0) {
+      return { total: 0, avgMs: 0, maxMs: 0, slowCount: 0 };
+    }
+    let sumMs = 0;
+    let maxMs = 0;
+    let slowCount = 0;
+    for (const t of list) {
+      const ms = (t.Dur || 0) * 1000;
+      sumMs += ms;
+      if (ms > maxMs) maxMs = ms;
+      if (ms >= 500) slowCount++;
+    }
+    return {
+      total,
+      avgMs: sumMs / total,
+      maxMs,
+      slowCount,
+    };
+  });
+
+  const handleTraceSort = (key: string) => {
+    if (traceSortKey === key) {
+      traceSortDir = traceSortDir === "asc" ? "desc" : "asc";
+    } else {
+      traceSortKey = key;
+      traceSortDir = key === "Start" || key === "End" || key === "Dur" || key === "NumSpan" ? "desc" : "asc";
     }
   };
 
-  // --- Trace Handlers ---
   const filteredTraces = $derived(
     (traces || []).filter((t) => {
+      if (traceZoomRange) {
+        if (t.Start > traceZoomRange.et || t.End < traceZoomRange.st) return false;
+      }
+      const durMs = (t.Dur || 0) * 1000;
+      if (traceLatencyFilter === "slow100" && durMs < 100) return false;
+      if (traceLatencyFilter === "slow500" && durMs < 500) return false;
+      if (traceLatencyFilter === "slow1000" && durMs < 1000) return false;
+
       if (!traceSearch) return true;
       const q = traceSearch.toLowerCase();
       return (
@@ -284,8 +423,26 @@
     })
   );
 
+  const sortedTraces = $derived.by(() => {
+    const list = [...filteredTraces];
+    const key = traceSortKey;
+    const dir = traceSortDir === "asc" ? 1 : -1;
+    list.sort((a: any, b: any) => {
+      const va = a[key];
+      const vb = b[key];
+      if (va === vb) return 0;
+      if (va === undefined || va === null) return 1;
+      if (vb === undefined || vb === null) return -1;
+      if (typeof va === "number" && typeof vb === "number") {
+        return (va - vb) * dir;
+      }
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+    return list;
+  });
+
   const paginatedTraces = $derived(
-    filteredTraces.slice((tracePage - 1) * tracePageSize, tracePage * tracePageSize)
+    sortedTraces.slice((tracePage - 1) * tracePageSize, tracePage * tracePageSize)
   );
 
   const renderTraceScatter = () => {
@@ -294,14 +451,20 @@
     if (traceScatterChart) {
       traceScatterChart.dispose();
     }
-    traceScatterChart = showOTelTrace(el, traces || []);
+    traceScatterChart = showOTelTrace(el, traces || [], (st, et) => {
+      if (st && et && st < et) {
+        traceZoomRange = { st, et };
+      } else {
+        traceZoomRange = null;
+      }
+      tracePage = 1;
+    });
   };
 
   const openDAGModal = async () => {
-    if (selectedBuckets.length === 0) return;
     loading = true;
     try {
-      dagData = await fetchOTelDAG(selectedBuckets);
+      dagData = await fetchOTelDAG(selectedBuckets.length > 0 ? selectedBuckets : undefined);
       showDAGModal = true;
       await tick();
       const el = document.getElementById("dagChart");
@@ -337,6 +500,41 @@
   };
 
   // --- Log Handlers ---
+  const logKPIs = $derived.by(() => {
+    const list = parsedLogs || [];
+    const total = list.length;
+    let errorCount = 0;
+    let warnCount = 0;
+    let infoCount = 0;
+    let debugCount = 0;
+    const services = new Set<string>();
+    const hosts = new Set<string>();
+
+    for (const l of list) {
+      if (l.level === "ERROR") {
+        errorCount++;
+      } else if (l.level === "WARN") {
+        warnCount++;
+      } else if (l.level === "INFO") {
+        infoCount++;
+      } else {
+        debugCount++;
+      }
+      if (l.service && l.service !== "-") services.add(l.service);
+      if (l.host && l.host !== "-") hosts.add(l.host);
+    }
+
+    return {
+      total,
+      errorCount,
+      warnCount,
+      infoCount,
+      debugCount,
+      serviceCount: services.size,
+      hostCount: hosts.size,
+    };
+  });
+
   const filteredLogs = $derived(
     (parsedLogs || []).filter((l) => {
       if (logLevelFilter !== "all" && l.level !== logLevelFilter) return false;
@@ -361,8 +559,9 @@
     if (!el) return;
     if (logLevelChartInstance) {
       logLevelChartInstance.dispose();
+      logLevelChartInstance = null;
     }
-    logLevelChartInstance = showLogLevelChart(el, parsedLogs || []);
+    logLevelChartInstance = showOTelLogChart(el, parsedLogs || []);
   };
 
   // Global Delete
@@ -474,104 +673,158 @@
   <div class="flex-1 flex flex-col min-h-0 overflow-hidden p-4">
     <!-- ================= METRIC TAB ================= -->
     {#if activeTab === "metric"}
-      <div class="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-        <!-- Search and Filter Toolbar -->
-        <div class="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900/60">
-          <div class="relative w-80">
-            <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              bind:value={metricSearch}
-              placeholder="ホスト、サービス、名前で検索..."
-              class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-            />
+      <div class="flex flex-col h-full gap-3 overflow-hidden">
+        <!-- Top Overview: KPIs + Charts -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 shrink-0">
+          <!-- KPI Cards Grid (col-span-1) -->
+          <div class="grid grid-cols-2 gap-2 bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg">
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 flex flex-col justify-between">
+              <span class="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                <BarChart3 class="h-3.5 w-3.5 text-cyan-400" />
+                メトリック系列
+              </span>
+              <span class="text-lg font-bold font-mono text-cyan-300 mt-1">{metricKPIs.totalMetrics}</span>
+            </div>
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 flex flex-col justify-between">
+              <span class="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                <Server class="h-3.5 w-3.5 text-indigo-400" />
+                サービス数
+              </span>
+              <span class="text-lg font-bold font-mono text-indigo-300 mt-1">{metricKPIs.serviceCount}</span>
+            </div>
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 flex flex-col justify-between">
+              <span class="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                <Layers class="h-3.5 w-3.5 text-emerald-400" />
+                ホスト数
+              </span>
+              <span class="text-lg font-bold font-mono text-emerald-300 mt-1">{metricKPIs.hostCount}</span>
+            </div>
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 flex flex-col justify-between">
+              <span class="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                <Activity class="h-3.5 w-3.5 text-amber-400" />
+                総受信回数
+              </span>
+              <span class="text-lg font-bold font-mono text-amber-300 mt-1">{metricKPIs.totalCount.toLocaleString()}</span>
+            </div>
           </div>
-          <div class="text-xs text-slate-400">
-            全 <span class="font-bold text-slate-200">{filteredMetrics.length}</span> 件
+
+          <!-- Metric Types Chart (col-span-1) -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2 relative shadow-lg h-44 flex flex-col">
+            <div class="text-[11px] font-semibold text-slate-400 px-2 pt-1 z-10 flex items-center gap-1.5">
+              <span>メトリック種別内訳</span>
+            </div>
+            <div id="metricTypeChart" class="flex-1 w-full min-h-0"></div>
+          </div>
+
+          <!-- Top Services Chart (col-span-2) -->
+          <div class="md:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-2 relative shadow-lg h-44 flex flex-col">
+            <div class="text-[11px] font-semibold text-slate-400 px-2 pt-1 z-10 flex items-center gap-1.5">
+              <span>サービス別 メトリック数</span>
+            </div>
+            <div id="metricServiceChart" class="flex-1 w-full min-h-0"></div>
           </div>
         </div>
 
         <!-- Metric Table -->
-        <div class="flex-1 overflow-auto">
-          <table class="w-full text-left text-xs text-slate-300 border-collapse">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 z-10">
-              <tr>
-                <th class="py-2.5 px-3">ホスト</th>
-                <th class="py-2.5 px-3">サービス</th>
-                <th class="py-2.5 px-3">スコープ</th>
-                <th class="py-2.5 px-3">メトリック名</th>
-                <th class="py-2.5 px-3 text-center">種別</th>
-                <th class="py-2.5 px-3 text-right">回数</th>
-                <th class="py-2.5 px-3">初回日時</th>
-                <th class="py-2.5 px-3">最終受信</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800/60">
-              {#if paginatedMetrics.length === 0}
-                <tr>
-                  <td colspan="8" class="py-8 text-center text-slate-500">
-                    メトリックデータがありません
-                  </td>
-                </tr>
-              {:else}
-                {#each paginatedMetrics as m}
-                  <tr
-                    onclick={() => (selectedMetric = m)}
-                    class="cursor-pointer transition-colors {selectedMetric === m ? 'bg-cyan-950/60 text-cyan-200 font-medium' : 'hover:bg-slate-800/40'}"
-                  >
-                    <td class="py-2 px-3 font-mono">{m.Host}</td>
-                    <td class="py-2 px-3">{m.Service}</td>
-                    <td class="py-2 px-3 text-slate-400 max-w-[200px] truncate" title={m.Scope}>{m.Scope}</td>
-                    <td class="py-2 px-3 font-medium text-slate-100">{m.Name}</td>
-                    <td class="py-2 px-3 text-center">
-                      <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
-                        {m.Type}
-                      </span>
-                    </td>
-                    <td class="py-2 px-3 text-right font-mono text-cyan-400">{m.Count}</td>
-                    <td class="py-2 px-3 font-mono text-slate-400">{formatTimeStr(m.First)}</td>
-                    <td class="py-2 px-3 font-mono text-slate-400">{formatTimeStr(m.Last)}</td>
-                  </tr>
-                {/each}
-              {/if}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="flex items-center justify-between p-2.5 border-t border-slate-800 bg-slate-950/40 text-xs text-slate-400">
-          <div>
-            ページ {metricPage} / {Math.max(1, Math.ceil(filteredMetrics.length / metricPageSize))}
+        <div class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg min-h-0">
+          <!-- Search and Filter Toolbar -->
+          <div class="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900/60">
+            <div class="relative w-80">
+              <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                bind:value={metricSearch}
+                placeholder="ホスト、サービス、名前で検索..."
+                class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div class="text-xs text-slate-400">
+              全 <span class="font-bold text-slate-200">{filteredMetrics.length}</span> 件
+            </div>
           </div>
-          <div class="flex items-center gap-1">
-            <button
-              disabled={metricPage <= 1}
-              onclick={() => (metricPage = 1)}
-              class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <ChevronsLeft class="h-4 w-4" />
-            </button>
-            <button
-              disabled={metricPage <= 1}
-              onclick={() => metricPage--}
-              class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <ChevronLeft class="h-4 w-4" />
-            </button>
-            <button
-              disabled={metricPage * metricPageSize >= filteredMetrics.length}
-              onclick={() => metricPage++}
-              class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <ChevronRight class="h-4 w-4" />
-            </button>
-            <button
-              disabled={metricPage * metricPageSize >= filteredMetrics.length}
-              onclick={() => (metricPage = Math.ceil(filteredMetrics.length / metricPageSize))}
-              class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-            >
-              <ChevronsRight class="h-4 w-4" />
-            </button>
+
+          <!-- Metric Table -->
+          <div class="flex-1 overflow-auto">
+            <table class="w-full text-left text-xs text-slate-300 border-collapse">
+              <thead class="sticky top-0 bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 z-10">
+                <tr>
+                  <th class="py-2.5 px-3">ホスト</th>
+                  <th class="py-2.5 px-3">サービス</th>
+                  <th class="py-2.5 px-3">スコープ</th>
+                  <th class="py-2.5 px-3">メトリック名</th>
+                  <th class="py-2.5 px-3 text-center">種別</th>
+                  <th class="py-2.5 px-3 text-right">回数</th>
+                  <th class="py-2.5 px-3">初回日時</th>
+                  <th class="py-2.5 px-3">最終受信</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                {#if paginatedMetrics.length === 0}
+                  <tr>
+                    <td colspan="8" class="py-8 text-center text-slate-500">
+                      メトリックデータがありません
+                    </td>
+                  </tr>
+                {:else}
+                  {#each paginatedMetrics as m}
+                    <tr
+                      onclick={() => (selectedMetric = m)}
+                      class="cursor-pointer transition-colors {selectedMetric === m ? 'bg-cyan-950/60 text-cyan-200 font-medium' : 'hover:bg-slate-800/40'}"
+                    >
+                      <td class="py-2 px-3 font-mono">{m.Host}</td>
+                      <td class="py-2 px-3">{m.Service}</td>
+                      <td class="py-2 px-3 text-slate-400 max-w-[200px] truncate" title={m.Scope}>{m.Scope}</td>
+                      <td class="py-2 px-3 font-medium text-slate-100">{m.Name}</td>
+                      <td class="py-2 px-3 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                          {m.Type}
+                        </span>
+                      </td>
+                      <td class="py-2 px-3 text-right font-mono text-cyan-400">{m.Count}</td>
+                      <td class="py-2 px-3 font-mono text-slate-400">{formatTimeStr(m.First)}</td>
+                      <td class="py-2 px-3 font-mono text-slate-400">{formatTimeStr(m.Last)}</td>
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="flex items-center justify-between p-2.5 border-t border-slate-800 bg-slate-950/40 text-xs text-slate-400">
+            <div>
+              ページ {metricPage} / {Math.max(1, Math.ceil(filteredMetrics.length / metricPageSize))}
+            </div>
+            <div class="flex items-center gap-1">
+              <button
+                disabled={metricPage <= 1}
+                onclick={() => (metricPage = 1)}
+                class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronsLeft class="h-4 w-4" />
+              </button>
+              <button
+                disabled={metricPage <= 1}
+                onclick={() => metricPage--}
+                class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronLeft class="h-4 w-4" />
+              </button>
+              <button
+                disabled={metricPage * metricPageSize >= filteredMetrics.length}
+                onclick={() => metricPage++}
+                class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronRight class="h-4 w-4" />
+              </button>
+              <button
+                disabled={metricPage * metricPageSize >= filteredMetrics.length}
+                onclick={() => (metricPage = Math.ceil(filteredMetrics.length / metricPageSize))}
+                class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronsRight class="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -580,63 +833,231 @@
     <!-- ================= TRACE TAB ================= -->
     {#if activeTab === "trace"}
       <div class="flex flex-col h-full gap-3 overflow-hidden">
-        <!-- Top Scatter Chart -->
-        <div class="h-64 bg-slate-900 border border-slate-800 rounded-xl p-2 relative shadow-lg shrink-0">
+        <!-- Top KPIs -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <Activity class="h-3.5 w-3.5 text-cyan-400" />
+              総トレース数
+            </span>
+            <span class="text-xl font-bold font-mono text-cyan-300 mt-1">{traceKPIs.total.toLocaleString()}</span>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <Clock class="h-3.5 w-3.5 text-indigo-400" />
+              平均所要時間
+            </span>
+            <span class="text-xl font-bold font-mono text-indigo-300 mt-1">
+              {traceKPIs.avgMs.toFixed(2)} <span class="text-xs font-normal text-slate-400">ms</span>
+            </span>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <Zap class="h-3.5 w-3.5 text-amber-400" />
+              最大所要時間
+            </span>
+            <span class="text-xl font-bold font-mono text-amber-300 mt-1">
+              {#if traceKPIs.maxMs >= 1000}
+                {(traceKPIs.maxMs / 1000).toFixed(3)} <span class="text-xs font-normal text-slate-400">s</span>
+              {:else}
+                {traceKPIs.maxMs.toFixed(2)} <span class="text-xs font-normal text-slate-400">ms</span>
+              {/if}
+            </span>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <Activity class="h-3.5 w-3.5 text-rose-400" />
+              遅延トレース (&ge;500ms)
+            </span>
+            <span class="text-xl font-bold font-mono {traceKPIs.slowCount > 0 ? 'text-rose-400' : 'text-slate-300'} mt-1">
+              {traceKPIs.slowCount.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        <!-- Scatter Chart -->
+        <div class="h-60 bg-slate-900 border border-slate-800 rounded-xl p-2 relative shadow-lg shrink-0">
           <div class="text-[11px] font-semibold text-slate-400 absolute top-2 left-4 z-10 flex items-center gap-2">
             <span>トレース応答時間 (秒) 散布図</span>
             <span class="text-[10px] text-slate-500 font-normal">色: 所要時間 / ドットサイズ: スパン数</span>
+            {#if traceZoomRange}
+              <span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                ズーム中 ({renderTimeMili(traceZoomRange.st)} ～ {renderTimeMili(traceZoomRange.et)})
+              </span>
+              <button
+                onclick={() => {
+                  traceZoomRange = null;
+                  renderTraceScatter();
+                }}
+                class="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+              >
+                ズーム解除
+              </button>
+            {/if}
           </div>
           <div id="traceScatterChart" class="h-full w-full"></div>
         </div>
 
-        <!-- Trace Table & Bucket Selector -->
+        <!-- Trace Table & Filters -->
         <div class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg min-h-0">
-          <div class="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900/60">
-            <div class="flex items-center gap-3">
-              <div class="relative w-72">
+          <div class="flex flex-wrap items-center justify-between p-3 border-b border-slate-800 bg-slate-900/60 gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- Search -->
+              <div class="relative w-64">
                 <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   bind:value={traceSearch}
-                  placeholder="TraceID、サービス名で検索..."
+                  placeholder="TraceID、サービス、ホスト..."
                   class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
-              <!-- Bucket Multi-Select Dropdown -->
+              <!-- Time Range Presets -->
+              <div class="flex items-center gap-1 bg-slate-950/60 border border-slate-800/80 p-0.5 rounded-lg">
+                {#each [
+                  { id: "1h", label: "直近1時間" },
+                  { id: "6h", label: "直近6時間" },
+                  { id: "24h", label: "直近24時間" },
+                  { id: "all", label: "全期間" }
+                ] as opt}
+                  <button
+                    onclick={async () => {
+                      traceTimePreset = opt.id as any;
+                      await refresh();
+                    }}
+                    class="px-2.5 py-1 rounded text-xs font-medium transition-all {traceTimePreset === opt.id ? 'bg-cyan-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+                  >
+                    {opt.label}
+                  </button>
+                {/each}
+              </div>
+
+              <!-- Limit Dropdown -->
               <div class="flex items-center gap-1.5">
-                <span class="text-xs text-slate-400">時間バケット:</span>
+                <span class="text-xs text-slate-400">上限:</span>
                 <select
-                  multiple
-                  bind:value={selectedBuckets}
+                  bind:value={traceLimit}
                   onchange={refresh}
-                  class="h-8 max-h-8 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 px-2 focus:outline-none focus:border-cyan-500"
+                  class="h-7 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 px-2 focus:outline-none focus:border-cyan-500"
                 >
-                  {#each traceBuckets as b}
-                    <option value={b}>{b}</option>
-                  {/each}
+                  <option value={1000}>1,000件</option>
+                  <option value={5000}>5,000件</option>
+                  <option value={10000}>10,000件</option>
                 </select>
+              </div>
+
+              <!-- Latency Filter Buttons -->
+              <div class="flex items-center gap-1 bg-slate-950/60 border border-slate-800/80 p-0.5 rounded-lg">
+                {#each [
+                  { id: "all", label: "すべて" },
+                  { id: "slow100", label: "> 100ms" },
+                  { id: "slow500", label: "> 500ms" },
+                  { id: "slow1000", label: "> 1秒" }
+                ] as lat}
+                  <button
+                    onclick={() => (traceLatencyFilter = lat.id as any)}
+                    class="px-2 py-1 rounded text-xs font-medium transition-all {traceLatencyFilter === lat.id ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+                  >
+                    {lat.label}
+                  </button>
+                {/each}
               </div>
             </div>
 
-            <div class="text-xs text-slate-400">
-              全 <span class="font-bold text-slate-200">{filteredTraces.length}</span> 件
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+              <span>表示: <strong class="text-slate-200">{sortedTraces.length}</strong> / 取得: <strong class="text-slate-200">{traces.length}</strong> 件</span>
             </div>
           </div>
 
           <!-- Trace Table -->
           <div class="flex-1 overflow-auto">
             <table class="w-full text-left text-xs text-slate-300 border-collapse">
-              <thead class="sticky top-0 bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 z-10">
+              <thead class="sticky top-0 bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 z-10 select-none">
                 <tr>
-                  <th class="py-2.5 px-3">開始日時</th>
-                  <th class="py-2.5 px-3">終了日時</th>
-                  <th class="py-2.5 px-3 text-right">所要時間 (ms)</th>
-                  <th class="py-2.5 px-3">TraceID</th>
-                  <th class="py-2.5 px-3">送信元ホスト</th>
-                  <th class="py-2.5 px-3">サービス</th>
-                  <th class="py-2.5 px-3 text-center">Span</th>
-                  <th class="py-2.5 px-3">スコープ</th>
+                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Start")}>
+                    <div class="flex items-center gap-1">
+                      <span>開始日時</span>
+                      {#if traceSortKey === "Start"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("End")}>
+                    <div class="flex items-center gap-1">
+                      <span>終了日時</span>
+                      {#if traceSortKey === "End"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Dur")}>
+                    <div class="flex items-center justify-end gap-1">
+                      <span>所要時間 (ms)</span>
+                      {#if traceSortKey === "Dur"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("TraceID")}>
+                    <div class="flex items-center gap-1">
+                      <span>TraceID</span>
+                      {#if traceSortKey === "TraceID"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Hosts")}>
+                    <div class="flex items-center gap-1">
+                      <span>送信元ホスト</span>
+                      {#if traceSortKey === "Hosts"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Services")}>
+                    <div class="flex items-center gap-1">
+                      <span>サービス</span>
+                      {#if traceSortKey === "Services"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 text-center cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("NumSpan")}>
+                    <div class="flex items-center justify-center gap-1">
+                      <span>Span</span>
+                      {#if traceSortKey === "NumSpan"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Scopes")}>
+                    <div class="flex items-center gap-1">
+                      <span>スコープ</span>
+                      {#if traceSortKey === "Scopes"}
+                        {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {:else}
+                        <ArrowUpDown class="h-3 w-3 opacity-30" />
+                      {/if}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
@@ -676,7 +1097,7 @@
           <!-- Pagination -->
           <div class="flex items-center justify-between p-2.5 border-t border-slate-800 bg-slate-950/40 text-xs text-slate-400">
             <div>
-              ページ {tracePage} / {Math.max(1, Math.ceil(filteredTraces.length / tracePageSize))}
+              ページ {tracePage} / {Math.max(1, Math.ceil(sortedTraces.length / tracePageSize))}
             </div>
             <div class="flex items-center gap-1">
               <button
@@ -694,15 +1115,15 @@
                 <ChevronLeft class="h-4 w-4" />
               </button>
               <button
-                disabled={tracePage * tracePageSize >= filteredTraces.length}
+                disabled={tracePage * tracePageSize >= sortedTraces.length}
                 onclick={() => tracePage++}
                 class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
               >
                 <ChevronRight class="h-4 w-4" />
               </button>
               <button
-                disabled={tracePage * tracePageSize >= filteredTraces.length}
-                onclick={() => (tracePage = Math.ceil(filteredTraces.length / tracePageSize))}
+                disabled={tracePage * tracePageSize >= sortedTraces.length}
+                onclick={() => (tracePage = Math.ceil(sortedTraces.length / tracePageSize))}
                 class="p-1 rounded hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
               >
                 <ChevronsRight class="h-4 w-4" />
@@ -716,8 +1137,82 @@
     <!-- ================= LOG TAB ================= -->
     {#if activeTab === "log"}
       <div class="flex flex-col h-full gap-3 overflow-hidden">
+        <!-- Top KPIs -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
+          <button
+            type="button"
+            onclick={() => (logLevelFilter = "all")}
+            class="text-left bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between cursor-pointer hover:border-slate-700 transition-colors {logLevelFilter === 'all' ? 'ring-1 ring-cyan-500/50' : ''}"
+          >
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <FileText class="h-3.5 w-3.5 text-cyan-400" />
+              総ログ件数
+            </span>
+            <span class="text-xl font-bold font-mono text-cyan-300 mt-1">{logKPIs.total.toLocaleString()}</span>
+          </button>
+
+          <button
+            type="button"
+            onclick={() => (logLevelFilter = logLevelFilter === "ERROR" ? "all" : "ERROR")}
+            class="text-left bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between cursor-pointer hover:border-slate-700 transition-colors {logLevelFilter === 'ERROR' ? 'ring-1 ring-rose-500/50' : ''}"
+          >
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <AlertCircle class="h-3.5 w-3.5 text-rose-400" />
+              ERROR ログ
+            </span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span class="text-xl font-bold font-mono {logKPIs.errorCount > 0 ? 'text-rose-400' : 'text-slate-300'}">
+                {logKPIs.errorCount.toLocaleString()}
+              </span>
+              {#if logKPIs.total > 0 && logKPIs.errorCount > 0}
+                <span class="text-[11px] font-mono text-rose-400/80">
+                  {((logKPIs.errorCount / logKPIs.total) * 100).toFixed(1)}%
+                </span>
+              {/if}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onclick={() => (logLevelFilter = logLevelFilter === "WARN" ? "all" : "WARN")}
+            class="text-left bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between cursor-pointer hover:border-slate-700 transition-colors {logLevelFilter === 'WARN' ? 'ring-1 ring-amber-500/50' : ''}"
+          >
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <AlertTriangle class="h-3.5 w-3.5 text-amber-400" />
+              WARN ログ
+            </span>
+            <div class="flex items-baseline justify-between mt-1">
+              <span class="text-xl font-bold font-mono {logKPIs.warnCount > 0 ? 'text-amber-400' : 'text-slate-300'}">
+                {logKPIs.warnCount.toLocaleString()}
+              </span>
+              {#if logKPIs.total > 0 && logKPIs.warnCount > 0}
+                <span class="text-[11px] font-mono text-amber-400/80">
+                  {((logKPIs.warnCount / logKPIs.total) * 100).toFixed(1)}%
+                </span>
+              {/if}
+            </div>
+          </button>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-lg flex flex-col justify-between">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <Server class="h-3.5 w-3.5 text-indigo-400" />
+              サービス / ホスト数
+            </span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span class="text-xl font-bold font-mono text-indigo-300">
+                {logKPIs.serviceCount}
+                <span class="text-xs font-normal text-slate-400">サービス</span>
+              </span>
+              <span class="text-sm font-semibold font-mono text-slate-400">
+                / {logKPIs.hostCount}
+                <span class="text-xs font-normal text-slate-500">ホスト</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Top Log Histogram -->
-        <div class="h-56 bg-slate-900 border border-slate-800 rounded-xl p-2 relative shadow-lg shrink-0">
+        <div class="h-52 bg-slate-900 border border-slate-800 rounded-xl p-2 relative shadow-lg shrink-0">
           <div class="text-[11px] font-semibold text-slate-400 absolute top-2 left-4 z-10">
             OpenTelemetry ログ受信件数推移
           </div>
@@ -740,7 +1235,13 @@
 
               <!-- Level Filter Badges -->
               <div class="flex items-center gap-1">
-                {#each [{ id: "all", label: "すべて" }, { id: "high", label: "重大" }, { id: "warn", label: "警告" }, { id: "low", label: "情報" }] as lvl}
+                {#each [
+                  { id: "all", label: "すべて" },
+                  { id: "ERROR", label: "ERROR" },
+                  { id: "WARN", label: "WARN" },
+                  { id: "INFO", label: "INFO" },
+                  { id: "DEBUG", label: "DEBUG" }
+                ] as lvl}
                   <button
                     onclick={() => (logLevelFilter = lvl.id)}
                     class="px-2.5 py-1 rounded text-xs font-medium transition-all {logLevelFilter === lvl.id ? 'bg-cyan-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}"
@@ -783,7 +1284,15 @@
                       class="hover:bg-slate-800/40 transition-colors cursor-pointer"
                     >
                       <td class="py-2 px-3 text-center">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold font-sans {l.level === 'high' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : l.level === 'warn' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'}">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold font-sans {
+                          l.level === 'ERROR'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                            : l.level === 'WARN'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : l.level === 'INFO'
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                            : 'bg-slate-700/30 text-slate-300 border border-slate-600/40'
+                        }">
                           {l.severityText}
                         </span>
                       </td>
@@ -915,26 +1424,62 @@
 <!-- 2. Metric Report Modal (Time Chart / Histogram) -->
 {#if showMetricReport && metricDetail}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-    <div class="w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-      <div class="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/60">
-        <div>
-          <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <Activity class="h-4 w-4 text-emerald-400" />
-            <span>メトリック レポート: {metricDetail.Name}</span>
-          </h3>
-          <p class="text-[11px] text-slate-400">
-            {metricDetail.Host} / {metricDetail.Service} ({metricDetail.Type})
-          </p>
+    <div class="w-[94vw] max-w-6xl h-[88vh] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <!-- Header -->
+      <div class="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/60 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <Activity class="h-5 w-5" />
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-bold text-slate-100">{metricDetail.Name}</h3>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                {metricDetail.Type}
+              </span>
+              {#if metricDetail.Unit}
+                <span class="px-1.5 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800">
+                  {metricDetail.Unit}
+                </span>
+              {/if}
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              ホスト: <span class="text-slate-300 font-mono">{metricDetail.Host}</span> | 
+              サービス: <span class="text-slate-300">{metricDetail.Service}</span> | 
+              スコープ: <span class="text-slate-300">{metricDetail.Scope || "-"}</span>
+              {#if metricDetail.Description}
+                | <span class="text-slate-400 italic">{metricDetail.Description}</span>
+              {/if}
+            </p>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          {#if metricDetail.Type === "Histogram"}
+
+        <div class="flex items-center gap-3">
+          <!-- Attribute Filter if more than 1 attribute exists -->
+          {#if metricAttributesList.length > 1}
+            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+              <span>属性:</span>
+              <select
+                bind:value={selectedAttributeFilter}
+                onchange={() => tick().then(renderMetricChart)}
+                class="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-cyan-500 max-w-[200px] truncate"
+              >
+                <option value="all">すべて ({metricAttributesList.length})</option>
+                {#each metricAttributesList as attr}
+                  <option value={attr}>{attr}</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+
+          {#if metricDetail.Type === "Histogram" || metricDetail.Type === "ExponentialHistogram"}
             <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs">
               <button
                 onclick={() => {
                   metricChartMode = "time";
                   tick().then(renderMetricChart);
                 }}
-                class="px-2.5 py-1 rounded {metricChartMode === 'time' ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400'}"
+                class="px-2.5 py-1 rounded {metricChartMode === 'time' ? 'bg-cyan-600 text-white font-medium shadow' : 'text-slate-400 hover:text-slate-200'}"
               >
                 時系列
               </button>
@@ -943,65 +1488,110 @@
                   metricChartMode = "histogram";
                   tick().then(renderMetricChart);
                 }}
-                class="px-2.5 py-1 rounded {metricChartMode === 'histogram' ? 'bg-cyan-600 text-white font-medium' : 'text-slate-400'}"
+                class="px-2.5 py-1 rounded {metricChartMode === 'histogram' ? 'bg-cyan-600 text-white font-medium shadow' : 'text-slate-400 hover:text-slate-200'}"
               >
                 ヒストグラム
               </button>
             </div>
           {/if}
-          <button onclick={() => (showMetricReport = false)} class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+
+          <button onclick={() => (showMetricReport = false)} class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
             <X class="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      <!-- Chart View -->
-      <div class="p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div id="metricReportChart" class="h-64 w-full bg-slate-950/40 rounded-xl border border-slate-800/80 mb-3"></div>
+      <!-- Modal Body (Chart + Table balanced layout) -->
+      <div class="flex-1 min-h-0 p-4 flex flex-col gap-3 overflow-hidden">
+        <!-- Chart Container (Fixed height approx 45%, does not shrink) -->
+        <div class="h-[340px] shrink-0 flex flex-col bg-slate-950/60 rounded-xl border border-slate-800/80 p-2.5 relative shadow-inner">
+          <div class="flex items-center justify-between px-2 pt-1 text-[11px] text-slate-400 shrink-0">
+            <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+              {#if metricChartMode === "histogram"}
+                <BarChart3 class="h-3.5 w-3.5 text-emerald-400" />
+                選択されたデータポイントのヒストグラム分布 ({selectedDataPoint ? formatTimeStr(selectedDataPoint.Time) : ''})
+              {:else}
+                <Activity class="h-3.5 w-3.5 text-cyan-400" />
+                時系列推移 ({filteredModalDataPoints.length} データポイント)
+              {/if}
+            </span>
+            {#if metricChartMode === "histogram"}
+              <span class="text-slate-500 text-[10px]">
+                下のテーブルの行をクリックして表示するデータポイントを切り替えられます
+              </span>
+            {/if}
+          </div>
+          <div id="metricReportChart" class="flex-1 w-full min-h-0 mt-1"></div>
+        </div>
 
-        <!-- DataPoints Table -->
-        <div class="flex-1 overflow-auto border border-slate-800 rounded-xl bg-slate-950/60">
-          <table class="w-full text-left text-xs text-slate-300">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th class="py-2 px-3">日時</th>
-                <th class="py-2 px-3">属性 (Attributes)</th>
-                <th class="py-2 px-3 text-right">値 (Sum/Gauge)</th>
-                {#if metricDetail.Type === "Histogram"}
-                  <th class="py-2 px-3 text-right">回数 (Count)</th>
-                {/if}
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono">
-              {#each (metricDetail.DataPoints || []) as dp}
-                <tr
-                  onclick={() => {
-                    selectedDataPoint = dp;
-                    if (metricChartMode === "histogram") renderMetricChart();
-                  }}
-                  class="cursor-pointer hover:bg-slate-800/40 {selectedDataPoint === dp ? 'bg-cyan-950/40 text-cyan-300' : ''}"
-                >
-                  <td class="py-1.5 px-3 text-slate-300 whitespace-nowrap">{formatTimeStr(dp.Time)}</td>
-                  <td class="py-1.5 px-3 text-slate-400 font-sans truncate max-w-[280px]" title={dp.Attributes?.join(" ")}>
-                    {dp.Attributes?.join(" ") || "-"}
-                  </td>
-                  <td class="py-1.5 px-3 text-right text-cyan-400 font-semibold">
-                    {dp.Sum ?? dp.Gauge ?? "-"}
-                  </td>
-                  {#if metricDetail.Type === "Histogram"}
-                    <td class="py-1.5 px-3 text-right text-emerald-400">{dp.Count ?? "-"}</td>
+        <!-- DataPoints Table (Flex-1, scrollable, takes remaining 55%) -->
+        <div class="flex-1 min-h-0 flex flex-col border border-slate-800 rounded-xl bg-slate-950/60 overflow-hidden shadow-inner">
+          <div class="px-3 py-2 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
+            <span class="text-xs font-semibold text-slate-300">
+              データポイント一覧 ({filteredModalDataPoints.length} 件)
+            </span>
+            {#if selectedDataPoint && metricChartMode === "histogram"}
+              <span class="text-[11px] text-emerald-400 font-mono">
+                選択中: {formatTimeStr(selectedDataPoint.Time)}
+              </span>
+            {/if}
+          </div>
+          <div class="flex-1 overflow-auto">
+            <table class="w-full text-left text-xs text-slate-300 border-collapse">
+              <thead class="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800 font-medium z-10">
+                <tr>
+                  <th class="py-2 px-3">日時</th>
+                  <th class="py-2 px-3">属性 (Attributes)</th>
+                  <th class="py-2 px-3 text-right">値 (Sum / Gauge)</th>
+                  {#if metricDetail.Type === "Histogram" || metricDetail.Type === "ExponentialHistogram"}
+                    <th class="py-2 px-3 text-right">回数 (Count)</th>
+                    <th class="py-2 px-3 text-right">最小 / 最大</th>
                   {/if}
                 </tr>
-              {/each}
-            </tbody>
-          </table>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60 font-mono">
+                {#if filteredModalDataPoints.length === 0}
+                  <tr>
+                    <td colspan="5" class="py-6 text-center text-slate-500">
+                      データポイントがありません
+                    </td>
+                  </tr>
+                {:else}
+                  {#each filteredModalDataPoints as dp}
+                    <tr
+                      onclick={() => {
+                        selectedDataPoint = dp;
+                        if (metricChartMode === "histogram") renderMetricChart();
+                      }}
+                      class="cursor-pointer hover:bg-slate-800/50 transition-colors {selectedDataPoint === dp ? 'bg-cyan-950/50 text-cyan-200 font-medium' : ''}"
+                    >
+                      <td class="py-1.5 px-3 text-slate-300 whitespace-nowrap">{formatTimeStr(dp.Time)}</td>
+                      <td class="py-1.5 px-3 text-slate-400 font-sans truncate max-w-[320px]" title={dp.Attributes?.join(" ")}>
+                        {dp.Attributes?.join(" ") || "-"}
+                      </td>
+                      <td class="py-1.5 px-3 text-right text-cyan-400 font-semibold">
+                        {dp.Sum ?? dp.Gauge ?? "-"}
+                      </td>
+                      {#if metricDetail.Type === "Histogram" || metricDetail.Type === "ExponentialHistogram"}
+                        <td class="py-1.5 px-3 text-right text-emerald-400">{dp.Count ?? "-"}</td>
+                        <td class="py-1.5 px-3 text-right text-slate-400">
+                          {dp.Min !== undefined && dp.Max !== undefined ? `${dp.Min} / ${dp.Max}` : "-"}
+                        </td>
+                      {/if}
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div class="flex justify-end p-3 border-t border-slate-800 bg-slate-950/40">
+      <!-- Modal Footer -->
+      <div class="flex justify-end p-3 border-t border-slate-800 bg-slate-950/40 shrink-0">
         <button
           onclick={() => (showMetricReport = false)}
-          class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200"
+          class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition-colors"
         >
           閉じる
         </button>
@@ -1133,7 +1723,7 @@
           </div>
           <div class="p-3 bg-slate-950/50 rounded-xl border border-slate-800/80">
             <span class="text-slate-500 block mb-1">重要度</span>
-            <span class="font-bold {selectedLog.level === 'high' ? 'text-rose-400' : selectedLog.level === 'warn' ? 'text-amber-400' : 'text-cyan-400'}">
+            <span class="font-bold {selectedLog.level === 'ERROR' ? 'text-rose-400' : selectedLog.level === 'WARN' ? 'text-amber-400' : selectedLog.level === 'INFO' ? 'text-cyan-400' : 'text-slate-400'}">
               {selectedLog.severityText} (Level: {selectedLog.severity})
             </span>
           </div>

@@ -849,7 +849,13 @@ func NewServer(cfg Config) (*Server, error) {
 					bks = strings.Split(b, ",")
 				}
 			}
-			traces, err := cfg.Store.ListOTelTraces(c.Request().Context(), bks)
+			limit := 5000
+			if lStr := c.QueryParam("limit"); lStr != "" {
+				if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+					limit = l
+				}
+			}
+			traces, err := cfg.Store.ListOTelTraces(c.Request().Context(), bks, limit)
 			if err != nil || traces == nil {
 				return c.JSON(http.StatusOK, []*datastore.OTelTraceSummaryEnt{})
 			}

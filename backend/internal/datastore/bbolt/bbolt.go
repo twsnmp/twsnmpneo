@@ -1163,12 +1163,15 @@ func (s *Store) GetOTelTraceBuckets(_ context.Context) ([]string, error) {
 	return buckets, nil
 }
 
-// ListOTelTraces returns summarized trace rows for given buckets.
-func (s *Store) ListOTelTraces(_ context.Context, buckets []string) ([]*datastore.OTelTraceSummaryEnt, error) {
+// ListOTelTraces returns summarized trace rows for given buckets or all if empty, capped at limit.
+func (s *Store) ListOTelTraces(_ context.Context, buckets []string, limit int) ([]*datastore.OTelTraceSummaryEnt, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
+	}
+	if limit <= 0 {
+		limit = 5000
 	}
 
 	results := make([]*datastore.OTelTraceSummaryEnt, 0)
@@ -1177,12 +1180,29 @@ func (s *Store) ListOTelTraces(_ context.Context, buckets []string) ([]*datastor
 		if root == nil {
 			return nil
 		}
-		for _, bName := range buckets {
+
+		var targetBuckets []string
+		if len(buckets) > 0 {
+			targetBuckets = buckets
+		} else {
+			c := root.Cursor()
+			for k, _ := c.Last(); k != nil; k, _ = c.Prev() {
+				targetBuckets = append(targetBuckets, string(k))
+			}
+		}
+
+		for _, bName := range targetBuckets {
+			if len(results) >= limit {
+				break
+			}
 			b := root.Bucket([]byte(bName))
 			if b == nil {
 				continue
 			}
 			_ = b.ForEach(func(k, v []byte) error {
+				if len(results) >= limit {
+					return nil
+				}
 				var t datastore.OTelTraceEnt
 				if err := json.Unmarshal(v, &t); err != nil {
 					return nil
@@ -1328,7 +1348,20 @@ func (s *Store) GetOTelTraceDAG(_ context.Context, buckets []string) (*datastore
 		if root == nil {
 			return nil
 		}
-		for _, bName := range buckets {
+		var targetBuckets []string
+		if len(buckets) > 0 {
+			targetBuckets = buckets
+		} else {
+			c := root.Cursor()
+			for k, _ := c.Last(); k != nil; k, _ = c.Prev() {
+				targetBuckets = append(targetBuckets, string(k))
+				if len(targetBuckets) >= 100 {
+					break
+				}
+			}
+		}
+
+		for _, bName := range targetBuckets {
 			b := root.Bucket([]byte(bName))
 			if b == nil {
 				continue

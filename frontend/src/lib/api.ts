@@ -965,11 +965,16 @@ export async function fetchOTelTraceBuckets(): Promise<string[]> {
   }
 }
 
-export async function fetchOTelTraces(buckets: string[]): Promise<OTelTraceSummaryEnt[]> {
+export async function fetchOTelTraces(buckets?: string[], limit = 5000): Promise<OTelTraceSummaryEnt[]> {
   try {
     const params = new URLSearchParams();
-    for (const b of buckets) {
-      params.append('bucket', b);
+    if (buckets && buckets.length > 0) {
+      for (const b of buckets) {
+        params.append('bucket', b);
+      }
+    }
+    if (limit) {
+      params.set('limit', String(limit));
     }
     const res = await fetch(`${API_BASE}/otel/traces?${params}`);
     if (!res.ok) return [];
@@ -991,12 +996,12 @@ export async function fetchOTelTraceDetail(bucket: string, traceId: string): Pro
   }
 }
 
-export async function fetchOTelDAG(buckets: string[]): Promise<OTelTraceDAGEnt> {
+export async function fetchOTelDAG(buckets?: string[]): Promise<OTelTraceDAGEnt> {
   try {
     const res = await fetch(`${API_BASE}/otel/traces/dag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buckets }),
+      body: JSON.stringify({ buckets: buckets || [] }),
     });
     if (!res.ok) return { Nodes: [], Links: [] };
     const data = await res.json();
