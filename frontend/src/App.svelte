@@ -35,14 +35,18 @@
   let showAI = $state(false);
   let mapName = $state("My Network");
 
-  onMount(async () => {
-    document.documentElement.classList.add("dark");
+  const refreshConf = async () => {
     try {
       const conf = await fetchMapConf();
       if (conf?.MapName) mapName = conf.MapName;
     } catch {
       // default
     }
+  };
+
+  onMount(async () => {
+    document.documentElement.classList.add("dark");
+    await refreshConf();
   });
 
   const toggleTheme = () => {
@@ -101,15 +105,6 @@
           <span>{item.label}</span>
         </button>
       {/each}
-
-      <!-- Settings item in nav -->
-      <button
-        onclick={() => (showConfig = true)}
-        class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all"
-      >
-        <Settings class="h-4 w-4 mb-0.5 text-slate-400" />
-        <span>Setting</span>
-      </button>
     </nav>
 
     <!-- Right Controls -->
@@ -121,6 +116,15 @@
       >
         <Bot class="h-4 w-4 text-cyan-400" />
         <span>AI アシスタント</span>
+      </button>
+
+      <!-- Settings Button -->
+      <button
+        onclick={() => (showConfig = true)}
+        title="システム設定"
+        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
+      >
+        <Settings class="h-4 w-4 text-slate-400 hover:text-slate-200" />
       </button>
 
       <!-- Theme Toggle -->
@@ -169,7 +173,7 @@
   </main>
 
   <!-- Global Modals & Drawers -->
-  <ConfigModal bind:show={showConfig} />
+  <ConfigModal bind:show={showConfig} onSaved={refreshConf} />
 
   {#if showAI}
     <div

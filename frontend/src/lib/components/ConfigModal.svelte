@@ -21,7 +21,7 @@
     Trash2
   } from "@lucide/svelte";
 
-  let { show = $bindable(false) } = $props<{ show: boolean }>();
+  let { show = $bindable(false), onSaved }: { show: boolean; onSaved?: () => void } = $props();
 
   let activeTab = $state<"map" | "receivers" | "notify" | "ai" | "datastore">("map");
   let saveMsg = $state("");
@@ -236,6 +236,7 @@
       });
 
       saveMsg = "設定を正常に保存しました。";
+      onSaved?.();
       setTimeout(() => {
         if (saveMsg) show = false;
       }, 1200);
