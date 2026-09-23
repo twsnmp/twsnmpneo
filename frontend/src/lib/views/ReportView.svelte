@@ -1,17 +1,20 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import * as echarts from "echarts";
   import {
     fetchNodes,
     fetchPollings,
     fetchEventLogs,
     fetchArpTable,
+    fetchIPAM,
     deleteArpEntries,
     resetArpTable,
     type NodeEnt,
     type PollingEnt,
     type EventLogEnt,
-    type ArpEnt
+    type ArpEnt,
+    type IPAMReportResp,
+    type IPAMRangeEnt
   } from "../api";
   import { getStateColor, getStateName, formatTimeStr } from "../common";
   import {
@@ -40,7 +43,12 @@
     ChevronsRight,
     ArrowUp,
     ArrowDown,
-    ArrowUpDown
+    ArrowUpDown,
+    CornerUpLeft,
+    FolderTree,
+    Grid,
+    Info,
+    ExternalLink
   } from "@lucide/svelte";
 
   type ReportCategory = "device" | "ipam" | "polling" | "flow" | "event" | "cert" | "sensor" | "ai";
@@ -50,6 +58,16 @@
   let pollings = $state<PollingEnt[]>([]);
   let logs = $state<EventLogEnt[]>([]);
   let arpList = $state<ArpEnt[]>([]);
+  let ipamReport = $state<IPAMReportResp>({
+    Ranges: [],
+    TotalRanges: 0,
+    TotalSize: 0,
+    TotalUsed: 0,
+    TotalUsage: 0,
+  });
+  let selectedRangeIndex = $state<number>(0);
+  let selectedSubnetBlock = $state<string | null>(null);
+  let selectedHostInfo = $state<any | null>(null);
   let loading = $state(false);
   let searchQuery = $state("");
 
@@ -67,16 +85,21 @@
   const loadData = async () => {
     loading = true;
     try {
-      const [n, p, l, a] = await Promise.all([
+      const [n, p, l, a, ipam] = await Promise.all([
         fetchNodes().catch(() => []),
         fetchPollings().catch(() => []),
         fetchEventLogs().catch(() => []),
         fetchArpTable().catch(() => []),
+        fetchIPAM().catch(() => ({ Ranges: [], TotalRanges: 0, TotalSize: 0, TotalUsed: 0, TotalUsage: 0 })),
       ]);
       nodes = n;
       pollings = p;
       logs = l;
       arpList = a;
+      ipamReport = ipam;
+      if (selectedRangeIndex >= ipam.Ranges.length) {
+        selectedRangeIndex = 0;
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -250,26 +273,178 @@
     }
   };
 
-  // IPAM calculation: derive subnet and in-use IPs
-  const ipamData = $derived.by(() => {
-    const usedMap = new Map<number, { ip: string; nodeName: string }>();
-    let baseSubnet = "192.168.1";
-    for (const n of allDevices) {
-      const parts = n.ip.split(".");
+  // IPAM derived properties
+  const currentRange = $derived.by<IPAMRangeEnt | null>(() => {
+    if (ipamReport.Ranges.length === 0) return null;
+    const idx = Math.min(Math.max(0, selectedRangeIndex), ipamReport.Ranges.length - 1);
+    return ipamReport.Ranges[idx] || null;
+  });
+
+  const isLargeRange = $derived.by(() => {
+    return currentRange ? currentRange.Size > 256 : false;
+  });
+
+  const activeSubnetPrefix = $derived.by(() => {
+    if (selectedSubnetBlock) {
+      return selectedSubnetBlock.replace(/\.0\/24$/, "");
+    }
+    if (currentRange && currentRange.Size <= 256) {
+      const parts = currentRange.StartIP.split(".");
       if (parts.length === 4) {
-        baseSubnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
-        const last = parseInt(parts[3], 10);
+        return `${parts[0]}.${parts[1]}.${parts[2]}`;
+      }
+    }
+    return "";
+  });
+
+  // Map of 1..254 host entries for the currently viewed /24 subnet
+  const currentSubnetHosts = $derived.by(() => {
+    const prefix = activeSubnetPrefix;
+    const hostMap = new Map<number, any>();
+    if (!prefix) return { prefix: "", hostMap };
+
+    for (const d of allDevices) {
+      if (d.ip && d.ip.startsWith(prefix + ".")) {
+        const last = parseInt(d.ip.substring(prefix.length + 1), 10);
         if (!isNaN(last) && last >= 1 && last <= 254) {
-          usedMap.set(last, { ip: n.ip, nodeName: n.name });
+          hostMap.set(last, d);
         }
       }
     }
-    const total = 254;
-    const usedCount = usedMap.size || (nodes.length > 0 ? nodes.length : 1);
-    const freeCount = total - usedCount;
-    const usagePct = ((usedCount / total) * 100).toFixed(1);
-    return { baseSubnet, total, usedCount, freeCount, usagePct, usedMap };
+    return { prefix, hostMap };
   });
+
+  // ECharts Heatmap for multi-range overview (twsnmpfk style)
+  let ipamChartElem = $state<HTMLElement | null>(null);
+  let ipamChartInstance: echarts.ECharts | null = null;
+
+  const renderIPAMHeatmap = () => {
+    if (!ipamChartElem || ipamReport.Ranges.length === 0) return;
+    if (ipamChartInstance) {
+      ipamChartInstance.dispose();
+    }
+    ipamChartInstance = echarts.init(ipamChartElem, "dark");
+    const yData = ipamReport.Ranges.map((r) => r.Range).reverse();
+    const xData: number[] = [];
+    for (let i = 0; i < 100; i++) xData.push(i);
+
+    const seriesData: [number, number, number][] = [];
+    let maxVal = 1;
+    for (let y = 0; y < ipamReport.Ranges.length; y++) {
+      const r = ipamReport.Ranges[ipamReport.Ranges.length - 1 - y];
+      for (let x = 0; x < 100; x++) {
+        const val = r.UsedIP ? r.UsedIP[x] || 0 : 0;
+        seriesData.push([x, y, val]);
+        if (val > maxVal) maxVal = val;
+      }
+    }
+
+    const option: echarts.EChartsOption = {
+      backgroundColor: "transparent",
+      tooltip: {
+        position: "top",
+        formatter: (params: any) => {
+          const val = params.value;
+          const rangeName = yData[val[1]];
+          return `<b>${rangeName}</b><br/>相対位置: ${val[0]}% 〜 ${val[0] + 1}%<br/>使用中ホスト: ${val[2]} 件`;
+        },
+      },
+      grid: {
+        left: "14%",
+        right: "5%",
+        top: 25,
+        bottom: 50,
+      },
+      xAxis: {
+        type: "category",
+        name: "相対アドレス位置 (%)",
+        nameLocation: "middle",
+        nameGap: 24,
+        nameTextStyle: { color: "#64748b", fontSize: 10 },
+        data: xData.map((x) => `${x}%`),
+        axisLabel: { color: "#94a3b8", fontSize: 9, interval: 9 },
+        axisLine: { lineStyle: { color: "#334155" } },
+        splitLine: { show: false },
+      },
+      yAxis: {
+        type: "category",
+        data: yData,
+        axisLabel: { color: "#cbd5e1", fontSize: 10 },
+        axisLine: { lineStyle: { color: "#334155" } },
+        splitLine: { show: false },
+      },
+      visualMap: {
+        min: 0,
+        max: Math.max(1, maxVal),
+        calculable: true,
+        orient: "horizontal",
+        left: "center",
+        bottom: 0,
+        textStyle: { color: "#94a3b8", fontSize: 10 },
+        inRange: {
+          color: [
+            "#091e3a",
+            "#0e3a6c",
+            "#0284c7",
+            "#10b981",
+            "#eab308",
+            "#f43f5e",
+          ],
+        },
+      },
+      series: [
+        {
+          name: "IP利用密度",
+          type: "heatmap",
+          data: seriesData,
+          emphasis: {
+            itemStyle: {
+              borderColor: "#38bdf8",
+              borderWidth: 1.5,
+            },
+          },
+          progressive: 1000,
+          animation: false,
+        },
+      ],
+    };
+
+    ipamChartInstance.setOption(option);
+    ipamChartInstance.on("click", (params: any) => {
+      if (params.value && Array.isArray(params.value)) {
+        const yIdx = params.value[1];
+        const clickedRange = yData[yIdx];
+        const origIdx = ipamReport.Ranges.findIndex((r) => r.Range === clickedRange);
+        if (origIdx !== -1) {
+          selectedRangeIndex = origIdx;
+          selectedSubnetBlock = null;
+        }
+      }
+    });
+  };
+
+  // Re-render heatmap when IPAM report or active view changes
+  $effect(() => {
+    if (activeReport === "ipam" && ipamReport.Ranges.length > 0) {
+      tick().then(() => {
+        renderIPAMHeatmap();
+      });
+    }
+  });
+
+  const getUsageBadgeColor = (usage: number) => {
+    if (usage < 50) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+    if (usage < 80) return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+    if (usage < 95) return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+    return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+  };
+
+  const getUsageProgressBarColor = (usage: number) => {
+    if (usage < 50) return "bg-emerald-500";
+    if (usage < 80) return "bg-cyan-500";
+    if (usage < 95) return "bg-amber-500";
+    return "bg-rose-500";
+  };
 
   // Polling stats
   const pollingStats = $derived.by(() => {
@@ -334,6 +509,8 @@
     let filename = `twsnmp_report_${activeReport}_${Date.now()}.csv`;
     if (activeReport === "device") {
       csv = "Node,IP,MAC,Vendor,Mode,State,Managed\n" + sortedDevices.map((n) => `"${n.name}","${n.ip}","${n.mac || ''}","${n.vendor || getVendor(n.mac || '')}","${n.addr_mode || 'IP'}","${n.state}","${n.isManaged ? 'yes' : 'no'}"`).join("\n");
+    } else if (activeReport === "ipam") {
+      csv = "Range,StartIP,EndIP,Size,Used,Usage(%)\n" + ipamReport.Ranges.map((r) => `"${r.Range}","${r.StartIP}","${r.EndIP}",${r.Size},${r.Used},${r.Usage.toFixed(2)}`).join("\n");
     } else if (activeReport === "polling") {
       csv = "Name,Type,NodeID,State,LastVal\n" + pollings.map((p) => `"${p.name}","${p.type}","${p.node_id}","${p.state}","${p.last_val ?? ''}"`).join("\n");
     } else {
@@ -703,7 +880,7 @@
         </div>
       </div>
 
-    <!-- REPORT 2: IPAM (IP アドレス管理) -->
+    <!-- REPORT 2: IPAM (IP アドレス管理 & サブネット利用率) -->
     {:else if activeReport === "ipam"}
       <div class="space-y-6">
         <div>
@@ -711,61 +888,316 @@
             <Network class="w-5 h-5 text-cyan-400" />
             IPAM (IP アドレス管理 & サブネット利用率)
           </h2>
-          <p class="text-xs text-slate-400 mt-1">検出済みサブネットのアドレスマップ、利用率ヒートマップおよび空きIP追跡</p>
+          <p class="text-xs text-slate-400 mt-1">
+            ARP監視設定（ArpWatchRange）の全サブネット範囲、利用率ヒートマップおよび広域アドレス階層ドリルダウン
+          </p>
         </div>
 
+        <!-- KPI Summary Cards across all ranges -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">対象サブネット</span>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{ipamData.baseSubnet}.0/24</div>
-            <div class="text-[10px] text-slate-400">IPv4 クラス C サブネット</div>
-          </div>
-
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">使用中 IP 数</span>
-            <div class="text-2xl font-bold font-mono text-emerald-400">{ipamData.usedCount} <span class="text-xs font-normal text-slate-400">/ {ipamData.total}</span></div>
-            <div class="text-[10px] text-slate-400">割り当て済みホスト</div>
-          </div>
-
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">空き IP 数</span>
-            <div class="text-2xl font-bold font-mono text-slate-200">{ipamData.freeCount} <span class="text-xs font-normal text-slate-400">アドレス</span></div>
-            <div class="text-[10px] text-slate-400">新規割当可能</div>
-          </div>
-
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">サブネット利用率</span>
-            <div class="text-2xl font-bold font-mono text-cyan-300">{ipamData.usagePct} <span class="text-xs font-normal text-slate-400">%</span></div>
-            <div class="text-[10px] text-slate-400">アドレス枯渇リスク: 低</div>
-          </div>
-        </div>
-
-        <!-- IPAM Visual Grid (256 Blocks Heatmap) -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2">
-              <Network class="w-4 h-4 text-cyan-400" />
-              IP アドレス割当ヒートマップ ({ipamData.baseSubnet}.1 〜 .254)
-            </h3>
-            <div class="flex items-center gap-4 text-[11px]">
-              <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> 使用中 (割り当て済み)</span>
-              <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded bg-slate-800 border border-slate-700"></span> 空き (未割当)</span>
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span>対象アドレス範囲数</span>
+              <FolderTree class="w-4 h-4 text-cyan-400" />
+            </div>
+            <div class="text-2xl font-bold font-mono text-cyan-400">
+              {ipamReport.TotalRanges} <span class="text-xs font-normal text-slate-400">範囲</span>
+            </div>
+            <div class="text-[10px] text-slate-400">
+              {currentRange ? `選択中: ${currentRange.Range}` : "サブネット未検出"}
             </div>
           </div>
 
-          <div class="grid grid-cols-16 sm:grid-cols-32 gap-1 max-h-60 overflow-y-auto p-2 rounded-xl bg-slate-950/80 border border-slate-800/80">
-            {#each Array.from({ length: 254 }, (_, i) => i + 1) as hostNum}
-              {@const isUsed = ipamData.usedMap.has(hostNum)}
-              {@const info = ipamData.usedMap.get(hostNum)}
-              <div
-                title="{ipamData.baseSubnet}.{hostNum} {isUsed ? `(${info?.nodeName})` : '(空き)'}"
-                class="h-4 rounded text-[9px] flex items-center justify-center font-mono cursor-pointer transition-transform hover:scale-125 {isUsed ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs shadow-emerald-500/50' : 'bg-slate-800/60 text-slate-600 hover:bg-slate-700'}"
-              >
-                {hostNum}
-              </div>
-            {/each}
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span>全空間アドレス総数</span>
+              <Layers class="w-4 h-4 text-cyan-400" />
+            </div>
+            <div class="text-2xl font-bold font-mono text-slate-100">
+              {ipamReport.TotalSize.toLocaleString()} <span class="text-xs font-normal text-slate-400">アドレス</span>
+            </div>
+            <div class="text-[10px] text-slate-400">管理対象アドレスプール総計</div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span>使用中 IP 総数</span>
+              <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+            </div>
+            <div class="text-2xl font-bold font-mono text-emerald-400">
+              {ipamReport.TotalUsed.toLocaleString()} <span class="text-xs font-normal text-slate-400">/ {ipamReport.TotalSize.toLocaleString()}</span>
+            </div>
+            <div class="text-[10px] text-emerald-400/80">割り当て・検知済みホスト</div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+              <span>全体平均利用率</span>
+              <Activity class="w-4 h-4 text-cyan-300" />
+            </div>
+            <div class="text-2xl font-bold font-mono text-cyan-300">
+              {ipamReport.TotalUsage.toFixed(1)} <span class="text-xs font-normal text-slate-400">%</span>
+            </div>
+            <div class="text-[10px] text-slate-400">
+              空きアドレス: {(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}
+            </div>
           </div>
         </div>
+
+        <!-- Section 1: ECharts Multi-Range 100-Slot Heatmap (twsnmpfk style) -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-3">
+          <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-2">
+            <div>
+              <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2">
+                <Network class="w-4 h-4 text-cyan-400" />
+                サブネット相対利用密度ヒートマップ (0% 〜 100%)
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">
+                全アドレス範囲を100分割（パーセンタイル）で正規化集約し、広域ネットワークでも軽量・高速に俯瞰表示します
+              </p>
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono">
+              行またはセルをクリックすると、そのサブネットの詳細へ切り替わります
+            </div>
+          </div>
+
+          {#if ipamReport.Ranges.length === 0}
+            <div class="p-8 text-center text-slate-500 text-xs font-sans">
+              IPAM対象のアドレス範囲が登録されていません
+            </div>
+          {:else}
+            <div bind:this={ipamChartElem} class="w-full min-h-[180px] h-48"></div>
+          {/if}
+        </div>
+
+        <!-- Section 2: Subnets List Table -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden flex flex-col">
+          <div class="border-b border-slate-800 bg-slate-950/60 px-5 py-3 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200 flex items-center gap-2">
+              <FolderTree class="w-4 h-4 text-cyan-400" />
+              サブネット範囲一覧 ({ipamReport.Ranges.length} 件)
+            </span>
+            <span class="text-[11px] text-slate-400">クリックで下部の詳細マップを切り替え</span>
+          </div>
+
+          <table class="w-full text-left text-xs border-collapse font-mono">
+            <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
+              <tr>
+                <th class="py-2 px-3">選択</th>
+                <th class="py-2 px-3">アドレス範囲 (CIDR / Range)</th>
+                <th class="py-2 px-3">開始 IP</th>
+                <th class="py-2 px-3">終了 IP</th>
+                <th class="py-2 px-3 text-right">アドレス数 (Size)</th>
+                <th class="py-2 px-3 text-right">使用中 (Used)</th>
+                <th class="py-2 px-3 w-48">利用率 (Usage)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+              {#if ipamReport.Ranges.length === 0}
+                <tr>
+                  <td colspan="7" class="p-6 text-center text-slate-500 font-sans">
+                    サブネット範囲が登録されていません
+                  </td>
+                </tr>
+              {:else}
+                {#each ipamReport.Ranges as r, idx}
+                  {@const isSelected = selectedRangeIndex === idx}
+                  <tr
+                    onclick={() => { selectedRangeIndex = idx; selectedSubnetBlock = null; }}
+                    class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-950/40 text-white font-semibold' : 'hover:bg-slate-800/40'}"
+                  >
+                    <td class="py-2 px-3 text-center w-10">
+                      {#if isSelected}
+                        <span class="h-2 w-2 rounded-full bg-cyan-400 inline-block animate-pulse"></span>
+                      {:else}
+                        <span class="h-1.5 w-1.5 rounded-full bg-slate-700 inline-block"></span>
+                      {/if}
+                    </td>
+                    <td class="py-2 px-3 text-cyan-400 font-bold flex items-center gap-1.5">
+                      <span>{r.Range}</span>
+                      {#if r.Size > 256}
+                        <span class="rounded bg-indigo-950 border border-indigo-800/70 px-1 text-[9px] text-indigo-300 leading-none">
+                          広域
+                        </span>
+                      {/if}
+                    </td>
+                    <td class="py-2 px-3 text-slate-400">{r.StartIP}</td>
+                    <td class="py-2 px-3 text-slate-400">{r.EndIP}</td>
+                    <td class="py-2 px-3 text-right text-slate-200">{r.Size.toLocaleString()}</td>
+                    <td class="py-2 px-3 text-right text-emerald-400 font-bold">{r.Used.toLocaleString()}</td>
+                    <td class="py-2 px-3">
+                      <div class="flex items-center gap-2.5">
+                        <div class="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            class="h-full rounded-full transition-all {getUsageProgressBarColor(r.Usage)}"
+                            style="width: {Math.min(100, Math.max(r.Used > 0 ? 3 : 0, r.Usage))}%"
+                          ></div>
+                        </div>
+                        <span class="text-[10px] w-12 text-right font-mono {r.Usage >= 90 ? 'text-rose-400 font-bold' : 'text-slate-300'}">
+                          {r.Usage.toFixed(1)}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                {/each}
+              {/if}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Section 3: Adaptive Drill-down Visual View -->
+        {#if currentRange}
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-4">
+            <!-- Navigation Header & Breadcrumb -->
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-3">
+              <div class="flex items-center gap-2">
+                <Grid class="w-4 h-4 text-cyan-400" />
+                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                  <button
+                    type="button"
+                    onclick={() => { selectedSubnetBlock = null; }}
+                    class="text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
+                  >
+                    {currentRange.Range} ({currentRange.Size.toLocaleString()} アドレス)
+                  </button>
+                  {#if selectedSubnetBlock}
+                    <ChevronRight class="w-3.5 h-3.5 text-slate-600" />
+                    <span class="text-cyan-400 font-mono">{selectedSubnetBlock} (詳細)</span>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Drill-down controls & legend -->
+              <div class="flex items-center gap-4 text-[11px]">
+                {#if selectedSubnetBlock}
+                  <button
+                    type="button"
+                    onclick={() => { selectedSubnetBlock = null; }}
+                    class="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer rounded-lg bg-cyan-950/60 border border-cyan-800/60 px-2.5 py-1"
+                  >
+                    <CornerUpLeft class="w-3.5 h-3.5" />
+                    <span>ブロック一覧に戻る</span>
+                  </button>
+                {/if}
+
+                <div class="flex items-center gap-3 text-[10px] text-slate-400">
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> 使用中
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2.5 w-2.5 rounded bg-slate-800 border border-slate-700"></span> 空き
+                  </span>
+                  {#if searchQuery}
+                    <span class="flex items-center gap-1.5 text-amber-400">
+                      <span class="h-2.5 w-2.5 rounded bg-amber-400 animate-pulse"></span> 検索一致
+                    </span>
+                  {/if}
+                </div>
+              </div>
+            </div>
+
+            <!-- CASE 1: Large Range (/16, etc.) Top-level /24 Block Heatmap -->
+            {#if isLargeRange && !selectedSubnetBlock}
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    広域アドレス空間のため /24 サブネットブロック単位で利用状況を集約表示しています。ブロックをクリックすると 1〜254 の個別ホストにドリルダウンします。
+                  </span>
+                  <span class="font-mono text-cyan-400 font-bold shrink-0">
+                    {currentRange.Subnets?.length || 0} ブロック
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-1.5 max-h-96 overflow-y-auto p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+                  {#each (currentRange.Subnets || []) as block}
+                    {@const hasUsed = block.Used > 0}
+                    {@const isQueryMatch = searchQuery && block.Subnet.toLowerCase().includes(searchQuery.toLowerCase())}
+                    <button
+                      type="button"
+                      onclick={() => { selectedSubnetBlock = block.Subnet; }}
+                      title="{block.Subnet} - 使用中: {block.Used} / {block.Size} ({block.Usage.toFixed(1)}%)"
+                      class="p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer hover:scale-105 hover:z-10 {isQueryMatch ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-950/30' : hasUsed ? 'bg-slate-900 border-cyan-800/60 hover:border-cyan-400' : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-900 opacity-60'}"
+                    >
+                      <div class="text-[10px] font-mono font-bold truncate text-slate-200">
+                        {block.Subnet.replace(/\.0\/24$/, "")}
+                      </div>
+                      <div class="flex items-center justify-between mt-1 text-[9px] font-mono">
+                        <span class="{hasUsed ? 'text-emerald-400 font-bold' : 'text-slate-600'}">
+                          {block.Used}
+                        </span>
+                        <span class="rounded px-1 py-0 text-[8px] {getUsageBadgeColor(block.Usage)}">
+                          {block.Usage.toFixed(0)}%
+                        </span>
+                      </div>
+                    </button>
+                  {/each}
+                </div>
+              </div>
+
+            <!-- CASE 2: Single /24 Subnet or Drilled-Down /24 Host Grid (1..254) -->
+            {:else}
+              <div class="space-y-3">
+                <div class="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    サブネット <span class="font-mono text-cyan-400 font-bold">{currentSubnetHosts.prefix}.0/24</span> の個別ホスト割当状況 (1 〜 254)
+                  </span>
+                  <span class="text-[10px] font-mono">
+                    マスをクリックするとホスト詳細が表示されます
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-16 sm:grid-cols-32 gap-1 max-h-72 overflow-y-auto p-2 rounded-xl bg-slate-950/80 border border-slate-800/80">
+                  {#each Array.from({ length: 254 }, (_, i) => i + 1) as hostNum}
+                    {@const host = currentSubnetHosts.hostMap.get(hostNum)}
+                    {@const isUsed = !!host}
+                    {@const hostIP = `${currentSubnetHosts.prefix}.${hostNum}`}
+                    {@const isQueryMatch = searchQuery && (hostIP.includes(searchQuery) || (host?.name && host.name.toLowerCase().includes(searchQuery.toLowerCase())) || (host?.mac && host.mac.toLowerCase().includes(searchQuery.toLowerCase())))}
+                    <button
+                      type="button"
+                      onclick={() => {
+                        selectedHostInfo = isUsed
+                          ? { ip: hostIP, name: host.name, mac: host.mac, vendor: host.vendor, state: host.state, isManaged: host.isManaged }
+                          : { ip: hostIP, isFree: true };
+                      }}
+                      title="{hostIP} {isUsed ? `(${host.name || host.mac})` : '(空き)'}"
+                      class="h-5 rounded text-[9px] flex items-center justify-center font-mono cursor-pointer transition-transform hover:scale-125 {isQueryMatch ? 'ring-2 ring-amber-400 font-bold' : ''} {isUsed ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs shadow-emerald-500/50' : 'bg-slate-800/60 text-slate-600 hover:bg-slate-700'}"
+                    >
+                      {hostNum}
+                    </button>
+                  {/each}
+                </div>
+
+                <!-- Selected Host Detail Modal / Panel -->
+                {#if selectedHostInfo}
+                  <div class="rounded-xl border border-cyan-800/60 bg-slate-950/90 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                    <div class="flex items-center gap-3">
+                      <div class="h-3 w-3 rounded-full shrink-0 {selectedHostInfo.isFree ? 'bg-slate-700' : 'bg-emerald-400'}"></div>
+                      <div>
+                        <span class="text-cyan-400 font-bold text-sm">{selectedHostInfo.ip}</span>
+                        {#if selectedHostInfo.isFree}
+                          <span class="ml-2 text-slate-400 font-sans text-xs">（未割当・空きIP）</span>
+                        {:else}
+                          <span class="ml-2 text-slate-100 font-bold font-sans">{selectedHostInfo.name}</span>
+                          <span class="ml-2 text-slate-400 text-[11px]">MAC: {selectedHostInfo.mac || "-"}</span>
+                          <span class="ml-2 rounded bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300 font-sans">
+                            {selectedHostInfo.vendor || getVendor(selectedHostInfo.mac || "")}
+                          </span>
+                        {/if}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onclick={() => { selectedHostInfo = null; }}
+                      class="rounded px-2 py-0.5 text-slate-400 hover:text-white hover:bg-slate-800 text-[11px] font-sans cursor-pointer"
+                    >
+                      閉じる
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
 
     <!-- REPORT 3: ポーリング稼働率 (SLA) -->

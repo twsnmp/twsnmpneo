@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -561,4 +562,90 @@ func TestAPIServer_MqttEndpoints(t *testing.T) {
 		t.Errorf("DELETE /api/mqtt/stats/all failed: code %d", rec.Code)
 	}
 }
+
+func TestIPAMAPI(t *testing.T) {
+	ctx := context.Background()
+	bStore, _, _, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	// Configure multiple ranges in MapConf
+	mapConf := &datastore.MapConfEnt{
+		ArpWatchRange: "192.168.1.0/24, 10.0.0.0/16, 172.16.1.10-172.16.1.20",
+	}
+	_ = bStore.SaveMapConf(ctx, mapConf)
+
+	// Save test nodes and ARP entries
+	_ = bStore.SaveNode(ctx, &datastore.NodeEnt{
+		ID:   "n1",
+		Name: "Node1",
+		IP:   "192.168.1.15",
+	})
+	_ = bStore.SaveNode(ctx, &datastore.NodeEnt{
+		ID:   "n2",
+		Name: "Node2",
+		IP:   "10.0.5.20",
+	})
+	_ = bStore.SaveArpTable(ctx, []*datastore.ArpEnt{
+		{IP: "192.168.1.50", MAC: "00:11:22:33:44:55", LastTime: time.Now().Unix()},
+		{IP: "172.16.1.15", MAC: "aa:bb:cc:dd:ee:ff", LastTime: time.Now().Unix()},
+	})
+
+	srv, err := api.NewServer(api.Config{
+		Port:    9099,
+		Version: "v0.1.0-test",
+		Store:   bStore,
+	})
+	if err != nil {
+		t.Fatalf("create api server failed: %v", err)
+	}
+	e := srv.GetEcho()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/ipam", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp api.IPAMReportResp
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal error: %v, body: %s", err, rec.Body.String())
+	}
+
+	if resp.TotalRanges != 3 {
+		t.Errorf("expected 3 ranges, got %d", resp.TotalRanges)
+	}
+
+	// Range 1: 192.168.1.0/24
+	r1 := resp.Ranges[0]
+	if r1.Size != 254 {
+		t.Errorf("expected 254 size for /24, got %d", r1.Size)
+	}
+	if r1.Used != 2 { // 192.168.1.15 and 192.168.1.50
+		t.Errorf("expected 2 used for range 1, got %d", r1.Used)
+	}
+
+	// Range 2: 10.0.0.0/16
+	r2 := resp.Ranges[1]
+	if r2.Size != 65534 {
+		t.Errorf("expected 65534 size for /16, got %d", r2.Size)
+	}
+	if r2.Used != 1 { // 10.0.5.20
+		t.Errorf("expected 1 used for range 2, got %d", r2.Used)
+	}
+	if len(r2.Subnets) == 0 {
+		t.Errorf("expected /24 subnets for /16 range, got 0")
+	}
+
+	// Range 3: 172.16.1.10-172.16.1.20 (11 IPs)
+	r3 := resp.Ranges[2]
+	if r3.Size != 11 {
+		t.Errorf("expected 11 size for range 3, got %d", r3.Size)
+	}
+	if r3.Used != 1 { // 172.16.1.15
+		t.Errorf("expected 1 used for range 3, got %d", r3.Used)
+	}
+}
+
 

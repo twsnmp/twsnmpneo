@@ -1116,3 +1116,42 @@ export async function deleteMqttLogs(): Promise<boolean> {
   }
 }
 
+export interface IPAMSubnetBlock {
+  Subnet: string;
+  Size: number;
+  Used: number;
+  Usage: number;
+}
+
+export interface IPAMRangeEnt {
+  Range: string;
+  StartIP: string;
+  EndIP: string;
+  Size: number;
+  Used: number;
+  Usage: number;
+  UsedIP: number[]; // 100 slots (0..99%)
+  Subnets?: IPAMSubnetBlock[];
+}
+
+export interface IPAMReportResp {
+  Ranges: IPAMRangeEnt[];
+  TotalRanges: number;
+  TotalSize: number;
+  TotalUsed: number;
+  TotalUsage: number;
+}
+
+export async function fetchIPAM(): Promise<IPAMReportResp> {
+  try {
+    const res = await fetch(`${API_BASE}/ipam`);
+    if (!res.ok) {
+      return { Ranges: [], TotalRanges: 0, TotalSize: 0, TotalUsed: 0, TotalUsage: 0 };
+    }
+    return await res.json();
+  } catch {
+    return { Ranges: [], TotalRanges: 0, TotalSize: 0, TotalUsed: 0, TotalUsage: 0 };
+  }
+}
+
+

@@ -685,7 +685,9 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			return c.JSON(http.StatusOK, counts)
 		})
+	}
 
+	if cfg.Store != nil {
 		// Discovered ARP Table
 		apiGroup.GET("/arp", func(c echo.Context) error {
 			entries, err := cfg.Store.LoadArpTable(c.Request().Context())
@@ -693,6 +695,15 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusOK, []*datastore.ArpEnt{})
 			}
 			return c.JSON(http.StatusOK, entries)
+		})
+
+		// IPAM (IP Address Management) report
+		apiGroup.GET("/ipam", func(c echo.Context) error {
+			resp, err := calculateIPAM(c.Request().Context(), cfg.Store)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, resp)
 		})
 
 		// Delete / Reset ARP Table entries
