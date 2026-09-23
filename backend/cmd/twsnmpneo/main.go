@@ -211,22 +211,31 @@ func main() {
 	}
 
 	mqttToSyslog := false
+	enableArpWatch := true
+	arpWatchRange := ""
+	arpTimeout := 60
 	if mapConf != nil {
 		mqttToSyslog = mapConf.MqttToSyslog
+		enableArpWatch = mapConf.EnableArpWatch
+		arpWatchRange = mapConf.ArpWatchRange
+		arpTimeout = mapConf.ArpTimeout
 	}
 
 	// Initialize Protocol Receivers
 	recvMgr := receiver.NewManager(receiver.Config{
-		Store:        store,
-		LogStore:     pqStore,
-		SyslogUDP:    sUDP,
-		SyslogTCP:    sTCP,
-		TrapPort:     tPort,
-		NetFlowPort:  nfPort,
-		SFlowPort:    sfPort,
-		OTelPort:     oPort,
-		MQTTPort:     mPort,
-		MqttToSyslog: mqttToSyslog,
+		Store:          store,
+		LogStore:       pqStore,
+		SyslogUDP:      sUDP,
+		SyslogTCP:      sTCP,
+		TrapPort:       tPort,
+		NetFlowPort:    nfPort,
+		SFlowPort:      sfPort,
+		OTelPort:       oPort,
+		MQTTPort:       mPort,
+		MqttToSyslog:   mqttToSyslog,
+		EnableArpWatch: enableArpWatch,
+		ArpWatchRange:  arpWatchRange,
+		ArpTimeout:     arpTimeout,
 	})
 	go func() {
 		if err := recvMgr.Start(ctx); err != nil {
@@ -247,9 +256,10 @@ func main() {
 		Debug:     *debug,
 		Version:   version,
 		DataDir:   *dataDir,
-		Store:     store,
-		LogStore:  pqStore,
-		MCPServer: mcpServer,
+		Store:      store,
+		LogStore:   pqStore,
+		MCPServer:  mcpServer,
+		ArpManager: recvMgr,
 	})
 	if err != nil {
 		slog.Error("Failed to initialize API server", "error", err)

@@ -5,9 +5,13 @@
     fetchNodes,
     fetchPollings,
     fetchEventLogs,
+    fetchArpTable,
+    deleteArpEntries,
+    resetArpTable,
     type NodeEnt,
     type PollingEnt,
-    type EventLogEnt
+    type EventLogEnt,
+    type ArpEnt
   } from "../api";
   import { getStateColor, getStateName, formatTimeStr } from "../common";
   import {
@@ -28,7 +32,15 @@
     Layers,
     FileText,
     BarChart3,
-    Check
+    Check,
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+    ArrowUp,
+    ArrowDown,
+    ArrowUpDown
   } from "@lucide/svelte";
 
   type ReportCategory = "device" | "ipam" | "polling" | "flow" | "event" | "cert" | "sensor" | "ai";
@@ -37,6 +49,7 @@
   let nodes = $state<NodeEnt[]>([]);
   let pollings = $state<PollingEnt[]>([]);
   let logs = $state<EventLogEnt[]>([]);
+  let arpList = $state<ArpEnt[]>([]);
   let loading = $state(false);
   let searchQuery = $state("");
 
@@ -54,14 +67,16 @@
   const loadData = async () => {
     loading = true;
     try {
-      const [n, p, l] = await Promise.all([
+      const [n, p, l, a] = await Promise.all([
         fetchNodes().catch(() => []),
         fetchPollings().catch(() => []),
         fetchEventLogs().catch(() => []),
+        fetchArpTable().catch(() => []),
       ]);
       nodes = n;
       pollings = p;
       logs = l;
+      arpList = a;
     } catch (e) {
       console.error(e);
     } finally {
@@ -86,23 +101,160 @@
     return "Network Equipment";
   };
 
+  // Merge nodes with discovered ARP devices
+  const allDevices = $derived.by(() => {
+    const list: any[] = [];
+    const seenIPs = new Set<string>();
+    const seenMACs = new Set<string>();
+
+    for (const n of nodes) {
+      const cleanMAC = (n.mac || "").toUpperCase();
+      list.push({
+        id: n.id,
+        name: n.name,
+        ip: n.ip,
+        mac: n.mac || "",
+        vendor: (n as any).vendor || (n as any).Vendor || getVendor(n.mac || ""),
+        addr_mode: (n as any).addr_mode || "IP",
+        state: n.state,
+        isManaged: true,
+      });
+      if (n.ip) seenIPs.add(n.ip);
+      if (cleanMAC) seenMACs.add(cleanMAC);
+    }
+
+    for (const a of arpList) {
+      const cleanMAC = (a.MAC || "").toUpperCase();
+      if (!seenIPs.has(a.IP) && (!cleanMAC || !seenMACs.has(cleanMAC))) {
+        list.push({
+          id: `arp-${a.IP}`,
+          name: `未管理デバイス (${a.IP})`,
+          ip: a.IP,
+          mac: a.MAC || "",
+          vendor: a.Vendor || getVendor(a.MAC || ""),
+          addr_mode: "ARP",
+          state: "info",
+          isManaged: false,
+        });
+        seenIPs.add(a.IP);
+        if (cleanMAC) seenMACs.add(cleanMAC);
+      }
+    }
+    return list;
+  });
+
   // Filtered devices
   const filteredDevices = $derived(
-    nodes.filter((n) => {
+    allDevices.filter((n) => {
       const q = searchQuery.toLowerCase();
       return (
         n.name.toLowerCase().includes(q) ||
         n.ip.toLowerCase().includes(q) ||
-        (n.mac && n.mac.toLowerCase().includes(q))
+        (n.mac && n.mac.toLowerCase().includes(q)) ||
+        (n.vendor && n.vendor.toLowerCase().includes(q))
       );
     })
   );
+
+  // Sorting for Device report
+  let sortColumn = $state("ip");
+  let sortDirection = $state<"asc" | "desc">("asc");
+
+  function ipToNum(ip: string): number {
+    if (!ip) return -1;
+    const parts = ip.trim().split(".");
+    if (parts.length === 4) {
+      let num = 0;
+      for (let i = 0; i < 4; i++) {
+        const octet = parseInt(parts[i], 10);
+        if (isNaN(octet) || octet < 0 || octet > 255) return -1;
+        num = num * 256 + octet;
+      }
+      return num;
+    }
+    return -1;
+  }
+
+  const handleSort = (colKey: string) => {
+    if (sortColumn === colKey) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      sortColumn = colKey;
+      sortDirection = "asc";
+    }
+  };
+
+  // Sorted devices
+  const sortedDevices = $derived(
+    [...filteredDevices].sort((a: any, b: any) => {
+      let valA = a[sortColumn];
+      let valB = b[sortColumn];
+
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+
+      let comparison = 0;
+      if (sortColumn === "ip") {
+        const numA = ipToNum(String(valA));
+        const numB = ipToNum(String(valB));
+        if (numA !== -1 && numB !== -1) {
+          comparison = numA - numB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB));
+        }
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        comparison = valA - valB;
+      } else {
+        comparison = String(valA).localeCompare(String(valB));
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    })
+  );
+
+  // Pagination for Device report
+  let pageSize = $state(25);
+  let currentPage = $state(1);
+
+  const totalPages = $derived(
+    pageSize === -1 ? 1 : Math.max(1, Math.ceil(sortedDevices.length / pageSize))
+  );
+
+  const paginatedDevices = $derived.by(() => {
+    if (pageSize === -1) return sortedDevices;
+    const start = (currentPage - 1) * pageSize;
+    return sortedDevices.slice(start, start + pageSize);
+  });
+
+  const handleDeleteArp = async (ip: string, mac: string) => {
+    if (!confirm(`ARPエントリー ${ip} (${mac}) を削除しますか？`)) {
+      return;
+    }
+    try {
+      await deleteArpEntries([ip]);
+      await loadData();
+    } catch (e: any) {
+      alert(`削除に失敗しました: ${e.message}`);
+    }
+  };
+
+  const handleResetArp = async () => {
+    if (!confirm("本当にすべてのARP監視エントリーを消去しますか？\n（次回のポーリング/プローブ時に再検知されます）")) {
+      return;
+    }
+    try {
+      await resetArpTable();
+      await loadData();
+    } catch (e: any) {
+      alert(`全消去に失敗しました: ${e.message}`);
+    }
+  };
 
   // IPAM calculation: derive subnet and in-use IPs
   const ipamData = $derived.by(() => {
     const usedMap = new Map<number, { ip: string; nodeName: string }>();
     let baseSubnet = "192.168.1";
-    for (const n of nodes) {
+    for (const n of allDevices) {
       const parts = n.ip.split(".");
       if (parts.length === 4) {
         baseSubnet = `${parts[0]}.${parts[1]}.${parts[2]}`;
@@ -181,7 +333,7 @@
     let csv = "";
     let filename = `twsnmp_report_${activeReport}_${Date.now()}.csv`;
     if (activeReport === "device") {
-      csv = "Node,IP,MAC,Vendor,State\n" + nodes.map((n) => `"${n.name}","${n.ip}","${n.mac || ''}","${getVendor(n.mac || '')}","${n.state}"`).join("\n");
+      csv = "Node,IP,MAC,Vendor,Mode,State,Managed\n" + sortedDevices.map((n) => `"${n.name}","${n.ip}","${n.mac || ''}","${n.vendor || getVendor(n.mac || '')}","${n.addr_mode || 'IP'}","${n.state}","${n.isManaged ? 'yes' : 'no'}"`).join("\n");
     } else if (activeReport === "polling") {
       csv = "Name,Type,NodeID,State,LastVal\n" + pollings.map((p) => `"${p.name}","${p.type}","${p.node_id}","${p.state}","${p.last_val ?? ''}"`).join("\n");
     } else {
@@ -239,12 +391,25 @@
             type="text"
             placeholder="項目を検索 (ノード名・IP・MAC等)..."
             bind:value={searchQuery}
+            oninput={() => (currentPage = 1)}
             class="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
           />
         </div>
       </div>
 
       <div class="flex items-center gap-2.5">
+        {#if activeReport === "device" && arpList.length > 0}
+          <button
+            type="button"
+            onclick={handleResetArp}
+            disabled={loading}
+            class="flex items-center gap-1.5 rounded-xl border border-rose-800/60 bg-rose-950/40 hover:bg-rose-900/60 px-3.5 py-1.5 text-xs font-semibold text-rose-300 transition-colors cursor-pointer"
+            title="ARP監視テーブル全消去"
+          >
+            <Trash2 class="h-3.5 w-3.5 text-rose-400" />
+            <span>全消去</span>
+          </button>
+        {/if}
         <button
           type="button"
           onclick={loadData}
@@ -280,20 +445,20 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
-              <span>登録デバイス総数</span>
+              <span>検出デバイス総数</span>
               <Laptop class="w-4 h-4 text-cyan-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{nodes.length} <span class="text-xs font-normal text-slate-400">台</span></div>
-            <div class="text-[10px] text-slate-400">ローカルネットワーク認識済み</div>
+            <div class="text-2xl font-bold font-mono text-cyan-400">{allDevices.length} <span class="text-xs font-normal text-slate-400">台</span></div>
+            <div class="text-[10px] text-slate-400">登録ノード: {nodes.length} / ARP未管理: {arpList.length}</div>
           </div>
 
           <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
-              <span>稼働中 (Normal)</span>
+              <span>稼働中 (Normal / Info)</span>
               <CheckCircle2 class="w-4 h-4 text-emerald-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-emerald-400">{nodes.filter((n) => n.state === 'normal').length} <span class="text-xs font-normal text-slate-400">台</span></div>
-            <div class="text-[10px] text-emerald-400/80">直近ポーリング応答正常</div>
+            <div class="text-2xl font-bold font-mono text-emerald-400">{allDevices.filter((n) => n.state === 'normal' || n.state === 'info').length} <span class="text-xs font-normal text-slate-400">台</span></div>
+            <div class="text-[10px] text-emerald-400/80">正常通信 / ARP応答確認済み</div>
           </div>
 
           <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
@@ -302,7 +467,7 @@
               <Layers class="w-4 h-4 text-cyan-400" />
             </div>
             <div class="text-2xl font-bold font-mono text-slate-100">
-              {new Set(nodes.map((n) => getVendor(n.mac || ''))).size} <span class="text-xs font-normal text-slate-400">種別</span>
+              {new Set(allDevices.map((n) => n.vendor || getVendor(n.mac || ''))).size} <span class="text-xs font-normal text-slate-400">種別</span>
             </div>
             <div class="text-[10px] text-slate-400">OUI ベンダー自動分類</div>
           </div>
@@ -312,57 +477,229 @@
               <span>障害検知中 (Alert)</span>
               <AlertTriangle class="w-4 h-4 text-rose-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-rose-400">{nodes.filter((n) => n.state !== 'normal').length} <span class="text-xs font-normal text-slate-400">台</span></div>
+            <div class="text-2xl font-bold font-mono text-rose-400">{allDevices.filter((n) => n.state !== 'normal' && n.state !== 'info').length} <span class="text-xs font-normal text-slate-400">台</span></div>
             <div class="text-[10px] text-rose-400/80">要確認ノード</div>
           </div>
         </div>
 
         <!-- Devices Table -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden flex flex-col">
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
               <tr>
-                <th class="p-3.5">ノード / ホスト名</th>
-                <th class="p-3.5">IP アドレス</th>
-                <th class="p-3.5">MAC アドレス</th>
-                <th class="p-3.5">ベンダー推定</th>
-                <th class="p-3.5">アドレス解決</th>
-                <th class="p-3.5">稼働ステータス</th>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("name")}>
+                  <div class="inline-flex items-center gap-1">
+                    <span>ノード / ホスト名</span>
+                    {#if sortColumn === "name"}
+                      {#if sortDirection === "asc"}
+                        <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                      {:else}
+                        <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                    {/if}
+                  </div>
+                </th>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("ip")}>
+                  <div class="inline-flex items-center gap-1">
+                    <span>IP アドレス</span>
+                    {#if sortColumn === "ip"}
+                      {#if sortDirection === "asc"}
+                        <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                      {:else}
+                        <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                    {/if}
+                  </div>
+                </th>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("mac")}>
+                  <div class="inline-flex items-center gap-1">
+                    <span>MAC アドレス</span>
+                    {#if sortColumn === "mac"}
+                      {#if sortDirection === "asc"}
+                        <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                      {:else}
+                        <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                    {/if}
+                  </div>
+                </th>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("vendor")}>
+                  <div class="inline-flex items-center gap-1">
+                    <span>ベンダー推定</span>
+                    {#if sortColumn === "vendor"}
+                      {#if sortDirection === "asc"}
+                        <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                      {:else}
+                        <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                    {/if}
+                  </div>
+                </th>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("addr_mode")}>
+                  <div class="inline-flex items-center gap-1">
+                    <span>種別</span>
+                    {#if sortColumn === "addr_mode"}
+                      {#if sortDirection === "asc"}
+                        <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                      {:else}
+                        <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                    {/if}
+                  </div>
+                </th>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("state")}>
+                  <div class="inline-flex items-center gap-1">
+                    <span>稼働ステータス</span>
+                    {#if sortColumn === "state"}
+                      {#if sortDirection === "asc"}
+                        <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                      {:else}
+                        <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                      {/if}
+                    {:else}
+                      <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                    {/if}
+                  </div>
+                </th>
+                <th class="py-1 px-2 text-center w-12">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
-              {#if filteredDevices.length === 0}
+            <tbody class="divide-y divide-slate-800/40 font-mono text-slate-300">
+              {#if paginatedDevices.length === 0}
                 <tr>
-                  <td colspan="6" class="p-8 text-center text-slate-500 font-sans">
+                  <td colspan="7" class="p-8 text-center text-slate-500 font-sans">
                     条件に一致するデバイスが見つかりません
                   </td>
                 </tr>
               {:else}
-                {#each filteredDevices as n}
+                {#each paginatedDevices as n}
                   <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3.5 font-bold font-sans text-slate-100 flex items-center gap-2">
-                      <div class="h-2 w-2 rounded-full" style="background-color: {getStateColor(n.state)}"></div>
-                      <span>{n.name}</span>
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-100 flex items-center gap-1.5 text-[11px]">
+                      <div class="h-2 w-2 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></div>
+                      <span class="truncate">{n.name}</span>
+                      {#if !n.isManaged}
+                        <span class="rounded bg-cyan-950 border border-cyan-800 px-1 py-0 text-[9px] text-cyan-400 font-mono leading-none">ARP</span>
+                      {/if}
                     </td>
-                    <td class="p-3.5 text-cyan-400">{n.ip}</td>
-                    <td class="p-3.5 text-slate-300">{n.mac || "52:54:00:12:34:56"}</td>
-                    <td class="p-3.5">
-                      <span class="rounded-lg bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 border border-slate-700 font-sans">
-                        {getVendor(n.mac || '')}
+                    <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{n.ip}</td>
+                    <td class="py-1 px-2.5 text-slate-300 font-mono text-[11px]">{n.mac || "-"}</td>
+                    <td class="py-1 px-2.5">
+                      <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 border border-slate-700 font-sans leading-none">
+                        {n.vendor || getVendor(n.mac || '')}
                       </span>
                     </td>
-                    <td class="p-3.5 text-[11px] text-slate-400 font-sans uppercase">{(n as any).addr_mode || "IP"}</td>
-                    <td class="p-3.5">
-                      <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border" style="background-color: {getStateColor(n.state)}20; border-color: {getStateColor(n.state)}50; color: {getStateColor(n.state)}">
-                        <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(n.state)}"></span>
+                    <td class="py-1 px-2.5 text-[10px] text-slate-400 font-sans uppercase">{n.addr_mode || "IP"}</td>
+                    <td class="py-1 px-2.5">
+                      <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(n.state)}20; border-color: {getStateColor(n.state)}50; color: {getStateColor(n.state)}">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></span>
                         {getStateName(n.state)}
                       </span>
+                    </td>
+                    <td class="py-1 px-2 text-center">
+                      {#if !n.isManaged}
+                        <button
+                          type="button"
+                          onclick={() => handleDeleteArp(n.ip, n.mac || "")}
+                          title="エントリー削除"
+                          aria-label="削除"
+                          class="inline-flex items-center justify-center rounded border border-rose-500/30 bg-rose-500/10 p-1 text-rose-400 hover:bg-rose-500/20 hover:text-rose-200 transition-all cursor-pointer"
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </button>
+                      {:else}
+                        <span class="text-slate-600 text-[10px] font-sans">-</span>
+                      {/if}
                     </td>
                   </tr>
                 {/each}
               {/if}
             </tbody>
           </table>
+
+          <!-- Pagination Footer -->
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 bg-slate-950/80 px-4 py-2 text-xs text-slate-400 shrink-0">
+            <div class="flex items-center gap-3">
+              <span>表示件数:</span>
+              <select
+                bind:value={pageSize}
+                onchange={() => (currentPage = 1)}
+                class="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:outline-none cursor-pointer"
+              >
+                <option value={10}>10 件 / ページ</option>
+                <option value={25}>25 件 / ページ</option>
+                <option value={50}>50 件 / ページ</option>
+                <option value={100}>100 件 / ページ</option>
+                <option value={250}>250 件 / ページ</option>
+                <option value={-1}>全件表示</option>
+              </select>
+
+              <span class="font-mono text-[11px] text-slate-400">
+                {#if filteredDevices.length > 0}
+                  {filteredDevices.length.toLocaleString()} 件中 {(currentPage - 1) * (pageSize === -1 ? filteredDevices.length : pageSize) + 1} 〜 {pageSize === -1 ? filteredDevices.length : Math.min(currentPage * pageSize, filteredDevices.length)} 件を表示
+                {:else}
+                  0 件
+                {/if}
+              </span>
+            </div>
+
+            {#if pageSize !== -1 && totalPages > 1}
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onclick={() => (currentPage = 1)}
+                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  title="最初のページ"
+                >
+                  <ChevronsLeft class="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onclick={() => currentPage--}
+                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  title="前のページ"
+                >
+                  <ChevronLeft class="h-4 w-4" />
+                </button>
+
+                <span class="px-2 font-mono text-xs text-slate-300">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onclick={() => currentPage++}
+                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  title="次のページ"
+                >
+                  <ChevronRight class="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onclick={() => (currentPage = totalPages)}
+                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  title="最後のページ"
+                >
+                  <ChevronsRight class="h-4 w-4" />
+                </button>
+              </div>
+            {/if}
+          </div>
         </div>
       </div>
 
@@ -469,14 +806,14 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="p-3.5">ポーリング名</th>
-                <th class="p-3.5">種別</th>
-                <th class="p-3.5">監視ターゲット</th>
-                <th class="p-3.5">応答ステータス</th>
-                <th class="p-3.5">最新応答値</th>
+                <th class="py-1 px-2.5">ポーリング名</th>
+                <th class="py-1 px-2.5">種別</th>
+                <th class="py-1 px-2.5">監視ターゲット</th>
+                <th class="py-1 px-2.5">応答ステータス</th>
+                <th class="py-1 px-2.5">最新応答値</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tbody class="divide-y divide-slate-800/40 text-slate-300">
               {#if pollings.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
@@ -486,20 +823,20 @@
               {:else}
                 {#each pollings as p}
                   <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3.5 font-bold font-sans text-slate-100">{p.name}</td>
-                    <td class="p-3.5">
-                      <span class="rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-semibold uppercase">
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-100 text-[11px]">{p.name}</td>
+                    <td class="py-1 px-2.5">
+                      <span class="rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none">
                         {p.type}
                       </span>
                     </td>
-                    <td class="p-3.5 text-slate-400">{p.target || "-"}</td>
-                    <td class="p-3.5">
-                      <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border" style="background-color: {getStateColor(p.state)}20; border-color: {getStateColor(p.state)}50; color: {getStateColor(p.state)}">
-                        <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(p.state)}"></span>
+                    <td class="py-1 px-2.5 text-slate-400 text-[11px]">{p.target || "-"}</td>
+                    <td class="py-1 px-2.5">
+                      <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(p.state)}20; border-color: {getStateColor(p.state)}50; color: {getStateColor(p.state)}">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(p.state)}"></span>
                         {getStateName(p.state)}
                       </span>
                     </td>
-                    <td class="p-3.5 font-mono text-cyan-400">{p.last_val ?? "-"}</td>
+                    <td class="py-1 px-2.5 font-mono text-cyan-400 text-[11px]">{p.last_val ?? "-"}</td>
                   </tr>
                 {/each}
               {/if}
@@ -550,25 +887,25 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="p-3.5">送信元 (Source)</th>
-                <th class="p-3.5">宛先 (Destination)</th>
-                <th class="p-3.5">プロトコル / ポート</th>
-                <th class="p-3.5">パケット数</th>
-                <th class="p-3.5">データ量 (Bytes)</th>
-                <th class="p-3.5">継続時間</th>
-                <th class="p-3.5">状態</th>
+                <th class="py-1 px-2.5">送信元 (Source)</th>
+                <th class="py-1 px-2.5">宛先 (Destination)</th>
+                <th class="py-1 px-2.5">プロトコル / ポート</th>
+                <th class="py-1 px-2.5">パケット数</th>
+                <th class="py-1 px-2.5">データ量 (Bytes)</th>
+                <th class="py-1 px-2.5">継続時間</th>
+                <th class="py-1 px-2.5">状態</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tbody class="divide-y divide-slate-800/40 text-slate-300">
               {#each flowConversations as fl}
                 <tr class="hover:bg-slate-800/40 transition-colors">
-                  <td class="p-3.5 text-cyan-400">{fl.src}</td>
-                  <td class="p-3.5 text-slate-300">{fl.dst}</td>
-                  <td class="p-3.5"><span class="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-sans border border-slate-700">{fl.proto}</span></td>
-                  <td class="p-3.5">{fl.packets}</td>
-                  <td class="p-3.5 text-emerald-400 font-bold">{fl.bytes}</td>
-                  <td class="p-3.5 text-slate-400">{fl.dur}</td>
-                  <td class="p-3.5"><span class="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] text-emerald-400 font-semibold">{fl.status}</span></td>
+                  <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{fl.src}</td>
+                  <td class="py-1 px-2.5 text-slate-300 text-[11px]">{fl.dst}</td>
+                  <td class="py-1 px-2.5"><span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans border border-slate-700 leading-none">{fl.proto}</span></td>
+                  <td class="py-1 px-2.5 text-[11px]">{fl.packets}</td>
+                  <td class="py-1 px-2.5 text-emerald-400 font-bold text-[11px]">{fl.bytes}</td>
+                  <td class="py-1 px-2.5 text-slate-400 text-[11px]">{fl.dur}</td>
+                  <td class="py-1 px-2.5"><span class="rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-400 font-semibold leading-none">{fl.status}</span></td>
                 </tr>
               {/each}
             </tbody>
@@ -614,14 +951,14 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="p-3.5">発生日時</th>
-                <th class="p-3.5">レベル</th>
-                <th class="p-3.5">種別</th>
-                <th class="p-3.5">対象ノード</th>
-                <th class="p-3.5">イベント内容</th>
+                <th class="py-1 px-2.5">発生日時</th>
+                <th class="py-1 px-2.5">レベル</th>
+                <th class="py-1 px-2.5">種別</th>
+                <th class="py-1 px-2.5">対象ノード</th>
+                <th class="py-1 px-2.5">イベント内容</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tbody class="divide-y divide-slate-800/40 text-slate-300">
               {#if logs.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
@@ -631,15 +968,16 @@
               {:else}
                 {#each logs as l}
                   <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3.5 text-cyan-400 whitespace-nowrap">{formatTimeStr(l.time)}</td>
-                    <td class="p-3.5">
-                      <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border" style="background-color: {getStateColor(l.level)}20; border-color: {getStateColor(l.level)}50; color: {getStateColor(l.level)}">
+                    <td class="py-1 px-2.5 text-cyan-400 whitespace-nowrap text-[11px]">{formatTimeStr(l.time)}</td>
+                    <td class="py-1 px-2.5">
+                      <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(l.level)}20; border-color: {getStateColor(l.level)}50; color: {getStateColor(l.level)}">
+                        <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(l.level)}"></span>
                         {l.level}
                       </span>
                     </td>
-                    <td class="p-3.5 text-slate-400">{l.type}</td>
-                    <td class="p-3.5 font-bold font-sans text-slate-200">{l.node_name || l.node_id || "-"}</td>
-                    <td class="p-3.5 font-sans text-slate-100">{l.event}</td>
+                    <td class="py-1 px-2.5 text-slate-400 text-[11px]">{l.type}</td>
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-200 text-[11px]">{l.node_name || l.node_id || "-"}</td>
+                    <td class="py-1 px-2.5 font-sans text-slate-100 text-[11px]">{l.event}</td>
                   </tr>
                 {/each}
               {/if}
@@ -681,26 +1019,26 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="p-3.5">監視対象サービス / ホスト</th>
-                <th class="p-3.5">発行元認証局 (Issuer)</th>
-                <th class="p-3.5">証明書 Subject</th>
-                <th class="p-3.5">鍵種別 / 強度</th>
-                <th class="p-3.5">有効期限 (Valid Until)</th>
-                <th class="p-3.5">残り日数</th>
-                <th class="p-3.5">ステータス</th>
+                <th class="py-1 px-2.5">監視対象サービス / ホスト</th>
+                <th class="py-1 px-2.5">発行元認証局 (Issuer)</th>
+                <th class="py-1 px-2.5">証明書 Subject</th>
+                <th class="py-1 px-2.5">鍵種別 / 強度</th>
+                <th class="py-1 px-2.5">有効期限 (Valid Until)</th>
+                <th class="py-1 px-2.5">残り日数</th>
+                <th class="py-1 px-2.5">ステータス</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tbody class="divide-y divide-slate-800/40 text-slate-300">
               {#each certItems as c}
                 <tr class="hover:bg-slate-800/40 transition-colors">
-                  <td class="p-3.5 font-bold font-sans text-slate-100">{c.host}:{c.port}</td>
-                  <td class="p-3.5 text-slate-400 font-sans">{c.issuer}</td>
-                  <td class="p-3.5 text-cyan-400">{c.subject}</td>
-                  <td class="p-3.5">{c.key}</td>
-                  <td class="p-3.5 text-slate-300">{c.validUntil}</td>
-                  <td class="p-3.5 font-bold {c.days < 30 ? 'text-amber-400' : 'text-emerald-400'}">{c.days} 日</td>
-                  <td class="p-3.5">
-                    <span class="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase border {c.status === 'valid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}">
+                  <td class="py-1 px-2.5 font-bold font-sans text-slate-100 text-[11px]">{c.host}:{c.port}</td>
+                  <td class="py-1 px-2.5 text-slate-400 font-sans text-[11px]">{c.issuer}</td>
+                  <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{c.subject}</td>
+                  <td class="py-1 px-2.5 text-[11px]">{c.key}</td>
+                  <td class="py-1 px-2.5 text-slate-300 text-[11px]">{c.validUntil}</td>
+                  <td class="py-1 px-2.5 font-bold text-[11px] {c.days < 30 ? 'text-amber-400' : 'text-emerald-400'}">{c.days} 日</td>
+                  <td class="py-1 px-2.5">
+                    <span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {c.status === 'valid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}">
                       {c.status}
                     </span>
                   </td>
@@ -784,14 +1122,14 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="p-3.5">対象ノード</th>
-                <th class="p-3.5">IP アドレス</th>
-                <th class="p-3.5">異常度スコア (0-100)</th>
-                <th class="p-3.5">主な変化点・評価要素</th>
-                <th class="p-3.5">AI 診断判定</th>
+                <th class="py-1 px-2.5">対象ノード</th>
+                <th class="py-1 px-2.5">IP アドレス</th>
+                <th class="py-1 px-2.5">異常度スコア (0-100)</th>
+                <th class="py-1 px-2.5">主な変化点・評価要素</th>
+                <th class="py-1 px-2.5">AI 診断判定</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tbody class="divide-y divide-slate-800/40 text-slate-300">
               {#if nodes.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
@@ -802,12 +1140,12 @@
                 {#each nodes as n, i}
                   {@const score = (2.5 + (i * 1.8) % 8).toFixed(1)}
                   <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3.5 font-bold font-sans text-slate-100">{n.name}</td>
-                    <td class="p-3.5 text-cyan-400">{n.ip}</td>
-                    <td class="p-3.5 font-bold font-mono text-emerald-400">{score}</td>
-                    <td class="p-3.5 text-slate-400 font-sans">Ping RTT / 応答ジッター正常範囲内</td>
-                    <td class="p-3.5">
-                      <span class="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 font-sans">
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-100 text-[11px]">{n.name}</td>
+                    <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{n.ip}</td>
+                    <td class="py-1 px-2.5 font-bold font-mono text-emerald-400 text-[11px]">{score}</td>
+                    <td class="py-1 px-2.5 text-slate-400 font-sans text-[11px]">Ping RTT / 応答ジッター正常範囲内</td>
+                    <td class="py-1 px-2.5">
+                      <span class="rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 font-sans leading-none">
                         正常安定 (Stable)
                       </span>
                     </td>

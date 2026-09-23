@@ -29,14 +29,20 @@ type Server struct {
 	mcpServer *ai.MCPServer
 }
 
+type ArpManager interface {
+	DeleteArpEntries(ips []string)
+	ResetArpTable()
+}
+
 type Config struct {
-	Port      int
-	Debug     bool
-	Version   string
-	DataDir   string
-	Store     datastore.DataStore
-	LogStore  *parquet.Store
-	MCPServer *ai.MCPServer
+	Port       int
+	Debug      bool
+	Version    string
+	DataDir    string
+	Store      datastore.DataStore
+	LogStore   *parquet.Store
+	MCPServer  *ai.MCPServer
+	ArpManager ArpManager
 }
 
 func NewServer(cfg Config) (*Server, error) {
@@ -670,9 +676,78 @@ func NewServer(cfg Config) (*Server, error) {
 					for k, v := range pqCounts {
 						counts[k] = v
 					}
+					if v, ok := counts["arplog"]; ok {
+						counts["arp"] = v
+					} else if v, ok := counts["arp"]; ok {
+						counts["arplog"] = v
+					}
 				}
 			}
 			return c.JSON(http.StatusOK, counts)
+		})
+
+		// Discovered ARP Table
+		apiGroup.GET("/arp", func(c echo.Context) error {
+			entries, err := cfg.Store.LoadArpTable(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusOK, []*datastore.ArpEnt{})
+			}
+			return c.JSON(http.StatusOK, entries)
+		})
+
+		// Delete / Reset ARP Table entries
+		apiGroup.DELETE("/arp", func(c echo.Context) error {
+			all := c.QueryParam("all") == "true"
+			ip := c.QueryParam("ip")
+			var req struct {
+				All bool     `json:"all"`
+				IPs []string `json:"ips"`
+			}
+			_ = c.Bind(&req)
+
+			if all || req.All {
+				if err := cfg.Store.ResetArpTable(c.Request().Context()); err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				}
+				if cfg.ArpManager != nil {
+					cfg.ArpManager.ResetArpTable()
+				}
+				if cfg.Store != nil {
+					_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+						Time:  time.Now().UnixNano(),
+						Type:  "user",
+						Level: "warn",
+						Event: "ARP監視テーブルを全消去しました",
+					})
+				}
+				return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})
+			}
+
+			var targetIPs []string
+			if ip != "" {
+				targetIPs = append(targetIPs, ip)
+			}
+			targetIPs = append(targetIPs, req.IPs...)
+
+			if len(targetIPs) == 0 {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "no ip specified"})
+			}
+
+			if err := cfg.Store.DeleteArpEntries(c.Request().Context(), targetIPs); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if cfg.ArpManager != nil {
+				cfg.ArpManager.DeleteArpEntries(targetIPs)
+			}
+			if cfg.Store != nil {
+				_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+					Time:  time.Now().UnixNano(),
+					Type:  "user",
+					Level: "info",
+					Event: fmt.Sprintf("ARP監視エントリーを削除しました (IP: %s)", strings.Join(targetIPs, ", ")),
+				})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
 		// MIB Browser & Modules

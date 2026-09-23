@@ -322,3 +322,25 @@ type DiscoverConfEnt struct {
 	X          int    `json:"X"`
 	Y          int    `json:"Y"`
 }
+
+// ArpEnt represents an entry in the ARP cache table.
+type ArpEnt struct {
+	IP        string `json:"IP"`
+	MAC       string `json:"MAC"`
+	NodeID    string `json:"NodeID,omitempty"`
+	Vendor    string `json:"Vendor,omitempty"`
+	FirstTime int64  `json:"FirstTime"`
+	LastTime  int64  `json:"LastTime"`
+}
+
+// ArpLogEnt represents an ARP change or discovery log entry.
+type ArpLogEnt struct {
+	Time      int64  `json:"Time"`
+	State     string `json:"State"`
+	IP        string `json:"IP"`
+	Node      string `json:"Node,omitempty"`
+	NewMAC    string `json:"NewMAC"`
+	NewVendor string `json:"NewVendor,omitempty"`
+	OldMAC    string `json:"OldMAC,omitempty"`
+	OldVendor string `json:"OldVendor,omitempty"`
+}

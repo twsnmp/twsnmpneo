@@ -415,12 +415,22 @@
           const info = parsed.info ?? parsed.Info ?? rawLog;
 
           // ARP
-          const state = parsed.state ?? parsed.State ?? "info";
-          const ip = parsed.ip ?? parsed.IP ?? src;
-          const node = parsed.node ?? parsed.Node ?? "-";
-          const newMac = parsed.newMAC ?? parsed.NewMAC ?? "";
-          const newVendor = parsed.newVendor ?? parsed.NewVendor ?? "";
-          const oldMac = parsed.oldMAC ?? parsed.OldMAC ?? "";
+          let state = parsed.state ?? parsed.State ?? "info";
+          let ip = parsed.ip ?? parsed.IP ?? src;
+          let node = parsed.node ?? parsed.Node ?? "-";
+          let newMac = parsed.newMAC ?? parsed.NewMAC ?? "";
+          let newVendor = parsed.newVendor ?? parsed.NewVendor ?? "";
+          let oldMac = parsed.oldMAC ?? parsed.OldMAC ?? "";
+
+          if (!newMac && rawLog.includes(",")) {
+            const parts = rawLog.split(",");
+            if (parts.length >= 3) {
+              state = parts[0];
+              ip = parts[1];
+              newMac = parts[2];
+              if (parts.length > 3) oldMac = parts[3];
+            }
+          }
 
           // MQTT
           const topic = parsed.topic ?? parsed.Topic ?? "";
@@ -663,8 +673,10 @@
         return "bg-amber-500/10 text-amber-400 border-amber-500/30";
       case "high":
       case "error":
+      case "change":
         return "bg-rose-500/10 text-rose-400 border-rose-500/30";
       case "info":
+      case "new":
         return "bg-sky-500/10 text-sky-400 border-sky-500/30";
       default:
         return "bg-slate-800 text-slate-400 border-slate-700";

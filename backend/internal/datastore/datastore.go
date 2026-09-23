@@ -71,4 +71,10 @@ type DataStore interface {
 	QueryEventLogs(ctx context.Context, filter EventLogFilter) ([]*EventLogEnt, error)
 	DeleteEventLogs(ctx context.Context) error
 	CountEventLogs(ctx context.Context) (int64, error)
+
+	// ARP Table
+	SaveArpTable(ctx context.Context, entries []*ArpEnt) error
+	LoadArpTable(ctx context.Context) ([]*ArpEnt, error)
+	DeleteArpEntries(ctx context.Context, ips []string) error
+	ResetArpTable(ctx context.Context) error
 }

@@ -7,6 +7,8 @@ export const stateList = [
   { text: '正常', color: '#33a02c', icon: 'mdi-check-circle', value: 'normal' },
   { text: '復旧', color: '#1f78b4', icon: 'mdi-autorenew', value: 'repair' },
   { text: '情報', color: '#1f78b4', icon: 'mdi-information', value: 'info' },
+  { text: '新規', color: '#1f78b4', icon: 'mdi-information', value: 'New' },
+  { text: '変更', color: '#e31a1c', icon: 'mdi-autorenew', value: 'Change' },
   { text: '停止', color: '#777', icon: 'mdi-stop', value: 'off' },
   { text: 'Down', color: '#e31a1c', icon: 'mdi-alert-circle', value: 'down' },
   { text: 'Up', color: '#33a02c', icon: 'mdi-check-circle', value: 'up' },
@@ -16,10 +18,12 @@ export const stateList = [
 export const stateMap: Record<string, any> = {};
 stateList.forEach((e) => {
   stateMap[e.value] = e;
+  stateMap[e.value.toLowerCase()] = e;
 });
 
 export const getStateColor = (state: string): string => {
-  return stateMap[state] ? stateMap[state].color : '#999';
+  if (!state) return '#999';
+  return stateMap[state] ? stateMap[state].color : (stateMap[state.toLowerCase()] ? stateMap[state.toLowerCase()].color : '#999');
 };
 
 export const getStateName = (state: string): string => {

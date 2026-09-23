@@ -21,16 +21,20 @@ type Config struct {
 	OTelPort     int
 	MQTTPort     int
 	MqttToSyslog bool
+	EnableArpWatch bool
+	ArpWatchRange  string
+	ArpTimeout     int
 }
 
 // Manager controls the lifecycle of all embedded protocol receivers.
 type Manager struct {
-	syslog  *SyslogServer
-	trap    *TrapServer
-	netflow *NetFlowServer
-	sflow   *SFlowServer
-	otel    *OTelServer
-	mqtt    *MQTTServer
+	syslog   *SyslogServer
+	trap     *TrapServer
+	netflow  *NetFlowServer
+	sflow    *SFlowServer
+	otel     *OTelServer
+	mqtt     *MQTTServer
+	arpWatch *ArpWatchServer
 }
 
 // NewManager creates an instance of the receiver manager.
@@ -62,6 +66,13 @@ func NewManager(cfg Config) *Manager {
 			Port:         cfg.MQTTPort,
 			LogStore:     cfg.LogStore,
 			MqttToSyslog: cfg.MqttToSyslog,
+		}),
+		arpWatch: NewArpWatchServer(ArpWatchConfig{
+			Store:    cfg.Store,
+			LogStore: cfg.LogStore,
+			Enabled:  cfg.EnableArpWatch,
+			Range:    cfg.ArpWatchRange,
+			Timeout:  cfg.ArpTimeout,
 		}),
 	}
 }
@@ -108,8 +119,37 @@ func (m *Manager) Start(ctx context.Context) error {
 		_ = m.mqtt.Start(ctx)
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = m.arpWatch.Start(ctx)
+	}()
+
 	<-ctx.Done()
 	slog.Info("Stopping Protocol Receivers...")
 	wg.Wait()
 	return nil
 }
+
+// GetArpTable returns all known ARP table entries from the ARP watch engine.
+func (m *Manager) GetArpTable() []*datastore.ArpEnt {
+	if m.arpWatch != nil {
+		return m.arpWatch.GetArpTable()
+	}
+	return nil
+}
+
+// DeleteArpEntries removes given IPs from the in-memory ARP table.
+func (m *Manager) DeleteArpEntries(ips []string) {
+	if m.arpWatch != nil {
+		m.arpWatch.DeleteEntries(ips)
+	}
+}
+
+// ResetArpTable clears the in-memory ARP table.
+func (m *Manager) ResetArpTable() {
+	if m.arpWatch != nil {
+		m.arpWatch.ResetTable()
+	}
+}
+

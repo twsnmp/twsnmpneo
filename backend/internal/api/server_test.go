@@ -320,6 +320,32 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200 for GET /api/map/conf, got %d", rec.Code)
 	}
+
+	// 11. Test ARP endpoints (GET, DELETE single, DELETE all)
+	_ = bStore.SaveArpTable(context.Background(), []*datastore.ArpEnt{
+		{IP: "192.168.1.100", MAC: "00:11:22:33:44:55"},
+		{IP: "192.168.1.101", MAC: "00:11:22:33:44:66"},
+	})
+	req = httptest.NewRequest(http.MethodGet, "/api/arp", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for GET /api/arp, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/arp?ip=192.168.1.100", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for DELETE /api/arp?ip=..., got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/arp?all=true", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for DELETE /api/arp?all=true, got %d", rec.Code)
+	}
 }
 
 func TestAPIServer_StartShutdown(t *testing.T) {

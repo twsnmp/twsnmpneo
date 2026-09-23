@@ -28,6 +28,7 @@ var (
 	bucketPollings  = []byte("pollings")
 	bucketConfig    = []byte("config")
 	bucketEventLog  = []byte("eventlog")
+	bucketArp       = []byte("arp")
 
 	keyMapConf    = []byte("mapConf")
 	keyNotifyConf = []byte("notifyConf")
@@ -82,6 +83,7 @@ func New(dbPath string) (*Store, error) {
 			bucketPollings,
 			bucketConfig,
 			bucketEventLog,
+			bucketArp,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
@@ -915,6 +917,93 @@ func (s *Store) CountEventLogs(_ context.Context) (int64, error) {
 		return nil
 	})
 	return count, err
+}
+
+// SaveArpTable saves the provided ARP table entries.
+func (s *Store) SaveArpTable(_ context.Context, entries []*datastore.ArpEnt) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+
+	return s.db.Batch(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketArp)
+		if b == nil {
+			return nil
+		}
+		for _, e := range entries {
+			if e == nil || e.IP == "" {
+				continue
+			}
+			data, err := json.Marshal(e)
+			if err != nil {
+				continue
+			}
+			_ = b.Put([]byte(e.IP), data)
+		}
+		return nil
+	})
+}
+
+// LoadArpTable loads all stored ARP table entries.
+func (s *Store) LoadArpTable(_ context.Context) ([]*datastore.ArpEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	var results []*datastore.ArpEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketArp)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			var ent datastore.ArpEnt
+			if err := json.Unmarshal(v, &ent); err == nil {
+				results = append(results, &ent)
+			}
+			return nil
+		})
+	})
+	return results, err
+}
+
+// DeleteArpEntries removes specific IP entries from the ARP table.
+func (s *Store) DeleteArpEntries(_ context.Context, ips []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketArp)
+		if b == nil {
+			return nil
+		}
+		for _, ip := range ips {
+			_ = b.Delete([]byte(ip))
+		}
+		return nil
+	})
+}
+
+// ResetArpTable removes all entries in the ARP table bucket.
+func (s *Store) ResetArpTable(_ context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		_ = tx.DeleteBucket(bucketArp)
+		_, err := tx.CreateBucketIfNotExists(bucketArp)
+		return err
+	})
 }
 
 

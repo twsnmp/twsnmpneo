@@ -372,6 +372,40 @@ export async function fetchNodes(): Promise<NodeEnt[]> {
   return (Array.isArray(list) ? list : []).map(normalizeNode);
 }
 
+export interface ArpEnt {
+  IP: string;
+  MAC: string;
+  Vendor?: string;
+  NodeID?: string;
+  FirstTime?: number;
+  LastTime?: number;
+}
+
+export async function fetchArpTable(): Promise<ArpEnt[]> {
+  const res = await fetch(`${API_BASE}/arp`);
+  if (!res.ok) throw new Error(`Fetch ARP table failed: ${res.statusText}`);
+  const list = await res.json();
+  return Array.isArray(list) ? list : [];
+}
+
+export async function deleteArpEntries(ips: string[]): Promise<any> {
+  const res = await fetch(`${API_BASE}/arp`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ips }),
+  });
+  if (!res.ok) throw new Error(`Delete ARP entries failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function resetArpTable(): Promise<any> {
+  const res = await fetch(`${API_BASE}/arp?all=true`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Reset ARP table failed: ${res.statusText}`);
+  return res.json();
+}
+
 export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
   const payload = {
     ID: node.id || node.ID || '',
