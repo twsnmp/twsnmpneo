@@ -6,7 +6,6 @@
   import OTelView from "./lib/views/OTelView.svelte";
   import MQTTView from "./lib/views/MQTTView.svelte";
   import ReportView from "./lib/views/ReportView.svelte";
-  import ToolView from "./lib/views/ToolView.svelte";
   import SystemView from "./lib/views/SystemView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import AIAssistant from "./lib/mcp/AIAssistant.svelte";
@@ -16,7 +15,6 @@
     Layers,
     Calendar,
     BarChart3,
-    Wrench,
     Info,
     Settings,
     Moon,
@@ -27,7 +25,7 @@
     Radio,
   } from "@lucide/svelte";
 
-  type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "tools" | "system";
+  type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "system";
 
   let currentPage = $state<PageType>("map");
   let isDark = $state(true);
@@ -65,7 +63,6 @@
     { id: "otel", label: "OTel", icon: Activity, mdi: "mdi-telescope" },
     { id: "mqtt", label: "MQTT", icon: Radio, mdi: "mdi-access-point-network" },
     { id: "reports", label: "Reports", icon: BarChart3 },
-    { id: "tools", label: "Tools", icon: Wrench },
     { id: "system", label: "System", icon: Info },
   ];
 </script>
@@ -162,8 +159,6 @@
       <MQTTView />
     {:else if currentPage === "reports"}
       <ReportView />
-    {:else if currentPage === "tools"}
-      <ToolView />
     {:else if currentPage === "system"}
       <SystemView />
     {/if}
