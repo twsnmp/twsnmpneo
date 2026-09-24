@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v0.1.0)'
+        required: false
+        default: 'v0.1.0'
+      commit:
+        description: 'Git commit hash (optional, defaults to short commit)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -54,8 +64,14 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          VERSION=${{ github.ref_name }}
-          COMMIT=${{ github.sha }}
+          VERSION="${{ inputs.version || github.ref_name }}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="v0.1.0"
+          fi
+          COMMIT="${{ inputs.commit }}"
+          if [ -z "$COMMIT" ]; then
+            COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "${{ github.sha }}" | cut -c1-7)
+          fi
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           OUTPUT_NAME="twsnmpneo-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}"
           mkdir -p dist
@@ -100,6 +116,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.version || github.ref_name }}
           files: release-assets/*
           generate_release_notes: true
           draft: false
@@ -131,6 +148,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
+            type=raw,value=${{ inputs.version || github.ref_name }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
@@ -142,6 +160,9 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            VERSION=${{ inputs.version || github.ref_name }}
+            COMMIT=${{ inputs.commit || github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

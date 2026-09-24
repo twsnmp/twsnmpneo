@@ -184,6 +184,43 @@ export interface SystemHealth {
   version: string;
 }
 
+export interface MonitorDataEnt {
+  Time: number;
+  CPU: number;
+  Mem: number;
+  MyCPU: number;
+  MyMem: number;
+  Swap: number;
+  Disk: number;
+  Load: number;
+  Bytes: number;
+  Net: number;
+  Conn: number;
+  Proc: number;
+  DBSize: number;
+  HeapAlloc: number;
+  Sys: number;
+  NumGoroutine: number;
+}
+
+export interface ReceiverStatusInfo {
+  port?: string;
+  status?: string;
+  range?: string;
+}
+
+export interface SystemInfo {
+  version: string;
+  commit?: string;
+  status: string;
+  time: string;
+  uptime: string;
+  num_cpu?: number;
+  node_count: number;
+  poll_count: number;
+  receivers?: Record<string, ReceiverStatusInfo>;
+}
+
 const API_BASE = '/api';
 
 export function normalizeNode(raw: any): NodeEnt {
@@ -362,6 +399,31 @@ export function normalizeEventLog(raw: any): EventLogEnt {
 export async function fetchHealth(): Promise<SystemHealth> {
   const res = await fetch(`${API_BASE}/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchSystemInfo(): Promise<SystemInfo> {
+  const res = await fetch(`${API_BASE}/system/info`);
+  if (!res.ok) throw new Error(`Fetch system info failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchMonitorData(): Promise<MonitorDataEnt[]> {
+  const res = await fetch(`${API_BASE}/system/monitor`);
+  if (!res.ok) throw new Error(`Fetch monitor data failed: ${res.statusText}`);
+  const list = await res.json();
+  return Array.isArray(list) ? list : [];
+}
+
+export async function updateMonitorData(): Promise<MonitorDataEnt> {
+  const res = await fetch(`${API_BASE}/system/monitor/update`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Update monitor data failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function execBackup(): Promise<{ file: string; size: number; time: string }> {
+  const res = await fetch(`${API_BASE}/system/backup`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Backup failed: ${res.statusText}`);
   return res.json();
 }
 

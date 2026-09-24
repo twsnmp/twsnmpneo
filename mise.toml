@@ -7,29 +7,70 @@ air = "latest"
 [tasks.dev-frontend]
 description = "Launch frontend development server with HMR (Vite)"
 dir = "frontend"
-run = "pnpm dev"
+run = "npm run dev"
 
 [tasks.build-frontend]
 description = "Build static frontend assets for Go embed packaging"
 dir = "frontend"
-run = "pnpm build && mkdir -p ../backend/web && rm -rf ../backend/web/dist && cp -r dist ../backend/web/dist"
+run = "npm run build && mkdir -p ../backend/web && rm -rf ../backend/web/dist && cp -r dist ../backend/web/dist"
 
 [tasks.test-backend]
 description = "Run backend unit tests with race detection"
 dir = "backend"
 run = "go test -race -v ./..."
 
+[tasks.build]
+description = "Compile release binary bundling frontend assets with version and git commit"
+depends = ["build-frontend"]
+dir = "backend"
+run = '''
+VERSION="${VERSION:-v0.1.0}"
+COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "none")}"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --version|-v)
+      VERSION="$2"
+      shift 2
+      ;;
+    --commit|-c)
+      COMMIT="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+echo "Building TWSNMP NEO (Version: ${VERSION}, Commit: ${COMMIT})..."
+mkdir -p ../bin
+go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
+'''
+
 [tasks.build-debug]
 description = "Compile debug binary bundling frontend assets"
 depends = ["build-frontend"]
 dir = "backend"
-run = "go build -tags dev -o ../bin/twsnmpneo ./cmd/twsnmpneo"
-
-[tasks.run-debug]
-description = "Execute debug backend with air live reload on Go file changes"
-depends = ["build-frontend"]
-dir = "backend"
-run = "air -c .air.toml"
+run = '''
+VERSION="${VERSION:-v0.1.0}"
+COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "none")}"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --version|-v)
+      VERSION="$2"
+      shift 2
+      ;;
+    --commit|-c)
+      COMMIT="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+mkdir -p ../bin
+go build -tags dev -ldflags "-X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
+'''
 
 [tasks.run-direct]
 description = "Execute debug binary directly without live reload"

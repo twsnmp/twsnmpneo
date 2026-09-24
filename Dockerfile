@@ -25,7 +25,7 @@ COPY backend/ ./
 # Copy built static assets into backend/web/dist for go:embed
 COPY --from=frontend-builder /app/frontend/dist ./web/dist
 
-ARG VERSION=dev
+ARG VERSION=v0.1.0
 ARG COMMIT=none
 ARG DATE=unknown
 

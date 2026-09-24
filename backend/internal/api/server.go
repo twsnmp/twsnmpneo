@@ -17,6 +17,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
+	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 	"github.com/twsnmp/twsnmpneo/backend/web"
 )
@@ -38,11 +39,14 @@ type Config struct {
 	Port       int
 	Debug      bool
 	Version    string
+	Commit     string
 	DataDir    string
 	Store      datastore.DataStore
 	LogStore   *parquet.Store
 	MCPServer  *ai.MCPServer
 	ArpManager ArpManager
+	Monitor    *monitor.Monitor
+	Receivers  map[string]any
 }
 
 func NewServer(cfg Config) (*Server, error) {
@@ -62,6 +66,62 @@ func NewServer(cfg Config) (*Server, error) {
 			"time":    time.Now().Format(time.RFC3339),
 			"version": cfg.Version,
 		})
+	})
+
+	// System Information & Resource Monitor
+	apiGroup.GET("/system/info", func(c echo.Context) error {
+		uptime := ""
+		if cfg.Monitor != nil {
+			uptime = cfg.Monitor.GetUptime().Truncate(time.Second).String()
+		}
+		nodeCount := 0
+		pollCount := 0
+		if cfg.Store != nil {
+			nodes, _ := cfg.Store.ListNodes(c.Request().Context())
+			nodeCount = len(nodes)
+			polls, _ := cfg.Store.ListPollings(c.Request().Context())
+			pollCount = len(polls)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"version":    cfg.Version,
+			"commit":     cfg.Commit,
+			"status":     "ok",
+			"time":       time.Now().Format(time.RFC3339),
+			"uptime":     uptime,
+			"node_count": nodeCount,
+			"poll_count": pollCount,
+			"receivers":  cfg.Receivers,
+		})
+	})
+
+	apiGroup.GET("/system/monitor", func(c echo.Context) error {
+		if cfg.Monitor != nil {
+			return c.JSON(http.StatusOK, cfg.Monitor.GetData())
+		}
+		return c.JSON(http.StatusOK, []*monitor.MonitorDataEnt{})
+	})
+
+	apiGroup.POST("/system/monitor/update", func(c echo.Context) error {
+		if cfg.Monitor != nil {
+			data := cfg.Monitor.UpdateNow()
+			return c.JSON(http.StatusOK, data)
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	apiGroup.POST("/system/backup", func(c echo.Context) error {
+		if cfg.Monitor != nil {
+			file, size, err := cfg.Monitor.Backup()
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"file": file,
+				"size": size,
+				"time": time.Now().Format(time.RFC3339),
+			})
+		}
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
 	})
 
 	// MCP Endpoint

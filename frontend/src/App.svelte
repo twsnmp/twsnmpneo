@@ -81,9 +81,6 @@
       <div>
         <h1 class="text-sm font-bold tracking-tight text-slate-100 flex items-center gap-2">
           TWSNMP NEO
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-500/30">
-            v2.0.0
-          </span>
           <span class="text-xs font-normal text-slate-400">- {mapName}</span>
         </h1>
         <p class="text-[10px] text-slate-400 font-medium">Next-Gen Intelligent Network Management</p>

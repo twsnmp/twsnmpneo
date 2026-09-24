@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,18 +20,46 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
+	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
 )
 
 var (
-	version = "v0.1.0-dev"
-	commit  = "none"
+	version = "v0.1.0"
+	commit  = ""
 	date    = "unknown"
 )
 
+func resolveCommit() string {
+	if commit != "" && commit != "none" {
+		return commit
+	}
+	// 1. Try Go build info (vcs.revision automatically embedded by Go 1.18+)
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, s := range info.Settings {
+			if s.Key == "vcs.revision" && s.Value != "" {
+				rev := s.Value
+				if len(rev) > 7 {
+					return rev[:7]
+				}
+				return rev
+			}
+		}
+	}
+	// 2. Try git CLI fallback for dev/debug live-reload environments
+	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
+		c := strings.TrimSpace(string(out))
+		if c != "" {
+			return c
+		}
+	}
+	return "dev"
+}
+
 func main() {
+	commit = resolveCommit()
 	var (
 		dataDir     = flag.String("datadir", "./data", "Directory to store database and log files")
 		port        = flag.Int("port", 8080, "Web interface port")
@@ -268,16 +299,39 @@ func main() {
 		Version:  version,
 	})
 
+	// Initialize System Resource Monitor
+	sysMon := monitor.New(monitor.Config{
+		DataDir:  *dataDir,
+		Store:    store,
+		Interval: 1 * time.Minute,
+	})
+	sysMon.Start(ctx)
+
+	// Receiver info map for UI
+	receiversInfo := map[string]any{
+		"syslog": map[string]any{"port": fmt.Sprintf("UDP :%d / TCP :%d", sUDP, sTCP), "status": "running"},
+		"trap":   map[string]any{"port": fmt.Sprintf("UDP :%d (v1/v2c/v3)", tPort), "status": "running"},
+		"netflow": map[string]any{"port": fmt.Sprintf("UDP :%d", nfPort), "status": "running"},
+		"sflow":  map[string]any{"port": fmt.Sprintf("UDP :%d", sfPort), "status": "running"},
+		"otel":   map[string]any{"port": fmt.Sprintf("HTTP :%d (OTLP)", oPort), "status": "running"},
+		"mqtt":   map[string]any{"port": fmt.Sprintf("TCP :%d", mPort), "status": "running"},
+		"mcp":    map[string]any{"port": "SSE /api/mcp/sse", "status": "running"},
+		"arp":    map[string]any{"status": "running", "range": arpWatchRange},
+	}
+
 	// Initialize Web/API server
 	server, err := api.NewServer(api.Config{
-		Port:      *port,
-		Debug:     *debug,
-		Version:   version,
-		DataDir:   *dataDir,
+		Port:       *port,
+		Debug:      *debug,
+		Version:    version,
+		Commit:     commit,
+		DataDir:    *dataDir,
 		Store:      store,
 		LogStore:   pqStore,
 		MCPServer:  mcpServer,
 		ArpManager: recvMgr,
+		Monitor:    sysMon,
+		Receivers:  receiversInfo,
 	})
 	if err != nil {
 		slog.Error("Failed to initialize API server", "error", err)

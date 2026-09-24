@@ -236,3 +236,20 @@ export const getSyslogType = (sv: number, fac: number): string => {
   return `${sName}:${fName}`;
 };
 
+export const renderSpeed = (bps: number): string => {
+  if (!bps || bps <= 0 || isNaN(bps)) return '0 bps';
+  const units = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
+  let val = bps;
+  let idx = 0;
+  while (val >= 1000 && idx < units.length - 1) {
+    val /= 1000;
+    idx++;
+  }
+  return `${val.toFixed(2)} ${units[idx]}`;
+};
+
+export const renderPercent = (v: number | undefined | null): string => {
+  if (v === undefined || v === null || isNaN(v)) return '0.00%';
+  return v.toFixed(2) + '%';
+};
+
