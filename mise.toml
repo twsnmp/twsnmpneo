@@ -72,6 +72,12 @@ mkdir -p ../bin
 go build -tags dev -ldflags "-X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
 '''
 
+[tasks.run-debug]
+description = "Execute debug backend with air live reload on Go file changes"
+depends = ["build-frontend"]
+dir = "backend"
+run = "air -c .air.toml"
+
 [tasks.run-direct]
 description = "Execute debug binary directly without live reload"
 run = "./bin/twsnmpneo --datadir ./data --debug"

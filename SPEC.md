@@ -189,21 +189,25 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 8. **Report View (`ReportView.svelte`)**:
    - Grouped analytics suites:
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
-     - **IPAM & IP Analytics**: Subnet usage heatmaps, IPv4 list, IPv6 list, host communication graphs.
+     - **IPAM & IP Analytics**: Multi-subnet address heatmap (ECharts aggregated blocks with drilldown), IPv4 inventory, IPv6 inventory, host communication graphs.
      - **Flow & Traffic Analytics**: Top server ports, Flows, Fumble flows, Ethernet types, DNS queries, RADIUS, TLS.
      - **Windows Analytics**: Event ID stats, Logon logs, Account events, Kerberos, Privilege access, Processes, Tasks.
      - **Sensor & IoT Analytics**: Environmental (temp/humidity), Power consumption, Motion sensors, SDR RF power, MQTT clients/topics.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
      - **AI Anomaly**: AI anomaly scores across nodes and pollings.
-7. **Tool View (`ToolView.svelte`)**:
-   - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface.
+9. **Tool View (`ToolView.svelte`)**:
+   - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface with enterprise MIB resolution.
    - **Ping Tool**: Continuous Ping with real-time response time graph and sound alerts.
    - **gNMI Tool**: Capabilities, Get, and Subscribe explorer.
    - **WOL**: Wake-on-LAN magic packet dispatcher.
-8. **Config View (`ConfigModal.svelte`)**:
-   - Comprehensive multi-tab configuration: Map options, Notification credentials (Email, Slack, LINE, Teams, Webhook), AI credentials, Custom Icons, MIB Module manager, Grok pattern editor, and Datastore backup/restore/FC migration.
-9. **System View (`SystemView.svelte`)**:
-   - Host CPU/memory telemetry, internal daemon process health, version check, and licensing info.
+10. **System View (`SystemView.svelte`)**:
+   - Fully compatible with TWSNMP FK resource monitor.
+   - Top status summary cards: CPU utilization, Memory usage, Goroutines, Disk usage, Process Uptime, and Build/Git version.
+   - ECharts multi-metric time-series telemetry charts (CPU, Memory, Goroutines, Disk I/O & Capacity).
+   - Internal daemon services health, receiver packet/message counters, and runtime version details.
+11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
+   - System settings button is located as an icon-only button on the top-right header utility bar.
+   - Comprehensive multi-tab configuration modal: Map options, Notification credentials (Email, Slack, LINE, Teams, Webhook), AI credentials, Custom Icons, MIB Module manager, Grok pattern editor, and Datastore backup/restore/FC migration.
 
 ---
 
@@ -236,8 +240,12 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - `Type 11`: Modern KPI Card (`kpi()` renderer) with formatted numbers, subtitle, and sparkline.
 * **Map Operations**:
   - Left-click drag to select and move nodes/items.
-  - Mouse wheel zoom in/out.
-  - Right-click context menu (Edit Node, Add Line, Node Detail, MIB Browser, Ping, Delete).
+  - Mouse wheel zoom in/out, strict boundary clamping, and top-right pinned reload control.
+  - Native and custom right-click context menu (Edit Node, Add Line, Node Detail, MIB Browser, Ping, Delete).
+  - Shift-click on nodes/network endpoints for interactive line creation, modification, and disconnection (`LineDialog`).
+  - Network (SW-HUB) context menu action for batch port line management (`NetworkLinesDialog`).
+  - Network and Node context menu action for topology discovery to detect and auto-connect neighbors (`FindNeighborDialog`, `/api/topology/neighbors/:id`, `/api/topology/connect-lines`).
+  - Automatic deletion cascading: deleting a node automatically removes associated pollings, connected lines, and cleans up orphaned entries across datastore.
   - Background image loading with positioning and scaling.
   - Audio alert integration (`BeepHigh`, `BeepLow`).
 
@@ -294,9 +302,12 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 * **LAN & Device Report**:
   - Inventory of all detected MAC addresses resolved with IEEE OUI vendor database, associated IP, first seen timestamp, last seen timestamp.
 * **IPAM Report**:
-  - Subnet range heatmap showing used, free, and duplicate IP addresses.
+  - Multi-subnet address inventory supporting user-defined CIDR blocks and IP ranges.
+  - Large-scale IP heatmap powered by Apache ECharts using hierarchical block aggregation and click-to-drilldown inspection.
+  - Comprehensive status resolution: Used, Free, Duplicate, Polled, ARP-detected, and DHCP-assigned addresses.
 * **Flow & Server Report**:
   - Ingest NetFlow / IPFIX / sFlow records into Parquet and summarize top communication pairs, top port numbers, bandwidth consumption over time.
+  - GeoIP geographic resolution of public IP addresses for flows.
   - Fumble Flow detection: Unanswered TCP SYN packets, connection resets, port scans.
 * **Windows Analytics**:
   - Ingest Windows Event Logs via Syslog or WinRM.
