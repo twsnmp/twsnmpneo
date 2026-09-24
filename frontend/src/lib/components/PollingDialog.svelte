@@ -106,16 +106,16 @@
     onkeydown={(e) => e.key === "Escape" && (show = false)}
   >
     <div
-      class="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100 font-sans"
+      class="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-slate-100 font-sans"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-950/80">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-3.5 bg-slate-50 dark:bg-slate-950/80">
         <div class="flex items-center gap-2.5">
           <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
             <CheckSquare class="h-4 w-4" />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-100">
+            <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">
               {id ? "ポーリング設定の編集" : "新規ポーリング追加"}
             </h3>
             <p class="text-[11px] text-slate-400">ノードに対する監視タスクを設定します</p>

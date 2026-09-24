@@ -1,3 +1,7 @@
+export const isDarkMode = (): boolean => {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+};
+
 export const setZoomCallback = (chart: any, cb: (st: number, et: number) => void, st?: number, lt?: number) => {
   if (!chart || !cb) return;
   chart.off('datazoom');

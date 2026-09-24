@@ -1,6 +1,7 @@
 import * as echarts from 'echarts';
 import type { MonitorDataEnt } from '../api';
 import { renderBytes, renderSpeed } from '../common';
+import { isDarkMode } from './utils';
 
 let resChartInstance: echarts.ECharts | null = null;
 let netChartInstance: echarts.ECharts | null = null;
@@ -10,7 +11,8 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
   if (resChartInstance) {
     resChartInstance.dispose();
   }
-  resChartInstance = echarts.init(el, 'dark');
+  const isDark = isDarkMode();
+  resChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const cpuData: [Date, number][] = [];
   const memData: [Date, number][] = [];
@@ -74,10 +76,10 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
         type: 'slider',
         bottom: 8,
         height: 18,
-        borderColor: '#1e293b',
-        backgroundColor: '#090d16',
-        fillerColor: 'rgba(56, 189, 248, 0.15)',
-        textStyle: { color: '#64748b', fontSize: 9 },
+        borderColor: isDark ? '#1e293b' : '#cbd5e1',
+        backgroundColor: isDark ? '#090d16' : '#f8fafc',
+        fillerColor: isDark ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.2)',
+        textStyle: { color: isDark ? '#64748b' : '#64748b', fontSize: 9 },
       },
       {
         type: 'inside',
@@ -188,7 +190,8 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
   if (netChartInstance) {
     netChartInstance.dispose();
   }
-  netChartInstance = echarts.init(el, 'dark');
+  const isDark = isDarkMode();
+  netChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const speedData: [Date, number][] = [];
   const connData: [Date, number][] = [];
@@ -242,10 +245,10 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
         type: 'slider',
         bottom: 8,
         height: 18,
-        borderColor: '#1e293b',
-        backgroundColor: '#090d16',
-        fillerColor: 'rgba(16, 185, 129, 0.15)',
-        textStyle: { color: '#64748b', fontSize: 9 },
+        borderColor: isDark ? '#1e293b' : '#cbd5e1',
+        backgroundColor: isDark ? '#090d16' : '#f8fafc',
+        fillerColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.2)',
+        textStyle: { color: isDark ? '#64748b' : '#64748b', fontSize: 9 },
       },
       {
         type: 'inside',
@@ -338,7 +341,8 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
   if (forecastChartInstance) {
     forecastChartInstance.dispose();
   }
-  forecastChartInstance = echarts.init(el, 'dark');
+  const isDark = isDarkMode();
+  forecastChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const diskHistory: [number, number][] = [];
   const dbHistory: [number, number][] = [];
@@ -374,24 +378,24 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
       text: 'ディスク容量 & DBサイズ将来予測 (1年推移シミュレーション)',
       left: 'center',
       top: 10,
-      textStyle: { color: '#f8fafc', fontSize: 13, fontWeight: 'bold' },
+      textStyle: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: 13, fontWeight: 'bold' },
     },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc', fontSize: 11 },
+      backgroundColor: isDark ? '#0f172a' : '#ffffff',
+      borderColor: isDark ? '#334155' : '#cbd5e1',
+      textStyle: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: 11 },
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
         if (!params || !params.length) return '';
         const dateStr = echarts.time.format(params[0].value[0], '{yyyy}/{MM}/{dd}', false);
-        let html = `<div class="font-bold text-slate-200 mb-1 font-mono">${dateStr} (予測)</div>`;
+        let html = `<div class="font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'} mb-1 font-mono">${dateStr} (予測)</div>`;
         for (const p of params) {
           const isDisk = p.seriesName.includes('Disk');
           const valStr = isDisk ? p.value[1].toFixed(2) + '%' : renderBytes(p.value[1]);
           html += `<div class="flex items-center justify-between gap-4 text-xs">
             <span style="color:${p.color}">${p.marker} ${p.seriesName}</span>
-            <span class="font-mono font-bold text-slate-100">${valStr}</span>
+            <span class="font-mono font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}">${valStr}</span>
           </div>`;
         }
         return html;
@@ -399,7 +403,7 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
     },
     legend: {
       top: 38,
-      textStyle: { color: '#94a3b8', fontSize: 11 },
+      textStyle: { color: isDark ? '#94a3b8' : '#475569', fontSize: 11 },
       data: ['ディスク使用率予測 (%)', 'DBサイズ予測 (Bytes)'],
     },
     grid: {
@@ -411,9 +415,9 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
     },
     xAxis: {
       type: 'time',
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: isDark ? '#334155' : '#cbd5e1' } },
       axisLabel: {
-        color: '#94a3b8',
+        color: isDark ? '#94a3b8' : '#64748b',
         fontSize: 10,
         formatter: (v: any) => echarts.time.format(v, '{yyyy}/{MM}/{dd}', false),
       },
@@ -425,10 +429,10 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
         name: 'ディスク使用率 (%)',
         min: 0,
         max: 100,
-        nameTextStyle: { color: '#64748b', fontSize: 10 },
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#94a3b8', fontSize: 10, formatter: '{value}%' },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
+        axisLine: { lineStyle: { color: isDark ? '#334155' : '#cbd5e1' } },
+        axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10, formatter: '{value}%' },
+        splitLine: { lineStyle: { color: isDark ? '#1e293b' : '#e2e8f0', type: 'dashed' } },
       },
       {
         type: 'value',

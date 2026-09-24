@@ -203,6 +203,21 @@
     }
   };
 
+  // Dynamic color coding for resource stats
+  const getPercentClass = (val: number | undefined, warn = 80, crit = 90) => {
+    if (val == null) return "text-slate-700 dark:text-slate-300";
+    if (val >= crit) return "text-rose-600 dark:text-rose-400 font-bold";
+    if (val >= warn) return "text-amber-600 dark:text-amber-400 font-semibold";
+    return "text-slate-700 dark:text-slate-300";
+  };
+
+  const getLoadClass = (val: number | undefined, warn = 4.0, crit = 8.0) => {
+    if (val == null) return "text-slate-700 dark:text-slate-300";
+    if (val >= crit) return "text-rose-600 dark:text-rose-400 font-bold";
+    if (val >= warn) return "text-amber-600 dark:text-amber-400 font-semibold";
+    return "text-slate-700 dark:text-slate-300";
+  };
+
   // Export CSV
   const exportCSV = () => {
     if (monitorLogs.length === 0) return;
@@ -263,32 +278,44 @@
     };
     window.addEventListener("resize", handleResize);
 
+    // Watch for dark/light class change on html root
+    const observer = new MutationObserver(() => {
+      if (activeTab === "overview") {
+        renderOverviewCharts();
+      }
+      if (showForecastModal && forecastChartElem && monitorLogs.length > 0) {
+        showMonitorForecastChart(forecastChartElem, monitorLogs);
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
     return () => {
       window.removeEventListener("resize", handleResize);
+      observer.disconnect();
       disposeMonitorCharts();
     };
   });
 </script>
 
-<div class="flex h-[calc(100vh-4.25rem)] w-full flex-col overflow-hidden bg-[#0b1329] text-slate-100 font-sans">
+<div class="flex h-[calc(100vh-4.25rem)] w-full flex-col overflow-hidden bg-slate-50 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 font-sans">
   <!-- Top Navigation & Action Header -->
-  <header class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-slate-900/90 px-6 py-3 shrink-0 shadow-lg">
+  <header class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 px-6 py-3 shrink-0 shadow-sm dark:shadow-lg">
     <!-- Title & Tabs -->
     <div class="flex items-center gap-6">
       <div>
         <div class="flex items-center gap-2">
           <Server class="h-5 w-5 text-cyan-400" />
-          <h1 class="text-base font-bold text-slate-100 tracking-wide">システムステータス & リソースモニター</h1>
+          <h1 class="text-base font-bold text-slate-900 dark:text-slate-100 tracking-wide">システムステータス & リソースモニター</h1>
         </div>
         <p class="text-xs text-slate-400 mt-0.5">TWSNMP NEO デーモンプロセスおよびリソース稼働状況</p>
       </div>
 
       <!-- Navigation Tabs -->
-      <div class="flex items-center rounded-xl bg-slate-950 p-1 border border-slate-800">
+      <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800">
         <button
           type="button"
           onclick={() => setTab("overview")}
-          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'overview' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'overview' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <BarChart3 class="h-3.5 w-3.5" />
           <span>概要 & リソース推移</span>
@@ -297,12 +324,12 @@
         <button
           type="button"
           onclick={() => setTab("table")}
-          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'table' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'table' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <TableIcon class="h-3.5 w-3.5" />
           <span>リソース履歴テーブル</span>
           {#if monitorLogs.length > 0}
-            <span class="ml-1 rounded-md bg-slate-800 px-1.5 py-0.2 text-[10px] font-mono text-cyan-300">
+            <span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono {activeTab === 'table' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
               {monitorLogs.length}
             </span>
           {/if}
@@ -315,10 +342,10 @@
       <button
         type="button"
         onclick={openForecast}
-        class="flex items-center gap-1.5 rounded-xl border border-amber-800/60 bg-amber-950/40 hover:bg-amber-900/60 px-3.5 py-1.5 text-xs font-semibold text-amber-300 transition-colors cursor-pointer shadow-sm"
+        class="flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 px-3.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 transition-colors cursor-pointer shadow-xs"
         title="1年間のストレージ・DB使用量予測"
       >
-        <TrendingUp class="h-3.5 w-3.5 text-amber-400" />
+        <TrendingUp class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
         <span>容量予測</span>
       </button>
 
@@ -326,10 +353,10 @@
         type="button"
         onclick={handleBackup}
         disabled={backupLoading}
-        class="flex items-center gap-1.5 rounded-xl border border-emerald-800/60 bg-emerald-950/40 hover:bg-emerald-900/60 px-3.5 py-1.5 text-xs font-semibold text-emerald-300 transition-colors cursor-pointer shadow-sm"
+        class="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer shadow-xs"
         title="データベースのスナップショットバックアップ作成"
       >
-        <Database class="h-3.5 w-3.5 text-emerald-400 {backupLoading ? 'animate-pulse' : ''}" />
+        <Database class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 {backupLoading ? 'animate-pulse' : ''}" />
         <span>DBバックアップ</span>
       </button>
 
@@ -337,7 +364,7 @@
         <button
           type="button"
           onclick={exportCSV}
-          class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer shadow-sm"
+          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
           title="CSVエクスポート"
         >
           <FileSpreadsheet class="h-3.5 w-3.5 text-cyan-400" />
@@ -349,7 +376,7 @@
         type="button"
         onclick={handleRefresh}
         disabled={refreshing || loading}
-        class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer shadow-sm"
+        class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
       >
         <RotateCcw class="h-3.5 w-3.5 text-cyan-400 {refreshing ? 'animate-spin' : ''}" />
         <span>再読み込み</span>
@@ -392,37 +419,37 @@
       <!-- 6-Card High-Level Overview Grid -->
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <!-- Card 1: Daemon Health -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
           <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span class="flex items-center gap-1.5 text-cyan-400">
+            <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Server class="h-3.5 w-3.5" />
               <span>デーモン稼働状態</span>
             </span>
-            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/80 px-2 py-0.2 text-[10px] font-semibold text-emerald-400">
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/80 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
               ● ACTIVE
             </span>
           </div>
-          <div class="my-2 flex items-center gap-2 text-2xl font-bold text-emerald-400">
+          <div class="my-2 flex items-center gap-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 class="h-6 w-6" />
             <span>{sysInfo?.status?.toUpperCase() || "HEALTHY"}</span>
           </div>
-          <div class="text-[11px] text-slate-400 font-mono">
-            稼働: <span class="text-cyan-300 font-semibold">{sysInfo?.uptime || "起動中"}</span>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+            稼働: <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || "起動中"}</span>
           </div>
         </div>
 
         <!-- Card 2: Version -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span class="flex items-center gap-1.5 text-cyan-400">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Activity class="h-3.5 w-3.5" />
               <span>バージョン</span>
             </span>
           </div>
-          <div class="my-2 text-xl font-bold font-mono text-slate-100">
+          <div class="my-2 text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
             {sysInfo?.version || "v0.1.0"}
           </div>
-          <div class="text-[11px] text-slate-400 font-mono truncate">
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
             {#if sysInfo?.commit}
               ({sysInfo.commit})
             {:else}
@@ -432,82 +459,82 @@
         </div>
 
         <!-- Card 3: Server Clock -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span class="flex items-center gap-1.5 text-cyan-400">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Clock class="h-3.5 w-3.5" />
               <span>サーバー現在時刻</span>
             </span>
-            <span class="text-[10px] text-emerald-400 font-medium">NTP同期</span>
+            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">NTP同期</span>
           </div>
-          <div class="my-2 text-base font-bold font-mono text-slate-100 leading-tight">
+          <div class="my-2 text-base font-bold font-mono text-slate-900 dark:text-slate-100 leading-tight">
             {formatTimeStr(sysInfo?.time || new Date().toISOString())}
           </div>
-          <div class="text-[11px] text-slate-400">
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">
             タイムゾーン: ローカル同期
           </div>
         </div>
 
         <!-- Card 4: CPU & Load -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span class="flex items-center gap-1.5 text-cyan-400">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Cpu class="h-3.5 w-3.5" />
               <span>CPU & 負荷</span>
             </span>
-            <span class="text-[10px] font-mono text-slate-400">{sysInfo?.num_cpu || 1} コア</span>
+            <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">{sysInfo?.num_cpu || 1} コア</span>
           </div>
           <div class="my-2 flex items-baseline gap-2">
-            <span class="text-2xl font-bold font-mono text-sky-400">
+            <span class="text-2xl font-bold font-mono text-sky-600 dark:text-sky-400">
               {renderPercent(latestSnapshot?.CPU)}
             </span>
-            <span class="text-xs text-slate-400 font-mono">
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-mono">
               Load {latestSnapshot?.Load?.toFixed(2) ?? "0.00"}
             </span>
           </div>
-          <div class="text-[11px] text-slate-400 font-mono truncate">
-            自プロセス: <span class="text-cyan-300 font-semibold">{renderPercent(latestSnapshot?.MyCPU)}</span>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+            自プロセス: <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{renderPercent(latestSnapshot?.MyCPU)}</span>
           </div>
         </div>
 
         <!-- Card 5: Memory -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span class="flex items-center gap-1.5 text-cyan-400">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Layers class="h-3.5 w-3.5" />
               <span>メモリ使用状況</span>
             </span>
-            <span class="text-[10px] font-mono text-slate-400">Swap {renderPercent(latestSnapshot?.Swap)}</span>
+            <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">Swap {renderPercent(latestSnapshot?.Swap)}</span>
           </div>
           <div class="my-2 flex items-baseline gap-2">
-            <span class="text-2xl font-bold font-mono text-purple-400">
+            <span class="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
               {renderPercent(latestSnapshot?.Mem)}
             </span>
-            <span class="text-xs text-slate-400 font-mono">
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-mono">
               My {renderPercent(latestSnapshot?.MyMem)}
             </span>
           </div>
-          <div class="text-[11px] text-slate-400 font-mono truncate">
-            Heap: <span class="text-purple-300 font-semibold">{renderBytes(latestSnapshot?.HeapAlloc || 0)}</span>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+            Heap: <span class="text-purple-600 dark:text-purple-300 font-semibold">{renderBytes(latestSnapshot?.HeapAlloc || 0)}</span>
           </div>
         </div>
 
         <!-- Card 6: Database & Storage -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-            <span class="flex items-center gap-1.5 text-cyan-400">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
+          <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Database class="h-3.5 w-3.5" />
               <span>ストレージ & DB</span>
             </span>
-            <span class="text-[10px] font-mono text-emerald-400">bbolt+pq</span>
+            <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">bbolt+pq</span>
           </div>
           <div class="my-2 flex items-baseline gap-2">
-            <span class="text-2xl font-bold font-mono text-emerald-400">
+            <span class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {renderBytes(latestSnapshot?.DBSize || 0)}
             </span>
           </div>
-          <div class="text-[11px] text-slate-400 font-mono truncate">
-            Disk: <span class="text-amber-300 font-semibold">{renderPercent(latestSnapshot?.Disk)}</span> 使用
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+            Disk: <span class="text-amber-600 dark:text-amber-300 font-semibold">{renderPercent(latestSnapshot?.Disk)}</span> 使用
           </div>
         </div>
       </div>
@@ -515,15 +542,15 @@
       <!-- Telemetry Charts Section (twsnmpfk style) -->
       <div class="flex flex-col gap-6">
         <!-- Resource Chart -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg flex flex-col">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-2">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg flex flex-col">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-2">
             <div class="flex items-center gap-2">
-              <Cpu class="h-4 w-4 text-cyan-400" />
-              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
+              <Cpu class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                 システムリソース推移 (CPU / Memory / Disk / Load)
               </h3>
             </div>
-            <span class="text-[10px] text-slate-400 font-mono">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               {monitorLogs.length} サンプル
             </span>
           </div>
@@ -531,15 +558,15 @@
         </div>
 
         <!-- Network & Connections Chart -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg flex flex-col">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-2">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg flex flex-col">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-2">
             <div class="flex items-center gap-2">
-              <Radio class="h-4 w-4 text-emerald-400" />
-              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
+              <Radio class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                 ネットワークトラフィック & TCP 接続数推移
               </h3>
             </div>
-            <span class="text-[10px] text-slate-400 font-mono">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               現在: {renderSpeed(latestSnapshot?.Net || 0)} / {latestSnapshot?.Conn || 0} conn
             </span>
           </div>
@@ -548,129 +575,129 @@
       </div>
 
       <!-- Protocol Servers Overview Card -->
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div class="flex items-center gap-2">
-            <ShieldCheck class="h-4 w-4 text-cyan-400" />
-            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">サーバー稼働状態</h3>
+            <ShieldCheck class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">サーバー稼働状態</h3>
           </div>
-          <div class="flex items-center gap-4 text-xs font-mono text-slate-400">
-            <span>監視ノード数: <strong class="text-cyan-400">{sysInfo?.node_count ?? 0}</strong></span>
-            <span>アクティブポーリング: <strong class="text-cyan-400">{sysInfo?.poll_count ?? 0}</strong></span>
+          <div class="flex items-center gap-4 text-xs font-mono text-slate-500 dark:text-slate-400">
+            <span>監視ノード数: <strong class="text-cyan-600 dark:text-cyan-400">{sysInfo?.node_count ?? 0}</strong></span>
+            <span>アクティブポーリング: <strong class="text-cyan-600 dark:text-cyan-400">{sysInfo?.poll_count ?? 0}</strong></span>
           </div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           <!-- Syslog -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">Syslog</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">Syslog</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.syslog?.port || "UDP :514 / TCP :514"}
             </div>
-            <div class="text-[10px] text-slate-500">RFC 3164 / RFC 5424</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">RFC 3164 / RFC 5424</div>
           </div>
 
           <!-- SNMP TRAP -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">SNMP TRAP</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">SNMP TRAP</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.trap?.port || "UDP :162 (v1/v2c/v3)"}
             </div>
-            <div class="text-[10px] text-slate-500">SNMP TRAP / InformRequest</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">SNMP TRAP / InformRequest</div>
           </div>
 
           <!-- NetFlow / IPFIX -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">NetFlow / IPFIX</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">NetFlow / IPFIX</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.netflow?.port || "UDP :2055"}
             </div>
-            <div class="text-[10px] text-slate-500">NetFlow v5 / v9 / IPFIX</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">NetFlow v5 / v9 / IPFIX</div>
           </div>
 
           <!-- MCP サーバー -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">MCP サーバー</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">MCP サーバー</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-emerald-400 font-semibold">
+            <div class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
               {sysInfo?.receivers?.mcp?.port || "SSE /api/mcp/sse"}
             </div>
-            <div class="text-[10px] text-slate-500">AI エージェント統合 (Model Context Protocol)</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">AI エージェント統合 (Model Context Protocol)</div>
           </div>
 
           <!-- OpenTelemetry -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">OpenTelemetry</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">OpenTelemetry</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.otel?.port || "HTTP :4318 (OTLP)"}
             </div>
-            <div class="text-[10px] text-slate-500">OTLP Traces / Metrics / Logs</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">OTLP Traces / Metrics / Logs</div>
           </div>
 
           <!-- MQTT Broker -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">MQTT ブローカー</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">MQTT ブローカー</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.mqtt?.port || "TCP :1883"}
             </div>
-            <div class="text-[10px] text-slate-500">IoT / センサーパブリッシュ監視</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">IoT / センサーパブリッシュ監視</div>
           </div>
 
           <!-- sFlow -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">sFlow</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">sFlow</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.sflow?.port || "UDP :6343"}
             </div>
-            <div class="text-[10px] text-slate-500">sFlow v5 Flow / Counter サンプル</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">sFlow v5 Flow / Counter サンプル</div>
           </div>
 
           <!-- ARP Watch -->
-          <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-200">ARP Watch</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.2 text-[10px] text-emerald-400">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">ARP Watch</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 ● 稼働中
               </span>
             </div>
-            <div class="font-mono text-cyan-400 font-semibold">
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               ローカル ARP スキャン
             </div>
-            <div class="text-[10px] text-slate-500">IP-MAC コンフリクト検知 & デバイス発見</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">IP-MAC コンフリクト検知 & デバイス発見</div>
           </div>
         </div>
       </div>
@@ -681,7 +708,7 @@
   {#if activeTab === "table"}
     <div class="flex-1 flex flex-col overflow-hidden p-6 space-y-4">
       <!-- Table Filter Bar -->
-      <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg shrink-0">
+      <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg shrink-0">
         <div class="flex items-center gap-3">
           <div class="relative w-72">
             <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -690,7 +717,7 @@
               placeholder="日時で検索..."
               bind:value={tableSearch}
               oninput={() => (tablePage = 1)}
-              class="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
+              class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
             />
           </div>
           <span class="text-xs text-slate-400">
@@ -698,12 +725,12 @@
           </span>
         </div>
 
-        <div class="flex items-center gap-3 text-xs text-slate-400">
+        <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
           <span>表示件数:</span>
           <select
             bind:value={tablePageSize}
             onchange={() => (tablePage = 1)}
-            class="rounded-xl border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none cursor-pointer"
+            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none cursor-pointer shadow-xs"
           >
             <option value={15}>15 件</option>
             <option value={25}>25 件</option>
@@ -715,92 +742,92 @@
       </div>
 
       <!-- Table Container -->
-      <div class="flex-1 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden flex flex-col">
+      <div class="flex-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
         <div class="flex-1 overflow-auto">
           <table class="w-full border-collapse text-left text-xs">
-            <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-slate-400 text-[11px] font-semibold uppercase tracking-wider">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 text-[10px] font-semibold uppercase tracking-wider select-none">
               <tr>
-                <th onclick={() => handleSort("Time")} class="px-4 py-3 cursor-pointer hover:text-slate-200">
+                <th onclick={() => handleSort("Time")} class="px-4 py-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center gap-1">
                     <span>日時</span>
                     {#if sortColumn === "Time"}
-                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {:else}
-                      <ArrowUpDown class="h-3 w-3 text-slate-600" />
+                      <ArrowUpDown class="h-3 w-3 text-slate-400 dark:text-slate-600" />
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("CPU")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">
+                <th onclick={() => handleSort("CPU")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>CPU</span>
                     {#if sortColumn === "CPU"}
-                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("Mem")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">
+                <th onclick={() => handleSort("Mem")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>メモリ</span>
                     {#if sortColumn === "Mem"}
-                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("MyCPU")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">
+                <th onclick={() => handleSort("MyCPU")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>My CPU</span>
                     {#if sortColumn === "MyCPU"}
-                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("MyMem")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">
+                <th onclick={() => handleSort("MyMem")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>My メモリ</span>
                     {#if sortColumn === "MyMem"}
-                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
+                      {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("Swap")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Swap</th>
-                <th onclick={() => handleSort("Disk")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Disk</th>
-                <th onclick={() => handleSort("Load")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Load</th>
-                <th onclick={() => handleSort("Net")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">通信速度</th>
-                <th onclick={() => handleSort("Conn")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Conn</th>
-                <th onclick={() => handleSort("Proc")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Proc</th>
-                <th onclick={() => handleSort("NumGoroutine")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Goroutine</th>
-                <th onclick={() => handleSort("HeapAlloc")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Heap</th>
-                <th onclick={() => handleSort("Sys")} class="px-3 py-3 text-right cursor-pointer hover:text-slate-200">Sys</th>
-                <th onclick={() => handleSort("DBSize")} class="px-4 py-3 text-right cursor-pointer hover:text-slate-200">DB Size</th>
+                <th onclick={() => handleSort("Swap")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Swap</th>
+                <th onclick={() => handleSort("Disk")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Disk</th>
+                <th onclick={() => handleSort("Load")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Load</th>
+                <th onclick={() => handleSort("Net")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">通信速度</th>
+                <th onclick={() => handleSort("Conn")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Conn</th>
+                <th onclick={() => handleSort("Proc")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Proc</th>
+                <th onclick={() => handleSort("NumGoroutine")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Goroutine</th>
+                <th onclick={() => handleSort("HeapAlloc")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Heap</th>
+                <th onclick={() => handleSort("Sys")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Sys</th>
+                <th onclick={() => handleSort("DBSize")} class="px-4 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">DB Size</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800 font-mono text-[11px]">
+            <tbody class="font-mono text-[11px]">
               {#if paginatedLogs.length === 0}
                 <tr>
-                  <td colspan="15" class="py-12 text-center text-slate-500">
+                  <td colspan="15" class="py-12 text-center text-slate-500 font-sans">
                     リソースモニターの記録データがありません
                   </td>
                 </tr>
               {:else}
                 {#each paginatedLogs as row}
-                  <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="px-4 py-2 text-slate-200 whitespace-nowrap">
+                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="px-4 py-2 text-slate-800 dark:text-slate-200 whitespace-nowrap">
                       {formatTimeStr(Math.floor(row.Time / 1e6))}
                     </td>
-                    <td class="px-3 py-2 text-right text-sky-400 font-semibold">{renderPercent(row.CPU)}</td>
-                    <td class="px-3 py-2 text-right text-purple-400 font-semibold">{renderPercent(row.Mem)}</td>
-                    <td class="px-3 py-2 text-right text-cyan-300">{renderPercent(row.MyCPU)}</td>
-                    <td class="px-3 py-2 text-right text-pink-300">{renderPercent(row.MyMem)}</td>
-                    <td class="px-3 py-2 text-right text-slate-400">{renderPercent(row.Swap)}</td>
-                    <td class="px-3 py-2 text-right text-amber-300 font-semibold">{renderPercent(row.Disk)}</td>
-                    <td class="px-3 py-2 text-right text-emerald-400">{row.Load?.toFixed(2) ?? "0.00"}</td>
-                    <td class="px-3 py-2 text-right text-emerald-300">{renderSpeed(row.Net || 0)}</td>
-                    <td class="px-3 py-2 text-right text-sky-300">{row.Conn ?? 0}</td>
-                    <td class="px-3 py-2 text-right text-slate-400">{row.Proc ?? 0}</td>
-                    <td class="px-3 py-2 text-right text-cyan-400">{row.NumGoroutine ?? 0}</td>
-                    <td class="px-3 py-2 text-right text-purple-300">{renderBytes(row.HeapAlloc || 0)}</td>
-                    <td class="px-3 py-2 text-right text-slate-400">{renderBytes(row.Sys || 0)}</td>
-                    <td class="px-4 py-2 text-right text-emerald-400 font-semibold">{renderBytes(row.DBSize || 0)}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.CPU, 80, 90)}">{renderPercent(row.CPU)}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.Mem, 85, 95)}">{renderPercent(row.Mem)}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.MyCPU, 50, 80)}">{renderPercent(row.MyCPU)}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.MyMem, 50, 80)}">{renderPercent(row.MyMem)}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.Swap, 60, 80)}">{renderPercent(row.Swap)}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.Disk, 85, 95)}">{renderPercent(row.Disk)}</td>
+                    <td class="px-3 py-2 text-right {getLoadClass(row.Load, 4.0, 8.0)}">{row.Load?.toFixed(2) ?? "0.00"}</td>
+                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{renderSpeed(row.Net || 0)}</td>
+                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{row.Conn ?? 0}</td>
+                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{row.Proc ?? 0}</td>
+                    <td class="px-3 py-2 text-right {getPercentClass(row.NumGoroutine, 500, 2000)}">{row.NumGoroutine ?? 0}</td>
+                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.HeapAlloc || 0)}</td>
+                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.Sys || 0)}</td>
+                    <td class="px-4 py-2 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.DBSize || 0)}</td>
                   </tr>
                 {/each}
               {/if}
@@ -810,10 +837,10 @@
 
         <!-- Pagination Controls -->
         {#if tablePageSize !== -1 && totalPages > 1}
-          <div class="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-3 shrink-0 text-xs text-slate-400">
+          <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-4 py-3 shrink-0 text-xs text-slate-600 dark:text-slate-400">
             <div>
-              <span>全 <strong class="text-slate-200">{filteredLogs.length}</strong> 件中</span>
-              <span class="ml-1 font-mono text-cyan-400">
+              <span>全 <strong class="text-slate-800 dark:text-slate-200">{filteredLogs.length}</strong> 件中</span>
+              <span class="ml-1 font-mono text-cyan-600 dark:text-cyan-400">
                 {(tablePage - 1) * tablePageSize + 1} - {Math.min(tablePage * tablePageSize, filteredLogs.length)}
               </span>
             </div>
@@ -823,7 +850,7 @@
                 type="button"
                 onclick={() => (tablePage = 1)}
                 disabled={tablePage === 1}
-                class="rounded-lg border border-slate-700 p-1 text-slate-300 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               >
                 <ChevronsLeft class="h-4 w-4" />
               </button>
@@ -831,18 +858,18 @@
                 type="button"
                 onclick={() => (tablePage = Math.max(1, tablePage - 1))}
                 disabled={tablePage === 1}
-                class="rounded-lg border border-slate-700 p-1 text-slate-300 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               >
                 <ChevronLeft class="h-4 w-4" />
               </button>
-              <span class="px-2 text-slate-300 font-mono">
+              <span class="px-2 text-slate-600 dark:text-slate-300 font-mono">
                 {tablePage} / {totalPages}
               </span>
               <button
                 type="button"
                 onclick={() => (tablePage = Math.min(totalPages, tablePage + 1))}
                 disabled={tablePage === totalPages}
-                class="rounded-lg border border-slate-700 p-1 text-slate-300 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               >
                 <ChevronRight class="h-4 w-4" />
               </button>
@@ -850,7 +877,7 @@
                 type="button"
                 onclick={() => (tablePage = totalPages)}
                 disabled={tablePage === totalPages}
-                class="rounded-lg border border-slate-700 p-1 text-slate-300 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               >
                 <ChevronsRight class="h-4 w-4" />
               </button>
@@ -865,17 +892,17 @@
 <!-- Size Forecast Modal -->
 {#if showForecastModal}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-    <div class="w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div class="w-full max-w-4xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150">
       <!-- Modal Header -->
-      <div class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4">
         <div class="flex items-center gap-2.5">
-          <TrendingUp class="h-5 w-5 text-amber-400" />
-          <h2 class="text-sm font-bold text-slate-100">ストレージ & データベース将来容量予測 (1年間)</h2>
+          <TrendingUp class="h-5 w-5 text-amber-500 dark:text-amber-400" />
+          <h2 class="text-sm font-bold text-slate-900 dark:text-slate-100">ストレージ & データベース将来容量予測 (1年間)</h2>
         </div>
         <button
           type="button"
           onclick={() => (showForecastModal = false)}
-          class="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
+          class="rounded-lg p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer"
         >
           <X class="h-5 w-5" />
         </button>
@@ -883,18 +910,18 @@
 
       <!-- Modal Body -->
       <div class="p-6">
-        <div class="mb-3 rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400">
+        <div class="mb-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-xs text-slate-600 dark:text-slate-400">
           過去のリソースサンプルの推移に基づき、線形回帰分析（Linear Regression）を用いて今後365日間のディスク使用率およびデータベースサイズを予測します。
         </div>
         <div bind:this={forecastChartElem} class="w-full h-96"></div>
       </div>
 
       <!-- Modal Footer -->
-      <div class="flex justify-end border-t border-slate-800 bg-slate-950/60 px-6 py-3">
+      <div class="flex justify-end border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-6 py-3">
         <button
           type="button"
           onclick={() => (showForecastModal = false)}
-          class="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+          class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
           閉じる
         </button>

@@ -139,15 +139,15 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4 shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
             <Compass class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <span>{isNode ? "ノードの接続先を探す" : "ネットワークの接続先を探す"}</span>
               <span class="text-xs font-normal text-cyan-300">({targetName})</span>
             </h2>
@@ -165,7 +165,7 @@
       </div>
 
       <!-- Content -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-900/30 text-xs">
+      <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/60 dark:bg-slate-900/30 text-xs">
         {#if errorMsg}
           <div class="flex items-center gap-2 rounded-xl border border-rose-800/40 bg-rose-950/40 p-3.5 text-xs font-medium text-rose-300 shadow-sm">
             <AlertCircle class="h-4 w-4 text-rose-400 shrink-0" />
@@ -278,7 +278,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center justify-between border-t border-slate-800/80 bg-slate-900/60 px-6 py-3.5 shrink-0">
+      <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5 shrink-0">
         <button
           type="button"
           onclick={loadNeighbors}
@@ -293,7 +293,7 @@
           <button
             type="button"
             onclick={() => (show = false)}
-            class="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+            class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
             閉じる
           </button>

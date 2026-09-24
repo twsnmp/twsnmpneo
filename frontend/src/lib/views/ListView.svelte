@@ -226,15 +226,15 @@
   const getStatusBadge = (state: string) => {
     switch (state?.toLowerCase()) {
       case "normal":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+        return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30";
       case "warn":
       case "low":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30";
       case "high":
       case "error":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+        return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30";
       default:
-        return "bg-slate-800 text-slate-400 border-slate-700";
+        return "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
     }
   };
 
@@ -357,11 +357,11 @@
   };
 </script>
 
-<div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-[#0b1329] text-slate-100 font-sans">
+<div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-slate-100 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 font-sans transition-colors">
   <!-- Left Sidebar (Reports suite layout) -->
-  <div class="w-64 border-r border-slate-800 bg-slate-950/70 p-3 space-y-1.5 shrink-0 flex flex-col justify-between">
+  <div class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70 p-3 space-y-1.5 shrink-0 flex flex-col justify-between transition-colors">
     <div class="space-y-1">
-      <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         構成・管理リスト (Items)
       </div>
 
@@ -380,13 +380,13 @@
             statusFilter = "all";
             typeFilter = "all";
           }}
-          class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeCategory === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+          class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeCategory === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <div class="flex items-center gap-2.5 truncate">
-            <cat.icon class="h-4 w-4 shrink-0 {activeCategory === cat.id ? 'text-white' : 'text-cyan-400'}" />
+            <cat.icon class="h-4 w-4 shrink-0 {activeCategory === cat.id ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'}" />
             <span class="truncate">{cat.name}</span>
           </div>
-          <span class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeCategory === cat.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}">
+          <span class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeCategory === cat.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent'}">
             {count}
           </span>
         </button>
@@ -394,18 +394,18 @@
     </div>
 
     <!-- Live Status & Orphan Inspection Card -->
-    <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 text-[11px] text-slate-400 space-y-2">
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-2 transition-colors">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-200">データ同期</span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+        <span class="font-semibold text-slate-700 dark:text-slate-200">データ同期</span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
           ● リアルタイム
         </span>
       </div>
 
       {#if orphanLinesCount > 0 || offscreenDrawItemsCount > 0}
-        <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] text-amber-300 space-y-1">
+        <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300 space-y-1">
           <div class="font-bold flex items-center gap-1">
-            <AlertTriangle class="h-3 w-3 text-amber-400" />
+            <AlertTriangle class="h-3 w-3 text-amber-500 dark:text-amber-400" />
             <span>マップ外・孤立アイテム検出</span>
           </div>
           {#if orphanLinesCount > 0}
@@ -417,8 +417,8 @@
         </div>
       {/if}
 
-      <div class="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/80">
-        全アイテム: <span class="text-cyan-400 font-bold">{nodes.length + pollings.length + networks.length + lines.length + drawItems.length}</span> 件
+      <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800/80">
+        全アイテム: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{nodes.length + pollings.length + networks.length + lines.length + drawItems.length}</span> 件
       </div>
     </div>
   </div>
@@ -426,7 +426,7 @@
   <!-- Right Main Content Canvas -->
   <div class="flex-1 overflow-hidden flex flex-col p-5 gap-4 min-w-0">
     <!-- Top Action Bar (twnoaa style) -->
-    <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg shrink-0">
+    <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg shrink-0 transition-colors">
       <div class="flex items-center gap-3">
         <!-- Search -->
         <div class="relative w-72">
@@ -441,7 +441,7 @@
               "テキスト・ラベルで検索..."
             }
             bind:value={searchQuery}
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
           />
         </div>
 
@@ -449,7 +449,7 @@
         {#if activeCategory === "nodes"}
           <select
             bind:value={statusFilter}
-            class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
+            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">全ステータス ({nodes.length})</option>
             <option value="normal">正常</option>
@@ -460,7 +460,7 @@
         {:else if activeCategory === "pollings"}
           <select
             bind:value={typeFilter}
-            class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
+            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">全プロトコル ({pollings.length})</option>
             <option value="ping">PING</option>
@@ -473,7 +473,7 @@
         {:else if activeCategory === "lines"}
           <select
             bind:value={statusFilter}
-            class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
+            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">全ライン ({lines.length})</option>
             {#if orphanLinesCount > 0}
@@ -483,7 +483,7 @@
         {:else if activeCategory === "drawitems"}
           <select
             bind:value={typeFilter}
-            class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
+            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">全アイテム種別 ({drawItems.length})</option>
             <option value="2">テキスト (Text)</option>
@@ -500,9 +500,9 @@
         <button
           onclick={loadAll}
           disabled={loading}
-          class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
         >
-          <RefreshCw class="h-3.5 w-3.5 text-cyan-400 {loading ? 'animate-spin' : ''}" />
+          <RefreshCw class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 {loading ? 'animate-spin' : ''}" />
           <span>更新</span>
         </button>
 
@@ -523,13 +523,13 @@
     </div>
 
     <!-- Table Container (twnoaa style) -->
-    <div class="flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg flex flex-col min-h-0">
+    <div class="flex-1 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm dark:shadow-lg flex flex-col min-h-0 transition-colors">
       <div class="h-full overflow-y-auto overflow-x-auto">
 
         <!-- 1. NODES TABLE -->
         {#if activeCategory === "nodes"}
           <table class="w-full text-left text-xs">
-            <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th class="py-2.5 px-3.5 w-28">ステータス</th>
                 <th class="py-2.5 px-3.5">ノード名</th>
@@ -540,44 +540,44 @@
                 <th class="py-2.5 px-3.5 text-right w-28">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
               {#each filteredNodes as n}
-                <tr class="hover:bg-slate-800/40 transition-colors">
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td class="py-2 px-3.5">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(n.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(n.state)}"></span>
                       {getStateName(n.state)}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 font-bold text-slate-100 font-sans flex items-center gap-2">
+                  <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
                     <Laptop class="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span>{n.name}</span>
                   </td>
-                  <td class="py-2 px-3.5 text-cyan-400">{n.ip}</td>
-                  <td class="py-2 px-3.5 text-slate-400">{n.mac || "-"}</td>
-                  <td class="py-2 px-3.5 text-slate-400 text-[11px]">
+                  <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-semibold">{n.ip}</td>
+                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{n.mac || "-"}</td>
+                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 text-[11px]">
                     ({n.x ?? 0}, {n.y ?? 0})
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 font-sans truncate max-w-xs">{n.descr || "-"}</td>
+                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300 font-sans truncate max-w-xs">{n.descr || "-"}</td>
                   <td class="py-2 px-3.5 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleDetailNode(n)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-cyan-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
                         title="詳細情報 / 仮想パネル"
                       >
                         <Box class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleEditNode(n)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         title="編集"
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteNode(n.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                         title="削除"
                       >
                         <Trash2 class="h-4 w-4" />
@@ -588,7 +588,7 @@
               {/each}
               {#if filteredNodes.length === 0}
                 <tr>
-                  <td colspan="7" class="py-12 text-center text-slate-500 font-sans">
+                  <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                     ノードが見つかりません
                   </td>
                 </tr>
@@ -599,7 +599,7 @@
         <!-- 2. POLLINGS TABLE -->
         {:else if activeCategory === "pollings"}
           <table class="w-full text-left text-xs">
-            <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th class="py-2.5 px-3.5 w-28">状態</th>
                 <th class="py-2.5 px-3.5">ポーリング名</th>
@@ -611,41 +611,41 @@
                 <th class="py-2.5 px-3.5 text-right w-24">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
               {#each filteredPollings as p}
-                <tr class="hover:bg-slate-800/40 transition-colors">
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td class="py-2 px-3.5">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(p.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(p.state)}"></span>
                       {getStateName(p.state)}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 font-bold text-slate-100 font-sans">{p.name}</td>
+                  <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans">{p.name}</td>
                   <td class="py-2 px-3.5">
-                    <span class="rounded px-2 py-0.5 font-mono text-[10px] uppercase font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                    <span class="rounded px-2 py-0.5 font-mono text-[10px] uppercase font-bold bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
                       {p.type}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-300">{p.target || "-"}</td>
-                  <td class="py-2 px-3.5 text-cyan-400 font-sans">{getNodeName(p.node_id || (p as any).NodeID)}</td>
-                  <td class="py-2 px-3.5 text-emerald-400">
+                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{p.target || "-"}</td>
+                  <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-sans font-medium">{getNodeName(p.node_id || (p as any).NodeID)}</td>
+                  <td class="py-2 px-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
                     {p.last_val !== undefined ? p.last_val.toFixed(2) + " ms" : "-"}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 text-[11px]">
+                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 text-[11px]">
                     {formatTimeStr(p.last_time)}
                   </td>
                   <td class="py-2 px-3.5 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditPolling(p)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         title="編集"
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeletePolling(p.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                         title="削除"
                       >
                         <Trash2 class="h-4 w-4" />
@@ -656,7 +656,7 @@
               {/each}
               {#if filteredPollings.length === 0}
                 <tr>
-                  <td colspan="8" class="py-12 text-center text-slate-500 font-sans">
+                  <td colspan="8" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                     ポーリング項目が見つかりません
                   </td>
                 </tr>
@@ -667,7 +667,7 @@
         <!-- 3. NETWORKS TABLE -->
         {:else if activeCategory === "networks"}
           <table class="w-full text-left text-xs">
-            <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th class="py-2.5 px-3.5">ネットワーク名</th>
                 <th class="py-2.5 px-3.5">IP アドレス</th>
@@ -678,38 +678,38 @@
                 <th class="py-2.5 px-3.5 text-right w-24">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
               {#each filteredNetworks as net}
-                <tr class="hover:bg-slate-800/40 transition-colors">
-                  <td class="py-2 px-3.5 font-bold text-slate-100 font-sans flex items-center gap-2">
-                    <Network class="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
+                    <Network class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                     <span>{net.name}</span>
                   </td>
-                  <td class="py-2 px-3.5 text-cyan-400">{net.ip || "-"}</td>
+                  <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-semibold">{net.ip || "-"}</td>
                   <td class="py-2 px-3.5">
-                    <span class="rounded px-2 py-0.5 text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                    <span class="rounded px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                       {(net.ports || []).length} ポート
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 text-[11px]">
+                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
                     {net.w} × {net.h}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 text-[11px]">
+                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
                     ({net.x}, {net.y})
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 font-sans truncate max-w-xs">{net.descr || "-"}</td>
+                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 font-sans truncate max-w-xs">{net.descr || "-"}</td>
                   <td class="py-2 px-3.5 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditNetwork(net)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         title="編集"
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteNetwork(net.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                         title="削除"
                       >
                         <Trash2 class="h-4 w-4" />
@@ -720,7 +720,7 @@
               {/each}
               {#if filteredNetworks.length === 0}
                 <tr>
-                  <td colspan="7" class="py-12 text-center text-slate-500 font-sans">
+                  <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                     ネットワークが見つかりません
                   </td>
                 </tr>
@@ -731,7 +731,7 @@
         <!-- 4. LINES TABLE -->
         {:else if activeCategory === "lines"}
           <table class="w-full text-left text-xs">
-            <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th class="py-2.5 px-3.5 w-28">状態</th>
                 <th class="py-2.5 px-3.5">接続元 1</th>
@@ -742,34 +742,34 @@
                 <th class="py-2.5 px-3.5 text-right w-24">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
               {#each filteredLines as l}
                 {@const orphaned = isLineOrphaned(l)}
-                <tr class="hover:bg-slate-800/40 transition-colors {orphaned ? 'bg-amber-950/20' : ''}">
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {orphaned ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
                   <td class="py-2 px-3.5">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(l.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(l.state)}"></span>
                       {getStateName(l.state)}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 font-sans font-medium text-slate-200">
+                  <td class="py-2 px-3.5 font-sans font-medium text-slate-800 dark:text-slate-200">
                     {getTargetLabel(l.node_id1 || (l as any).NodeID1)}
                   </td>
-                  <td class="py-2 px-3.5 font-sans font-medium text-slate-200">
+                  <td class="py-2 px-3.5 font-sans font-medium text-slate-800 dark:text-slate-200">
                     {getTargetLabel(l.node_id2 || (l as any).NodeID2)}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400">{l.width} px</td>
-                  <td class="py-2 px-3.5 text-slate-400 font-sans">
+                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{l.width} px</td>
+                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300 font-sans">
                     {l.info || l.port || "-"}
                   </td>
                   <td class="py-2 px-3.5 font-sans">
                     {#if orphaned}
-                      <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                      <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
                         <AlertTriangle class="h-3 w-3" />
                         未接続（マップ描画不可）
                       </span>
                     {:else}
-                      <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         <CheckCircle2 class="h-3 w-3" />
                         接続正常
                       </span>
@@ -779,14 +779,14 @@
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditLine(l)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         title="編集"
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteLine(l.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                         title="削除 (マップから消滅したラインの救済削除)"
                       >
                         <Trash2 class="h-4 w-4" />
@@ -797,7 +797,7 @@
               {/each}
               {#if filteredLines.length === 0}
                 <tr>
-                  <td colspan="7" class="py-12 text-center text-slate-500 font-sans">
+                  <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                     ラインが見つかりません
                   </td>
                 </tr>
@@ -808,7 +808,7 @@
         <!-- 5. DRAW ITEMS TABLE -->
         {:else if activeCategory === "drawitems"}
           <table class="w-full text-left text-xs">
-            <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+            <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th class="py-2.5 px-3.5 w-44">アイテム種別</th>
                 <th class="py-2.5 px-3.5">表示テキスト / ラベル</th>
@@ -819,20 +819,20 @@
                 <th class="py-2.5 px-3.5 text-right w-24">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
               {#each filteredDrawItems as d}
                 {@const type = d.type ?? (d as any).Type ?? 2}
                 {@const IconComp = getDrawItemIcon(type)}
                 {@const offscreen = isDrawItemOffscreen(d)}
-                <tr class="hover:bg-slate-800/40 transition-colors {offscreen ? 'bg-amber-950/20' : ''}">
-                  <td class="py-2 px-3.5 font-sans font-semibold text-slate-200 flex items-center gap-2">
-                    <IconComp class="h-4 w-4 text-cyan-400 shrink-0" />
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {offscreen ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
+                  <td class="py-2 px-3.5 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <IconComp class="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                     <span>{getDrawItemTypeName(type)}</span>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-100 font-sans font-medium">
+                  <td class="py-2 px-3.5 text-slate-900 dark:text-slate-100 font-sans font-medium">
                     {d.text || (d as any).Text || "-"}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 font-sans text-[11px]">
+                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 font-sans text-[11px]">
                     {#if d.node_id}
                       <span>ノード: {getNodeName(d.node_id)}</span>
                     {:else}
@@ -840,36 +840,36 @@
                     {/if}
                   </td>
                   <td class="py-2 px-3.5 text-[11px]">
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                       <span>({d.x ?? 0}, {d.y ?? 0})</span>
                       {#if offscreen}
-                        <span class="rounded bg-amber-500/10 border border-amber-500/30 px-1 py-0.2 text-[9px] font-bold text-amber-400">
+                        <span class="rounded bg-amber-500/10 border border-amber-500/30 px-1 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                           画面外
                         </span>
                       {/if}
                     </div>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-400 text-[11px]">
+                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
                     {d.w ?? 0} × {d.h ?? 0}
                   </td>
                   <td class="py-2 px-3.5">
                     <div class="flex items-center gap-1.5">
-                      <span class="h-3 w-3 rounded-full border border-slate-700" style="background-color: {d.color || '#06b6d4'}"></span>
-                      <span class="text-[10px] text-slate-400">{d.color || "#06b6d4"}</span>
+                      <span class="h-3 w-3 rounded-full border border-slate-300 dark:border-slate-700" style="background-color: {d.color || '#06b6d4'}"></span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400">{d.color || "#06b6d4"}</span>
                     </div>
                   </td>
                   <td class="py-2 px-3.5 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditDrawItem(d)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                         title="編集"
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteDrawItem(d.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                         title="削除 (マップ外で拾えなくなったアイテムの削除)"
                       >
                         <Trash2 class="h-4 w-4" />
@@ -880,7 +880,7 @@
               {/each}
               {#if filteredDrawItems.length === 0}
                 <tr>
-                  <td colspan="7" class="py-12 text-center text-slate-500 font-sans">
+                  <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                     描画アイテムが見つかりません
                   </td>
                 </tr>

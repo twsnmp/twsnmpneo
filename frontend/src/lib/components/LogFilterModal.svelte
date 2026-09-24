@@ -44,7 +44,7 @@
 
 {#if show}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-    <div class="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl text-slate-100">
+    <div class="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl text-slate-800 dark:text-slate-100">
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-slate-800 pb-4">
         <div class="flex items-center gap-2.5 text-base font-bold text-cyan-400">

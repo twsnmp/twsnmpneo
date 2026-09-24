@@ -106,15 +106,15 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4 shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
             <Network class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100">
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
               {network.name || (network as any).Name || "ネットワーク"} - 接続ライン編集
             </h2>
             <p class="text-[11px] text-slate-400">ネットワーク各ポートに接続されているラインの一覧と管理</p>
@@ -131,7 +131,7 @@
       </div>
 
       <!-- Table Content -->
-      <div class="flex-1 overflow-y-auto p-6 bg-slate-900/30 text-xs">
+      <div class="flex-1 overflow-y-auto p-6 bg-slate-50/60 dark:bg-slate-900/30 text-xs">
         {#if hubLines.length === 0}
           <div class="flex flex-col items-center justify-center py-12 text-slate-500">
             <Link class="h-10 w-10 mb-3 opacity-30" />
@@ -205,7 +205,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center justify-end border-t border-slate-800/80 bg-slate-900/60 px-6 py-3.5 shrink-0">
+      <div class="flex items-center justify-end border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5 shrink-0">
         <button
           type="button"
           onclick={() => (show = false)}

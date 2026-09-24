@@ -179,13 +179,15 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Dedicated tabs for **EventLog**, **Syslog**, **SNMP TRAP**, **NetFlow / IPFIX**, **sFlow / sFlow Counter**, and **ARP Watch**.
    - Features columnar filters, regex search, time range pickers, histogram visualization, CSV export, and inline AI troubleshooting (`LogAIDialog`).
 6. **OpenTelemetry View (`OTelView.svelte`)**:
-   - Dedicated telemetry viewer with tabs for **Metrics** (time-series / histogram), **Traces** (duration scatter chart, timeline span hierarchy, interactive service DAG graph), and **Logs**.
+   - Dedicated telemetry viewer featuring a left sidebar (`w-60`) for switching between **Metrics**, **Traces**, and **Logs** with real-time badge counts.
+   - Top overview dashboard (`h-64`) featuring 4 vertical KPIs, metric type donut chart, service metric horizontal bar chart, and trace duration scatter plot.
+   - Interactive service DAG topology graph, span hierarchy timeline tree, and fully sortable tables.
 7. **MQTT View (`MQTTView.svelte`)**:
-   - Dedicated MQTT topic monitor with tabs for **統計 (Stats)** and **ログ (Logs)**.
-   - Stats view displays full TWSNMP FK compatibility: row expander with pretty-printed payload code block, State (Normal/Warn/Low), Client ID, Remote IP, Topic, Count, Bytes, First Time, and Last Time.
-   - Action buttons for Multi-selection, Create Polling / AI Assist, Copy Topic, Delete, Delete All, Report, and Reload.
-   - Integrated 7-tab MQTT analytics report modal (`MQTTReportModal.svelte`) powered by Apache ECharts.
-   - Logs view displays independent Parquet logs (`type: mqtt`) with date filtering, search, CSV export, and automatic rotation based on `MapConf.LogDays`.
+   - Dedicated MQTT topic monitor featuring a left sidebar (`w-60`) for switching between **統計 (Stats)** and **ログ (Logs)** with real-time badge counts.
+   - Top overview dashboard (`h-64`) with 4 vertical KPIs, State breakdown donut chart, and Top 10 topics horizontal bar chart.
+   - Top header action bar (Reload, Create Polling / AI Assist, Report, Delete All, Delete) and per-row topic copy button.
+   - Full column sorting, standardized state badges (colored dot + badge tag), and pretty-printed payload code block.
+   - Fully theme-adaptive 7-tab MQTT analytics report modal (`MQTTReportModal.svelte`) and independent Parquet logs (`type: mqtt`) with date filtering and automatic rotation.
 8. **Report View (`ReportView.svelte`)**:
    - Grouped analytics suites:
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
@@ -363,6 +365,67 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - `LogAIDialog`: Submit log selections to LLM for root cause hypothesis and remediation suggestions.
   - `AIPollingAssistDialog`: Analyze SNMP MIB trees and automatically suggest optimal monitoring pollers.
   - `NodeDiagnoseDialog`: AI analysis of node connectivity and failure history.
+
+---
+
+### 4.10 UI/UX Design Standards & Frontend Implementation Guidelines
+
+To maintain consistent user experience, visual hierarchy, and cross-theme readability across all TWSNMP NEO views and components, the following architectural and visual standards must be strictly enforced.
+
+#### 4.10.1 Dark Mode & Light Mode Parity Standards
+* **Symmetrical Text & Background Pairing**:
+  - Never write isolated `text-white` or `text-black` on standard UI elements (causes invisible text when themes toggle).
+  - Always provide dual light/dark utility classes:
+    - View background: `bg-slate-50 dark:bg-slate-950`
+    - Card/Panel background: `bg-white dark:bg-slate-900`
+    - Primary text: `text-slate-900 dark:text-white` or `text-slate-800 dark:text-slate-100`
+    - Muted/Label text: `text-slate-500 dark:text-slate-400`
+    - Border lines: `border-slate-200 dark:border-slate-800`
+* **Native Browser Control Styling**:
+  - Prevent native `<input type="checkbox">` and `<select>` controls from being rendered with dark styling in light mode under OS dark theme. Follow `frontend/src/app.css` conventions (`:root { color-scheme: light; }` and `:root.dark { color-scheme: dark; }`).
+* **Apache ECharts Theme Adaptivity**:
+  - Always initialize ECharts instances with `echarts.init(dom, isDarkMode() ? "dark" : undefined)`.
+  - Chart options (text colors, axis lines, split lines, tooltip backgrounds) must dynamically evaluate `isDarkMode()` (`#1e293b`/`#334155`/`#64748b` in light mode, `#f8fafc`/`#cbd5e1`/`#94a3b8` in dark mode).
+
+#### 4.10.2 Button Placement & Semantic Palette
+* **Top Header / Action Bar Consolidation**:
+  - All primary view/table action buttons (Reload, Add / Create Polling, Report, Batch Delete, Delete) must be placed on the **top right action bar** (header area).
+  - Do NOT place redundant action buttons (e.g. reload, select all) in the table footer. Table footers are strictly reserved for pagination and item count summaries.
+* **Row-Level (Contextual) Actions**:
+  - Record-specific actions (e.g. clipboard copy, view details) must be embedded directly inside the table row cells as compact icon buttons (e.g. copy button next to topic or IP).
+* **Semantic Subtle Tint Palette**:
+  - Avoid high-saturation solid fills. Buttons use a unified subtle-tint design featuring a soft background, colored border, and high-contrast text:
+    - **Neutral / Reload**: `bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700`
+    - **Create / Primary**: `bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40`
+    - **Report / Analytics**: `bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40`
+    - **Tools / DAG**: `bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800/60 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40`
+    - **Delete / Danger**: `bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40`
+    - **Disabled**: `opacity-40 cursor-not-allowed`
+
+#### 4.10.3 Table Standards & Visual Cleanliness
+* **Universal Column Sorting**:
+  - All tabular views must support clicking any column header to sort ascending or descending.
+  - Active sort column displays Lucide `ArrowUp` or `ArrowDown`; unsorted headers display semi-transparent `ArrowUpDown`.
+* **Border Refinement & Selection Highlighting**:
+  - Eliminate heavy, dark row divider borders. Use soft subtle dividers (`divide-y divide-slate-200/80 dark:divide-slate-800/40`) or borderless padding layouts.
+  - Selected row highlight must adapt to themes: `bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-100`.
+* **Standardized Status & Level Badges**:
+  - State and severity levels must be rendered with a colored circle dot (`h-1.5 w-1.5 rounded-full shrink-0`) and an uppercase micro-badge (`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none`):
+    - **Normal / Info**: Green dot (`bg-emerald-500`) + soft green badge (`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60`)
+    - **Warn / Low**: Amber dot (`bg-amber-500`) + soft amber badge (`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60`)
+    - **High / Error**: Rose dot (`bg-rose-500`) + soft rose badge (`bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60`)
+    - **Debug / Unknown**: Slate dot (`bg-slate-500`) + soft slate badge (`bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700`)
+* **Metric Color Coding Policy**:
+  - Do NOT apply arbitrary color coding to arbitrary numeric columns (e.g. packet counts).
+  - Color coding is reserved strictly for threshold-based metrics (e.g. duration, latency, CPU/memory usage percentages) where higher values indicate warning or danger.
+
+#### 4.10.4 Navigation & Dashboard Structure
+* **Left Sidebar Navigation (`w-60`)**:
+  - Multi-category or multi-protocol views (LogView, ReportView, ListView, OTelView, MQTTView) must use a fixed left sidebar (`w-60`) rather than top horizontal tabs.
+  - Sidebar items must display real-time count badges that load concurrently on mount so badges do not default to 0 before interaction.
+* **Top Summary Dashboard (`h-64`)**:
+  - Tabular views should feature an upper dashboard (`h-64`) above the main table.
+  - Layout: 4 compact vertical KPI cards on the left edge, and broad breakdown charts (status donut charts, top N horizontal bar charts, scatter plots) on the right.
 
 ---
 

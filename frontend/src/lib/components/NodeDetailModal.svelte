@@ -54,16 +54,16 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-[88vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+    <div class="flex h-[88vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header (twnoaa style) -->
-      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-3.5 shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5 shrink-0">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
             <Cpu class="h-5 w-5" />
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h2 class="text-base font-bold text-slate-100">{node.name}</h2>
+              <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{node.name}</h2>
               <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border" style="background-color: {getStateColor(node.state)}20; border-color: {getStateColor(node.state)}50; color: {getStateColor(node.state)}">
                 <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(node.state)}"></span>
                 {getStateName(node.state)}
@@ -120,7 +120,7 @@
       </div>
 
       <!-- Tab Content -->
-      <div class="relative flex-1 overflow-hidden p-6 bg-slate-900/40 text-xs">
+      <div class="relative flex-1 overflow-hidden p-6 bg-slate-50/60 dark:bg-slate-900/40 text-xs">
         {#if activeTab === "vpanel"}
           <div class="relative flex h-full flex-col items-center justify-center rounded-2xl border border-slate-800 bg-[#080d1e] overflow-hidden shadow-inner">
             <!-- 3D Controls -->

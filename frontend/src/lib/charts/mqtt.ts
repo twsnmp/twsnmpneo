@@ -1,4 +1,5 @@
 import * as echarts from "echarts";
+import { isDarkMode } from "./utils";
 
 let currentChart: echarts.ECharts | undefined;
 
@@ -45,22 +46,26 @@ export const showMqttClientIDChart = (div: string, stats: any[]) => {
 
   const dom = document.getElementById(div);
   if (!dom) return;
-  const chart = echarts.init(dom, "dark");
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
       text: "クライアントID別受信統計",
       left: "center",
-      textStyle: { fontSize: 14, color: "#cbd5e1" },
+      textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
     },
     legend: {
       top: 30,
-      textStyle: { color: "#94a3b8" },
+      textStyle: { color: dark ? "#94a3b8" : "#64748b" },
       data: ["受信回数", "データ量 (MB)"],
     },
     grid: {
@@ -74,18 +79,23 @@ export const showMqttClientIDChart = (div: string, stats: any[]) => {
       {
         type: "value",
         name: "受信回数",
-        axisLabel: { color: "#94a3b8" },
+        axisLabel: { color: dark ? "#94a3b8" : "#64748b" },
+        nameTextStyle: { color: dark ? "#94a3b8" : "#64748b" },
+        splitLine: { lineStyle: { color: dark ? "#1e293b" : "#f1f5f9" } },
       },
       {
         type: "value",
         name: "MB",
-        axisLabel: { color: "#94a3b8" },
+        axisLabel: { color: dark ? "#94a3b8" : "#64748b" },
+        nameTextStyle: { color: dark ? "#94a3b8" : "#64748b" },
+        splitLine: { show: false },
       },
     ],
     yAxis: {
       type: "category",
       data: categories,
-      axisLabel: { color: "#cbd5e1", fontSize: 11 },
+      axisLabel: { color: dark ? "#cbd5e1" : "#334155", fontSize: 11 },
+      axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
     },
     series: [
       {
@@ -129,20 +139,24 @@ export const showMqttRemoteChart = (div: string, stats: any[]) => {
 
   const dom = document.getElementById(div);
   if (!dom) return;
-  const chart = echarts.init(dom, "dark");
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
       text: "送信元IP別受信統計",
       left: "center",
-      textStyle: { fontSize: 14, color: "#cbd5e1" },
+      textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
     tooltip: {
       trigger: "item",
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
       formatter: (params: any) => {
         const bytesMB = (params.data.bytes / (1024 * 1024)).toFixed(2);
-        return `${params.name}<br/>受信回数: ${params.value.toLocaleString()}<br/>データ量: ${bytesMB} MB (${params.percent}%)`;
+        return `${params.name}<br/>受信回数: <strong>${params.value.toLocaleString()}</strong><br/>データ量: <strong>${bytesMB} MB</strong> (${params.percent}%)`;
       },
     },
     legend: {
@@ -151,7 +165,7 @@ export const showMqttRemoteChart = (div: string, stats: any[]) => {
       right: 10,
       top: 40,
       bottom: 20,
-      textStyle: { color: "#94a3b8" },
+      textStyle: { color: dark ? "#94a3b8" : "#64748b" },
     },
     series: [
       {
@@ -160,6 +174,10 @@ export const showMqttRemoteChart = (div: string, stats: any[]) => {
         radius: ["30%", "70%"],
         center: ["40%", "55%"],
         data: data.slice(0, 30),
+        itemStyle: {
+          borderColor: dark ? "#0f172a" : "#ffffff",
+          borderWidth: 1,
+        },
         emphasis: {
           itemStyle: {
             shadowBlur: 10,
@@ -205,18 +223,22 @@ export const showMqttTopicChart = (div: string, stats: any[]) => {
 
   const dom = document.getElementById(div);
   if (!dom) return;
-  const chart = echarts.init(dom, "dark");
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
       text: "トピック別受信回数 (TOP 25)",
       left: "center",
-      textStyle: { fontSize: 14, color: "#cbd5e1" },
+      textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
     },
     grid: {
       left: "20%",
@@ -228,16 +250,19 @@ export const showMqttTopicChart = (div: string, stats: any[]) => {
     xAxis: {
       type: "value",
       name: "受信回数",
-      axisLabel: { color: "#94a3b8" },
+      axisLabel: { color: dark ? "#94a3b8" : "#64748b" },
+      nameTextStyle: { color: dark ? "#94a3b8" : "#64748b" },
+      splitLine: { lineStyle: { color: dark ? "#1e293b" : "#f1f5f9" } },
     },
     yAxis: {
       type: "category",
       data: categories,
       axisLabel: {
-        color: "#cbd5e1",
+        color: dark ? "#cbd5e1" : "#334155",
         fontSize: 10,
         formatter: (val: string) => (val.length > 40 ? val.substring(0, 37) + "..." : val),
       },
+      axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
     },
     series: [
       {
@@ -256,7 +281,8 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
   disposeChart();
   const dom = document.getElementById(div);
   if (!dom) return;
-  const chart = echarts.init(dom, "dark");
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
 
   if (mode === "client_topic") {
@@ -296,10 +322,13 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
       title: {
         text: "クライアント × トピック 受信回数ヒートマップ",
         left: "center",
-        textStyle: { fontSize: 14, color: "#cbd5e1" },
+        textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
       },
       tooltip: {
         position: "top",
+        backgroundColor: dark ? "#0f172a" : "#ffffff",
+        borderColor: dark ? "#334155" : "#cbd5e1",
+        textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
         formatter: (params: any) => {
           const tName = topics[params.data[0]];
           const cName = clients[params.data[1]];
@@ -317,16 +346,18 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
         type: "category",
         data: topics,
         axisLabel: {
-          color: "#94a3b8",
+          color: dark ? "#94a3b8" : "#64748b",
           fontSize: 9,
           rotate: 30,
           formatter: (val: string) => (val.length > 20 ? val.substring(0, 17) + "..." : val),
         },
+        axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
       },
       yAxis: {
         type: "category",
         data: clients,
-        axisLabel: { color: "#cbd5e1", fontSize: 9 },
+        axisLabel: { color: dark ? "#cbd5e1" : "#334155", fontSize: 9 },
+        axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
       },
       visualMap: {
         min: 0,
@@ -335,9 +366,11 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
         orient: "horizontal",
         left: "center",
         bottom: 10,
-        textStyle: { color: "#94a3b8" },
+        textStyle: { color: dark ? "#94a3b8" : "#64748b" },
         inRange: {
-          color: ["#0f172a", "#0284c7", "#38bdf8", "#fbbf24", "#f43f5e"],
+          color: dark
+            ? ["#0f172a", "#0284c7", "#38bdf8", "#fbbf24", "#f43f5e"]
+            : ["#f8fafc", "#bae6fd", "#38bdf8", "#fbbf24", "#f43f5e"],
         },
       },
       series: [
@@ -405,10 +438,13 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
     title: {
       text: "日別・時間帯別 受信ヒートマップ",
       left: "center",
-      textStyle: { fontSize: 14, color: "#cbd5e1" },
+      textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
     tooltip: {
       position: "top",
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
       formatter: (params: any) => {
         const dStr = sortedDates[params.data[0]];
         const hStr = hours[params.data[1]];
@@ -424,12 +460,14 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
     xAxis: {
       type: "category",
       data: sortedDates,
-      axisLabel: { color: "#94a3b8", fontSize: 10 },
+      axisLabel: { color: dark ? "#94a3b8" : "#64748b", fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
     },
     yAxis: {
       type: "category",
       data: hours,
-      axisLabel: { color: "#cbd5e1", fontSize: 10 },
+      axisLabel: { color: dark ? "#cbd5e1" : "#334155", fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
     },
     visualMap: {
       min: 0,
@@ -438,9 +476,11 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
       orient: "horizontal",
       left: "center",
       bottom: 10,
-      textStyle: { color: "#94a3b8" },
+      textStyle: { color: dark ? "#94a3b8" : "#64748b" },
       inRange: {
-        color: ["#0f172a", "#1e293b", "#0284c7", "#38bdf8", "#fbbf24", "#f43f5e"],
+        color: dark
+          ? ["#0f172a", "#1e293b", "#0284c7", "#38bdf8", "#fbbf24", "#f43f5e"]
+          : ["#f8fafc", "#bae6fd", "#0284c7", "#38bdf8", "#fbbf24", "#f43f5e"],
       },
     },
     series: [
@@ -472,24 +512,28 @@ export const showMqttStateChart = (div: string, stats: any[]) => {
 
   const dom = document.getElementById(div);
   if (!dom) return;
-  const chart = echarts.init(dom, "dark");
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
       text: "トピック状態別割合",
       left: "center",
-      textStyle: { fontSize: 14, color: "#cbd5e1" },
+      textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
     tooltip: {
       trigger: "item",
-      formatter: "{b}: {c} ({d}%)",
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
+      formatter: "{b}: <strong>{c}</strong> ({d}%)",
     },
     legend: {
       orient: "vertical",
       right: 20,
       top: "center",
-      textStyle: { color: "#94a3b8" },
+      textStyle: { color: dark ? "#94a3b8" : "#64748b" },
     },
     series: [
       {
@@ -498,6 +542,8 @@ export const showMqttStateChart = (div: string, stats: any[]) => {
         radius: ["40%", "70%"],
         data: data,
         itemStyle: {
+          borderColor: dark ? "#0f172a" : "#ffffff",
+          borderWidth: 2,
           color: (params: any) => {
             if (params.name.includes("Normal")) return "#10b981";
             if (params.name.includes("Warn")) return "#f59e0b";
@@ -567,17 +613,21 @@ export const showMqttTopicTreemap = (div: string, stats: any[]) => {
 
   const dom = document.getElementById(div);
   if (!dom) return;
-  const chart = echarts.init(dom, "dark");
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
       text: "トピック階層ツリーマップ",
       left: "center",
-      textStyle: { fontSize: 14, color: "#cbd5e1" },
+      textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
     tooltip: {
-      formatter: "{b}: {c} 回",
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
+      formatter: "{b}: <strong>{c}</strong> 回",
     },
     series: [
       {
@@ -588,7 +638,7 @@ export const showMqttTopicTreemap = (div: string, stats: any[]) => {
         levels: [
           {
             itemStyle: {
-              borderColor: "#1e293b",
+              borderColor: dark ? "#1e293b" : "#e2e8f0",
               borderWidth: 2,
               gapWidth: 2,
             },
@@ -605,5 +655,159 @@ export const showMqttTopicTreemap = (div: string, stats: any[]) => {
       },
     ],
   });
+  return chart;
+};
+
+/**
+ * Overview State Donut Chart for MQTTView Stats Tab
+ */
+export const showMqttOverviewStatePie = (div: string | HTMLElement, stats: any[]): echarts.ECharts | null => {
+  const dom = typeof div === "string" ? document.getElementById(div) : div;
+  if (!dom) return null;
+
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
+
+  const map = new Map<string, number>();
+  if (stats) {
+    stats.forEach((s) => {
+      const state = s.State || "normal";
+      map.set(state, (map.get(state) || 0) + 1);
+    });
+  }
+
+  const data = [
+    { name: "正常 (Normal)", value: map.get("normal") || 0, color: "#10b981" },
+    { name: "注意 (Warn)", value: map.get("warn") || 0, color: "#f59e0b" },
+    { name: "未受信 (Low)", value: map.get("low") || 0, color: "#f43f5e" },
+  ].filter((d) => d.value > 0);
+
+  const option: echarts.EChartsOption = {
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "item",
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b", fontSize: 11 },
+      formatter: "{b}: <strong>{c}</strong> ({d}%)",
+    },
+    legend: {
+      orient: "vertical",
+      right: "2%",
+      top: "middle",
+      textStyle: { color: dark ? "#94a3b8" : "#64748b", fontSize: 10 },
+      itemWidth: 10,
+      itemHeight: 10,
+    },
+    series: [
+      {
+        name: "状態別",
+        type: "pie",
+        radius: ["45%", "72%"],
+        center: ["36%", "50%"],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 4,
+          borderColor: dark ? "#0f172a" : "#ffffff",
+          borderWidth: 2,
+        },
+        label: {
+          show: false,
+          position: "center",
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 12,
+            fontWeight: "bold",
+            color: dark ? "#f8fafc" : "#0f172a",
+          },
+        },
+        data: data.length > 0 ? data.map((d) => ({ name: d.name, value: d.value, itemStyle: { color: d.color } })) : [{ name: "データなし", value: 0, itemStyle: { color: "#94a3b8" } }],
+      },
+    ],
+  };
+
+  chart.setOption(option);
+  chart.resize();
+  return chart;
+};
+
+/**
+ * Overview Top Topics Horizontal Bar Chart for MQTTView Stats Tab
+ */
+export const showMqttOverviewTopicBar = (div: string | HTMLElement, stats: any[]): echarts.ECharts | null => {
+  const dom = typeof div === "string" ? document.getElementById(div) : div;
+  if (!dom) return null;
+
+  const dark = isDarkMode();
+  const chart = echarts.init(dom, dark ? "dark" : undefined);
+
+  const sorted = [...(stats || [])].sort((a, b) => (b.Count || 0) - (a.Count || 0)).slice(0, 10).reverse();
+  const categories = sorted.map((s) => s.Topic);
+  const counts = sorted.map((s) => s.Count || 0);
+
+  const option: echarts.EChartsOption = {
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      backgroundColor: dark ? "#0f172a" : "#ffffff",
+      borderColor: dark ? "#334155" : "#cbd5e1",
+      textStyle: { color: dark ? "#f8fafc" : "#1e293b", fontSize: 11 },
+      formatter: (params: any) => {
+        if (!params || params.length === 0) return "";
+        return `トピック: <strong class="break-all">${params[0].name}</strong><br/>受信回数: <strong>${params[0].value.toLocaleString()}</strong> 回`;
+      },
+    },
+    grid: {
+      left: "10px",
+      right: "45px",
+      top: "15px",
+      bottom: "10px",
+      containLabel: true,
+    },
+    xAxis: {
+      type: "value",
+      axisLabel: { color: dark ? "#94a3b8" : "#64748b", fontSize: 9 },
+      splitLine: { lineStyle: { color: dark ? "#1e293b" : "#f1f5f9" } },
+    },
+    yAxis: {
+      type: "category",
+      data: categories,
+      axisLabel: {
+        color: dark ? "#cbd5e1" : "#334155",
+        fontSize: 10,
+        width: 150,
+        overflow: "truncate",
+      },
+      axisLine: { lineStyle: { color: dark ? "#334155" : "#cbd5e1" } },
+    },
+    series: [
+      {
+        name: "Count",
+        type: "bar",
+        data: counts,
+        barMaxWidth: 22,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: "#06b6d4" },
+            { offset: 1, color: "#3b82f6" },
+          ]),
+          borderRadius: [0, 4, 4, 0],
+        },
+        label: {
+          show: true,
+          position: "right",
+          color: dark ? "#cbd5e1" : "#334155",
+          fontSize: 10,
+          formatter: (val: any) => (val.value || 0).toLocaleString(),
+        },
+      },
+    ],
+  };
+
+  chart.setOption(option);
+  chart.resize();
   return chart;
 };

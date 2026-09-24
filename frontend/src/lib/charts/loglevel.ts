@@ -1,5 +1,5 @@
 import * as echarts from 'echarts';
-import { setZoomCallback } from './utils';
+import { setZoomCallback, isDarkMode } from './utils';
 
 let chartInstance: echarts.ECharts | undefined;
 
@@ -15,7 +15,8 @@ export const showLogLevelChart = (
   if (existing) {
     existing.dispose();
   }
-  chartInstance = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  chartInstance = echarts.init(el, dark ? 'dark' : undefined);
 
   const data: Record<string, [Date, number][]> = {
     high: [],
@@ -91,12 +92,12 @@ export const showLogLevelChart = (
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc', fontSize: 11 },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#0f172a', fontSize: 11 },
     },
     toolbox: {
-      iconStyle: { borderColor: '#94a3b8' },
+      iconStyle: { borderColor: dark ? '#94a3b8' : '#64748b' },
       feature: {
         dataZoom: { yAxisIndex: 'none' },
         restore: {},
@@ -109,11 +110,11 @@ export const showLogLevelChart = (
         type: 'slider',
         bottom: 5,
         height: 16,
-        borderColor: '#334155',
-        backgroundColor: '#020617',
-        fillerColor: 'rgba(6, 182, 212, 0.2)',
+        borderColor: dark ? '#334155' : '#e2e8f0',
+        backgroundColor: dark ? '#020617' : '#f8fafc',
+        fillerColor: dark ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.15)',
         handleStyle: { color: '#06b6d4' },
-        textStyle: { color: '#64748b', fontSize: 9 },
+        textStyle: { color: dark ? '#64748b' : '#94a3b8', fontSize: 9 },
       },
       {
         type: 'inside',
@@ -121,16 +122,16 @@ export const showLogLevelChart = (
     ],
     legend: {
       top: 10,
-      textStyle: { color: '#cbd5e1', fontSize: 11 },
+      textStyle: { color: dark ? '#cbd5e1' : '#475569', fontSize: 11 },
       data: ['High', 'Low', 'Warn', 'Other'],
     },
     xAxis: {
       type: 'time',
       name: 'Time',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
       axisLabel: {
-        color: '#94a3b8',
+        color: dark ? '#94a3b8' : '#64748b',
         fontSize: 10,
         formatter: (val: any) => echarts.time.format(new Date(val), '{yyyy}/{MM}/{dd} {HH}:{mm}', false),
       },
@@ -139,10 +140,10 @@ export const showLogLevelChart = (
     yAxis: {
       type: 'value',
       name: 'Log count',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#f1f5f9', type: 'dashed' } },
     },
     series: [
       {

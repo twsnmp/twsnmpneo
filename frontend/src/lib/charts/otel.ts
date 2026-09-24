@@ -1,5 +1,5 @@
 import * as echarts from 'echarts';
-import { setZoomCallback } from './utils';
+import { setZoomCallback, isDarkMode } from './utils';
 
 /**
  * Renders an interactive scatter plot of traces over time.
@@ -13,7 +13,8 @@ export function showOTelTrace(
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   let maxDur = 0.1;
 
   let st = Infinity;
@@ -33,6 +34,9 @@ export function showOTelTrace(
   const option: echarts.EChartsOption = {
     backgroundColor: 'transparent',
     tooltip: {
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: (params: any) => {
         const d = params.data;
         let durStr = d[1].toFixed(3) + ' Sec';
@@ -47,26 +51,27 @@ export function showOTelTrace(
             <div><strong>サービス:</strong> ${d[4] || '-'}</div>
             <div><strong>所要時間:</strong> <span style="color:#38bdf8; font-weight:bold;">${durStr}</span></div>
             <div><strong>スパン数:</strong> ${d[2]}</div>
-            <div style="font-family:monospace; color:#94a3b8; font-size:10px;">ID: ${d[3]}</div>
+            <div style="font-family:monospace; color:${dark ? '#94a3b8' : '#64748b'}; font-size:10px;">ID: ${d[3]}</div>
           </div>
         `;
       },
     },
     grid: {
-      left: '60px',
-      right: '40px',
-      top: '30px',
-      bottom: '60px',
+      left: '65px',
+      right: '85px',
+      top: '40px',
+      bottom: '55px',
     },
     dataZoom: [
       {
         type: 'slider',
-        bottom: 10,
-        height: 18,
-        borderColor: '#334155',
-        fillerColor: 'rgba(56, 189, 248, 0.2)',
+        showDetail: false,
+        bottom: 8,
+        height: 16,
+        borderColor: dark ? '#334155' : '#cbd5e1',
+        backgroundColor: dark ? '#020617' : '#f8fafc',
+        fillerColor: dark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.15)',
         handleStyle: { color: '#38bdf8' },
-        textStyle: { color: '#94a3b8', fontSize: 10 },
       },
       {
         type: 'inside',
@@ -77,10 +82,14 @@ export function showOTelTrace(
       max: maxDur,
       dimension: 1,
       calculable: true,
-      orient: 'horizontal',
-      right: '20px',
-      top: '0px',
-      textStyle: { color: '#94a3b8', fontSize: 10 },
+      orient: 'vertical',
+      right: '15px',
+      top: 'middle',
+      itemWidth: 12,
+      itemHeight: 90,
+      text: ['遅い', '速い'],
+      textGap: 8,
+      textStyle: { color: dark ? '#94a3b8' : '#475569', fontSize: 10 },
       inRange: {
         color: [
           '#38bdf8', // Light Cyan/Blue
@@ -94,20 +103,19 @@ export function showOTelTrace(
     xAxis: {
       type: 'time',
       axisLabel: {
-        color: '#94a3b8',
+        color: dark ? '#94a3b8' : '#64748b',
         fontSize: 10,
+        margin: 12,
         formatter: (val: any) => echarts.time.format(val, '{HH}:{mm}:{ss}', false),
       },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
-      name: 'Sec',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#f1f5f9' } },
     },
     series: [
       {
@@ -136,7 +144,7 @@ export function showOTelDAG(div: string | HTMLElement, data: { Nodes: any[]; Lin
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const chart = echarts.init(el, isDarkMode() ? 'dark' : undefined);
 
   let maxNodeCount = 1;
   const nodes = (data.Nodes || []).map((n) => {
@@ -245,7 +253,8 @@ export function showOTelTimeline(div: string | HTMLElement, trace: any): echarts
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el || !trace || !trace.Spans || trace.Spans.length === 0) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
 
   const spans = [...trace.Spans].sort((a: any, b: any) => a.Start - b.Start);
   const baseStart = spans[0].Start;
@@ -277,6 +286,9 @@ export function showOTelTimeline(div: string | HTMLElement, trace: any): echarts
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: (params: any) => {
         const durItem = params.find((p: any) => p.seriesName === 'Duration');
         const startItem = params.find((p: any) => p.seriesName === 'Start');
@@ -303,20 +315,20 @@ export function showOTelTimeline(div: string | HTMLElement, trace: any): echarts
     xAxis: {
       type: 'value',
       name: 'ms',
-      nameTextStyle: { color: '#94a3b8' },
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b' },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#e2e8f0' } },
     },
     yAxis: {
       type: 'category',
       data: categories,
       axisLabel: {
-        color: '#cbd5e1',
+        color: dark ? '#cbd5e1' : '#334155',
         fontSize: 11,
         width: 180,
         overflow: 'truncate',
       },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
     },
     series: [
       {
@@ -355,7 +367,8 @@ export function showOTelMetricTypePie(div: string | HTMLElement, metrics: any[])
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   const typeMap: Record<string, number> = {};
   for (const m of metrics || []) {
     const t = m.Type || 'Unknown';
@@ -369,13 +382,16 @@ export function showOTelMetricTypePie(div: string | HTMLElement, metrics: any[])
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b', fontSize: 11 },
       formatter: '{b}: <strong>{c}</strong> ({d}%)',
     },
     legend: {
       orient: 'vertical',
       right: '2%',
       top: 'middle',
-      textStyle: { color: '#94a3b8', fontSize: 10 },
+      textStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
       itemWidth: 10,
       itemHeight: 10,
     },
@@ -383,12 +399,12 @@ export function showOTelMetricTypePie(div: string | HTMLElement, metrics: any[])
       {
         name: 'Metric Types',
         type: 'pie',
-        radius: ['45%', '75%'],
-        center: ['35%', '50%'],
+        radius: ['45%', '72%'],
+        center: ['36%', '50%'],
         avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 4,
-          borderColor: '#0f172a',
+          borderColor: dark ? '#0f172a' : '#ffffff',
           borderWidth: 2,
         },
         label: {
@@ -400,7 +416,7 @@ export function showOTelMetricTypePie(div: string | HTMLElement, metrics: any[])
             show: true,
             fontSize: 12,
             fontWeight: 'bold',
-            color: '#f8fafc',
+            color: dark ? '#f8fafc' : '#0f172a',
           },
         },
         data: data.length > 0 ? data : [{ name: 'データなし', value: 0 }],
@@ -421,14 +437,16 @@ export function showOTelServiceMetricBar(div: string | HTMLElement, metrics: any
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   const svcMap: Record<string, number> = {};
   for (const m of metrics || []) {
     const s = m.Service || 'unknown';
     svcMap[s] = (svcMap[s] || 0) + 1;
   }
 
-  const sorted = Object.entries(svcMap).sort((a, b) => b[1] - a[1]).slice(0, 5).reverse();
+  // Allow up to top 10 services with expanded vertical space
+  const sorted = Object.entries(svcMap).sort((a, b) => b[1] - a[1]).slice(0, 10).reverse();
   const categories = sorted.map((s) => s[0]);
   const counts = sorted.map((s) => s[1]);
 
@@ -437,6 +455,9 @@ export function showOTelServiceMetricBar(div: string | HTMLElement, metrics: any
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b', fontSize: 11 },
       formatter: (params: any) => {
         if (!params || params.length === 0) return '';
         return `${params[0].name}: <strong>${params[0].value}</strong> 系列`;
@@ -444,32 +465,33 @@ export function showOTelServiceMetricBar(div: string | HTMLElement, metrics: any
     },
     grid: {
       left: '10px',
-      right: '35px',
-      top: '10px',
+      right: '40px',
+      top: '15px',
       bottom: '10px',
       containLabel: true,
     },
     xAxis: {
       type: 'value',
-      axisLabel: { color: '#64748b', fontSize: 9 },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 9 },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#f1f5f9' } },
     },
     yAxis: {
       type: 'category',
       data: categories,
       axisLabel: {
-        color: '#94a3b8',
-        fontSize: 10,
-        width: 100,
+        color: dark ? '#cbd5e1' : '#334155',
+        fontSize: 11,
+        width: 120,
         overflow: 'truncate',
       },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
     },
     series: [
       {
         name: 'Metrics',
         type: 'bar',
         data: counts,
+        barMaxWidth: 22,
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
             { offset: 0, color: '#06b6d4' },
@@ -480,7 +502,7 @@ export function showOTelServiceMetricBar(div: string | HTMLElement, metrics: any
         label: {
           show: true,
           position: 'right',
-          color: '#cbd5e1',
+          color: dark ? '#cbd5e1' : '#334155',
           fontSize: 10,
         },
       },
@@ -503,7 +525,8 @@ export function showOTelTimeChart(
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el || !dataPoints || dataPoints.length === 0) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
 
   const points = filterAttr && filterAttr !== 'all'
     ? dataPoints.filter((dp) => (dp.Attributes?.join(' ') || '') === filterAttr)
@@ -554,6 +577,9 @@ export function showOTelTimeChart(
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: (params: any) => {
         if (!params || params.length === 0) return '';
         const timeStr = echarts.time.format(params[0].data[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}', false);
@@ -568,7 +594,7 @@ export function showOTelTimeChart(
     legend: groupMap.size > 1 ? {
       data: legendNames,
       top: 5,
-      textStyle: { color: '#94a3b8', fontSize: 10 },
+      textStyle: { color: dark ? '#94a3b8' : '#475569', fontSize: 10 },
       type: 'scroll',
     } : undefined,
     grid: {
@@ -582,16 +608,17 @@ export function showOTelTimeChart(
         type: 'slider',
         bottom: 10,
         height: 18,
-        borderColor: '#334155',
-        fillerColor: 'rgba(56, 189, 248, 0.2)',
+        borderColor: dark ? '#334155' : '#cbd5e1',
+        backgroundColor: dark ? '#020617' : '#f8fafc',
+        fillerColor: dark ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.15)',
         handleStyle: { color: '#38bdf8' },
-        textStyle: { color: '#94a3b8', fontSize: 10 },
+        textStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
       },
     ],
     xAxis: {
       type: 'time',
       axisLabel: {
-        color: '#94a3b8',
+        color: dark ? '#94a3b8' : '#64748b',
         fontSize: 10,
         formatter: (val: any) => echarts.time.format(val, '{HH}:{mm}:{ss}', false),
       },
@@ -599,8 +626,8 @@ export function showOTelTimeChart(
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#e2e8f0' } },
     },
     series: series,
   };
@@ -617,7 +644,8 @@ export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.E
   const el = typeof div === 'string' ? document.getElementById(div) : div;
   if (!el || !dp) return null;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
 
   const bounds = dp.ExplicitBounds || [];
   const counts = dp.BucketCounts || [];
@@ -638,6 +666,9 @@ export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.E
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: (params: any) => {
         if (!params || params.length === 0) return '';
         const p = params[0];
@@ -659,19 +690,19 @@ export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.E
       type: 'category',
       data: categories,
       axisLabel: {
-        color: '#94a3b8',
+        color: dark ? '#94a3b8' : '#64748b',
         fontSize: 10,
         rotate: 30,
         interval: 0,
       },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
     },
     yAxis: {
       type: 'value',
       name: '度数 (件数)',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#e2e8f0' } },
     },
     series: [
       {
@@ -716,7 +747,8 @@ export function showOTelLogChart(
   if (existing) {
     existing.dispose();
   }
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
 
   const data: Record<string, [Date, number][]> = {
     ERROR: [],
@@ -801,12 +833,12 @@ export function showOTelLogChart(
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc', fontSize: 11 },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b', fontSize: 11 },
     },
     toolbox: {
-      iconStyle: { borderColor: '#94a3b8' },
+      iconStyle: { borderColor: dark ? '#94a3b8' : '#64748b' },
       feature: {
         dataZoom: { yAxisIndex: 'none' },
         restore: {},
@@ -819,11 +851,11 @@ export function showOTelLogChart(
         type: 'slider',
         bottom: 5,
         height: 16,
-        borderColor: '#334155',
-        backgroundColor: '#020617',
-        fillerColor: 'rgba(6, 182, 212, 0.2)',
+        borderColor: dark ? '#334155' : '#cbd5e1',
+        backgroundColor: dark ? '#020617' : '#f8fafc',
+        fillerColor: dark ? 'rgba(6, 182, 212, 0.2)' : 'rgba(6, 182, 212, 0.15)',
         handleStyle: { color: '#06b6d4' },
-        textStyle: { color: '#64748b', fontSize: 9 },
+        textStyle: { color: dark ? '#64748b' : '#64748b', fontSize: 9 },
       },
       {
         type: 'inside',
@@ -831,16 +863,16 @@ export function showOTelLogChart(
     ],
     legend: {
       top: 10,
-      textStyle: { color: '#cbd5e1', fontSize: 11 },
+      textStyle: { color: dark ? '#cbd5e1' : '#334155', fontSize: 11 },
       data: ['ERROR', 'WARN', 'INFO', 'DEBUG'],
     },
     xAxis: {
       type: 'time',
       name: 'Time',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
       axisLabel: {
-        color: '#94a3b8',
+        color: dark ? '#94a3b8' : '#64748b',
         fontSize: 10,
         formatter: (val: any) => echarts.time.format(new Date(val), '{yyyy}/{MM}/{dd} {HH}:{mm}', false),
       },
@@ -849,10 +881,10 @@ export function showOTelLogChart(
     yAxis: {
       type: 'value',
       name: 'Log count',
-      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
-      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#e2e8f0', type: 'dashed' } },
     },
     series: [
       {

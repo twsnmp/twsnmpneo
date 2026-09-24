@@ -254,15 +254,15 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+    <div class="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header -->
-      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
             <Sliders class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100">システム環境設定 (System Configuration)</h2>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">システム環境設定 (System Configuration)</h2>
             <p class="text-[11px] text-slate-400">マップ監視パラメータ・受信デーモン・通知・AI連携設定</p>
           </div>
         </div>
@@ -279,11 +279,11 @@
       <!-- Main Layout -->
       <div class="flex flex-1 overflow-hidden">
         <!-- Sidebar Navigation -->
-        <div class="w-52 border-r border-slate-800 bg-slate-950/60 p-3 space-y-1.5 shrink-0">
+        <div class="w-52 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 p-3 space-y-1.5 shrink-0">
           <button
             type="button"
             onclick={() => (activeTab = "map")}
-            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'map' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'map' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Sliders class="h-4 w-4" />
             マップ・ポーリング
@@ -291,7 +291,7 @@
           <button
             type="button"
             onclick={() => (activeTab = "receivers")}
-            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'receivers' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'receivers' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Radio class="h-4 w-4" />
             受信デーモン
@@ -299,7 +299,7 @@
           <button
             type="button"
             onclick={() => (activeTab = "notify")}
-            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'notify' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'notify' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Bell class="h-4 w-4" />
             通知・アラート
@@ -307,7 +307,7 @@
           <button
             type="button"
             onclick={() => (activeTab = "ai")}
-            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'ai' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'ai' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Brain class="h-4 w-4" />
             AI / LLM 支援
@@ -315,7 +315,7 @@
           <button
             type="button"
             onclick={() => (activeTab = "datastore")}
-            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'datastore' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'datastore' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Database class="h-4 w-4" />
             データストア
@@ -323,7 +323,7 @@
         </div>
 
         <!-- Form Panels -->
-        <div class="flex-1 overflow-y-auto p-6 text-xs bg-slate-900/40">
+        <div class="flex-1 overflow-y-auto p-6 text-xs bg-slate-50/50 dark:bg-slate-900/40">
           {#if saveMsg}
             <div class="mb-5 flex items-center gap-2 rounded-xl border border-emerald-800/40 bg-emerald-950/40 p-3.5 text-xs font-medium text-emerald-300 shadow-sm">
               <CheckCircle2 class="h-4 w-4 text-emerald-400 shrink-0" />
@@ -340,8 +340,8 @@
           <!-- TAB 1: Map & Polling -->
           {#if activeTab === "map"}
             <div class="space-y-6 max-w-2xl">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Sliders class="w-4 h-4 text-cyan-400" />
                   マップ基本設定
                 </h3>
@@ -352,7 +352,7 @@
                       id="map-name"
                       type="text"
                       bind:value={mapName}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -360,7 +360,7 @@
                     <select
                       id="map-size"
                       bind:value={mapSize}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
                       <option value={0}>自動 (Auto 2500x5000)</option>
                       <option value={1}>A4縦 (2894x4093 A4P)</option>
@@ -391,14 +391,14 @@
                       min={1}
                       max={365}
                       bind:value={logDays}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Network class="w-4 h-4 text-cyan-400" />
                   ポーリング & SNMP デフォルトパラメータ
                 </h3>
@@ -410,7 +410,7 @@
                       type="number"
                       min={5}
                       bind:value={pollInt}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -420,7 +420,7 @@
                       type="number"
                       min={1}
                       bind:value={timeout}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -430,7 +430,7 @@
                       type="number"
                       min={0}
                       bind:value={retry}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -441,7 +441,7 @@
                     <select
                       id="snmp-mode"
                       bind:value={snmpMode}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
                       <option value="v2c">SNMP v2c (推奨)</option>
                       <option value="v3">SNMP v3 (セキュア)</option>
@@ -454,7 +454,7 @@
                       id="snmp-comm"
                       type="text"
                       bind:value={community}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -467,7 +467,7 @@
                         id="snmp-user"
                         type="text"
                         bind:value={snmpUser}
-                        class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                        class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -476,7 +476,7 @@
                         id="snmp-pwd"
                         type="password"
                         bind:value={snmpPassword}
-                        class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                        class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -484,9 +484,9 @@
               </div>
 
               <!-- GeoIP Database Section (TWSNMP FC / FK Compatible) -->
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                  <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Globe class="w-4 h-4 text-cyan-400" />
                     IP位置情報データベース (GeoIP)
                   </h3>
@@ -550,8 +550,8 @@
           <!-- TAB 2: Receivers & Daemons -->
           {:else if activeTab === "receivers"}
             <div class="space-y-6 max-w-2xl">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Radio class="w-4 h-4 text-cyan-400" />
                   ネットワークログ・パケット受信デーモン
                 </h3>
@@ -631,8 +631,8 @@
           <!-- TAB 3: Notifications -->
           {:else if activeTab === "notify"}
             <div class="space-y-6 max-w-2xl">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Bell class="w-4 h-4 text-cyan-400" />
                   障害検知アラート通知ポリシー
                 </h3>
@@ -642,7 +642,7 @@
                     <select
                       id="notify-level"
                       bind:value={notifyLevel}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
                       <option value="none">通知なし (オフ)</option>
                       <option value="warn">注意 (Warn 以上すべて)</option>
@@ -657,7 +657,7 @@
                       type="number"
                       min={5}
                       bind:value={notifyInterval}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -670,7 +670,7 @@
                       type="text"
                       bind:value={webhookUrl}
                       placeholder="https://hooks.slack.com/services/... または https://discord.com/api/webhooks/..."
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -680,14 +680,14 @@
                       type="password"
                       bind:value={lineToken}
                       placeholder="LINE Notify トークン"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Mail class="w-4 h-4 text-cyan-400" />
                   SMTP メール通知設定
                 </h3>
@@ -699,7 +699,7 @@
                       type="text"
                       bind:value={mailServer}
                       placeholder="smtp.example.com:587"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -709,7 +709,7 @@
                       type="email"
                       bind:value={mailFrom}
                       placeholder="twsnmp@example.com"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -719,7 +719,7 @@
                       type="email"
                       bind:value={mailTo}
                       placeholder="admin@example.com"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -729,7 +729,7 @@
                       type="text"
                       bind:value={mailUser}
                       placeholder="user@example.com"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div class="md:col-span-2">
@@ -739,7 +739,7 @@
                       type="password"
                       bind:value={mailPassword}
                       placeholder="••••••••"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -754,8 +754,8 @@
           <!-- TAB 4: AI & LLM Settings -->
           {:else if activeTab === "ai"}
             <div class="space-y-6 max-w-2xl">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Brain class="w-4 h-4 text-cyan-400" />
                   AI アシスタント & 自動障害診断エンジン
                 </h3>
@@ -765,7 +765,7 @@
                     <select
                       id="llm-provider"
                       bind:value={llmProvider}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
                       <option value="gemini">Google Gemini (推奨)</option>
                       <option value="openai">OpenAI (GPT-4o)</option>
@@ -779,7 +779,7 @@
                       id="llm-model"
                       type="text"
                       bind:value={llmModel}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -791,7 +791,7 @@
                       id="llm-url"
                       type="text"
                       bind:value={llmBaseUrl}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 {:else}
@@ -802,14 +802,14 @@
                       type="password"
                       bind:value={llmApiKey}
                       placeholder="{llmProvider.toUpperCase()} の API キーを入力"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 {/if}
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
                   <Cpu class="w-4 h-4 text-cyan-400" />
                   Model Context Protocol (MCP) 連携
                 </h3>
@@ -819,7 +819,7 @@
                     <select
                       id="mcp-trans"
                       bind:value={mcpTransport}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
                       <option value="stdio">標準入出力 (stdio)</option>
                       <option value="sse">Server-Sent Events (SSE / HTTP)</option>
@@ -832,7 +832,7 @@
                       type="text"
                       bind:value={mcpEndpoint}
                       placeholder={mcpTransport === 'sse' ? 'http://localhost:8000/sse' : 'twsnmp-mcp'}
-                      class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -897,7 +897,7 @@
               </div>
 
               <!-- Format selector -->
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-3">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-3">
                 <h4 class="text-xs font-bold text-slate-100">ログ記録フォーマット</h4>
                 <p class="text-[11px] text-slate-400">
                   TWSNMP NEO はデフォルトで Apache Parquet 形式を採用しています。
@@ -915,7 +915,7 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="flex items-center justify-between border-t border-slate-800/80 bg-slate-900/60 px-6 py-3.5">
+      <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5">
         <div class="text-[11px] text-slate-400">
           変更を有効にするには保存ボタンをクリックしてください
         </div>
@@ -923,7 +923,7 @@
           <button
             type="button"
             onclick={() => (show = false)}
-            class="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 transition-colors"
+            class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors"
           >
             キャンセル
           </button>

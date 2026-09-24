@@ -4,9 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-    <script type="module" crossorigin src="/assets/index-HNdCgXQ-.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DThigbXG.css">
+    <title>TWSNMP NEO</title>
+    <script>
+      try {
+        if (localStorage.getItem("twsnmp_theme") !== "light") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/index-NzfgnLXB.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-nLzWx94N.css">
   </head>
   <body>
     <div id="app"></div>

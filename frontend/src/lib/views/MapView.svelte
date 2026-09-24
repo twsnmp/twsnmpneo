@@ -464,15 +464,15 @@
 />
 
 <!-- Two-tier layout matching twsnmpfk Image 1 + twnoaa styling -->
-<div class="flex h-[calc(100vh-4.25rem)] w-full flex-col overflow-hidden bg-[#0b1329]">
+<div class="flex h-[calc(100vh-4.25rem)] w-full flex-col overflow-hidden bg-slate-100 dark:bg-[#0b1329] transition-colors">
   <!-- Upper Section: Topology Map Canvas (approx 62%) -->
-  <div class="relative h-[62%] w-full overflow-hidden border-b border-slate-800">
+  <div class="relative h-[62%] w-full overflow-hidden border-b border-slate-200 dark:border-slate-800">
     <!-- Top-right Pinned Reload Button -->
     <div class="absolute top-3 right-4 z-20">
       <button
         onclick={reloadAllData}
         title="再読み込み"
-        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transition-all backdrop-blur-md active:scale-95"
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all backdrop-blur-md active:scale-95"
       >
         <RefreshCw class="h-4 w-4" />
       </button>
@@ -483,22 +483,22 @@
       <button
         onclick={() => alert("マップ配置を保存しました")}
         title="マップ保存"
-        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-md"
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
       >
-        <Save class="h-4 w-4 text-cyan-400" />
+        <Save class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
       </button>
       <div class="flex items-center gap-1.5">
         <button
           onclick={() => zoom(true)}
           title="拡大"
-          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-md"
+          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
         >
           <ZoomIn class="h-4 w-4" />
         </button>
         <button
           onclick={() => zoom(false)}
           title="縮小"
-          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/90 text-slate-200 shadow-xl hover:bg-slate-800 hover:border-slate-600 transition-all backdrop-blur-md"
+          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
         >
           <ZoomOut class="h-4 w-4" />
         </button>
@@ -510,19 +510,19 @@
   </div>
 
   <!-- Lower Section: Realtime Event Log Table (approx 38%) matching Image 1 + twnoaa style -->
-  <div class="flex h-[38%] w-full flex-col min-h-0 bg-[#0b1329] p-3 space-y-2 overflow-hidden">
+  <div class="flex h-[38%] w-full flex-col min-h-0 bg-slate-100 dark:bg-[#0b1329] p-3 space-y-2 overflow-hidden transition-colors">
     <div class="flex items-center justify-between flex-shrink-0 px-1">
       <div class="flex items-center gap-2">
-        <Calendar class="h-4 w-4 text-cyan-400" />
-        <span class="text-xs font-bold text-slate-200">リアルタイム イベントログ (Event Log)</span>
-        <span class="text-[11px] font-mono text-slate-400">({eventLogs.length} 件)</span>
+        <Calendar class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">リアルタイム イベントログ (Event Log)</span>
+        <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">({eventLogs.length} 件)</span>
       </div>
     </div>
 
     <!-- twnoaa style table container -->
-    <div class="flex-1 overflow-y-auto overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/70 shadow-lg min-h-0">
+    <div class="flex-1 overflow-y-auto overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 shadow-sm dark:shadow-lg min-h-0 transition-colors">
       <table class="w-full text-left text-xs">
-        <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+        <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
           <tr>
             <th class="py-2 px-3 w-28">Level</th>
             <th class="py-2 px-3 w-44">Time</th>
@@ -531,25 +531,25 @@
             <th class="py-2 px-3">Event</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
           {#each eventLogs as log}
-            <tr class="hover:bg-slate-800/40 transition-colors">
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
               <td class="py-1 px-3">
                 <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getLevelBadgeClass(log.level || (log as any).Level)}">
                   <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(log.level || (log as any).Level)}"></span>
                   {log.level || (log as any).Level || 'info'}
                 </span>
               </td>
-              <td class="py-1 px-3 text-slate-400 text-[11px]">
+              <td class="py-1 px-3 text-slate-500 dark:text-slate-400 text-[11px]">
                 {formatLogTime(log.time || (log as any).Time)}
               </td>
-              <td class="py-1 px-3 text-slate-400 text-[11px] font-sans">
+              <td class="py-1 px-3 text-slate-500 dark:text-slate-400 text-[11px] font-sans">
                 {log.type || (log as any).Type || 'system'}
               </td>
-              <td class="py-1 px-3 font-semibold text-slate-200 font-sans truncate">
+              <td class="py-1 px-3 font-semibold text-slate-800 dark:text-slate-200 font-sans truncate">
                 {log.node_name || (log as any).NodeName || '-'}
               </td>
-              <td class="py-1 px-3 text-slate-100 font-sans truncate" title={log.event || (log as any).Event}>
+              <td class="py-1 px-3 text-slate-800 dark:text-slate-100 font-sans truncate" title={log.event || (log as any).Event}>
                 {log.event || (log as any).Event || '-'}
               </td>
             </tr>
@@ -557,7 +557,7 @@
 
           {#if eventLogs.length === 0}
             <tr>
-              <td colspan="5" class="py-8 text-center text-slate-500 font-sans">
+              <td colspan="5" class="py-8 text-center text-slate-400 dark:text-slate-500 font-sans">
                 記録されたイベントログはありません
               </td>
             </tr>
@@ -572,77 +572,77 @@
     <div
       role="menu"
       tabindex="-1"
-      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
+      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md"
       style="left: {contextX}px; top: {contextY}px;"
       onclick={(e) => e.stopPropagation()}
       oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onkeydown={(e) => e.key === 'Escape' && (showContextMenu = false)}
     >
       {#if contextTargetNode}
-        <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Info class="h-3.5 w-3.5 text-cyan-400" />
+        <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Info class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           3D パネル / 詳細
         </button>
-        <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
+        <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Edit3 class="h-3.5 w-3.5 text-slate-400" />
           ノードの編集
         </button>
-        <button onclick={handleFindNeighborNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
-          <Compass class="h-3.5 w-3.5 text-indigo-400" />
+        <button onclick={handleFindNeighborNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
           接続先を探す
         </button>
-        <div class="my-1 border-t border-slate-800"></div>
-        <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+        <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
           ノードの削除
         </button>
       {:else if contextTargetNet}
-        <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Network class="h-3.5 w-3.5 text-cyan-400" />
+        <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Network class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           ネットワークの編集
         </button>
-        <button onclick={handleOpenNetworkLines} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
-          <Activity class="h-3.5 w-3.5 text-emerald-400" />
+        <button onclick={handleOpenNetworkLines} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           ライン編集
         </button>
-        <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-200 hover:bg-slate-800">
-          <Compass class="h-3.5 w-3.5 text-indigo-400" />
+        <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
           接続先を探す
         </button>
-        <div class="my-1 border-t border-slate-800"></div>
-        <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+        <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
           ネットワークの削除
         </button>
       {:else if contextTargetItem}
-        <button onclick={handleEditTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Palette class="h-3.5 w-3.5 text-purple-400" />
+        <button onclick={handleEditTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
           描画アイテムの編集
         </button>
-        <div class="my-1 border-t border-slate-800"></div>
-        <button onclick={handleDeleteTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+        <button onclick={handleDeleteTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
           描画アイテムの削除
         </button>
       {:else}
-        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Plus class="h-3.5 w-3.5 text-cyan-400" />
+        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Plus class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           ノードの追加
         </button>
-        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Network class="h-3.5 w-3.5 text-emerald-400" />
+        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Network class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           ネットワークの追加
         </button>
-        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Palette class="h-3.5 w-3.5 text-purple-400" />
+        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
           描画アイテムの追加
         </button>
-        <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800 font-medium">
-          <Activity class="h-3.5 w-3.5 text-cyan-400" />
+        <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Activity class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           ライン結線
         </button>
-        <div class="my-1 border-t border-slate-800"></div>
-        <button onclick={reloadAllData} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800">
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+        <button onclick={reloadAllData} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
           <RefreshCw class="h-3.5 w-3.5 text-slate-400" />
           再読み込み
         </button>
@@ -655,26 +655,26 @@
     <div
       role="menu"
       tabindex="-1"
-      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
+      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-2xl backdrop-blur-md"
       style="left: {formatPosX}px; top: {formatPosY}px;"
       onclick={(e) => e.stopPropagation()}
       oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onkeydown={(e) => e.key === 'Escape' && (showFormatMenu = false)}
     >
-      <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-400">選択ノード ({formatNodesList.length}個)</div>
-      <button onclick={() => handleFormat('horizontal')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
-        <AlignCenterHorizontal class="h-3.5 w-3.5 text-cyan-400" />
+      <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">選択ノード ({formatNodesList.length}個)</div>
+      <button onclick={() => handleFormat('horizontal')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <AlignCenterHorizontal class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
         水平に整列
       </button>
-      <button onclick={() => handleFormat('vertical')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
-        <AlignCenterVertical class="h-3.5 w-3.5 text-cyan-400" />
+      <button onclick={() => handleFormat('vertical')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <AlignCenterVertical class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
         垂直に整列
       </button>
-      <button onclick={() => handleFormat('circle')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-100 hover:bg-slate-800">
-        <CircleDot class="h-3.5 w-3.5 text-cyan-400" />
+      <button onclick={() => handleFormat('circle')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <CircleDot class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
         円形に配置
       </button>
-      <div class="my-1 border-t border-slate-800"></div>
+      <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
       <button onclick={handleDeleteSelectedNodes} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
         <Trash2 class="h-3.5 w-3.5" />
         選択ノードを削除

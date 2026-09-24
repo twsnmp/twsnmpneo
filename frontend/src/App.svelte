@@ -28,7 +28,11 @@
   type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "system";
 
   let currentPage = $state<PageType>("map");
-  let isDark = $state(true);
+  let isDark = $state(
+    typeof window !== "undefined"
+      ? localStorage.getItem("twsnmp_theme") !== "light"
+      : true
+  );
   let showConfig = $state(false);
   let showAI = $state(false);
   let mapName = $state("My Network");
@@ -43,7 +47,14 @@
   };
 
   onMount(async () => {
-    document.documentElement.classList.add("dark");
+    const savedTheme = localStorage.getItem("twsnmp_theme");
+    if (savedTheme === "light") {
+      isDark = false;
+      document.documentElement.classList.remove("dark");
+    } else {
+      isDark = true;
+      document.documentElement.classList.add("dark");
+    }
     await refreshConf();
   });
 
@@ -51,8 +62,10 @@
     isDark = !isDark;
     if (isDark) {
       document.documentElement.classList.add("dark");
+      localStorage.setItem("twsnmp_theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
+      localStorage.setItem("twsnmp_theme", "light");
     }
   };
 
@@ -67,34 +80,34 @@
   ];
 </script>
 
-<div class="flex h-screen w-screen flex-col overflow-hidden bg-[#0b1329] text-[#f1f5f9] font-sans">
+<div class="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 text-slate-800 dark:bg-[#0b1329] dark:text-[#f1f5f9] font-sans">
   <!-- Top Navigation Bar matching twsnmpfk Image 1 + twnoaa palette -->
-  <header class="flex h-17 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2 shadow-xl z-30">
+  <header class="flex h-17 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 dark:border-slate-800 dark:bg-slate-950 px-4 py-2 shadow-sm dark:shadow-xl z-30 transition-colors">
     <!-- Brand -->
     <div class="flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-sm">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 shadow-sm">
         <Activity class="h-5 w-5 animate-pulse" />
       </div>
       <div>
-        <h1 class="text-sm font-bold tracking-tight text-slate-100 flex items-center gap-2">
+        <h1 class="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
           TWSNMP NEO
-          <span class="text-xs font-normal text-slate-400">- {mapName}</span>
+          <span class="text-xs font-normal text-slate-500 dark:text-slate-400">- {mapName}</span>
         </h1>
-        <p class="text-[10px] text-slate-400 font-medium">Next-Gen Intelligent Network Management</p>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Next-Gen Intelligent Network Management</p>
       </div>
     </div>
 
     <!-- Center Navigation Tabs with Stacked Icon + Label (twsnmpfk style with twnoaa styling) -->
-    <nav class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+    <nav class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
       {#each navItems as item}
         <button
           onclick={() => (currentPage = item.id as PageType)}
-          class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'}"
+          class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60'}"
         >
           {#if item.mdi}
-            <span class="mdi {item.mdi} text-base leading-none mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-400'}"></span>
+            <span class="mdi {item.mdi} text-base leading-none mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-500 dark:text-slate-400'}"></span>
           {:else}
-            <item.icon class="h-4 w-4 mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-400'}" />
+            <item.icon class="h-4 w-4 mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-500 dark:text-slate-400'}" />
           {/if}
           <span>{item.label}</span>
         </button>
@@ -106,9 +119,9 @@
       <!-- AI Assistant Button -->
       <button
         onclick={() => (showAI = !showAI)}
-        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm"
+        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm"
       >
-        <Bot class="h-4 w-4 text-cyan-400" />
+        <Bot class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
         <span>AI アシスタント</span>
       </button>
 
@@ -116,21 +129,21 @@
       <button
         onclick={() => (showConfig = true)}
         title="システム設定"
-        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
+        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
       >
-        <Settings class="h-4 w-4 text-slate-400 hover:text-slate-200" />
+        <Settings class="h-4 w-4 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
       </button>
 
       <!-- Theme Toggle -->
       <button
         onclick={toggleTheme}
         title="テーマ切り替え"
-        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
+        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
       >
         {#if isDark}
           <Sun class="h-4 w-4 text-amber-400" />
         {:else}
-          <Moon class="h-4 w-4 text-cyan-400" />
+          <Moon class="h-4 w-4 text-cyan-600" />
         {/if}
       </button>
 
@@ -138,9 +151,9 @@
       <button
         onclick={() => alert("TWSNMP NEO ヘルプ: マップ上で右クリックするとノードやネットワークの追加、編集、削除メニューが表示されます。")}
         title="ヘルプ"
-        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
+        class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
       >
-        <HelpCircle class="h-4 w-4 text-slate-400" />
+        <HelpCircle class="h-4 w-4 text-slate-500 dark:text-slate-400" />
       </button>
     </div>
   </header>
@@ -182,7 +195,7 @@
         onclick={() => (showAI = false)}
       ></button>
       <div
-        class="relative z-10 h-full w-full max-w-lg bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col"
+        class="relative z-10 h-full w-full max-w-lg bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col"
       >
         <AIAssistant onClose={() => (showAI = false)} />
       </div>

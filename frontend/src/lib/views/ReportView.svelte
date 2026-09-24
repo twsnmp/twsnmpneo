@@ -17,6 +17,7 @@
     type IPAMRangeEnt
   } from "../api";
   import { getStateColor, getStateName, formatTimeStr } from "../common";
+  import { isDarkMode } from "../charts/utils";
   import {
     Laptop,
     Network,
@@ -109,6 +110,17 @@
 
   onMount(() => {
     loadData();
+
+    const observer = new MutationObserver(() => {
+      if (activeReport === "ipam" && ipamReport.Ranges.length > 0) {
+        renderIPAMHeatmap();
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+    return () => {
+      observer.disconnect();
+    };
   });
 
   // Helper for vendor resolution from MAC OUI
@@ -323,7 +335,8 @@
     if (ipamChartInstance) {
       ipamChartInstance.dispose();
     }
-    ipamChartInstance = echarts.init(ipamChartElem, "dark");
+    const isDark = isDarkMode();
+    ipamChartInstance = echarts.init(ipamChartElem, isDark ? "dark" : undefined);
     const yData = ipamReport.Ranges.map((r) => r.Range).reverse();
     const xData: number[] = [];
     for (let i = 0; i < 100; i++) xData.push(i);
@@ -350,46 +363,55 @@
         },
       },
       grid: {
-        left: "14%",
-        right: "5%",
-        top: 25,
-        bottom: 50,
+        left: 110,
+        right: 80,
+        top: 20,
+        bottom: 26,
       },
       xAxis: {
         type: "category",
-        name: "相対アドレス位置 (%)",
-        nameLocation: "middle",
-        nameGap: 24,
-        nameTextStyle: { color: "#64748b", fontSize: 10 },
         data: xData.map((x) => `${x}%`),
-        axisLabel: { color: "#94a3b8", fontSize: 9, interval: 9 },
-        axisLine: { lineStyle: { color: "#334155" } },
+        axisLabel: { color: isDark ? "#94a3b8" : "#64748b", fontSize: 9, interval: 9 },
+        axisLine: { lineStyle: { color: isDark ? "#334155" : "#cbd5e1" } },
         splitLine: { show: false },
       },
       yAxis: {
         type: "category",
         data: yData,
-        axisLabel: { color: "#cbd5e1", fontSize: 10 },
-        axisLine: { lineStyle: { color: "#334155" } },
+        axisLabel: { color: isDark ? "#cbd5e1" : "#334155", fontSize: 10 },
+        axisLine: { lineStyle: { color: isDark ? "#334155" : "#cbd5e1" } },
         splitLine: { show: false },
       },
       visualMap: {
         min: 0,
         max: Math.max(1, maxVal),
         calculable: true,
-        orient: "horizontal",
-        left: "center",
-        bottom: 0,
-        textStyle: { color: "#94a3b8", fontSize: 10 },
+        orient: "vertical",
+        right: 12,
+        top: "middle",
+        itemWidth: 10,
+        itemHeight: 90,
+        text: ["高 (ホスト)", "低"],
+        textGap: 8,
+        textStyle: { color: isDark ? "#94a3b8" : "#475569", fontSize: 9 },
         inRange: {
-          color: [
-            "#091e3a",
-            "#0e3a6c",
-            "#0284c7",
-            "#10b981",
-            "#eab308",
-            "#f43f5e",
-          ],
+          color: isDark
+            ? [
+                "#091e3a",
+                "#0e3a6c",
+                "#0284c7",
+                "#10b981",
+                "#eab308",
+                "#f43f5e",
+              ]
+            : [
+                "#e2e8f0",
+                "#93c5fd",
+                "#38bdf8",
+                "#10b981",
+                "#f59e0b",
+                "#ef4444",
+              ],
         },
       },
       series: [
@@ -524,35 +546,35 @@
   };
 </script>
 
-<div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-[#0b1329] text-slate-100 font-sans">
+<div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-slate-50 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 font-sans">
   <!-- Sidebar Navigation (twnoaa style) -->
-  <div class="w-64 border-r border-slate-800 bg-slate-950/70 p-3 space-y-1.5 shrink-0 flex flex-col justify-between">
+  <div class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70 p-3 space-y-1.5 shrink-0 flex flex-col justify-between">
     <div class="space-y-1">
-      <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         分析レポートスイート (Reports)
       </div>
       {#each categories as cat}
         <button
           type="button"
           onclick={() => { activeReport = cat.id; searchQuery = ""; }}
-          class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeReport === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+          class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeReport === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-800 dark:text-slate-200'}"
         >
-          <cat.icon class="h-4 w-4 shrink-0 text-cyan-400" />
+          <cat.icon class="h-4 w-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
           <span class="truncate">{cat.name}</span>
         </button>
       {/each}
     </div>
 
     <!-- Live Status Pill in Sidebar -->
-    <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 text-[11px] text-slate-400 space-y-1.5">
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-200">データ同期</span>
-        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+        <span class="font-semibold text-slate-700 dark:text-slate-800 dark:text-slate-200">データ同期</span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
           ● リアルタイム
         </span>
       </div>
-      <div class="text-[10px] font-mono text-slate-400">
-        ノード: <span class="text-cyan-400 font-bold">{nodes.length}</span> / ポーリング: <span class="text-cyan-400 font-bold">{pollings.length}</span>
+      <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+        ノード: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{nodes.length}</span> / ポーリング: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{pollings.length}</span>
       </div>
     </div>
   </div>
@@ -560,7 +582,7 @@
   <!-- Main Report Canvas -->
   <div class="flex-1 overflow-y-auto p-6 space-y-6">
     <!-- Top Action Bar -->
-    <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg">
+    <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg">
       <div class="flex items-center gap-3">
         <div class="relative w-72">
           <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -569,7 +591,7 @@
             placeholder="項目を検索 (ノード名・IP・MAC等)..."
             bind:value={searchQuery}
             oninput={() => (currentPage = 1)}
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
           />
         </div>
       </div>
@@ -580,10 +602,10 @@
             type="button"
             onclick={handleResetArp}
             disabled={loading}
-            class="flex items-center gap-1.5 rounded-xl border border-rose-800/60 bg-rose-950/40 hover:bg-rose-900/60 px-3.5 py-1.5 text-xs font-semibold text-rose-300 transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 px-3.5 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 transition-colors cursor-pointer"
             title="ARP監視テーブル全消去"
           >
-            <Trash2 class="h-3.5 w-3.5 text-rose-400" />
+            <Trash2 class="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
             <span>全消去</span>
           </button>
         {/if}
@@ -591,9 +613,9 @@
           type="button"
           onclick={loadData}
           disabled={loading}
-          class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-800 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          <RefreshCw class="h-3.5 w-3.5 text-cyan-400 {loading ? 'animate-spin' : ''}" />
+          <RefreshCw class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 {loading ? 'animate-spin' : ''}" />
           <span>更新</span>
         </button>
         <button
@@ -611,7 +633,7 @@
     {#if activeReport === "device"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Laptop class="w-5 h-5 text-cyan-400" />
             LAN デバイス一覧 (MAC / Vendor 分析)
           </h2>
@@ -620,7 +642,7 @@
 
         <!-- KPI Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span>検出デバイス総数</span>
               <Laptop class="w-4 h-4 text-cyan-400" />
@@ -629,7 +651,7 @@
             <div class="text-[10px] text-slate-400">登録ノード: {nodes.length} / ARP未管理: {arpList.length}</div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span>稼働中 (Normal / Info)</span>
               <CheckCircle2 class="w-4 h-4 text-emerald-400" />
@@ -638,18 +660,18 @@
             <div class="text-[10px] text-emerald-400/80">正常通信 / ARP応答確認済み</div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>ベンダー種別数</span>
-              <Layers class="w-4 h-4 text-cyan-400" />
+              <Layers class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-slate-100">
-              {new Set(allDevices.map((n) => n.vendor || getVendor(n.mac || ''))).size} <span class="text-xs font-normal text-slate-400">種別</span>
+            <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
+              {new Set(allDevices.map((n) => n.vendor || getVendor(n.mac || ''))).size} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">種別</span>
             </div>
-            <div class="text-[10px] text-slate-400">OUI ベンダー自動分類</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">OUI ベンダー自動分類</div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
               <span>障害検知中 (Alert)</span>
               <AlertTriangle class="w-4 h-4 text-rose-400" />
@@ -660,11 +682,11 @@
         </div>
 
         <!-- Devices Table -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden flex flex-col">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
               <tr>
-                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("name")}>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("name")}>
                   <div class="inline-flex items-center gap-1">
                     <span>ノード / ホスト名</span>
                     {#if sortColumn === "name"}
@@ -678,7 +700,7 @@
                     {/if}
                   </div>
                 </th>
-                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("ip")}>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("ip")}>
                   <div class="inline-flex items-center gap-1">
                     <span>IP アドレス</span>
                     {#if sortColumn === "ip"}
@@ -692,7 +714,7 @@
                     {/if}
                   </div>
                 </th>
-                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("mac")}>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("mac")}>
                   <div class="inline-flex items-center gap-1">
                     <span>MAC アドレス</span>
                     {#if sortColumn === "mac"}
@@ -706,7 +728,7 @@
                     {/if}
                   </div>
                 </th>
-                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("vendor")}>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("vendor")}>
                   <div class="inline-flex items-center gap-1">
                     <span>ベンダー推定</span>
                     {#if sortColumn === "vendor"}
@@ -720,7 +742,7 @@
                     {/if}
                   </div>
                 </th>
-                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("addr_mode")}>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("addr_mode")}>
                   <div class="inline-flex items-center gap-1">
                     <span>種別</span>
                     {#if sortColumn === "addr_mode"}
@@ -734,7 +756,7 @@
                     {/if}
                   </div>
                 </th>
-                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-200" onclick={() => handleSort("state")}>
+                <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("state")}>
                   <div class="inline-flex items-center gap-1">
                     <span>稼働ステータス</span>
                     {#if sortColumn === "state"}
@@ -751,7 +773,7 @@
                 <th class="py-1 px-2 text-center w-12">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 font-mono text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 font-mono text-slate-700 dark:text-slate-300">
               {#if paginatedDevices.length === 0}
                 <tr>
                   <td colspan="7" class="p-8 text-center text-slate-500 font-sans">
@@ -760,22 +782,22 @@
                 </tr>
               {:else}
                 {#each paginatedDevices as n}
-                  <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-100 flex items-center gap-1.5 text-[11px]">
+                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 flex items-center gap-1.5 text-[11px]">
                       <div class="h-2 w-2 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></div>
                       <span class="truncate">{n.name}</span>
                       {#if !n.isManaged}
-                        <span class="rounded bg-cyan-950 border border-cyan-800 px-1 py-0 text-[9px] text-cyan-400 font-mono leading-none">ARP</span>
+                        <span class="rounded bg-cyan-100 dark:bg-cyan-950 border border-cyan-300 dark:border-cyan-800 px-1 py-0 text-[9px] text-cyan-800 dark:text-cyan-400 font-mono leading-none">ARP</span>
                       {/if}
                     </td>
-                    <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{n.ip}</td>
-                    <td class="py-1 px-2.5 text-slate-300 font-mono text-[11px]">{n.mac || "-"}</td>
+                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
+                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{n.mac || "-"}</td>
                     <td class="py-1 px-2.5">
-                      <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 border border-slate-700 font-sans leading-none">
+                      <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-sans leading-none">
                         {n.vendor || getVendor(n.mac || '')}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 text-[10px] text-slate-400 font-sans uppercase">{n.addr_mode || "IP"}</td>
+                    <td class="py-1 px-2.5 text-[10px] text-slate-600 dark:text-slate-400 font-sans uppercase">{n.addr_mode || "IP"}</td>
                     <td class="py-1 px-2.5">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(n.state)}20; border-color: {getStateColor(n.state)}50; color: {getStateColor(n.state)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></span>
@@ -804,13 +826,13 @@
           </table>
 
           <!-- Pagination Footer -->
-          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 bg-slate-950/80 px-4 py-2 text-xs text-slate-400 shrink-0">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-4 py-2 text-xs text-slate-600 dark:text-slate-400 shrink-0">
             <div class="flex items-center gap-3">
               <span>表示件数:</span>
               <select
                 bind:value={pageSize}
                 onchange={() => (currentPage = 1)}
-                class="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:outline-none cursor-pointer"
+                class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-700 dark:text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
               >
                 <option value={10}>10 件 / ページ</option>
                 <option value={25}>25 件 / ページ</option>
@@ -835,7 +857,7 @@
                   type="button"
                   disabled={currentPage <= 1}
                   onclick={() => (currentPage = 1)}
-                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                   title="最初のページ"
                 >
                   <ChevronsLeft class="h-4 w-4" />
@@ -845,13 +867,13 @@
                   type="button"
                   disabled={currentPage <= 1}
                   onclick={() => currentPage--}
-                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                   title="前のページ"
                 >
                   <ChevronLeft class="h-4 w-4" />
                 </button>
 
-                <span class="px-2 font-mono text-xs text-slate-300">
+                <span class="px-2 font-mono text-xs text-slate-600 dark:text-slate-300">
                   {currentPage} / {totalPages}
                 </span>
 
@@ -859,7 +881,7 @@
                   type="button"
                   disabled={currentPage >= totalPages}
                   onclick={() => currentPage++}
-                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                   title="次のページ"
                 >
                   <ChevronRight class="h-4 w-4" />
@@ -869,7 +891,7 @@
                   type="button"
                   disabled={currentPage >= totalPages}
                   onclick={() => (currentPage = totalPages)}
-                  class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                   title="最後のページ"
                 >
                   <ChevronsRight class="h-4 w-4" />
@@ -884,7 +906,7 @@
     {:else if activeReport === "ipam"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Network class="w-5 h-5 text-cyan-400" />
             IPAM (IP アドレス管理 & サブネット利用率)
           </h2>
@@ -895,68 +917,68 @@
 
         <!-- KPI Summary Cards across all ranges -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>対象アドレス範囲数</span>
-              <FolderTree class="w-4 h-4 text-cyan-400" />
+              <FolderTree class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-cyan-400">
-              {ipamReport.TotalRanges} <span class="text-xs font-normal text-slate-400">範囲</span>
+            <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">
+              {ipamReport.TotalRanges} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">範囲</span>
             </div>
-            <div class="text-[10px] text-slate-400">
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">
               {currentRange ? `選択中: ${currentRange.Range}` : "サブネット未検出"}
             </div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>全空間アドレス総数</span>
-              <Layers class="w-4 h-4 text-cyan-400" />
+              <Layers class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-slate-100">
-              {ipamReport.TotalSize.toLocaleString()} <span class="text-xs font-normal text-slate-400">アドレス</span>
+            <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
+              {ipamReport.TotalSize.toLocaleString()} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">アドレス</span>
             </div>
-            <div class="text-[10px] text-slate-400">管理対象アドレスプール総計</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">管理対象アドレスプール総計</div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>使用中 IP 総数</span>
-              <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-emerald-400">
-              {ipamReport.TotalUsed.toLocaleString()} <span class="text-xs font-normal text-slate-400">/ {ipamReport.TotalSize.toLocaleString()}</span>
+            <div class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              {ipamReport.TotalUsed.toLocaleString()} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">/ {ipamReport.TotalSize.toLocaleString()}</span>
             </div>
-            <div class="text-[10px] text-emerald-400/80">割り当て・検知済みホスト</div>
+            <div class="text-[10px] text-emerald-600 dark:text-emerald-400/80">割り当て・検知済みホスト</div>
           </div>
 
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
               <span>全体平均利用率</span>
-              <Activity class="w-4 h-4 text-cyan-300" />
+              <Activity class="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
             </div>
-            <div class="text-2xl font-bold font-mono text-cyan-300">
-              {ipamReport.TotalUsage.toFixed(1)} <span class="text-xs font-normal text-slate-400">%</span>
+            <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-300">
+              {ipamReport.TotalUsage.toFixed(1)} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">%</span>
             </div>
-            <div class="text-[10px] text-slate-400">
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">
               空きアドレス: {(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}
             </div>
           </div>
         </div>
 
         <!-- Section 1: ECharts Multi-Range 100-Slot Heatmap (twsnmpfk style) -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-3">
-          <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-2">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-5 shadow-sm dark:shadow-lg space-y-3">
+          <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-2">
             <div>
-              <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2">
-                <Network class="w-4 h-4 text-cyan-400" />
+              <h3 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Network class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 サブネット相対利用密度ヒートマップ (0% 〜 100%)
               </h3>
-              <p class="text-[11px] text-slate-400 mt-0.5">
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 全アドレス範囲を100分割（パーセンタイル）で正規化集約し、広域ネットワークでも軽量・高速に俯瞰表示します
               </p>
             </div>
-            <div class="text-[10px] text-slate-400 font-mono">
+            <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               行またはセルをクリックすると、そのサブネットの詳細へ切り替わります
             </div>
           </div>
@@ -966,14 +988,14 @@
               IPAM対象のアドレス範囲が登録されていません
             </div>
           {:else}
-            <div bind:this={ipamChartElem} class="w-full min-h-[180px] h-48"></div>
+            <div bind:this={ipamChartElem} class="w-full h-48"></div>
           {/if}
         </div>
 
         <!-- Section 2: Subnets List Table -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden flex flex-col">
-          <div class="border-b border-slate-800 bg-slate-950/60 px-5 py-3 flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-200 flex items-center gap-2">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
+          <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <FolderTree class="w-4 h-4 text-cyan-400" />
               サブネット範囲一覧 ({ipamReport.Ranges.length} 件)
             </span>
@@ -981,7 +1003,7 @@
           </div>
 
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
+            <thead class="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
               <tr>
                 <th class="py-2 px-3">選択</th>
                 <th class="py-2 px-3">アドレス範囲 (CIDR / Range)</th>
@@ -992,7 +1014,7 @@
                 <th class="py-2 px-3 w-48">利用率 (Usage)</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if ipamReport.Ranges.length === 0}
                 <tr>
                   <td colspan="7" class="p-6 text-center text-slate-500 font-sans">
@@ -1004,7 +1026,7 @@
                   {@const isSelected = selectedRangeIndex === idx}
                   <tr
                     onclick={() => { selectedRangeIndex = idx; selectedSubnetBlock = null; }}
-                    class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-950/40 text-white font-semibold' : 'hover:bg-slate-800/40'}"
+                    class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-950/40 text-white font-semibold' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}"
                   >
                     <td class="py-2 px-3 text-center w-10">
                       {#if isSelected}
@@ -1013,27 +1035,27 @@
                         <span class="h-1.5 w-1.5 rounded-full bg-slate-700 inline-block"></span>
                       {/if}
                     </td>
-                    <td class="py-2 px-3 text-cyan-400 font-bold flex items-center gap-1.5">
+                    <td class="py-2 px-3 text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
                       <span>{r.Range}</span>
                       {#if r.Size > 256}
-                        <span class="rounded bg-indigo-950 border border-indigo-800/70 px-1 text-[9px] text-indigo-300 leading-none">
+                        <span class="rounded bg-indigo-100 dark:bg-indigo-950 border border-indigo-300 dark:border-indigo-800/70 px-1 text-[9px] text-indigo-700 dark:text-indigo-300 leading-none">
                           広域
                         </span>
                       {/if}
                     </td>
-                    <td class="py-2 px-3 text-slate-400">{r.StartIP}</td>
-                    <td class="py-2 px-3 text-slate-400">{r.EndIP}</td>
-                    <td class="py-2 px-3 text-right text-slate-200">{r.Size.toLocaleString()}</td>
-                    <td class="py-2 px-3 text-right text-emerald-400 font-bold">{r.Used.toLocaleString()}</td>
+                    <td class="py-2 px-3 text-slate-700 dark:text-slate-400">{r.StartIP}</td>
+                    <td class="py-2 px-3 text-slate-700 dark:text-slate-400">{r.EndIP}</td>
+                    <td class="py-2 px-3 text-right text-slate-800 dark:text-slate-200">{r.Size.toLocaleString()}</td>
+                    <td class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">{r.Used.toLocaleString()}</td>
                     <td class="py-2 px-3">
                       <div class="flex items-center gap-2.5">
-                        <div class="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                        <div class="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                           <div
                             class="h-full rounded-full transition-all {getUsageProgressBarColor(r.Usage)}"
                             style="width: {Math.min(100, Math.max(r.Used > 0 ? 3 : 0, r.Usage))}%"
                           ></div>
                         </div>
-                        <span class="text-[10px] w-12 text-right font-mono {r.Usage >= 90 ? 'text-rose-400 font-bold' : 'text-slate-300'}">
+                        <span class="text-[10px] w-12 text-right font-mono {r.Usage >= 90 ? 'text-rose-500 dark:text-rose-400 font-bold' : 'text-slate-600 dark:text-slate-300'}">
                           {r.Usage.toFixed(1)}%
                         </span>
                       </div>
@@ -1047,12 +1069,12 @@
 
         <!-- Section 3: Adaptive Drill-down Visual View -->
         {#if currentRange}
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-4">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-5 shadow-sm dark:shadow-lg space-y-4">
             <!-- Navigation Header & Breadcrumb -->
-            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-3">
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-3">
               <div class="flex items-center gap-2">
                 <Grid class="w-4 h-4 text-cyan-400" />
-                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                   <button
                     type="button"
                     onclick={() => { selectedSubnetBlock = null; }}
@@ -1085,7 +1107,7 @@
                     <span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> 使用中
                   </span>
                   <span class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded bg-slate-800 border border-slate-700"></span> 空き
+                    <span class="h-2.5 w-2.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"></span> 空き
                   </span>
                   {#if searchQuery}
                     <span class="flex items-center gap-1.5 text-amber-400">
@@ -1108,7 +1130,7 @@
                   </span>
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-1.5 max-h-96 overflow-y-auto p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80">
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-1.5 max-h-96 overflow-y-auto p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80">
                   {#each (currentRange.Subnets || []) as block}
                     {@const hasUsed = block.Used > 0}
                     {@const isQueryMatch = searchQuery && block.Subnet.toLowerCase().includes(searchQuery.toLowerCase())}
@@ -1116,9 +1138,9 @@
                       type="button"
                       onclick={() => { selectedSubnetBlock = block.Subnet; }}
                       title="{block.Subnet} - 使用中: {block.Used} / {block.Size} ({block.Usage.toFixed(1)}%)"
-                      class="p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer hover:scale-105 hover:z-10 {isQueryMatch ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-950/30' : hasUsed ? 'bg-slate-900 border-cyan-800/60 hover:border-cyan-400' : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-900 opacity-60'}"
+                      class="p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer hover:scale-105 hover:z-10 {isQueryMatch ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-950/30' : hasUsed ? 'bg-white dark:bg-slate-900 border-cyan-200 dark:border-cyan-800/60 hover:border-cyan-400 shadow-xs' : 'bg-slate-100/60 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-900 opacity-60'}"
                     >
-                      <div class="text-[10px] font-mono font-bold truncate text-slate-200">
+                      <div class="text-[10px] font-mono font-bold truncate text-slate-800 dark:text-slate-200">
                         {block.Subnet.replace(/\.0\/24$/, "")}
                       </div>
                       <div class="flex items-center justify-between mt-1 text-[9px] font-mono">
@@ -1146,7 +1168,7 @@
                   </span>
                 </div>
 
-                <div class="grid grid-cols-16 sm:grid-cols-32 gap-1 max-h-72 overflow-y-auto p-2 rounded-xl bg-slate-950/80 border border-slate-800/80">
+                <div class="grid grid-cols-16 sm:grid-cols-32 gap-1 max-h-72 overflow-y-auto p-2 rounded-xl bg-slate-50/80 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80">
                   {#each Array.from({ length: 254 }, (_, i) => i + 1) as hostNum}
                     {@const host = currentSubnetHosts.hostMap.get(hostNum)}
                     {@const isUsed = !!host}
@@ -1160,7 +1182,7 @@
                           : { ip: hostIP, isFree: true };
                       }}
                       title="{hostIP} {isUsed ? `(${host.name || host.mac})` : '(空き)'}"
-                      class="h-5 rounded text-[9px] flex items-center justify-center font-mono cursor-pointer transition-transform hover:scale-125 {isQueryMatch ? 'ring-2 ring-amber-400 font-bold' : ''} {isUsed ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs shadow-emerald-500/50' : 'bg-slate-800/60 text-slate-600 hover:bg-slate-700'}"
+                      class="h-5 rounded text-[9px] flex items-center justify-center font-mono cursor-pointer transition-transform hover:scale-125 {isQueryMatch ? 'ring-2 ring-amber-400 font-bold' : ''} {isUsed ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs shadow-emerald-500/50' : 'bg-slate-200 dark:bg-slate-800/60 text-slate-500 dark:text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}"
                     >
                       {hostNum}
                     </button>
@@ -1169,7 +1191,7 @@
 
                 <!-- Selected Host Detail Modal / Panel -->
                 {#if selectedHostInfo}
-                  <div class="rounded-xl border border-cyan-800/60 bg-slate-950/90 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                  <div class="rounded-xl border border-cyan-300 dark:border-cyan-800/60 bg-white/95 dark:bg-slate-950/90 p-3.5 shadow-md flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
                     <div class="flex items-center gap-3">
                       <div class="h-3 w-3 rounded-full shrink-0 {selectedHostInfo.isFree ? 'bg-slate-700' : 'bg-emerald-400'}"></div>
                       <div>
@@ -1177,9 +1199,9 @@
                         {#if selectedHostInfo.isFree}
                           <span class="ml-2 text-slate-400 font-sans text-xs">（未割当・空きIP）</span>
                         {:else}
-                          <span class="ml-2 text-slate-100 font-bold font-sans">{selectedHostInfo.name}</span>
-                          <span class="ml-2 text-slate-400 text-[11px]">MAC: {selectedHostInfo.mac || "-"}</span>
-                          <span class="ml-2 rounded bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300 font-sans">
+                          <span class="ml-2 text-slate-800 dark:text-slate-100 font-bold font-sans">{selectedHostInfo.name}</span>
+                          <span class="ml-2 text-slate-500 dark:text-slate-400 text-[11px]">MAC: {selectedHostInfo.mac || "-"}</span>
+                          <span class="ml-2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 font-sans">
                             {selectedHostInfo.vendor || getVendor(selectedHostInfo.mac || "")}
                           </span>
                         {/if}
@@ -1188,7 +1210,7 @@
                     <button
                       type="button"
                       onclick={() => { selectedHostInfo = null; }}
-                      class="rounded px-2 py-0.5 text-slate-400 hover:text-white hover:bg-slate-800 text-[11px] font-sans cursor-pointer"
+                      class="rounded px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 text-[11px] font-sans cursor-pointer transition-colors"
                     >
                       閉じる
                     </button>
@@ -1204,7 +1226,7 @@
     {:else if activeReport === "polling"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Activity class="w-5 h-5 text-cyan-400" />
             ポーリング稼働率 & SLA レポート
           </h2>
@@ -1212,31 +1234,31 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">総ポーリング件数</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">{pollingStats.total} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">常時ヘルスチェック中</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">サービス稼働率 (SLA)</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">{pollingStats.rate} <span class="text-xs font-normal text-slate-400">%</span></div>
             <div class="text-[10px] text-slate-400">過去24時間アベイラビリティ</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">警告・注意 (Warn/Low)</span>
             <div class="text-2xl font-bold font-mono text-amber-400">{pollingStats.warn} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">閾値超過・レイテンシ増</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">ダウン / 障害 (Error)</span>
             <div class="text-2xl font-bold font-mono text-rose-400">{pollingStats.error} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">サービス停止</div>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
                 <th class="py-1 px-2.5">ポーリング名</th>
                 <th class="py-1 px-2.5">種別</th>
@@ -1245,7 +1267,7 @@
                 <th class="py-1 px-2.5">最新応答値</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if pollings.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
@@ -1254,21 +1276,21 @@
                 </tr>
               {:else}
                 {#each pollings as p}
-                  <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-100 text-[11px]">{p.name}</td>
+                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{p.name}</td>
                     <td class="py-1 px-2.5">
-                      <span class="rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none">
+                      <span class="rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none">
                         {p.type}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 text-slate-400 text-[11px]">{p.target || "-"}</td>
+                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{p.target || "-"}</td>
                     <td class="py-1 px-2.5">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(p.state)}20; border-color: {getStateColor(p.state)}50; color: {getStateColor(p.state)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(p.state)}"></span>
                         {getStateName(p.state)}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 font-mono text-cyan-400 text-[11px]">{p.last_val ?? "-"}</td>
+                    <td class="py-1 px-2.5 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">{p.last_val ?? "-"}</td>
                   </tr>
                 {/each}
               {/if}
@@ -1281,7 +1303,7 @@
     {:else if activeReport === "flow"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BarChart3 class="w-5 h-5 text-cyan-400" />
             NetFlow / トラフィック分析レポート
           </h2>
@@ -1289,22 +1311,22 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">総転送量 (24h)</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">148.6 <span class="text-xs font-normal text-slate-400">GB</span></div>
             <div class="text-[10px] text-slate-400">インバウンド + アウトバウンド</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">総フローセッション数</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">186,400 <span class="text-xs font-normal text-slate-400">flows</span></div>
             <div class="text-[10px] text-slate-400">アクティブセッション</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">主要プロトコル</span>
-            <div class="text-2xl font-bold font-mono text-slate-100">HTTPS <span class="text-xs font-normal text-slate-400">(68%)</span></div>
-            <div class="text-[10px] text-slate-400">ポート 443 / 暗号化通信</div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">主要プロトコル</span>
+            <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">HTTPS <span class="text-xs font-normal text-slate-500 dark:text-slate-400">(68%)</span></div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">ポート 443 / 暗号化通信</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">ピーク帯域</span>
             <div class="text-2xl font-bold font-mono text-cyan-300">42.8 <span class="text-xs font-normal text-slate-400">Mbps</span></div>
             <div class="text-[10px] text-slate-400">最大バースト通信</div>
@@ -1312,12 +1334,12 @@
         </div>
 
         <!-- Flow Conversations Table -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden">
-          <div class="border-b border-slate-800 bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-200">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
+          <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200">
             トップカンバセーション (Top IP Conversations)
           </div>
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
                 <th class="py-1 px-2.5">送信元 (Source)</th>
                 <th class="py-1 px-2.5">宛先 (Destination)</th>
@@ -1328,16 +1350,16 @@
                 <th class="py-1 px-2.5">状態</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#each flowConversations as fl}
-                <tr class="hover:bg-slate-800/40 transition-colors">
-                  <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{fl.src}</td>
-                  <td class="py-1 px-2.5 text-slate-300 text-[11px]">{fl.dst}</td>
-                  <td class="py-1 px-2.5"><span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans border border-slate-700 leading-none">{fl.proto}</span></td>
-                  <td class="py-1 px-2.5 text-[11px]">{fl.packets}</td>
-                  <td class="py-1 px-2.5 text-emerald-400 font-bold text-[11px]">{fl.bytes}</td>
-                  <td class="py-1 px-2.5 text-slate-400 text-[11px]">{fl.dur}</td>
-                  <td class="py-1 px-2.5"><span class="rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-400 font-semibold leading-none">{fl.status}</span></td>
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{fl.src}</td>
+                  <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{fl.dst}</td>
+                  <td class="py-1 px-2.5"><span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">{fl.proto}</span></td>
+                  <td class="py-1 px-2.5 text-slate-800 dark:text-slate-200 text-[11px]">{fl.packets}</td>
+                  <td class="py-1 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">{fl.bytes}</td>
+                  <td class="py-1 px-2.5 text-slate-600 dark:text-slate-400 text-[11px]">{fl.dur}</td>
+                  <td class="py-1 px-2.5"><span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold leading-none">{fl.status}</span></td>
                 </tr>
               {/each}
             </tbody>
@@ -1349,7 +1371,7 @@
     {:else if activeReport === "event"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <FileText class="w-5 h-5 text-cyan-400" />
             イベント & Syslog 監査集計レポート
           </h2>
@@ -1357,31 +1379,31 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">総ログイベント</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">{logs.length} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">蓄積イベント総計</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">重大障害 (High / Error)</span>
             <div class="text-2xl font-bold font-mono text-rose-400">{logs.filter((l) => l.level === 'high' || l.level === 'error').length} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">緊急対応アラート</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">注意・軽微 (Warn / Low)</span>
             <div class="text-2xl font-bold font-mono text-amber-400">{logs.filter((l) => l.level === 'warn' || l.level === 'low').length} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">予防保守対象</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">正常復旧 (Normal)</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">{logs.filter((l) => l.level === 'normal' || l.level === 'info').length} <span class="text-xs font-normal text-slate-400">件</span></div>
             <div class="text-[10px] text-slate-400">自己修復・回復</div>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
                 <th class="py-1 px-2.5">発生日時</th>
                 <th class="py-1 px-2.5">レベル</th>
@@ -1390,7 +1412,7 @@
                 <th class="py-1 px-2.5">イベント内容</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if logs.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
@@ -1399,17 +1421,17 @@
                 </tr>
               {:else}
                 {#each logs as l}
-                  <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 text-cyan-400 whitespace-nowrap text-[11px]">{formatTimeStr(l.time)}</td>
+                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 whitespace-nowrap text-[11px]">{formatTimeStr(l.time)}</td>
                     <td class="py-1 px-2.5">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(l.level)}20; border-color: {getStateColor(l.level)}50; color: {getStateColor(l.level)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(l.level)}"></span>
                         {l.level}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 text-slate-400 text-[11px]">{l.type}</td>
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-200 text-[11px]">{l.node_name || l.node_id || "-"}</td>
-                    <td class="py-1 px-2.5 font-sans text-slate-100 text-[11px]">{l.event}</td>
+                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 text-[11px]">{l.type}</td>
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-800 dark:text-slate-200 text-[11px]">{l.node_name || l.node_id || "-"}</td>
+                    <td class="py-1 px-2.5 font-sans text-slate-900 dark:text-slate-100 text-[11px]">{l.event}</td>
                   </tr>
                 {/each}
               {/if}
@@ -1422,7 +1444,7 @@
     {:else if activeReport === "cert"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <ShieldCheck class="w-5 h-5 text-cyan-400" />
             サーバー証明書監視 (TLS Certificate Monitor)
           </h2>
@@ -1430,26 +1452,26 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">監視対象証明書数</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">{certItems.length} <span class="text-xs font-normal text-slate-400">枚</span></div>
             <div class="text-[10px] text-slate-400">HTTPS / TLS エンドポイント</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">有効証明書 (正常)</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">{certItems.filter((c) => c.status === 'valid').length} <span class="text-xs font-normal text-slate-400">枚</span></div>
             <div class="text-[10px] text-slate-400">期限まで 30 日以上</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">期限切れ間近 (30日以内)</span>
             <div class="text-2xl font-bold font-mono text-amber-400">{certItems.filter((c) => c.status === 'warning').length} <span class="text-xs font-normal text-slate-400">枚</span></div>
             <div class="text-[10px] text-amber-400/80">更新推奨ターゲット</div>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
                 <th class="py-1 px-2.5">監視対象サービス / ホスト</th>
                 <th class="py-1 px-2.5">発行元認証局 (Issuer)</th>
@@ -1460,17 +1482,17 @@
                 <th class="py-1 px-2.5">ステータス</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#each certItems as c}
-                <tr class="hover:bg-slate-800/40 transition-colors">
-                  <td class="py-1 px-2.5 font-bold font-sans text-slate-100 text-[11px]">{c.host}:{c.port}</td>
-                  <td class="py-1 px-2.5 text-slate-400 font-sans text-[11px]">{c.issuer}</td>
-                  <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{c.subject}</td>
-                  <td class="py-1 px-2.5 text-[11px]">{c.key}</td>
-                  <td class="py-1 px-2.5 text-slate-300 text-[11px]">{c.validUntil}</td>
-                  <td class="py-1 px-2.5 font-bold text-[11px] {c.days < 30 ? 'text-amber-400' : 'text-emerald-400'}">{c.days} 日</td>
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{c.host}:{c.port}</td>
+                  <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{c.issuer}</td>
+                  <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{c.subject}</td>
+                  <td class="py-1 px-2.5 text-slate-800 dark:text-slate-200 text-[11px]">{c.key}</td>
+                  <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{c.validUntil}</td>
+                  <td class="py-1 px-2.5 font-bold text-[11px] {c.days < 30 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">{c.days} 日</td>
                   <td class="py-1 px-2.5">
-                    <span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {c.status === 'valid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}">
+                    <span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {c.status === 'valid' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30' : 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30'}">
                       {c.status}
                     </span>
                   </td>
@@ -1485,7 +1507,7 @@
     {:else if activeReport === "sensor"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Thermometer class="w-5 h-5 text-cyan-400" />
             環境・IoT センサー (Telemetry & MQTT)
           </h2>
@@ -1493,25 +1515,25 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">サーバルーム温度</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">22.4 <span class="text-xs font-normal text-slate-400">℃</span></div>
             <div class="text-[10px] text-emerald-400">推奨範囲内 (18〜26℃)</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">サーバルーム湿度</span>
             <div class="text-2xl font-bold font-mono text-cyan-300">46.5 <span class="text-xs font-normal text-slate-400">%</span></div>
             <div class="text-[10px] text-emerald-400">結露・静電気リスクなし</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">UPS 電源ステータス</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">100 <span class="text-xs font-normal text-slate-400">% バッテリー</span></div>
             <div class="text-[10px] text-slate-400">商用電源給電中 (AC 100V)</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">MQTT 受信メッセージ</span>
-            <div class="text-2xl font-bold font-mono text-slate-100">1,842 <span class="text-xs font-normal text-slate-400">msgs</span></div>
-            <div class="text-[10px] text-slate-400">トピック: twsnmp/sensor/#</div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">MQTT 受信メッセージ</span>
+            <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">1,842 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">msgs</span></div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">トピック: twsnmp/sensor/#</div>
           </div>
         </div>
       </div>
@@ -1520,39 +1542,39 @@
     {:else if activeReport === "ai"}
       <div class="space-y-6">
         <div>
-          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <Sparkles class="w-5 h-5 text-cyan-400" />
+          <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <Sparkles class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
             AI 異常検知スコア (AIList)
           </h2>
-          <p class="text-xs text-slate-400 mt-1">統計的変化点検出およびLLMエージェントによるノード・ポーリングの複合異常判定レポート</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">統計的変化点検出およびLLMエージェントによるノード・ポーリングの複合異常判定レポート</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">解析対象ノード数</span>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{nodes.length} <span class="text-xs font-normal text-slate-400">台</span></div>
-            <div class="text-[10px] text-slate-400">時系列特徴量抽出中</div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">解析対象ノード数</span>
+            <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">{nodes.length} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">台</span></div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">時系列特徴量抽出中</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">異常検出ノード</span>
-            <div class="text-2xl font-bold font-mono text-emerald-400">0 <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-emerald-400">特異なスパイクなし</div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">異常検出ノード</span>
+            <div class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">0 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">件</span></div>
+            <div class="text-[10px] text-emerald-600 dark:text-emerald-400">特異なスパイクなし</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">平均異常度スコア</span>
-            <div class="text-2xl font-bold font-mono text-slate-100">4.2 <span class="text-xs font-normal text-slate-400">/ 100</span></div>
-            <div class="text-[10px] text-slate-400">全体安定稼働中</div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">平均異常度スコア</span>
+            <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">4.2 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">/ 100</span></div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">全体安定稼働中</div>
           </div>
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-lg space-y-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <span class="text-xs font-semibold text-slate-400">診断推論エンジン</span>
             <div class="text-xl font-bold font-mono text-cyan-300">Gemini / Ollama</div>
             <div class="text-[10px] text-slate-400">マルチLLM統合</div>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg overflow-hidden">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
           <table class="w-full text-left text-xs border-collapse font-mono">
-            <thead class="sticky top-0 bg-slate-950 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
                 <th class="py-1 px-2.5">対象ノード</th>
                 <th class="py-1 px-2.5">IP アドレス</th>
@@ -1561,7 +1583,7 @@
                 <th class="py-1 px-2.5">AI 診断判定</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/40 text-slate-300">
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if nodes.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
@@ -1571,13 +1593,13 @@
               {:else}
                 {#each nodes as n, i}
                   {@const score = (2.5 + (i * 1.8) % 8).toFixed(1)}
-                  <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-100 text-[11px]">{n.name}</td>
-                    <td class="py-1 px-2.5 text-cyan-400 text-[11px]">{n.ip}</td>
-                    <td class="py-1 px-2.5 font-bold font-mono text-emerald-400 text-[11px]">{score}</td>
-                    <td class="py-1 px-2.5 text-slate-400 font-sans text-[11px]">Ping RTT / 応答ジッター正常範囲内</td>
+                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{n.name}</td>
+                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
+                    <td class="py-1 px-2.5 font-bold font-mono text-emerald-600 dark:text-emerald-400 text-[11px]">{score}</td>
+                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 font-sans text-[11px]">Ping RTT / 応答ジッター正常範囲内</td>
                     <td class="py-1 px-2.5">
-                      <span class="rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400 font-sans leading-none">
+                      <span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 font-sans leading-none">
                         正常安定 (Stable)
                       </span>
                     </td>

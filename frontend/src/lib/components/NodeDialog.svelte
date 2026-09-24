@@ -121,15 +121,15 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+    <div class="flex h-auto max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header (twnoaa style) -->
-      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4 shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
             <Cpu class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100">{node?.id ? "ノードの編集 (Edit Node)" : "ノードの追加 (Add Node)"}</h2>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{node?.id ? "ノードの編集 (Edit Node)" : "ノードの追加 (Add Node)"}</h2>
             <p class="text-[11px] text-slate-400">ネットワーク監視対象機器の基本情報および接続パラメータ設定</p>
           </div>
         </div>
@@ -144,7 +144,7 @@
       </div>
 
       <!-- Modal Body -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-900/40 text-xs">
+      <div class="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50/60 dark:bg-slate-900/40 text-xs">
         {#if saveError}
           <div class="flex items-center gap-2 rounded-xl border border-rose-800/40 bg-rose-950/40 p-3.5 text-xs font-medium text-rose-300 shadow-sm">
             <X class="h-4 w-4 text-rose-400 shrink-0" />
@@ -153,7 +153,7 @@
         {/if}
 
         <!-- Section 1: Basic Information -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
           <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
             <Network class="w-4 h-4 text-cyan-400" />
             基本情報
@@ -169,7 +169,7 @@
                 type="text"
                 bind:value={name}
                 placeholder="例: Web-Server-01"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -182,7 +182,7 @@
                 type="text"
                 bind:value={ip}
                 placeholder="192.168.1.10"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -193,7 +193,7 @@
                 type="text"
                 bind:value={mac}
                 placeholder="00:11:22:33:44:55"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -202,7 +202,7 @@
               <select
                 id="node-icon"
                 bind:value={icon}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 {#each iconList as ic}
                   <option value={ic.value}>{ic.name}</option>
@@ -215,7 +215,7 @@
               <select
                 id="node-addr-mode"
                 bind:value={addrMode}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 {#each addrModeList as am}
                   <option value={am.value}>{am.name}</option>
@@ -230,7 +230,7 @@
                 type="text"
                 bind:value={url}
                 placeholder="https://192.168.1.10:8443/"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -241,7 +241,7 @@
                 type="text"
                 bind:value={descr}
                 placeholder="例: 本社 3F サーバールーム Rack-A"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -259,7 +259,7 @@
         </div>
 
         <!-- Section 2: SNMP & Authentication -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
           <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
             <Shield class="w-4 h-4 text-cyan-400" />
             SNMP & 認証設定
@@ -271,7 +271,7 @@
               <select
                 id="snmp-ver"
                 bind:value={snmpMode}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 {#each snmpModeList as sm}
                   <option value={sm.value}>{sm.name}</option>
@@ -286,7 +286,7 @@
                 type="text"
                 bind:value={community}
                 placeholder="public"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -298,7 +298,7 @@
                 min={1}
                 max={65535}
                 bind:value={snmpPort}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -312,7 +312,7 @@
                   type="text"
                   bind:value={user}
                   placeholder="v3user"
-                  class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                  class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
                 />
               </div>
               <div>
@@ -322,7 +322,7 @@
                   type="password"
                   bind:value={password}
                   placeholder="••••••••"
-                  class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                  class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -337,7 +337,7 @@
                 type="text"
                 bind:value={sshUser}
                 placeholder="admin"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
             <div>
@@ -347,7 +347,7 @@
                 type="text"
                 bind:value={publicKey}
                 placeholder="id_ed25519"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -355,11 +355,11 @@
       </div>
 
       <!-- Modal Footer (twnoaa style) -->
-      <div class="flex items-center justify-end gap-3 border-t border-slate-800/80 bg-slate-900/60 px-6 py-3.5 shrink-0">
+      <div class="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5 shrink-0">
         <button
           type="button"
           onclick={() => (show = false)}
-          class="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+          class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
         >
           キャンセル
         </button>

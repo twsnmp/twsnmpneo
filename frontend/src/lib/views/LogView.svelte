@@ -653,19 +653,19 @@
   const getLevelBadge = (level: string) => {
     switch (level?.toLowerCase()) {
       case "normal":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+        return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30";
       case "warn":
       case "low":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30";
       case "high":
       case "error":
       case "change":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+        return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30";
       case "info":
       case "new":
-        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+        return "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30";
       default:
-        return "bg-slate-800 text-slate-400 border-slate-700";
+        return "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
     }
   };
 
@@ -690,11 +690,11 @@
   });
 </script>
 
-<div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-[#0b1329] text-slate-100 font-sans">
+<div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-slate-100 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 font-sans transition-colors">
   <!-- Left Sidebar (Matching ListView / ReportView) -->
-  <div class="w-60 border-r border-slate-800 bg-slate-950/80 p-3 space-y-1.5 shrink-0 flex flex-col justify-between">
+  <div class="w-60 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 p-3 space-y-1.5 shrink-0 flex flex-col justify-between transition-colors">
     <div class="space-y-1">
-      <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
         ログ種別 (Log Type)
       </div>
 
@@ -709,13 +709,13 @@
             sortColumn = "time";
             sortDirection = "desc";
           }}
-          class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}"
+          class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <div class="flex items-center gap-2.5 truncate">
-            <cat.icon class="h-4 w-4 shrink-0 {activeTab === cat.id ? 'text-white' : 'text-cyan-400'}" />
+            <cat.icon class="h-4 w-4 shrink-0 {activeTab === cat.id ? 'text-white' : 'text-cyan-600 dark:text-cyan-400'}" />
             <span class="truncate">{cat.name}</span>
           </div>
-          <span class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeTab === cat.id ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'}">
+          <span class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeTab === cat.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent'}">
             {count.toLocaleString()}
           </span>
         </button>
@@ -723,13 +723,13 @@
     </div>
 
     <!-- Live Status & Stats Card -->
-    <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 text-[11px] text-slate-400 space-y-2">
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-2 transition-colors">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-200">取得制限</span>
+        <span class="font-semibold text-slate-700 dark:text-slate-200">取得制限</span>
         <select
           bind:value={fetchLimit}
           onchange={loadCurrentLogs}
-          class="rounded-lg border border-slate-700 bg-slate-950 px-2 py-0.5 text-[10px] text-cyan-400 font-mono focus:outline-none cursor-pointer"
+          class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-0.5 text-[10px] text-cyan-600 dark:text-cyan-400 font-mono focus:outline-none cursor-pointer"
         >
           <option value={1000}>1,000 件</option>
           <option value={5000}>5,000 件</option>
@@ -737,9 +737,9 @@
           <option value={20000}>20,000 件</option>
         </select>
       </div>
-      <div class="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/80 flex items-center justify-between">
+      <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
         <span>ヒット件数:</span>
-        <span class="text-cyan-400 font-bold">{filteredLogs.length.toLocaleString()} 件</span>
+        <span class="text-cyan-600 dark:text-cyan-400 font-bold">{filteredLogs.length.toLocaleString()} 件</span>
       </div>
     </div>
   </div>
@@ -748,18 +748,18 @@
   <div class="flex-1 overflow-hidden flex flex-col p-4 gap-3 min-w-0">
     <!-- Top Reception Status Graph (Collapsible) -->
     {#if showChart}
-      <div class="relative rounded-2xl border border-slate-800 bg-slate-900/90 p-3 shadow-lg shrink-0 transition-all">
+      <div class="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3 shadow-sm dark:shadow-lg shrink-0 transition-all">
         <div class="flex items-center justify-between mb-1 px-1">
           <div class="flex items-center gap-2">
-            <span class="text-[11px] font-bold text-slate-300">受信状況推移 (時系列グラフ)</span>
+            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300">受信状況推移 (時系列グラフ)</span>
             {#if chartZoomRange}
-              <span class="inline-flex items-center gap-1 rounded-full bg-cyan-950/80 border border-cyan-800 px-2 py-0.5 text-[10px] text-cyan-300 font-mono">
+              <span class="inline-flex items-center gap-1 rounded-full bg-cyan-100 dark:bg-cyan-950/80 border border-cyan-300 dark:border-cyan-800 px-2 py-0.5 text-[10px] text-cyan-700 dark:text-cyan-300 font-mono">
                 期間絞り込み適用中
               </span>
               <button
                 type="button"
                 onclick={() => (chartZoomRange = null)}
-                class="flex items-center gap-1 rounded-md bg-slate-800 hover:bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300 cursor-pointer"
+                class="flex items-center gap-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-2 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 cursor-pointer"
               >
                 <RotateCcw class="h-3 w-3" />
                 <span>全期間に戻す</span>
@@ -769,7 +769,7 @@
           <button
             type="button"
             onclick={() => (showChart = false)}
-            class="text-[10px] text-slate-400 hover:text-slate-200 cursor-pointer"
+            class="text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
           >
             グラフを隠す ▲
           </button>
@@ -784,7 +784,7 @@
             showChart = true;
             renderReceptionChart();
           }}
-          class="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 cursor-pointer"
+          class="flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 cursor-pointer"
         >
           <BarChart3 class="h-3.5 w-3.5" />
           <span>受信状況推移グラフを表示 ▼</span>
@@ -793,7 +793,7 @@
     {/if}
 
     <!-- Action Bar: Search, Filters, Column Selector, Report, Export -->
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 shadow-md shrink-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3 shadow-sm dark:shadow-md shrink-0 transition-colors">
       <!-- Search & Filters -->
       <div class="flex items-center gap-2.5">
         <!-- Quick Text Search Input -->
@@ -803,13 +803,13 @@
             type="text"
             placeholder="イベント・メッセージを検索..."
             bind:value={searchQuery}
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 py-1.5 pl-8 pr-7 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-8 pr-7 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
           />
           {#if searchQuery}
             <button
               type="button"
               onclick={() => (searchQuery = "")}
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
             >
               <X class="h-3.5 w-3.5" />
             </button>
@@ -820,12 +820,12 @@
         <button
           type="button"
           onclick={() => (showFilterModal = true)}
-          class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
         >
-          <Filter class="h-3.5 w-3.5 text-cyan-400" />
+          <Filter class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           <span>詳細フィルター</span>
           {#if filterState.start || filterState.end || filterState.level !== "all" || filterState.type || filterState.source || filterState.keyword}
-            <span class="h-2 w-2 rounded-full bg-cyan-400"></span>
+            <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
           {/if}
         </button>
 
@@ -834,7 +834,7 @@
           <button
             type="button"
             onclick={() => (showColumnMenu = !showColumnMenu)}
-            class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
           >
             <Columns class="h-3.5 w-3.5 text-slate-400" />
             <span>列の選択</span>
@@ -842,18 +842,18 @@
           </button>
 
           {#if showColumnMenu}
-            <div class="absolute left-0 mt-2 z-30 w-48 rounded-xl border border-slate-800 bg-slate-950 p-2 shadow-xl space-y-1">
-              <div class="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase">表示カラム設定</div>
+            <div class="absolute left-0 mt-2 z-30 w-48 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-2 shadow-xl space-y-1">
+              <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 py-1 uppercase">表示カラム設定</div>
               {#each currentColumns as col}
                 {@const isVis = columnVisibility[`${activeTab}_${col.key}`] !== false}
                 <button
                   type="button"
                   onclick={() => toggleColumn(col.key)}
-                  class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer {isVis ? 'text-cyan-300 bg-cyan-950/40' : 'text-slate-400 hover:bg-slate-900'}"
+                  class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer {isVis ? 'text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'}"
                 >
                   <span>{col.label}</span>
                   {#if isVis}
-                    <Check class="h-3.5 w-3.5 text-cyan-400" />
+                    <Check class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                   {/if}
                 </button>
               {/each}
@@ -865,8 +865,8 @@
       <!-- Action Buttons -->
       <div class="flex items-center gap-2">
         {#if activeTab === "sflow"}
-          <label class="flex items-center gap-2 cursor-pointer select-none bg-slate-800 hover:bg-slate-700/80 px-3 py-1.5 rounded-xl border border-slate-700 transition-colors">
-            <span class="text-xs font-semibold text-slate-300">Counter</span>
+          <label class="flex items-center gap-2 cursor-pointer select-none bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 transition-colors">
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Counter</span>
             <input
               type="checkbox"
               bind:checked={sflowCounter}
@@ -876,14 +876,14 @@
               }}
               class="sr-only peer"
             />
-            <div class="relative w-8 h-4 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500"></div>
+            <div class="relative w-8 h-4 bg-slate-300 dark:bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500"></div>
           </label>
         {/if}
 
         <button
           type="button"
           onclick={() => (showReportModal = true)}
-          class="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-1.5 text-xs font-bold text-emerald-300 transition-all cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-300 transition-all cursor-pointer"
         >
           <BarChart3 class="h-3.5 w-3.5" />
           <span>レポート</span>
@@ -893,7 +893,7 @@
           type="button"
           onclick={handleDeleteAll}
           title="全ログ削除"
-          class="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-300 transition-colors cursor-pointer"
         >
           <Trash2 class="h-3.5 w-3.5" />
           <span>全消去</span>
@@ -902,18 +902,18 @@
         <button
           type="button"
           onclick={exportCSV}
-          class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
         >
-          <Download class="h-3.5 w-3.5 text-cyan-400" />
+          <Download class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           <span>CSV</span>
         </button>
 
         <button
           type="button"
           onclick={exportExcel}
-          class="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 hover:bg-emerald-900/40 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
         >
-          <FileText class="h-3.5 w-3.5 text-emerald-400" />
+          <FileText class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>Excel</span>
         </button>
 
@@ -930,14 +930,14 @@
     </div>
 
     <!-- Table Container -->
-    <div class="flex-1 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 shadow-lg flex flex-col min-h-0">
+    <div class="flex-1 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm dark:shadow-lg flex flex-col min-h-0 transition-colors">
       <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0">
         <table class="w-full text-left text-xs">
-          <thead class="sticky top-0 z-10 border-b border-slate-800 bg-slate-950 text-[10px] font-semibold uppercase text-slate-400">
+          <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
             <tr>
               {#each visibleColumns as col}
                 <th
-                  class="py-1 px-2.5 {col.width || ''} {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} {col.sortable ? 'cursor-pointer select-none hover:text-slate-200' : ''}"
+                  class="py-1 px-2.5 {col.width || ''} {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} {col.sortable ? 'cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200' : ''}"
                   onclick={() => col.sortable && handleSort(col.key)}
                 >
                   <div class="inline-flex items-center gap-1">
@@ -945,12 +945,12 @@
                     {#if col.sortable}
                       {#if sortColumn === col.key}
                         {#if sortDirection === "asc"}
-                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
                         {:else}
-                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
                         {/if}
                       {:else}
-                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
                       {/if}
                     {/if}
                   </div>
@@ -959,42 +959,42 @@
               <th class="py-1 px-2 text-center w-10">AI</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800/40 font-mono text-slate-300">
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/40 font-mono text-slate-700 dark:text-slate-300">
             {#each paginatedLogs as item}
-              <tr class="hover:bg-slate-800/40 transition-colors">
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 {#each visibleColumns as col}
                   <td class="py-1 px-2.5 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
                     {#if col.key === "time"}
-                      <span class="text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" || activeTab === "netflow" || activeTab === "sflow" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
+                      <span class="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" || activeTab === "netflow" || activeTab === "sflow" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
                     {:else if col.key === "level" || col.key === "state"}
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getLevelBadge(item.level || item.state || 'info')}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.level || item.state || 'info')}"></span>
                         {item.level || item.state || 'info'}
                       </span>
                     {:else if col.key === "bytes" && typeof item.bytes === "number"}
-                      <span class="font-sans text-[11px] text-slate-300 leading-tight">{renderBytes(item.bytes)}</span>
+                      <span class="font-sans text-[11px] text-slate-700 dark:text-slate-300 leading-tight">{renderBytes(item.bytes)}</span>
                     {:else if col.key === "packets" && typeof item.packets === "number"}
-                      <span class="text-[11px] text-slate-300 leading-tight">{item.packets.toLocaleString()}</span>
+                      <span class="text-[11px] text-slate-700 dark:text-slate-300 leading-tight">{item.packets.toLocaleString()}</span>
                     {:else if col.key === "dur"}
-                      <span class="text-[11px] text-slate-300 leading-tight">{typeof item.dur === 'number' ? (item.dur === 0 ? '0' : item.dur.toFixed(2)) : (item.dur || '0')}</span>
+                      <span class="text-[11px] text-slate-700 dark:text-slate-300 leading-tight">{typeof item.dur === 'number' ? (item.dur === 0 ? '0' : item.dur.toFixed(2)) : (item.dur || '0')}</span>
                     {:else if col.key === "reason"}
-                      <span class="text-slate-300 text-[11px] font-sans leading-tight">{item.reason ? item.reason : ""}</span>
+                      <span class="text-slate-700 dark:text-slate-300 text-[11px] font-sans leading-tight">{item.reason ? item.reason : ""}</span>
                     {:else if col.key === "srcLoc" || col.key === "dstLoc" || col.key === "srcMac" || col.key === "dstMac" || col.key === "tcpFlags"}
-                      <span class="text-slate-400 text-[11px] font-sans truncate leading-tight">{item[col.key] || ""}</span>
+                      <span class="text-slate-500 dark:text-slate-400 text-[11px] font-sans truncate leading-tight">{item[col.key] || ""}</span>
                     {:else if col.key === "srcPort" || col.key === "dstPort"}
-                      <span class="text-slate-300 text-[11px] font-sans leading-tight">{item[col.key] || 0}</span>
+                      <span class="text-slate-700 dark:text-slate-300 text-[11px] font-sans leading-tight">{item[col.key] || 0}</span>
                     {:else if col.key === "srcAddr" || col.key === "dstAddr" || col.key === "remote"}
-                      <span class="font-sans text-slate-200 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
+                      <span class="font-sans text-slate-800 dark:text-slate-200 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
                     {:else if col.key === "counterType"}
-                      <span class="font-semibold text-cyan-400 text-[11px] truncate leading-tight">{item.counterType || "-"}</span>
+                      <span class="font-semibold text-cyan-600 dark:text-cyan-400 text-[11px] truncate leading-tight">{item.counterType || "-"}</span>
                     {:else if col.key === "counterData"}
-                      <span class="font-sans text-slate-200 break-all text-[11px] leading-relaxed select-text">{formatCounterData(item.counterData)}</span>
+                      <span class="font-sans text-slate-800 dark:text-slate-200 break-all text-[11px] leading-relaxed select-text">{formatCounterData(item.counterData)}</span>
                     {:else if col.key === "event" || col.key === "message" || col.key === "payload" || col.key === "log"}
-                      <span class="font-sans text-slate-100 break-all text-[11px] leading-tight line-clamp-1">{item[col.key] || "-"}</span>
+                      <span class="font-sans text-slate-800 dark:text-slate-100 break-all text-[11px] leading-tight line-clamp-1">{item[col.key] || "-"}</span>
                     {:else if col.key === "node" || col.key === "host" || col.key === "src" || col.key === "ip"}
-                      <span class="font-semibold text-cyan-400 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
+                      <span class="font-semibold text-cyan-600 dark:text-cyan-400 text-[11px] truncate leading-tight">{item[col.key] || "-"}</span>
                     {:else}
-                      <span class="text-slate-200 text-[11px] font-sans truncate leading-tight">{item[col.key] || "-"}</span>
+                      <span class="text-slate-800 dark:text-slate-200 text-[11px] font-sans truncate leading-tight">{item[col.key] || "-"}</span>
                     {/if}
                   </td>
                 {/each}
@@ -1004,7 +1004,7 @@
                     onclick={() => handleAskAI(item.fullText)}
                     title="AIログ診断"
                     aria-label="AIログ診断"
-                    class="inline-flex items-center justify-center rounded border border-cyan-500/30 bg-cyan-500/10 p-0.5 text-cyan-300 hover:bg-cyan-500/20 hover:text-cyan-200 transition-all cursor-pointer"
+                    class="inline-flex items-center justify-center rounded border border-cyan-500/30 bg-cyan-500/10 p-0.5 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 hover:text-cyan-700 dark:hover:text-cyan-200 transition-all cursor-pointer"
                   >
                     <Sparkles class="h-3 w-3" />
                   </button>
@@ -1014,7 +1014,7 @@
 
             {#if paginatedLogs.length === 0}
               <tr>
-                <td colspan={visibleColumns.length + 1} class="py-16 text-center text-slate-500 font-sans">
+                <td colspan={visibleColumns.length + 1} class="py-16 text-center text-slate-400 dark:text-slate-500 font-sans">
                   {loading ? "ログを読み込み中..." : "該当するログは見つかりませんでした"}
                 </td>
               </tr>
@@ -1024,13 +1024,13 @@
       </div>
 
       <!-- Pagination Footer -->
-      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 bg-slate-950/80 px-4 py-2.5 text-xs text-slate-400 shrink-0">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
         <div class="flex items-center gap-3">
           <span>表示件数:</span>
           <select
             bind:value={pageSize}
             onchange={() => (currentPage = 1)}
-            class="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:outline-none cursor-pointer"
+            class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
             <option value={10}>10 件 / ページ</option>
             <option value={25}>25 件 / ページ</option>
@@ -1040,7 +1040,7 @@
             <option value={-1}>全件表示</option>
           </select>
 
-          <span class="font-mono text-[11px] text-slate-400">
+          <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">
             {#if sortedLogs.length > 0}
               {sortedLogs.length.toLocaleString()} 件中 {(currentPage - 1) * pageSize + 1} 〜 {pageSize === -1 ? sortedLogs.length : Math.min(currentPage * pageSize, sortedLogs.length)} 件を表示
             {:else}
@@ -1055,7 +1055,7 @@
               type="button"
               disabled={currentPage <= 1}
               onclick={() => (currentPage = 1)}
-              class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
               title="最初のページ"
             >
               <ChevronsLeft class="h-4 w-4" />
@@ -1065,13 +1065,13 @@
               type="button"
               disabled={currentPage <= 1}
               onclick={() => currentPage--}
-              class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
               title="前のページ"
             >
               <ChevronLeft class="h-4 w-4" />
             </button>
 
-            <span class="px-2 font-mono text-xs text-slate-300">
+            <span class="px-2 font-mono text-xs text-slate-700 dark:text-slate-300">
               {currentPage} / {totalPages}
             </span>
 
@@ -1079,7 +1079,7 @@
               type="button"
               disabled={currentPage >= totalPages}
               onclick={() => currentPage++}
-              class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
               title="次のページ"
             >
               <ChevronRight class="h-4 w-4" />
@@ -1089,7 +1089,7 @@
               type="button"
               disabled={currentPage >= totalPages}
               onclick={() => (currentPage = totalPages)}
-              class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
               title="最後のページ"
             >
               <ChevronsRight class="h-4 w-4" />
@@ -1118,24 +1118,24 @@
   <!-- AI Analysis Modal -->
   {#if showAIDialog}
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl overflow-hidden text-slate-100">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div class="flex items-center gap-2 text-base font-bold text-cyan-400">
+      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div class="flex items-center gap-2 text-base font-bold text-cyan-600 dark:text-cyan-400">
             <Sparkles class="h-5 w-5" />
             <span>AI ログ診断アシスタント</span>
           </div>
-          <button onclick={() => (showAIDialog = false)} class="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer">
+          <button onclick={() => (showAIDialog = false)} class="rounded-lg p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white cursor-pointer transition-colors">
             <X class="h-5 w-5" />
           </button>
         </div>
 
-        <div class="my-3 rounded-xl border border-slate-800 bg-slate-950 p-3 font-mono text-xs text-slate-300 break-all max-h-32 overflow-y-auto">
+        <div class="my-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 font-mono text-xs text-slate-700 dark:text-slate-300 break-all max-h-32 overflow-y-auto">
           {selectedLogText}
         </div>
 
-        <div class="flex-1 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs leading-relaxed text-slate-200 whitespace-pre-wrap">
+        <div class="flex-1 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
           {#if aiLoading}
-            <div class="flex items-center gap-2 text-cyan-400">
+            <div class="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
               <RefreshCw class="h-4 w-4 animate-spin" />
               <span>マルチLLM推論中... ログとトポロジーを総合解析しています</span>
             </div>
@@ -1144,8 +1144,8 @@
           {/if}
         </div>
 
-        <div class="mt-4 flex justify-end border-t border-slate-800 pt-3">
-          <button onclick={() => (showAIDialog = false)} class="rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer">
+        <div class="mt-4 flex justify-end border-t border-slate-200 dark:border-slate-800 pt-3">
+          <button onclick={() => (showAIDialog = false)} class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs">
             閉じる
           </button>
         </div>

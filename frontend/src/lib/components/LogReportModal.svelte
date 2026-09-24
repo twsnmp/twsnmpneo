@@ -121,15 +121,15 @@
 
 {#if show}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-    <div class="flex h-[90vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden text-slate-100">
+    <div class="flex h-[90vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-slate-800 px-6 py-4 bg-slate-950/70">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4 bg-slate-50 dark:bg-slate-950/70">
         <div class="flex items-center gap-3">
           <div class="rounded-xl bg-cyan-500/10 p-2 text-cyan-400 border border-cyan-500/20">
             <BarChart3 class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100">
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
               ログ総合アナリティクスレポート ({logCategory.toUpperCase()})
             </h2>
             <p class="text-[11px] text-slate-400">

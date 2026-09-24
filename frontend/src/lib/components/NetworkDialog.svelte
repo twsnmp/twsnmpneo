@@ -108,15 +108,15 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-[#0b1329] shadow-2xl overflow-hidden text-slate-200">
+    <div class="flex h-auto max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header (twnoaa style) -->
-      <div class="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4 shrink-0">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
             <Network class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-100">{network?.id ? "ネットワークの編集" : "ネットワークの追加"}</h2>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{network?.id ? "ネットワークの編集" : "ネットワークの追加"}</h2>
             <p class="text-[11px] text-slate-400">ネットワークのポートレイアウトおよび管理接続設定</p>
           </div>
         </div>
@@ -131,7 +131,7 @@
       </div>
 
       <!-- Modal Body -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-900/40 text-xs">
+      <div class="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50/60 dark:bg-slate-900/40 text-xs">
         {#if saveError}
           <div class="flex items-center gap-2 rounded-xl border border-rose-800/40 bg-rose-950/40 p-3.5 text-xs font-medium text-rose-300 shadow-sm">
             <X class="h-4 w-4 text-rose-400 shrink-0" />
@@ -139,7 +139,7 @@
           </div>
         {/if}
 
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-4">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
           <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
             <Network class="w-4 h-4 text-cyan-400" />
             ネットワーク パラメータ
@@ -155,7 +155,7 @@
                 type="text"
                 bind:value={name}
                 placeholder="例: Network-01"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -166,7 +166,7 @@
                 type="text"
                 bind:value={ip}
                 placeholder="192.168.1.254"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -176,7 +176,7 @@
                 id="hub-total-ports"
                 bind:value={totalPorts}
                 onchange={generateDefaultPorts}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 <option value={4}>4 ポート</option>
                 <option value={8}>8 ポート</option>
@@ -195,7 +195,7 @@
                 max={24}
                 bind:value={hPorts}
                 onchange={generateDefaultPorts}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -206,7 +206,7 @@
                 type="text"
                 bind:value={descr}
                 placeholder="例: 本社 MDF ラック 1U"
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
@@ -224,7 +224,7 @@
         </div>
 
         <!-- Port Preview Table -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg space-y-3">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-3">
           <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
             <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2">
               <Server class="w-4 h-4 text-cyan-400" />
@@ -246,11 +246,11 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="flex items-center justify-end gap-3 border-t border-slate-800/80 bg-slate-900/60 px-6 py-3.5 shrink-0">
+      <div class="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5 shrink-0">
         <button
           type="button"
           onclick={() => (show = false)}
-          class="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+          class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
         >
           キャンセル
         </button>

@@ -188,11 +188,15 @@ twsnmpneo/
    - **EventLog**, **Syslog**, **SNMP TRAP**, **NetFlow / IPFIX**, **sFlow / sFlow Counter**, **ARP Watch** の専用タブ。
    - 各種ログ件数の常時バッジ表示（`/api/logs/counts`）、カラム別フィルタ、正規表現検索、日時指定、受信頻度ヒストグラム、CSVエクスポート、`LogReportModal` 総合集計モーダル、`LogAIDialog` インラインAI障害診断。
 6. **OpenTelemetry 画面 (`OTelView.svelte`)**:
-   - OTel専用監視ビュー。**Metrics**（時系列・ヒストグラム）、**Traces**（所要時間散布図、タイムラインスパン階層ツリー、インタラクティブサービスDAGトポロジー図）、**Logs**。
+   - OTel専用監視ビュー。左側サイドバー（`w-60`）による **Metrics**, **Traces**, **Logs** の切り替えとリアルタイム件数バッジ表示。
+   - 上部サマリーダッシュボード（縦並び4大KPI、メトリック種別円グラフ、サービス別メトリック数横棒グラフ、散布図所要時間分析）。
+   - タイムラインスパン階層ツリー、インタラクティブサービスDAGトポロジー図、全列ソート対応テーブル。
 7. **MQTT 画面 (`MQTTView.svelte`)**:
-   - MQTT専用監視ビュー。**統計 (Stats)** および **ログ (Logs)** タブ。
-   - ペイロード整形表示、状態（Normal/Warn/Low）、クライアントID、送信元IP、トピック、パケット数、バイト数、初出・最終受信日時。
-   - トピック別7タブ集計レポートモーダル (`MQTTReportModal.svelte`)、Parquet独立ログ保存（`type: mqtt`）と自動ローテーション。
+   - MQTT専用監視ビュー。左側サイドバー（`w-60`）による **統計 (Stats)** および **ログ (Logs)** の切り替えとリアルタイム件数バッジ表示。
+   - 上部サマリーダッシュボード（縦並び4大KPI、State分布ドーナツグラフ、Top 10トピック横棒グラフ）。
+   - 上部アクションバー（再読み込み、ポーリング作成/AI支援、レポート、一括削除、削除）およびテーブル行内トピックコピー機能。
+   - 全列ソート対応、統一ステータスバッジ（丸ドット＋小タグ）、ペイロード整形表示。
+   - 完全ダーク/ライト両対応の7タブ集計レポートモーダル (`MQTTReportModal.svelte`)、Parquet独立ログ保存（`type: mqtt`）と自動ローテーション。
 8. **レポート画面 (`ReportView.svelte`)**:
    - 8系統のアナリティクスレポートスイート：
      - **デバイス分析**: LANデバイス (OUIベンダー解決), Bluetooth, Wi-Fi AP, スイッチFDBテーブル, ポートテーブル
@@ -215,6 +219,67 @@ twsnmpneo/
 11. **ヘッダーユーティリティバー & システム設定 (`ConfigModal.svelte`)**:
    - システム設定はヘッダー右端のアイコンボタンよりモーダル起動。
    - マップ設定、各種通知認証情報（Email, Slack, LINE, Teams, Webhook）、AI APIキー設定、カスタムアイコン管理、MIBモジュール管理、Grokパターン管理、Datastoreバックアップ/リストア/FC移行。
+
+---
+
+### 4.10 UI/UX デザイン標準 & フロントエンド設計規約
+
+TWSNMP NEO のすべての画面・コンポーネント開発において、統一されたユーザー体験と高い視認性・保守性を維持するため、以下の規約を厳格に適用する。
+
+#### 4.10.1 ダークモード & ライトモード完全対応規約
+* **テキスト・背景の対称ペアリング**:
+  - `text-white` や `text-black` を単独で使用することを固く禁止する（ダーク/ライト切り替え時に文字が消える原因となる）。
+  - 必ずライト/ダーク双方のユーティリティクラスをペアで指定する。
+    - 画面背景: `bg-slate-50 dark:bg-slate-950`
+    - パネル・カード背景: `bg-white dark:bg-slate-900`
+    - 主テキスト: `text-slate-900 dark:text-white` または `text-slate-800 dark:text-slate-100`
+    - 補助・ラベルテキスト: `text-slate-500 dark:text-slate-400`
+    - ボーダー線: `border-slate-200 dark:border-slate-800`
+* **ブラウザネイティブ要素のカラー制御**:
+  - チェックボックス (`<input type="checkbox">`) やネイティブセレクトボックス (`<select>`) がOS側のダークモード設定に引きずられてライトモード時に黒く沈むのを防止するため、`frontend/src/app.css` の `:root { color-scheme: light; }` および `:root.dark { color-scheme: dark; }` を遵守する。
+* **Apache ECharts のテーマ連動**:
+  - グラフ初期化時は必ず `isDarkMode()` を参照し、`echarts.init(dom, isDarkMode() ? "dark" : undefined)` で初期化する。
+  - テキスト・軸線・グリッド線等の色はハードコードせず、テーマ関数・ヘルパー経由でライト用（`#1e293b`/`#334155`/`#64748b`）とダーク用（`#f8fafc`/`#cbd5e1`/`#94a3b8`）を切り替える。
+
+#### 4.10.2 ボタン配置 & 配色規約
+* **ヘッダーアクションバーへの集約**:
+  - 画面やテーブルに対する主操作ボタン（再読み込み、新規追加、ポーリング作成、レポート表示、一括削除など）は、**画面上部ヘッダー（またはアクションバー）の右側**に集約配置する。
+  - テーブル下部のフッター領域にリロードや全選択ボタン等の操作系ボタンを配置することは禁止し、フッターはページネーション専用とする。
+* **行単位（コンテキスト）アクションの配置**:
+  - トピック文字列のクリップボードコピーや個別詳細表示など、特定レコードに紐づくアクションはテーブルの行セル内にアイコンボタン（ホバー表示または常時表示）として配置する。
+* **意味論的カラーパレット（Subtle Tint Styling）**:
+  - ボタンは高彩度のべた塗り（Solid fill）を避け、ライトモードでの高い文字コントラストとダークモードでの落ち着いた調和を両立する「半透明・淡色背景＋境界線＋濃色テキスト」のパレットに統一する。
+    - **基本・再読み込み (Neutral)**: `bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700`
+    - **作成・追加 (Primary/Add)**: `bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40`
+    - **レポート・分析 (Success/Report)**: `bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40`
+    - **ツール・DAG (Indigo)**: `bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800/60 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40`
+    - **削除・クリア (Danger/Delete)**: `bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40`
+    - **無効状態 (Disabled)**: `opacity-40 cursor-not-allowed`
+
+#### 4.10.3 テーブル表示 & 操作標準
+* **全列ソート対応 (Universal Column Sorting)**:
+  - テーブルのヘッダーカラムはすべてクリックによる昇順・降順ソートに対応させる。
+  - ヘッダー右側に Lucide アイコン（`ArrowUp`, `ArrowDown`、非ソート時は半透明の `ArrowUpDown`）を配置し、現在のソート状態を一目で把握できるようにする。
+* **境界線の洗練と行ハイライト**:
+  - 不要な太い枠線や区切り線を排除し、繊細なボーダー（`divide-y divide-slate-200/80 dark:divide-slate-800/40`）または境界線なしの余白中心デザインとする。
+  - 行選択時のハイライトは `bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-100` を適用する。
+* **ステータス & ログレベルバッジの統一**:
+  - 状態（State）や重要度（Level）の表示は、すべて「色付き丸ドット（`h-1.5 w-1.5 rounded-full shrink-0`）＋極小タグ（`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none`）」スタイルで統一する。
+    - **Normal / Info**: 緑ドット（`bg-emerald-500`）＋薄緑バッジ（`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60`）
+    - **Warn / Low**: 橙ドット（`bg-amber-500`）＋薄橙バッジ（`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60`）
+    - **High / Error**: 赤ドット（`bg-rose-500`）＋薄赤バッジ（`bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60`）
+    - **Debug / Unknown**: 灰ドット（`bg-slate-500`）＋薄灰バッジ（`bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700`）
+* **数値・メトリクス等の色分け原則**:
+  - 単なるパケット数や回数などの列を無意味に列単位で色分けすることは禁止する。
+  - 所要時間（ミリ秒・秒）やリソース使用率（CPU・メモリ負荷）など、「閾値を超えると問題となる数値」についてのみ、高負荷・長時間を強調する色分け（緑→黄→赤）を適用する。
+
+#### 4.10.4 ナビゲーション & ダッシュボードレイアウト構造
+* **左側サイドバーナビゲーション (`w-60`)**:
+  - サブカテゴリや複数プロトコル・ログ種別を切り替える画面（LogView, ReportView, ListView, OTelView, MQTTView等）は、上部タブではなく左側固定サイドバー方式に統一する。
+  - 各メニュー項目にはリアルタイム件数バッジを常時配置し、初期表示時に 0 と表示されたままにならないよう画面マウント時に並列ロードする。
+* **上部サマリーダッシュボード (`h-64`)**:
+  - メインテーブルの上部に高さ `h-64` 前後のサマリーダッシュボードを配置する。
+  - 左端に4つのKPIカードを縦一列にコンパクト配置し、右側の広大なエリアを活用して状態分布円グラフやTop N横棒グラフ、散布図などを並列表示する。
 
 ---
 
