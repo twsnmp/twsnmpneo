@@ -1327,5 +1327,93 @@ export async function fetchNodeHostResource(nodeId: string): Promise<NodeHostRes
   }
 }
 
+export interface BackImageEnt {
+  X: number;
+  Y: number;
+  Width: number;
+  Height: number;
+  Path: string;
+}
+
+export async function checkAllPollings(): Promise<{ status: string; count: number }> {
+  const res = await fetch(`${API_BASE}/polling/check-all`, { method: "POST" });
+  return await res.json();
+}
+
+export async function updateNodePositions(positions: { ID: string; X: number; Y: number }[]): Promise<any> {
+  const res = await fetch(`${API_BASE}/nodes/positions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(positions),
+  });
+  return await res.json();
+}
+
+export async function applyAutoLayout(mode: number): Promise<{ count: number; hasUndo: boolean }> {
+  const res = await fetch(`${API_BASE}/map/autolayout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  return await res.json();
+}
+
+export async function undoAutoLayout(): Promise<{ count: number; hasUndo: boolean }> {
+  const res = await fetch(`${API_BASE}/map/autolayout/undo`, {
+    method: "POST",
+  });
+  return await res.json();
+}
+
+export async function checkUndoAutoLayout(): Promise<{ hasUndo: boolean }> {
+  const res = await fetch(`${API_BASE}/map/autolayout/undo`);
+  return await res.json();
+}
+
+export async function fetchBackImage(): Promise<BackImageEnt> {
+  const res = await fetch(`${API_BASE}/map/backimage`);
+  return await res.json();
+}
+
+export async function saveBackImage(bi: BackImageEnt): Promise<BackImageEnt> {
+  const res = await fetch(`${API_BASE}/map/backimage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bi),
+  });
+  return await res.json();
+}
+
+export async function deleteBackImage(): Promise<any> {
+  const res = await fetch(`${API_BASE}/map/backimage`, {
+    method: "DELETE",
+  });
+  return await res.json();
+}
+
+export async function uploadBackImage(file: File): Promise<{ path: string }> {
+  const fd = new FormData();
+  fd.append("image", file);
+  const res = await fetch(`${API_BASE}/map/backimage/upload`, {
+    method: "POST",
+    body: fd,
+  });
+  return await res.json();
+}
+
+export async function importMapData(data: {
+  nodes?: any[];
+  lines?: any[];
+  networks?: any[];
+  drawItems?: any[];
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/map/import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return await res.json();
+}
+
 
 

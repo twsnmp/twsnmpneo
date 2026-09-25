@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,8 +19,10 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/layout"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
+	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 	"github.com/twsnmp/twsnmpneo/backend/web"
 )
@@ -36,17 +41,18 @@ type ArpManager interface {
 }
 
 type Config struct {
-	Port       int
-	Debug      bool
-	Version    string
-	Commit     string
-	DataDir    string
-	Store      datastore.DataStore
-	LogStore   *parquet.Store
-	MCPServer  *ai.MCPServer
-	ArpManager ArpManager
-	Monitor    *monitor.Monitor
-	Receivers  map[string]any
+	Port           int
+	Debug          bool
+	Version        string
+	Commit         string
+	DataDir        string
+	Store          datastore.DataStore
+	LogStore       *parquet.Store
+	MCPServer      *ai.MCPServer
+	ArpManager     ArpManager
+	Monitor        *monitor.Monitor
+	PollingManager *polling.Manager
+	Receivers      map[string]any
 }
 
 func NewServer(cfg Config) (*Server, error) {
@@ -250,6 +256,34 @@ func NewServer(cfg Config) (*Server, error) {
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
+		apiGroup.POST("/nodes/positions", func(c echo.Context) error {
+			var req []struct {
+				ID string `json:"ID"`
+				X  int    `json:"X"`
+				Y  int    `json:"Y"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			var updated []*datastore.NodeEnt
+			for _, item := range req {
+				n, err := cfg.Store.GetNode(c.Request().Context(), item.ID)
+				if err == nil && n != nil {
+					n.X = item.X
+					n.Y = item.Y
+					updated = append(updated, n)
+				}
+			}
+			if len(updated) > 0 {
+				if err := cfg.Store.SaveNodes(c.Request().Context(), updated); err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				}
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"count":  len(updated),
+			})
+		})
 
 		// Node SNMP Details (Host Resource, Ports)
 		registerSNMPDetailEndpoints(apiGroup, cfg.Store)
@@ -300,6 +334,16 @@ func NewServer(cfg Config) (*Server, error) {
 				Event: fmt.Sprintf("ポーリング %s を削除しました", name),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+		apiGroup.POST("/polling/check-all", func(c echo.Context) error {
+			count := 0
+			if cfg.PollingManager != nil {
+				count = cfg.PollingManager.CheckAll(c.Request().Context())
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"count":  count,
+			})
 		})
 
 		// Lines
@@ -357,6 +401,18 @@ func NewServer(cfg Config) (*Server, error) {
 				id = rawID
 			}
 			id = strings.ReplaceAll(id, "%3A", ":")
+
+			// Check if discovery for ALL networks is requested
+			if strings.EqualFold(id, "ALL") {
+				resp, err := topology.FindAllTopology(c.Request().Context(), cfg.Store)
+				if err != nil {
+					return c.JSON(http.StatusOK, &topology.FindNeighborNetworksAndLinesResp{
+						Networks: []*datastore.NetworkEnt{},
+						Lines:    []topology.NeighborLineEnt{},
+					})
+				}
+				return c.JSON(http.StatusOK, resp)
+			}
 
 			// 1. If ID has NET: prefix, or is found as a Network
 			if strings.HasPrefix(id, "NET:") {
@@ -554,6 +610,155 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			conf.GeoIPInfo = datastore.GetGeoIPInfo()
 			return c.JSON(http.StatusOK, &conf)
+		})
+
+		// Auto Layout endpoints
+		apiGroup.POST("/map/autolayout", func(c echo.Context) error {
+			var req struct {
+				Mode int `json:"mode"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			count, err := layout.OptimizeLayout(c.Request().Context(), cfg.Store, req.Mode)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"count":   count,
+				"hasUndo": layout.HasUndoLayout(),
+			})
+		})
+
+		apiGroup.POST("/map/autolayout/undo", func(c echo.Context) error {
+			count, err := layout.UndoLayout(c.Request().Context(), cfg.Store)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"count":   count,
+				"hasUndo": layout.HasUndoLayout(),
+			})
+		})
+
+		apiGroup.GET("/map/autolayout/undo", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, map[string]any{
+				"hasUndo": layout.HasUndoLayout(),
+			})
+		})
+
+		// BackImage endpoints
+		apiGroup.GET("/map/backimage", func(c echo.Context) error {
+			bi, err := cfg.Store.GetBackImage(c.Request().Context())
+			if err != nil || bi == nil {
+				return c.JSON(http.StatusOK, datastore.BackImageEnt{Width: 100, Height: 100})
+			}
+			return c.JSON(http.StatusOK, bi)
+		})
+
+		apiGroup.POST("/map/backimage", func(c echo.Context) error {
+			var bi datastore.BackImageEnt
+			if err := c.Bind(&bi); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveBackImage(c.Request().Context(), &bi); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, bi)
+		})
+
+		apiGroup.DELETE("/map/backimage", func(c echo.Context) error {
+			empty := &datastore.BackImageEnt{}
+			if err := cfg.Store.SaveBackImage(c.Request().Context(), empty); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
+		apiGroup.POST("/map/backimage/upload", func(c echo.Context) error {
+			file, err := c.FormFile("image")
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "no image provided"})
+			}
+			src, err := file.Open()
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			defer src.Close()
+
+			targetDir := cfg.DataDir
+			if targetDir == "" {
+				targetDir = "./data"
+			}
+			imgDir := filepath.Join(targetDir, "images")
+			_ = os.MkdirAll(imgDir, 0755)
+			safeName := "backimage_" + filepath.Base(file.Filename)
+			dstPath := filepath.Join(imgDir, safeName)
+			dst, err := os.Create(dstPath)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			defer dst.Close()
+			if _, err := io.Copy(dst, src); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			url := "/api/map/image/" + safeName
+			return c.JSON(http.StatusOK, map[string]string{
+				"path": url,
+			})
+		})
+
+		apiGroup.GET("/map/image/:name", func(c echo.Context) error {
+			name := filepath.Base(c.Param("name"))
+			targetDir := cfg.DataDir
+			if targetDir == "" {
+				targetDir = "./data"
+			}
+			path := filepath.Join(targetDir, "images", name)
+			if _, err := os.Stat(path); err != nil {
+				return c.NoContent(http.StatusNotFound)
+			}
+			return c.File(path)
+		})
+
+		// Map Import endpoint
+		apiGroup.POST("/map/import", func(c echo.Context) error {
+			var req struct {
+				Nodes     []*datastore.NodeEnt     `json:"nodes"`
+				Lines     []*datastore.LineEnt     `json:"lines"`
+				Networks  []*datastore.NetworkEnt  `json:"networks"`
+				DrawItems []*datastore.DrawItemEnt `json:"drawItems"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			ctx := c.Request().Context()
+			if len(req.Nodes) > 0 {
+				_ = cfg.Store.SaveNodes(ctx, req.Nodes)
+			}
+			for _, nw := range req.Networks {
+				_ = cfg.Store.SaveNetwork(ctx, nw)
+			}
+			for _, l := range req.Lines {
+				_ = cfg.Store.SaveLine(ctx, l)
+			}
+			for _, di := range req.DrawItems {
+				_ = cfg.Store.SaveDrawItem(ctx, di)
+			}
+			_ = cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "system",
+				Level: "info",
+				Event: fmt.Sprintf("Imported map: %d nodes, %d lines, %d networks, %d draw items",
+					len(req.Nodes), len(req.Lines), len(req.Networks), len(req.DrawItems)),
+			})
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":    "ok",
+				"nodes":     len(req.Nodes),
+				"lines":     len(req.Lines),
+				"networks":  len(req.Networks),
+				"drawItems": len(req.DrawItems),
+			})
 		})
 
 		// GeoIP DB endpoints (TWSNMP FC / FK compatible)

@@ -37,6 +37,7 @@ var (
 	keyMapConf    = []byte("mapConf")
 	keyNotifyConf = []byte("notifyConf")
 	keyLocConf    = []byte("locConf")
+	keyBackImage  = []byte("backImage")
 )
 
 // Store implements datastore.DataStore using bbolt.
@@ -58,6 +59,7 @@ type Store struct {
 	mapConf    datastore.MapConfEnt
 	notifyConf datastore.NotifyConfEnt
 	locConf    datastore.LocConfEnt
+	backImage  datastore.BackImageEnt
 	confMu     sync.RWMutex
 }
 
@@ -186,6 +188,9 @@ func (s *Store) loadCache() error {
 			}
 			if v := b.Get(keyLocConf); v != nil {
 				_ = json.Unmarshal(v, &s.locConf)
+			}
+			if v := b.Get(keyBackImage); v != nil {
+				_ = json.Unmarshal(v, &s.backImage)
 			}
 		}
 		// Load OTel metrics
@@ -366,6 +371,32 @@ func (s *Store) SaveNode(_ context.Context, node *datastore.NodeEnt) error {
 	}
 	s.nodes.Store(node.ID, node)
 	return nil
+}
+
+func (s *Store) SaveNodes(_ context.Context, nodes []*datastore.NodeEnt) error {
+	if len(nodes) == 0 {
+		return nil
+	}
+	return s.db.Batch(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketNodes)
+		for _, node := range nodes {
+			if node == nil {
+				continue
+			}
+			if node.ID == "" {
+				node.ID = makeID()
+			}
+			data, err := json.Marshal(node)
+			if err != nil {
+				return fmt.Errorf("marshal node %s: %w", node.ID, err)
+			}
+			if err := b.Put([]byte(node.ID), data); err != nil {
+				return err
+			}
+			s.nodes.Store(node.ID, node)
+		}
+		return nil
+	})
 }
 
 func (s *Store) DeleteNode(_ context.Context, id string) error {
@@ -812,6 +843,33 @@ func (s *Store) SaveLocConf(_ context.Context, conf *datastore.LocConfEnt) error
 	}
 	s.confMu.Lock()
 	s.locConf = *conf
+	s.confMu.Unlock()
+	return nil
+}
+
+func (s *Store) GetBackImage(_ context.Context) (*datastore.BackImageEnt, error) {
+	s.confMu.RLock()
+	defer s.confMu.RUnlock()
+	b := s.backImage
+	return &b, nil
+}
+
+func (s *Store) SaveBackImage(_ context.Context, bi *datastore.BackImageEnt) error {
+	if bi == nil {
+		return datastore.ErrInvalidParams
+	}
+	data, err := json.Marshal(bi)
+	if err != nil {
+		return err
+	}
+	err = s.db.Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(bucketConfig).Put(keyBackImage, data)
+	})
+	if err != nil {
+		return err
+	}
+	s.confMu.Lock()
+	s.backImage = *bi
 	s.confMu.Unlock()
 	return nil
 }

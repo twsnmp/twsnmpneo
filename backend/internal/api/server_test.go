@@ -16,6 +16,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 )
 
 func setupTestAPIEnv(t *testing.T) (datastore.DataStore, *parquet.Store, *ai.MCPServer, func()) {
@@ -647,5 +648,119 @@ func TestIPAMAPI(t *testing.T) {
 		t.Errorf("expected 1 used for range 3, got %d", r3.Used)
 	}
 }
+
+func TestAPIServer_MapAndLayoutEndpoints(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	pollMgr := polling.NewManager(polling.Config{
+		Store:    bStore,
+		LogStore: pqStore,
+	})
+
+	srv, err := api.NewServer(api.Config{
+		Store:          bStore,
+		LogStore:       pqStore,
+		MCPServer:      mcpSvr,
+		PollingManager: pollMgr,
+	})
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	e := srv.GetEcho()
+
+	// 1. Test POST /api/polling/check-all
+	req := httptest.NewRequest(http.MethodPost, "/api/polling/check-all", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /api/polling/check-all failed: code %d", rec.Code)
+	}
+
+	// 2. Seed a node and test POST /api/nodes/positions
+	_ = bStore.SaveNode(ctx, &datastore.NodeEnt{
+		ID:   "pos-node-1",
+		Name: "Node Pos",
+		X:    10,
+		Y:    10,
+	})
+	posReqBody := `[{"ID":"pos-node-1","X":150,"Y":250}]`
+	req = httptest.NewRequest(http.MethodPost, "/api/nodes/positions", strings.NewReader(posReqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /api/nodes/positions failed: code %d", rec.Code)
+	}
+	updatedNode, _ := bStore.GetNode(ctx, "pos-node-1")
+	if updatedNode.X != 150 || updatedNode.Y != 250 {
+		t.Errorf("expected node coords (150, 250), got (%d, %d)", updatedNode.X, updatedNode.Y)
+	}
+
+	// 3. Test AutoLayout endpoints
+	layoutReqBody := `{"mode":1}`
+	req = httptest.NewRequest(http.MethodPost, "/api/map/autolayout", strings.NewReader(layoutReqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /api/map/autolayout failed: code %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/map/autolayout/undo", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "true") {
+		t.Errorf("GET /api/map/autolayout/undo failed: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/map/autolayout/undo", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /api/map/autolayout/undo failed: code %d", rec.Code)
+	}
+
+	// 4. Test BackImage endpoints
+	backReqBody := `{"X":10,"Y":20,"Width":800,"Height":600,"Path":"/test.png"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/map/backimage", strings.NewReader(backReqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /api/map/backimage failed: code %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/map/backimage", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "/test.png") {
+		t.Errorf("GET /api/map/backimage failed: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/map/backimage", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("DELETE /api/map/backimage failed: code %d", rec.Code)
+	}
+
+	// 5. Test Map Import
+	importReqBody := `{
+		"nodes":[{"ID":"imp-node-1","Name":"Imp Node","X":50,"Y":50}],
+		"lines":[{"ID":"imp-line-1","NodeID1":"imp-node-1","NodeID2":"pos-node-1"}],
+		"networks":[{"ID":"imp-net-1","Name":"Imp Net","X":100,"Y":100}],
+		"drawItems":[{"ID":"imp-item-1","Text":"Test Text","X":20,"Y":20}]
+	}`
+	req = httptest.NewRequest(http.MethodPost, "/api/map/import", strings.NewReader(importReqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"ok"`) {
+		t.Errorf("POST /api/map/import failed: %s", rec.Body.String())
+	}
+}
+
 
 

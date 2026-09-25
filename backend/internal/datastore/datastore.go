@@ -31,6 +31,7 @@ type DataStore interface {
 	GetNode(ctx context.Context, id string) (*NodeEnt, error)
 	ListNodes(ctx context.Context) ([]*NodeEnt, error)
 	SaveNode(ctx context.Context, node *NodeEnt) error
+	SaveNodes(ctx context.Context, nodes []*NodeEnt) error
 	DeleteNode(ctx context.Context, id string) error
 
 	// Lines
@@ -64,6 +65,8 @@ type DataStore interface {
 	SaveNotifyConf(ctx context.Context, conf *NotifyConfEnt) error
 	GetLocConf(ctx context.Context) (*LocConfEnt, error)
 	SaveLocConf(ctx context.Context, conf *LocConfEnt) error
+	GetBackImage(ctx context.Context) (*BackImageEnt, error)
+	SaveBackImage(ctx context.Context, bi *BackImageEnt) error
 
 	// Event Logs
 	AddEventLog(ctx context.Context, event *EventLogEnt) error

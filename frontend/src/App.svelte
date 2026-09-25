@@ -49,6 +49,9 @@
     } catch {
       // default
     }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("twsnmp:reload-map"));
+    }
   };
 
   onMount(async () => {

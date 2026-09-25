@@ -67,6 +67,39 @@ func FindTopologyForNetwork(ctx context.Context, store datastore.DataStore, nw *
 	return resp, nil
 }
 
+// FindAllTopology searches for candidate connections across all networks and nodes.
+func FindAllTopology(ctx context.Context, store datastore.DataStore) (*FindNeighborNetworksAndLinesResp, error) {
+	allNets, err := store.ListNetworks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	existingLines, _ := store.ListLines(ctx)
+	resp := &FindNeighborNetworksAndLinesResp{
+		Networks: []*datastore.NetworkEnt{},
+		Lines:    []NeighborLineEnt{},
+	}
+	seenLines := make(map[string]bool)
+	for _, l := range existingLines {
+		seenLines[fmt.Sprintf("%s-%s", l.NodeID1, l.NodeID2)] = true
+		seenLines[fmt.Sprintf("%s-%s", l.NodeID2, l.NodeID1)] = true
+	}
+
+	for _, nw := range allNets {
+		top, err := FindTopologyForNetwork(ctx, store, nw)
+		if err == nil && top != nil {
+			for _, l := range top.Lines {
+				k := fmt.Sprintf("%s-%s", l.NodeID1, l.NodeID2)
+				if !seenLines[k] {
+					seenLines[k] = true
+					seenLines[fmt.Sprintf("%s-%s", l.NodeID2, l.NodeID1)] = true
+					resp.Lines = append(resp.Lines, l)
+				}
+			}
+		}
+	}
+	return resp, nil
+}
+
 // FindNodeConnection searches candidate switch connections for a specific regular node.
 func FindNodeConnection(ctx context.Context, store datastore.DataStore, nodeID string) ([]NeighborLineEnt, error) {
 	cleanID := strings.TrimPrefix(nodeID, "NODE:")

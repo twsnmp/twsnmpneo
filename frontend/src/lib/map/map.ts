@@ -17,6 +17,8 @@ import {
   deleteNetwork,
   fetchMapConf,
   saveMapConf,
+  fetchBackImage,
+  updateNodePositions,
   type NodeEnt,
   type LineEnt,
   type NetworkEnt,
@@ -44,6 +46,7 @@ let backImage: any = {
   Path: "",
 };
 let _backImage: any = undefined;
+let lastBackImagePath = "";
 
 let fontSize = 12;
 let iconSize = 32;
@@ -108,6 +111,14 @@ export const resetMap = () => {
     _mapP5.remove();
     _mapP5 = undefined;
   }
+  lastBackImagePath = "";
+  _backImage = undefined;
+};
+
+export const reloadBackImage = () => {
+  lastBackImagePath = "";
+  _backImage = undefined;
+  mapRedraw = true;
 };
 
 export const getMapSize = () => ({
@@ -184,12 +195,26 @@ export const checkNetworkPos = (net: any) => {
 export const updateMAP = async () => {
   if (!_mapP5) return;
   const dark = isDark();
-  if (!mapConf) {
-    try {
-      mapConf = await fetchMapConf();
-    } catch {
-      mapConf = { IconSize: 3 };
-    }
+  try {
+    mapConf = await fetchMapConf();
+  } catch {
+    if (!mapConf) mapConf = { IconSize: 3, MapSize: 0 };
+  }
+  switch (mapConf?.MapSize) {
+    case 1:
+      mapSizeX = 2894;
+      mapSizeY = 4093;
+      break;
+    case 2:
+      mapSizeX = 4093;
+      mapSizeY = 2894;
+      break;
+    default:
+      mapSizeX = typeof window !== "undefined" && window.screen.width > 4000 ? 5000 : 2500;
+      mapSizeY = 5000;
+  }
+  if (_mapP5 && (_mapP5.width !== mapSizeX || _mapP5.height !== mapSizeY)) {
+    _mapP5.resizeCanvas(mapSizeX, mapSizeY);
   }
   const z = mapConf.IconSize || 3;
   iconSize = 8 + z * 8;
@@ -227,6 +252,31 @@ export const updateMAP = async () => {
         networks[id] = net;
       }
     });
+
+    try {
+      backImage = await fetchBackImage();
+      if (backImage?.Path) {
+        if ((backImage.Path !== lastBackImagePath || !_backImage) && _mapP5) {
+          lastBackImagePath = backImage.Path;
+          const imgUrl = backImage.Path.startsWith("/")
+            ? `${backImage.Path}?t=${Date.now()}`
+            : backImage.Path;
+          _mapP5.loadImage(imgUrl, (img) => {
+            _backImage = img;
+            mapRedraw = true;
+          });
+        } else {
+          // Path unchanged, but position/size might have changed
+          mapRedraw = true;
+        }
+      } else {
+        lastBackImagePath = "";
+        _backImage = undefined;
+        mapRedraw = true;
+      }
+    } catch {
+      // ignore
+    }
   } catch (e) {
     console.error("Failed to fetch map elements:", e);
   }
@@ -238,6 +288,7 @@ export const updateMAP = async () => {
   }
 
   _setMapState();
+  mapRedraw = true;
 
   const backColor = dark ? "rgb(23,23,23)" : "rgb(252,252,252)";
 
@@ -326,10 +377,17 @@ export const setShowNodeInfo = (s: boolean) => {
   mapRedraw = true;
 };
 
+export const getShowNodeInfo = (): boolean => showNodeInfo;
+
 export const setEditDrawItems = (e: boolean) => {
   editDrawItems = e;
+  if (!editDrawItems) {
+    selectedDrawItems.length = 0;
+  }
   mapRedraw = true;
 };
+
+export const getEditDrawItems = (): boolean => editDrawItems;
 
 const getLinePos = (id: string, polling: string) => {
   if (id.startsWith("NET:")) {
@@ -373,6 +431,52 @@ const getLinePos = (id: string, polling: string) => {
     X: nodes[id].x ?? (nodes[id] as any).X ?? 0,
     Y: (nodes[id].y ?? (nodes[id] as any).Y ?? 0) + 6,
   };
+};
+
+export const grid = async (g: number, test: boolean) => {
+  const list: { ID: string; X: number; Y: number }[] = [];
+  const mx = Math.ceil(mapSizeX / g);
+  const my = Math.ceil(mapSizeY / g);
+  const m = new Array(mx);
+  for (let x = 0; x < m.length; x++) {
+    m[x] = new Array(my);
+    for (let y = 0; y < m[x].length; y++) {
+      m[x][y] = false;
+    }
+  }
+  for (const id in nodes) {
+    const curX = nodes[id].x ?? (nodes[id] as any).X ?? 0;
+    const curY = nodes[id].y ?? (nodes[id] as any).Y ?? 0;
+    let x = Math.max(Math.min(Math.ceil((curX * 1.0) / g), mx - 1), 0);
+    let y = Math.max(Math.min(Math.ceil((curY * 1.0) / g), my - 1), 0);
+    while (m[x] && m[x][y]) {
+      x++;
+      if (x >= mx) {
+        y++;
+        x = 0;
+        if (y >= my) {
+          y = 0;
+          break;
+        }
+      }
+    }
+    if (m[x]) {
+      m[x][y] = true;
+    }
+    nodes[id].x = x * g;
+    nodes[id].y = y * g;
+    (nodes[id] as any).X = x * g;
+    (nodes[id] as any).Y = y * g;
+    list.push({
+      ID: id,
+      X: x * g,
+      Y: y * g,
+    });
+  }
+  if (!test && list.length > 0) {
+    await updateNodePositions(list).catch(console.error);
+  }
+  mapRedraw = true;
 };
 
 export const horizontal = async (selected: string[]) => {
@@ -559,18 +663,20 @@ const mapMain = (p5: P5) => {
       return false;
     }
 
-    // 3. Hit test draw items
+    // 3. Hit test draw items (only if editDrawItems is enabled)
     let hitItemId = "";
-    for (const k in items) {
-      const it = items[k];
-      const iid = it.id || (it as any).ID;
-      const ix = it.x ?? (it as any).X ?? 0;
-      const iy = it.y ?? (it as any).Y ?? 0;
-      const iw = it.w || (it as any).W || 120;
-      const ih = it.h || (it as any).H || 40;
-      if (mx >= ix && mx <= ix + iw && my >= iy && my <= iy + ih) {
-        hitItemId = iid;
-        break;
+    if (editDrawItems) {
+      for (const k in items) {
+        const it = items[k];
+        const iid = it.id || (it as any).ID;
+        const ix = it.x ?? (it as any).X ?? 0;
+        const iy = it.y ?? (it as any).Y ?? 0;
+        const iw = it.w || (it as any).W || 120;
+        const ih = it.h || (it as any).H || 40;
+        if (mx >= ix && mx <= ix + iw && my >= iy && my <= iy + ih) {
+          hitItemId = iid;
+          break;
+        }
       }
     }
 
@@ -677,6 +783,15 @@ const mapMain = (p5: P5) => {
     p5.push();
     if (scale !== 1.0) {
       p5.scale(scale);
+    }
+
+    // Draw background image if configured
+    if (_backImage) {
+      if (backImage.Width > 0 && backImage.Height > 0) {
+        p5.image(_backImage, backImage.X || 0, backImage.Y || 0, backImage.Width, backImage.Height);
+      } else {
+        p5.image(_backImage, backImage.X || 0, backImage.Y || 0);
+      }
     }
 
     // 1. Draw draw items (background layers)
@@ -847,7 +962,7 @@ const mapMain = (p5: P5) => {
       p5.push();
       p5.translate(ix, iy);
 
-      if (selectedDrawItems.includes(iid)) {
+      if (editDrawItems && selectedDrawItems.includes(iid)) {
         p5.stroke("#06b6d4");
         p5.strokeWeight(2);
         p5.fill(dark ? "rgba(6, 182, 212, 0.1)" : "rgba(6, 182, 212, 0.15)");
@@ -952,16 +1067,18 @@ const mapMain = (p5: P5) => {
       }
     });
 
-    selectedDrawItems.forEach((id: string) => {
-      if (items[id]) {
-        items[id].x = (items[id].x ?? (items[id] as any).X ?? 0) + dx;
-        items[id].y = (items[id].y ?? (items[id] as any).Y ?? 0) + dy;
-        checkItemPos(items[id]);
-        if (!draggedItems.includes(id)) {
-          draggedItems.push(id);
+    if (editDrawItems) {
+      selectedDrawItems.forEach((id: string) => {
+        if (items[id]) {
+          items[id].x = (items[id].x ?? (items[id] as any).X ?? 0) + dx;
+          items[id].y = (items[id].y ?? (items[id] as any).Y ?? 0) + dy;
+          checkItemPos(items[id]);
+          if (!draggedItems.includes(id)) {
+            draggedItems.push(id);
+          }
         }
-      }
-    });
+      });
+    }
 
     if (selectedNetwork !== "" && networks[selectedNetwork]) {
       networks[selectedNetwork].x = (networks[selectedNetwork].x ?? (networks[selectedNetwork] as any).X ?? 0) + dx;
@@ -989,11 +1106,13 @@ const mapMain = (p5: P5) => {
       }
     }
     selectedDrawItems.length = 0;
-    for (const k in items) {
-      const ix = items[k].x ?? (items[k] as any).X ?? 0;
-      const iy = items[k].y ?? (items[k] as any).Y ?? 0;
-      if (ix > sx && ix < lx && iy > sy && iy < ly) {
-        selectedDrawItems.push(items[k].id || (items[k] as any).ID);
+    if (editDrawItems) {
+      for (const k in items) {
+        const ix = items[k].x ?? (items[k] as any).X ?? 0;
+        const iy = items[k].y ?? (items[k] as any).Y ?? 0;
+        if (ix > sx && ix < lx && iy > sy && iy < ly) {
+          selectedDrawItems.push(items[k].id || (items[k] as any).ID);
+        }
       }
     }
     mapRedraw = true;
@@ -1031,6 +1150,10 @@ const mapMain = (p5: P5) => {
   };
 
   const setSelectItem = () => {
+    if (!editDrawItems) {
+      selectedDrawItems.length = 0;
+      return false;
+    }
     const x = p5.mouseX / scale;
     const y = p5.mouseY / scale;
     for (const k in items) {
@@ -1160,7 +1283,7 @@ const mapMain = (p5: P5) => {
           }
         }
       }
-      if (!hitSelected) {
+      if (!hitSelected && editDrawItems) {
         for (const id of selectedDrawItems) {
           if (items[id]) {
             const ix = items[id].x ?? (items[id] as any).X ?? 0;
@@ -1216,7 +1339,7 @@ const mapMain = (p5: P5) => {
     if (dragMode === 0) {
       if (
         selectedNodes.length > 0 ||
-        selectedDrawItems.length > 0 ||
+        (editDrawItems && selectedDrawItems.length > 0) ||
         selectedNetwork !== ""
       ) {
         dragMode = 2; // Move mode
@@ -1258,7 +1381,7 @@ const mapMain = (p5: P5) => {
     }
 
     if (dragMode === 1) {
-      if (selectedNodes.length > 0 || selectedDrawItems.length > 0) {
+      if (selectedNodes.length > 0 || (editDrawItems && selectedDrawItems.length > 0)) {
         dragMode = 3;
       } else {
         dragMode = 0;
@@ -1307,7 +1430,7 @@ const mapMain = (p5: P5) => {
         networkId: selectedNetwork,
         Param: selectedNetwork,
       });
-    } else if (selectedDrawItems.length === 1 && mapCallBack) {
+    } else if (editDrawItems && selectedDrawItems.length === 1 && mapCallBack) {
       mapCallBack({
         type: "dblclick",
         Cmd: "itemDoubleClicked",
@@ -1327,7 +1450,7 @@ const mapMain = (p5: P5) => {
           Param: [...selectedNodes],
         });
         selectedNodes.length = 0;
-      } else if (selectedDrawItems.length > 0 && mapCallBack) {
+      } else if (editDrawItems && selectedDrawItems.length > 0 && mapCallBack) {
         mapCallBack({
           Cmd: "deleteDrawItems",
           Param: [...selectedDrawItems],

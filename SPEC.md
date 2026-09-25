@@ -124,7 +124,10 @@ twsnmpneo/
 │   │   │   │   ├── LineDialog.svelte         # Line editor (ports Line.svelte)
 │   │   │   │   ├── PollingDialog.svelte      # Polling editor (ports AddPolling.svelte)
 │   │   │   │   ├── NodeDetailModal.svelte    # Node detail (tabs: vpanel, ports, RMON, host, logs)
-│   │   │   │   ├── ConfigModal.svelte        # System config (Map, Notify, AI, Icons, MIB, Store)
+│   │   │   │   ├── ConfigModal.svelte        # System config (Map, Notify, AI, Icons, MIB, Store, BackImage)
+│   │   │   │   ├── GridDialog.svelte         # Grid alignment dialog with live preview
+│   │   │   │   ├── ImportMapModal.svelte     # Universal map importer (JSON & TWSNMP v4 .spm)
+│   │   │   │   ├── FindNeighborDialog.svelte # Neighbor search and discovery dialog
 │   │   │   │   └── HelpDialog.svelte         # Contextual markdown help dialog
 │   │   │   ├── views/            # Main navigation page views
 │   │   │   │   ├── MapView.svelte            # Topology map view + bottom log drawer
@@ -166,6 +169,9 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Primary interactive topology canvas powered by `map.ts`.
    - Bottom real-time event log bar with expandable log drawer.
    - Quick node selection dropdown, zoom controls, full-screen map toggle, and refresh trigger.
+   - Comprehensive blank area right-click context menu: Add node, Add draw item, New Network, Add Line, Check all pollings, Discover neighbors, Auto Layout submenu (Hierarchical, Cluster, Categorized, Grid alignment, Undo), Edit mode toggle (with locked interactions when disabled), and Node Info toggle.
+   - Background image configuration via `ConfigModal.svelte` featuring natural dimension detection, aspect ratio locking, scaled miniature canvas placement preview, and immediate live reload without manual browser refresh.
+   - Map import capability via `ImportMapModal.svelte` supporting both JSON and legacy TWSNMP v4 `.spm` formats with automatic encoding detection (Shift-JIS & UTF-8).
 2. **Location View (`LocationView.svelte`)**:
    - Geographic GIS map powered by MapLibre / OpenStreetMap displaying nodes plotted by coordinates (`Loc` property).
 3. **List View (`ListView.svelte`)**:

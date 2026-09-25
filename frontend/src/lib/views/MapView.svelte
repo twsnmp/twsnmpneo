@@ -8,8 +8,13 @@
     horizontal,
     vertical,
     circle,
+    grid,
     getNodeBounds,
     getMapSize,
+    getShowNodeInfo,
+    setShowNodeInfo,
+    getEditDrawItems,
+    setEditDrawItems,
   } from "../map/map";
   import NodeDialog from "../components/NodeDialog.svelte";
   import NetworkDialog from "../components/NetworkDialog.svelte";
@@ -18,6 +23,7 @@
   import NetworkLinesDialog from "../components/NetworkLinesDialog.svelte";
   import FindNeighborDialog from "../components/FindNeighborDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
+  import GridDialog from "../components/GridDialog.svelte";
   import {
     fetchNodes,
     fetchLines,
@@ -29,6 +35,10 @@
     deleteNetwork,
     deleteDrawItem,
     deleteLine,
+    checkAllPollings,
+    applyAutoLayout,
+    undoAutoLayout,
+    checkUndoAutoLayout,
     type NodeEnt,
     type LineEnt,
     type NetworkEnt,
@@ -61,6 +71,13 @@
     CircleDot,
     Compass,
     Network,
+    ChevronRight,
+    Grid,
+    FolderTree,
+    Check,
+    Sparkles,
+    Layers,
+    X,
   } from "@lucide/svelte";
 
   let nodes = $state<NodeEnt[]>([]);
@@ -102,6 +119,20 @@
   let contextTargetNet = $state("");
   let contextTargetItem = $state("");
 
+  // Grid dialog
+  let showGridDialog = $state(false);
+
+  // Auto layout & undo toast state
+  let hasUndo = $state(false);
+  let showToast = $state(false);
+  let toastMessage = $state("");
+  let toastTimer: any = null;
+  let showAutoLayoutSubmenu = $state(false);
+
+  // Edit mode & node info state
+  let editDrawItems = $state(false);
+  let showNodeInfo = $state(false);
+
   // Multi-node format menu state
   let showFormatMenu = $state(false);
   let formatNodesList = $state<string[]>([]);
@@ -132,25 +163,39 @@
     }
   };
 
+  const onReloadMapEvent = () => {
+    reloadAllData();
+  };
+
   onMount(async () => {
+    window.addEventListener("twsnmp:reload-map", onReloadMapEvent);
     const canvasDiv = document.getElementById("p5-map-canvas");
     if (canvasDiv) {
       await initMAP(canvasDiv, (ev: any) => {
         if (ev?.type === "contextmenu" || ev?.Cmd === "contextMenu") {
           contextX = Math.min(ev.x, window.innerWidth - 200);
-          contextY = Math.min(ev.y, window.innerHeight - 260);
+          contextY = Math.min(ev.y, window.innerHeight - 300);
           contextMapX = ev.mapX ?? 300;
           contextMapY = ev.mapY ?? 200;
           contextTargetNode = ev.nodeId || ev.Node || "";
           contextTargetNet = ev.networkId || ev.Network || "";
           contextTargetItem = ev.itemId || ev.DrawItem || "";
           showFormatMenu = false;
+          showAutoLayoutSubmenu = false;
+          editDrawItems = getEditDrawItems();
+          showNodeInfo = getShowNodeInfo();
+          checkUndoAutoLayout()
+            .then((res) => {
+              hasUndo = res.canUndo;
+            })
+            .catch(() => {});
           showContextMenu = true;
         } else if (ev?.type === "formatNodes" || ev?.Cmd === "formatNodes") {
           formatNodesList = ev.Nodes || [];
           formatPosX = Math.min(ev.x, window.innerWidth - 200);
           formatPosY = Math.min(ev.y, window.innerHeight - 220);
           showContextMenu = false;
+          showAutoLayoutSubmenu = false;
           showFormatMenu = true;
         } else if (ev?.type === "dblclick") {
           if (ev.nodeId) {
@@ -232,9 +277,97 @@
   });
 
   onDestroy(() => {
+    window.removeEventListener("twsnmp:reload-map", onReloadMapEvent);
     if (refreshTimer) clearInterval(refreshTimer);
+    if (toastTimer) clearTimeout(toastTimer);
     resetMap();
   });
+
+  const showToastMessage = (msg: string) => {
+    toastMessage = msg;
+    showToast = true;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      showToast = false;
+    }, 8000);
+  };
+
+  const handleCheckAll = async () => {
+    showContextMenu = false;
+    try {
+      await checkAllPollings();
+      showToastMessage($_('map.context.checkAllStarted') || "全てのポーリング確認を開始しました");
+      await reloadAllData();
+    } catch (e: any) {
+      showToastMessage("Error: " + (e.message || e));
+    }
+  };
+
+  const handleDiscover = () => {
+    showContextMenu = false;
+    findNeighborTargetId = "ALL";
+    showFindNeighborDialog = true;
+  };
+
+  const handleRunAutoLayout = async (type: number) => {
+    showContextMenu = false;
+    showAutoLayoutSubmenu = false;
+    try {
+      const res = await applyAutoLayout(type);
+      hasUndo = true;
+      const typeNames: Record<number, string> = {
+        1: $_('map.autoLayout.hierarchical') || "階層型",
+        2: $_('map.autoLayout.cluster') || "クラスター型",
+        3: $_('map.autoLayout.categorized') || "分類型",
+      };
+      const name = typeNames[type] || $_('map.context.autoLayout') || "自動レイアウト";
+      showToastMessage(`${name}を適用しました (${res.moved}ノード)`);
+      await reloadAllData();
+    } catch (e: any) {
+      showToastMessage("Error: " + (e.message || e));
+    }
+  };
+
+  const handleUndoAutoLayout = async () => {
+    showContextMenu = false;
+    showAutoLayoutSubmenu = false;
+    try {
+      await undoAutoLayout();
+      hasUndo = false;
+      showToastMessage($_('map.autoLayout.undone') || "自動レイアウトを元に戻しました");
+      await reloadAllData();
+    } catch (e: any) {
+      showToastMessage("Error: " + (e.message || e));
+    }
+  };
+
+  const handleOpenGridDialog = () => {
+    showContextMenu = false;
+    showAutoLayoutSubmenu = false;
+    showGridDialog = true;
+  };
+
+  const handleGridTest = async (size: number) => {
+    await grid(size, true);
+  };
+
+  const handleGridExec = async (size: number) => {
+    await grid(size, false);
+    await reloadAllData();
+    showToastMessage(($_('map.autoLayout.grid') || "グリッド整列") + "を適用しました");
+  };
+
+  const handleToggleEditMode = () => {
+    editDrawItems = !editDrawItems;
+    setEditDrawItems(editDrawItems);
+    showContextMenu = false;
+  };
+
+  const handleToggleNodeInfo = () => {
+    showNodeInfo = !showNodeInfo;
+    setShowNodeInfo(showNodeInfo);
+    showContextMenu = false;
+  };
 
   const handleOpenAddNode = () => {
     const { halfW, topH, bottomH } = getNodeBounds();
@@ -454,12 +587,14 @@
     if (e.button === 0) {
       showContextMenu = false;
       showFormatMenu = false;
+      showAutoLayoutSubmenu = false;
     }
   }}
   onkeydown={(e) => {
     if (e.key === "Escape") {
       showContextMenu = false;
       showFormatMenu = false;
+      showAutoLayoutSubmenu = false;
     }
   }}
 />
@@ -626,26 +761,141 @@
           {$_('map.context.deleteDrawItem')}
         </button>
       {:else}
+        <!-- Add node (ノード追加) -->
         <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Plus class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          {$_('map.context.addNode')}
+          <span>{$_('map.context.addNode')}</span>
         </button>
-        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
-          <Network class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-          {$_('map.context.addNetwork')}
-        </button>
+        <!-- Draw item (ドローアイテム) -->
         <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-          {$_('map.context.addDrawItem')}
+          <span>{$_('map.context.addDrawItem')}</span>
         </button>
+        <!-- New Network (新規ネットワーク) -->
+        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Network class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>{$_('map.context.addNetwork')}</span>
+        </button>
+        <!-- Line (ライン) -->
         <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Activity class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          {$_('map.context.addLine')}
+          <span>{$_('map.context.addLine')}</span>
         </button>
+
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
-        <button onclick={reloadAllData} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <RefreshCw class="h-3.5 w-3.5 text-slate-400" />
-          {$_('map.reload')}
+
+        <!-- Check all (全て確認) -->
+        <button onclick={handleCheckAll} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <CheckCircle2 class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>{$_('map.context.checkAll')}</span>
+        </button>
+
+        <!-- Discover (ディスカバリー) -->
+        <button onclick={handleDiscover} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+          <span>{$_('map.context.discover')}</span>
+        </button>
+
+        <!-- Auto Layout (自動レイアウト) Submenu Trigger -->
+        <div
+          class="relative"
+          role="none"
+          onmouseenter={() => (showAutoLayoutSubmenu = true)}
+          onmouseleave={() => (showAutoLayoutSubmenu = false)}
+        >
+          <button
+            type="button"
+            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+          >
+            <div class="flex items-center gap-2">
+              <Sparkles class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+              <span>{$_('map.context.autoLayout')}</span>
+            </div>
+            <ChevronRight class="h-3.5 w-3.5 text-slate-400" />
+          </button>
+
+          {#if showAutoLayoutSubmenu}
+            <div
+              role="menu"
+              tabindex="-1"
+              class="absolute {contextX + 370 > (typeof window !== 'undefined' ? window.innerWidth : 1200) ? 'right-full mr-1' : 'left-full ml-1'} top-0 min-w-[170px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md z-50"
+            >
+              <!-- 階層型 (Hierarchical) -->
+              <button
+                onclick={() => handleRunAutoLayout(1)}
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <Layers class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>{$_('map.autoLayout.hierarchical')}</span>
+              </button>
+              <!-- クラスター型 (Cluster) -->
+              <button
+                onclick={() => handleRunAutoLayout(2)}
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <CircleDot class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>{$_('map.autoLayout.cluster')}</span>
+              </button>
+              <!-- 分類型 (Categorized) -->
+              <button
+                onclick={() => handleRunAutoLayout(3)}
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <FolderTree class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>{$_('map.autoLayout.categorized')}</span>
+              </button>
+              <!-- グリッド整列... (Grid align) -->
+              <button
+                onclick={handleOpenGridDialog}
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <Grid class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>{$_('map.autoLayout.grid')}...</span>
+              </button>
+
+              {#if hasUndo}
+                <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+                <!-- 元に戻す (Undo) -->
+                <button
+                  onclick={handleUndoAutoLayout}
+                  class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                >
+                  <RotateCcw class="h-3.5 w-3.5" />
+                  <span>{$_('map.autoLayout.undo')}</span>
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+
+        <!-- Edit mode (編集モード) -->
+        <button
+          onclick={handleToggleEditMode}
+          class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <div class="flex items-center gap-2">
+            <Edit3 class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span>{$_('map.context.editMode')}</span>
+          </div>
+          {#if editDrawItems}
+            <Check class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+          {/if}
+        </button>
+
+        <!-- Node Info (ノード情報) -->
+        <button
+          onclick={handleToggleNodeInfo}
+          class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <div class="flex items-center gap-2">
+            <Info class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span>{$_('map.context.nodeInfo')}</span>
+          </div>
+          {#if showNodeInfo}
+            <Check class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+          {/if}
         </button>
       {/if}
     </div>
@@ -706,4 +956,31 @@
     onConnect={reloadAllData}
   />
   <NodeDetailModal bind:show={showNodeDetailModal} node={detailNode} {pollings} logs={eventLogs} />
+  <GridDialog bind:show={showGridDialog} onTest={handleGridTest} onExec={handleGridExec} />
+
+  <!-- Floating Toast Notification for Auto Layout / Check All -->
+  {#if showToast}
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-slate-900/95 dark:bg-slate-800/95 text-white shadow-2xl border border-slate-700/60 backdrop-blur-md">
+      <Sparkles class="w-4 h-4 text-cyan-400 shrink-0" />
+      <span class="text-xs font-medium">{toastMessage}</span>
+      {#if hasUndo}
+        <button
+          type="button"
+          onclick={handleUndoAutoLayout}
+          class="ml-2 flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition-colors cursor-pointer"
+        >
+          <RotateCcw class="w-3.5 h-3.5" />
+          <span>{$_('map.autoLayout.undo')}</span>
+        </button>
+      {/if}
+      <button
+        type="button"
+        onclick={() => (showToast = false)}
+        class="text-slate-400 hover:text-white transition-colors ml-1 p-0.5 cursor-pointer"
+        aria-label={$_('common.close')}
+      >
+        <X class="w-3.5 h-3.5" />
+      </button>
+    </div>
+  {/if}
 </div>

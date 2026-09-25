@@ -219,3 +219,20 @@ func (m *Manager) checkAndSchedule(ctx context.Context) {
 		}
 	}
 }
+
+// CheckAll queues all pollings to execute immediately on demand.
+func (m *Manager) CheckAll(ctx context.Context) int {
+	if m.store == nil {
+		return 0
+	}
+	pollings, err := m.store.ListPollings(ctx)
+	if err != nil || len(pollings) == 0 {
+		return 0
+	}
+	for _, p := range pollings {
+		go func(task *datastore.PollingEnt) {
+			_, _ = m.ExecuteOne(context.Background(), task)
+		}(p)
+	}
+	return len(pollings)
+}

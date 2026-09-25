@@ -31,10 +31,14 @@
   let candidateNetworks = $state<NetworkEnt[]>([]);
   let selectedIndices = $state<number[]>([]);
 
-  let isNode = $derived(!targetId.startsWith("NET:"));
-  let cleanID = $derived(targetId.replace(/^(NODE:|NET:)/, ""));
+  let isAll = $derived(targetId === "ALL" || targetId === "all");
+  let isNode = $derived(!isAll && !targetId.startsWith("NET:"));
+  let cleanID = $derived(isAll ? "ALL" : targetId.replace(/^(NODE:|NET:)/, ""));
 
   let targetName = $derived.by(() => {
+    if (isAll) {
+      return $_('map.context.discover') || "ディスカバリー (全体)";
+    }
     if (isNode) {
       const n = nodes.find((item) => (item.id || (item as any).ID) === cleanID);
       return n ? `${n.name || (n as any).Name || cleanID} (${n.ip || (n as any).IP || ""})` : cleanID;
@@ -148,10 +152,14 @@
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{isNode ? $_('neighbor.titleNode') : $_('neighbor.titleNet')}</span>
-              <span class="text-xs font-normal text-cyan-300">({targetName})</span>
+              <span>{isAll ? $_('map.context.discover') : isNode ? $_('neighbor.titleNode') : $_('neighbor.titleNet')}</span>
+              {#if !isAll}
+                <span class="text-xs font-normal text-cyan-300">({targetName})</span>
+              {/if}
             </h2>
-            <p class="text-[11px] text-slate-400">{$_('neighbor.subtitle')}</p>
+            <p class="text-[11px] text-slate-400">
+              {isAll ? ($_('neighbor.discoverAllSubtitle') || $_('neighbor.subtitle')) : $_('neighbor.subtitle')}
+            </p>
           </div>
         </div>
         <button

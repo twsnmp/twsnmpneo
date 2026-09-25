@@ -130,7 +130,9 @@ twsnmpneo/
 │   │   │   │   ├── LineDialog.svelte         # ラインエディタ (Line.svelte移植)
 │   │   │   │   ├── PollingDialog.svelte      # ポーリングエディタ (AddPolling.svelte移植)
 │   │   │   │   ├── NodeDetailModal.svelte    # ノード詳細 (vpanel, ports, RMON, host, logs)
-│   │   │   │   ├── ConfigModal.svelte        # システム環境設定 (Map, Notify, AI, Icons, MIB, Store)
+│   │   │   │   ├── ConfigModal.svelte        # システム環境設定 (Map, Notify, AI, Icons, MIB, Store, 背景画像)
+│   │   │   │   ├── GridDialog.svelte         # グリッド整列ダイアログ（プレビュー・整列実行）
+│   │   │   │   ├── ImportMapModal.svelte     # 汎用マップインポート（JSON & TWSNMP v4 .spm対応）
 │   │   │   │   ├── LogReportModal.svelte     # ログ総合集計・グラフレポートモーダル
 │   │   │   │   ├── MQTTReportModal.svelte    # MQTT専用7系統集計レポートモーダル
 │   │   │   │   └── HelpDialog.svelte         # コンテキストヘルプ
@@ -176,6 +178,9 @@ twsnmpneo/
    - 下部リアルタイムイベントログバー（展開可能なイベントドロワー付き）。
    - クイックノード検索・選択、ズームコントロール、全画面トグル、右上の固定リロードボタン。
    - Shift+クリックによるノード/SW-HUB間のライン編集・切断、SW-HUB一括ライン編集、近傍接続先自動探索モーダル。
+   - 空白部右クリックコンテキストメニュー（ノード追加、ドローアイテム追加、新規ネットワーク、ライン追加、全ポーリング確認、自動検出、自動レイアウトサブメニュー［階層型・クラスター型・分類型・グリッド整列・元に戻す］、編集モード切替［無効時アイテム移動・選択・編集を完全ロック］、ノード情報表示切替）。
+   - 背景画像設定（`ConfigModal.svelte` 内で元画像サイズ自動取得、縦横比固定、キャンバス縮尺連動配置プレビュー、保存時マップ即時リフレッシュ）。
+   - 汎用マップインポート（`ImportMapModal.svelte` により JSON および TWSNMP v4 `.spm` 形式を Shift-JIS/UTF-8 自動判別でインポート、マップ即時反映）。
 2. **位置情報画面 (`LocationView.svelte`)**:
    - MapLibre / OpenStreetMap を使用し、ノードの緯度経度（`Loc` プロパティ）をプロットしたGIS地図ビュー。
 3. **リスト画面 (`ListView.svelte`)**:

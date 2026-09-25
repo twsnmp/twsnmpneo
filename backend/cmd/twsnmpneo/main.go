@@ -321,17 +321,18 @@ func main() {
 
 	// Initialize Web/API server
 	server, err := api.NewServer(api.Config{
-		Port:       *port,
-		Debug:      *debug,
-		Version:    version,
-		Commit:     commit,
-		DataDir:    *dataDir,
-		Store:      store,
-		LogStore:   pqStore,
-		MCPServer:  mcpServer,
-		ArpManager: recvMgr,
-		Monitor:    sysMon,
-		Receivers:  receiversInfo,
+		Port:           *port,
+		Debug:          *debug,
+		Version:        version,
+		Commit:         commit,
+		DataDir:        *dataDir,
+		Store:          store,
+		LogStore:       pqStore,
+		MCPServer:      mcpServer,
+		ArpManager:     recvMgr,
+		Monitor:        sysMon,
+		PollingManager: pollMgr,
+		Receivers:      receiversInfo,
 	})
 	if err != nil {
 		slog.Error("Failed to initialize API server", "error", err)
