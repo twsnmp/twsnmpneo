@@ -286,11 +286,11 @@
       "deleteDrawItem": "描画アイテムの削除",
       "addNode": "ノード追加",
       "addNetwork": "新規ネットワーク",
-      "addDrawItem": "ドローアイテム",
+      "addDrawItem": "描画アイテム",
       "addLine": "ライン",
       "checkAll": "全て確認",
       "checkAllStarted": "全てのポーリング確認を開始しました",
-      "discover": "ディスカバリー",
+      "discover": "自動発見",
       "autoLayout": "自動レイアウト",
       "editMode": "編集モード",
       "nodeInfo": "ノード情報",
@@ -328,7 +328,7 @@
       "nodes": "ノード数",
       "lines": "ライン数",
       "networks": "ネットワーク数",
-      "drawItems": "ドローアイテム数",
+      "drawItems": "描画アイテム数",
       "execute": "インポート実行"
     }
   },

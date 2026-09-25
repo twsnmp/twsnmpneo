@@ -37,7 +37,7 @@
 
   let targetName = $derived.by(() => {
     if (isAll) {
-      return $_('map.context.discover') || "ディスカバリー (全体)";
+      return $_('map.context.discover') || "自動発見 (全体)";
     }
     if (isNode) {
       const n = nodes.find((item) => (item.id || (item as any).ID) === cleanID);

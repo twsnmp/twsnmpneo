@@ -766,7 +766,7 @@
           <Plus class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           <span>{$_('map.context.addNode')}</span>
         </button>
-        <!-- Draw item (ドローアイテム) -->
+        <!-- Draw item (描画アイテム) -->
         <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
           <span>{$_('map.context.addDrawItem')}</span>
@@ -790,7 +790,7 @@
           <span>{$_('map.context.checkAll')}</span>
         </button>
 
-        <!-- Discover (ディスカバリー) -->
+        <!-- Discover (自動発見) -->
         <button onclick={handleDiscover} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
           <span>{$_('map.context.discover')}</span>
