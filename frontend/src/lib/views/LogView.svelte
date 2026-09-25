@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { _ } from "svelte-i18n";
   import {
     fetchEventLogs,
     queryParquetLogs,
@@ -97,14 +98,14 @@
   let sortDirection = $state<"asc" | "desc">("desc");
 
   // Categories definition
-  const categories: { id: LogCategory; name: string; icon: any }[] = [
-    { id: "event", name: "イベントログ", icon: FileText },
-    { id: "syslog", name: "Syslog", icon: Server },
-    { id: "trap", name: "SNMP TRAP", icon: AlertTriangle },
-    { id: "netflow", name: "NetFlow", icon: BarChart3 },
-    { id: "sflow", name: "sFlow", icon: Activity },
-    { id: "arp", name: "ARP Watch", icon: Server },
-  ];
+  const categories = $derived<{ id: LogCategory; name: string; icon: any }[]>([
+    { id: "event", name: $_('log.categories.event'), icon: FileText },
+    { id: "syslog", name: $_('log.categories.syslog'), icon: Server },
+    { id: "trap", name: $_('log.categories.trap'), icon: AlertTriangle },
+    { id: "netflow", name: $_('log.categories.netflow'), icon: BarChart3 },
+    { id: "sflow", name: $_('log.categories.sflow'), icon: Activity },
+    { id: "arp", name: $_('log.categories.arp'), icon: Server },
+  ]);
 
   // Column Definitions per Category
   interface ColumnDef {
@@ -115,82 +116,82 @@
     sortable?: boolean;
   }
 
-  const categoryColumns: Record<LogCategory, ColumnDef[]> = {
+  const categoryColumns = $derived<Record<string, ColumnDef[]>>({
     event: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "level", label: "レベル", width: "w-28", align: "center", sortable: true },
-      { key: "type", label: "種別", width: "w-28", sortable: true },
-      { key: "node", label: "ノード名", width: "w-48", sortable: true },
-      { key: "event", label: "イベント内容", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-44", sortable: true },
+      { key: "level", label: $_('log.col.level'), width: "w-28", align: "center", sortable: true },
+      { key: "type", label: $_('log.col.type'), width: "w-28", sortable: true },
+      { key: "node", label: $_('log.col.node'), width: "w-48", sortable: true },
+      { key: "event", label: $_('log.col.event'), sortable: true },
     ],
     syslog: [
-      { key: "level", label: "レベル", width: "w-24", align: "center", sortable: true },
-      { key: "time", label: "日時", width: "w-48", sortable: true },
-      { key: "host", label: "ホスト", width: "w-40", sortable: true },
-      { key: "type", label: "タイプ", width: "w-28", sortable: true },
-      { key: "tag", label: "タグ", width: "w-32", sortable: true },
-      { key: "message", label: "メッセージ", sortable: true },
+      { key: "level", label: $_('log.col.level'), width: "w-24", align: "center", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-48", sortable: true },
+      { key: "host", label: $_('log.col.host'), width: "w-40", sortable: true },
+      { key: "type", label: $_('log.col.type'), width: "w-28", sortable: true },
+      { key: "tag", label: $_('log.col.tag'), width: "w-32", sortable: true },
+      { key: "message", label: $_('log.col.message'), sortable: true },
     ],
     trap: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "src", label: "送信元 (From)", width: "w-48", sortable: true },
-      { key: "trapType", label: "TRAP種別", width: "w-40", sortable: true },
-      { key: "variables", label: "変数 (Variables)", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-44", sortable: true },
+      { key: "src", label: $_('log.col.src'), width: "w-48", sortable: true },
+      { key: "trapType", label: $_('log.col.trapType'), width: "w-40", sortable: true },
+      { key: "variables", label: $_('log.col.variables'), sortable: true },
     ],
     netflow: [
-      { key: "time", label: "Time", width: "w-44", sortable: true },
-      { key: "srcAddr", label: "Src Addr", width: "w-40", sortable: true },
-      { key: "srcPort", label: "Port", width: "w-16", align: "right", sortable: true },
-      { key: "srcLoc", label: "Location", width: "w-28", sortable: true },
-      { key: "srcMac", label: "MAC", width: "w-36", sortable: true },
-      { key: "dstAddr", label: "Dst Addr", width: "w-40", sortable: true },
-      { key: "dstPort", label: "Port", width: "w-16", align: "right", sortable: true },
-      { key: "dstLoc", label: "Location", width: "w-28", sortable: true },
-      { key: "dstMac", label: "MAC", width: "w-36", sortable: true },
-      { key: "protocol", label: "Protocol", width: "w-20", align: "center", sortable: true },
-      { key: "tcpFlags", label: "TCP Flags", width: "w-24", sortable: true },
-      { key: "packets", label: "Packets", width: "w-20", align: "right", sortable: true },
-      { key: "bytes", label: "Bytes", width: "w-24", align: "right", sortable: true },
-      { key: "dur", label: "Duration", width: "w-20", align: "right", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-44", sortable: true },
+      { key: "srcAddr", label: $_('log.col.srcAddr'), width: "w-40", sortable: true },
+      { key: "srcPort", label: $_('log.col.srcPort'), width: "w-16", align: "right", sortable: true },
+      { key: "srcLoc", label: $_('log.col.srcLoc'), width: "w-28", sortable: true },
+      { key: "srcMac", label: $_('log.col.srcMac'), width: "w-36", sortable: true },
+      { key: "dstAddr", label: $_('log.col.dstAddr'), width: "w-40", sortable: true },
+      { key: "dstPort", label: $_('log.col.dstPort'), width: "w-16", align: "right", sortable: true },
+      { key: "dstLoc", label: $_('log.col.dstLoc'), width: "w-28", sortable: true },
+      { key: "dstMac", label: $_('log.col.dstMac'), width: "w-36", sortable: true },
+      { key: "protocol", label: $_('log.col.protocol'), width: "w-20", align: "center", sortable: true },
+      { key: "tcpFlags", label: $_('log.col.tcpFlags'), width: "w-24", sortable: true },
+      { key: "packets", label: $_('log.col.packets'), width: "w-20", align: "right", sortable: true },
+      { key: "bytes", label: $_('log.col.bytes'), width: "w-24", align: "right", sortable: true },
+      { key: "dur", label: $_('log.col.dur'), width: "w-20", align: "right", sortable: true },
     ],
     sflow: [
-      { key: "time", label: "Time", width: "w-44", sortable: true },
-      { key: "srcAddr", label: "Src Addr", width: "w-36", sortable: true },
-      { key: "srcPort", label: "Port", width: "w-16", align: "right", sortable: true },
-      { key: "srcLoc", label: "Location", width: "w-28", sortable: true },
-      { key: "srcMac", label: "MAC", width: "w-36", sortable: true },
-      { key: "dstAddr", label: "Dst Addr", width: "w-36", sortable: true },
-      { key: "dstPort", label: "Port", width: "w-16", align: "right", sortable: true },
-      { key: "dstLoc", label: "Location", width: "w-28", sortable: true },
-      { key: "dstMac", label: "MAC", width: "w-36", sortable: true },
-      { key: "protocol", label: "Protocol", width: "w-20", align: "center", sortable: true },
-      { key: "tcpFlags", label: "TCP Flags", width: "w-24", sortable: true },
-      { key: "bytes", label: "Bytes", width: "w-24", align: "right", sortable: true },
-      { key: "reason", label: "Discard reason", width: "w-28", align: "right", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-44", sortable: true },
+      { key: "srcAddr", label: $_('log.col.srcAddr'), width: "w-36", sortable: true },
+      { key: "srcPort", label: $_('log.col.srcPort'), width: "w-16", align: "right", sortable: true },
+      { key: "srcLoc", label: $_('log.col.srcLoc'), width: "w-28", sortable: true },
+      { key: "srcMac", label: $_('log.col.srcMac'), width: "w-36", sortable: true },
+      { key: "dstAddr", label: $_('log.col.dstAddr'), width: "w-36", sortable: true },
+      { key: "dstPort", label: $_('log.col.dstPort'), width: "w-16", align: "right", sortable: true },
+      { key: "dstLoc", label: $_('log.col.dstLoc'), width: "w-28", sortable: true },
+      { key: "dstMac", label: $_('log.col.dstMac'), width: "w-36", sortable: true },
+      { key: "protocol", label: $_('log.col.protocol'), width: "w-20", align: "center", sortable: true },
+      { key: "tcpFlags", label: $_('log.col.tcpFlags'), width: "w-24", sortable: true },
+      { key: "bytes", label: $_('log.col.bytes'), width: "w-24", align: "right", sortable: true },
+      { key: "reason", label: $_('log.col.reason'), width: "w-28", align: "right", sortable: true },
     ],
     sflowCounter: [
-      { key: "time", label: "Time", width: "w-44", sortable: true },
-      { key: "remote", label: "Src Addr", width: "w-36", sortable: true },
-      { key: "counterType", label: "Type", width: "w-44", sortable: true },
-      { key: "counterData", label: "Data", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-44", sortable: true },
+      { key: "remote", label: $_('log.col.srcAddr'), width: "w-36", sortable: true },
+      { key: "counterType", label: $_('log.col.counterType'), width: "w-44", sortable: true },
+      { key: "counterData", label: $_('log.col.counterData'), width: "w-44", sortable: true },
     ],
     arp: [
-      { key: "time", label: "日時", width: "w-44", sortable: true },
-      { key: "state", label: "状態", width: "w-24", align: "center", sortable: true },
-      { key: "ip", label: "IPアドレス", width: "w-36", sortable: true },
-      { key: "node", label: "ノード名", width: "w-40", sortable: true },
-      { key: "newMac", label: "新MACアドレス", width: "w-36", sortable: true },
-      { key: "newVendor", label: "新ベンダー", width: "w-36", sortable: true },
-      { key: "oldMac", label: "旧MACアドレス", width: "w-36", sortable: true },
+      { key: "time", label: $_('log.col.time'), width: "w-44", sortable: true },
+      { key: "state", label: $_('log.col.state'), width: "w-24", align: "center", sortable: true },
+      { key: "ip", label: $_('log.col.ip'), width: "w-36", sortable: true },
+      { key: "node", label: $_('log.col.node'), width: "w-40", sortable: true },
+      { key: "newMac", label: $_('log.col.newMac'), width: "w-36", sortable: true },
+      { key: "newVendor", label: $_('log.col.newVendor'), width: "w-36", sortable: true },
+      { key: "oldMac", label: $_('log.col.oldMac'), width: "w-36", sortable: true },
     ],
-  };
+  });
 
   let sflowCounter = $state(false);
 
   const currentColumns = $derived(
     activeTab === "sflow" && sflowCounter
       ? (categoryColumns as any)["sflowCounter"]
-      : categoryColumns[activeTab] || []
+      : (categoryColumns as any)[activeTab] || []
   );
 
   const visibleColumns = $derived(
@@ -586,18 +587,19 @@
     aiAnswer = "";
     try {
       aiAnswer = await askAI(
-        `以下のネットワークログを解析し、根本原因、重大度、および推奨される復旧対策を専門家として簡潔に説明してください。\n\nログ:\n${logText}`,
-        "ネットワークインフラのトラブルシューティング支援AI"
+        $_('log.aiPrompt', { values: { log: logText } }),
+        $_('log.aiSystem')
       );
     } catch (e: any) {
-      aiAnswer = `AI解析エラー: ${e.message}`;
+      aiAnswer = $_('log.aiError', { values: { error: e.message } });
     } finally {
       aiLoading = false;
     }
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`本当にすべての ${activeTab.toUpperCase()} ログを削除しますか？この操作は元に戻せません。`)) {
+    const confirmMsg = $_('log.deleteConfirm', { values: { type: activeTab.toUpperCase() } });
+    if (!confirm(confirmMsg)) {
       return;
     }
     try {
@@ -612,7 +614,7 @@
       chartZoomRange = null;
       loadCurrentLogs();
     } catch (e) {
-      alert(`削除に失敗しました: ${e}`);
+      alert(`${$_('log.deleteFailed')}: ${e}`);
     }
   };
 
@@ -695,7 +697,7 @@
   <div class="w-60 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 p-3 space-y-1.5 shrink-0 flex flex-col justify-between transition-colors">
     <div class="space-y-1">
       <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        ログ種別 (Log Type)
+        {$_('log.typeHeader')}
       </div>
 
       {#each categories as cat}
@@ -725,21 +727,21 @@
     <!-- Live Status & Stats Card -->
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-2 transition-colors">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-700 dark:text-slate-200">取得制限</span>
+        <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('log.fetchLimit')}</span>
         <select
           bind:value={fetchLimit}
           onchange={loadCurrentLogs}
           class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-0.5 text-[10px] text-cyan-600 dark:text-cyan-400 font-mono focus:outline-none cursor-pointer"
         >
-          <option value={1000}>1,000 件</option>
-          <option value={5000}>5,000 件</option>
-          <option value={10000}>10,000 件</option>
-          <option value={20000}>20,000 件</option>
+          <option value={1000}>1,000 {$_('log.recordsUnit')}</option>
+          <option value={5000}>5,000 {$_('log.recordsUnit')}</option>
+          <option value={10000}>10,000 {$_('log.recordsUnit')}</option>
+          <option value={20000}>20,000 {$_('log.recordsUnit')}</option>
         </select>
       </div>
       <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
-        <span>ヒット件数:</span>
-        <span class="text-cyan-600 dark:text-cyan-400 font-bold">{filteredLogs.length.toLocaleString()} 件</span>
+        <span>{$_('log.hitCount')}</span>
+        <span class="text-cyan-600 dark:text-cyan-400 font-bold">{filteredLogs.length.toLocaleString()} {$_('log.recordsUnit')}</span>
       </div>
     </div>
   </div>
@@ -751,10 +753,10 @@
       <div class="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3 shadow-sm dark:shadow-lg shrink-0 transition-all">
         <div class="flex items-center justify-between mb-1 px-1">
           <div class="flex items-center gap-2">
-            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300">受信状況推移 (時系列グラフ)</span>
+            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300">{$_('log.chartTitle')}</span>
             {#if chartZoomRange}
               <span class="inline-flex items-center gap-1 rounded-full bg-cyan-100 dark:bg-cyan-950/80 border border-cyan-300 dark:border-cyan-800 px-2 py-0.5 text-[10px] text-cyan-700 dark:text-cyan-300 font-mono">
-                期間絞り込み適用中
+                {$_('log.filterPeriod')}
               </span>
               <button
                 type="button"
@@ -762,7 +764,7 @@
                 class="flex items-center gap-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-2 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 cursor-pointer"
               >
                 <RotateCcw class="h-3 w-3" />
-                <span>全期間に戻す</span>
+                <span>{$_('common.clear')}</span>
               </button>
             {/if}
           </div>
@@ -771,7 +773,7 @@
             onclick={() => (showChart = false)}
             class="text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
           >
-            グラフを隠す ▲
+            ▲
           </button>
         </div>
         <div id="logReceptionChart" class="h-64 min-h-[250px] w-full"></div>
@@ -787,7 +789,7 @@
           class="flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 cursor-pointer"
         >
           <BarChart3 class="h-3.5 w-3.5" />
-          <span>受信状況推移グラフを表示 ▼</span>
+          <span>{$_('log.chartToggle')} ▼</span>
         </button>
       </div>
     {/if}
@@ -801,7 +803,7 @@
           <Search class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="イベント・メッセージを検索..."
+            placeholder={$_('log.searchPlaceholder')}
             bind:value={searchQuery}
             class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-8 pr-7 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
           />
@@ -823,7 +825,7 @@
           class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
         >
           <Filter class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          <span>詳細フィルター</span>
+          <span>{$_('log.filterBtn')}</span>
           {#if filterState.start || filterState.end || filterState.level !== "all" || filterState.type || filterState.source || filterState.keyword}
             <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
           {/if}
@@ -837,13 +839,13 @@
             class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
           >
             <Columns class="h-3.5 w-3.5 text-slate-400" />
-            <span>列の選択</span>
+            <span>{$_('log.columnsBtn')}</span>
             <ChevronDown class="h-3 w-3 text-slate-400" />
           </button>
 
           {#if showColumnMenu}
             <div class="absolute left-0 mt-2 z-30 w-48 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-2 shadow-xl space-y-1">
-              <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 py-1 uppercase">表示カラム設定</div>
+              <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 py-1 uppercase">{$_('log.columnsBtn')}</div>
               {#each currentColumns as col}
                 {@const isVis = columnVisibility[`${activeTab}_${col.key}`] !== false}
                 <button
@@ -866,7 +868,7 @@
       <div class="flex items-center gap-2">
         {#if activeTab === "sflow"}
           <label class="flex items-center gap-2 cursor-pointer select-none bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 transition-colors">
-            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Counter</span>
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">{sflowCounter ? $_('log.sflowCounter') : $_('log.sflowFlow')}</span>
             <input
               type="checkbox"
               bind:checked={sflowCounter}
@@ -886,17 +888,17 @@
           class="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-300 transition-all cursor-pointer"
         >
           <BarChart3 class="h-3.5 w-3.5" />
-          <span>レポート</span>
+          <span>{$_('log.reportBtn')}</span>
         </button>
 
         <button
           type="button"
           onclick={handleDeleteAll}
-          title="全ログ削除"
+          title={$_('log.deleteBtn')}
           class="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-300 transition-colors cursor-pointer"
         >
           <Trash2 class="h-3.5 w-3.5" />
-          <span>全消去</span>
+          <span>{$_('log.deleteBtn')}</span>
         </button>
 
         <button
@@ -924,7 +926,7 @@
           class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
         >
           <RefreshCw class="h-3.5 w-3.5 {loading ? 'animate-spin' : ''}" />
-          <span>更新</span>
+          <span>{$_('common.refresh')}</span>
         </button>
       </div>
     </div>
@@ -1002,8 +1004,8 @@
                   <button
                     type="button"
                     onclick={() => handleAskAI(item.fullText)}
-                    title="AIログ診断"
-                    aria-label="AIログ診断"
+                    title={$_('log.aiDiagnosis')}
+                    aria-label={$_('log.aiDiagnosis')}
                     class="inline-flex items-center justify-center rounded border border-cyan-500/30 bg-cyan-500/10 p-0.5 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 hover:text-cyan-700 dark:hover:text-cyan-200 transition-all cursor-pointer"
                   >
                     <Sparkles class="h-3 w-3" />
@@ -1015,7 +1017,7 @@
             {#if paginatedLogs.length === 0}
               <tr>
                 <td colspan={visibleColumns.length + 1} class="py-16 text-center text-slate-400 dark:text-slate-500 font-sans">
-                  {loading ? "ログを読み込み中..." : "該当するログは見つかりませんでした"}
+                  {loading ? $_('common.loading') : $_('log.noLogs')}
                 </td>
               </tr>
             {/if}
@@ -1026,25 +1028,25 @@
       <!-- Pagination Footer -->
       <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
         <div class="flex items-center gap-3">
-          <span>表示件数:</span>
+          <span>{$_('log.itemsPerPage')}:</span>
           <select
             bind:value={pageSize}
             onchange={() => (currentPage = 1)}
             class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
-            <option value={10}>10 件 / ページ</option>
-            <option value={25}>25 件 / ページ</option>
-            <option value={50}>50 件 / ページ</option>
-            <option value={100}>100 件 / ページ</option>
-            <option value={250}>250 件 / ページ</option>
-            <option value={-1}>全件表示</option>
+            <option value={10}>10 / {$_('log.page')}</option>
+            <option value={25}>25 / {$_('log.page')}</option>
+            <option value={50}>50 / {$_('log.page')}</option>
+            <option value={100}>100 / {$_('log.page')}</option>
+            <option value={250}>250 / {$_('log.page')}</option>
+            <option value={-1}>All</option>
           </select>
 
           <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">
             {#if sortedLogs.length > 0}
-              {sortedLogs.length.toLocaleString()} 件中 {(currentPage - 1) * pageSize + 1} 〜 {pageSize === -1 ? sortedLogs.length : Math.min(currentPage * pageSize, sortedLogs.length)} 件を表示
+              {sortedLogs.length.toLocaleString()} {$_('log.recordsUnit')} ({(currentPage - 1) * pageSize + 1} - {pageSize === -1 ? sortedLogs.length : Math.min(currentPage * pageSize, sortedLogs.length)})
             {:else}
-              0 件
+              0 {$_('log.recordsUnit')}
             {/if}
           </span>
         </div>
@@ -1056,7 +1058,7 @@
               disabled={currentPage <= 1}
               onclick={() => (currentPage = 1)}
               class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
-              title="最初のページ"
+              title={$_('log.firstPage')}
             >
               <ChevronsLeft class="h-4 w-4" />
             </button>
@@ -1066,7 +1068,7 @@
               disabled={currentPage <= 1}
               onclick={() => currentPage--}
               class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
-              title="前のページ"
+              title={$_('log.prevPage')}
             >
               <ChevronLeft class="h-4 w-4" />
             </button>
@@ -1080,7 +1082,7 @@
               disabled={currentPage >= totalPages}
               onclick={() => currentPage++}
               class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
-              title="次のページ"
+              title={$_('log.nextPage')}
             >
               <ChevronRight class="h-4 w-4" />
             </button>
@@ -1090,7 +1092,7 @@
               disabled={currentPage >= totalPages}
               onclick={() => (currentPage = totalPages)}
               class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
-              title="最後のページ"
+              title={$_('log.lastPage')}
             >
               <ChevronsRight class="h-4 w-4" />
             </button>
@@ -1122,7 +1124,7 @@
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div class="flex items-center gap-2 text-base font-bold text-cyan-600 dark:text-cyan-400">
             <Sparkles class="h-5 w-5" />
-            <span>AI ログ診断アシスタント</span>
+            <span>{$_('log.aiAssistant')}</span>
           </div>
           <button onclick={() => (showAIDialog = false)} class="rounded-lg p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white cursor-pointer transition-colors">
             <X class="h-5 w-5" />
@@ -1137,7 +1139,7 @@
           {#if aiLoading}
             <div class="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
               <RefreshCw class="h-4 w-4 animate-spin" />
-              <span>マルチLLM推論中... ログとトポロジーを総合解析しています</span>
+              <span>{$_('log.aiReasoning')}</span>
             </div>
           {:else}
             {aiAnswer}
@@ -1146,7 +1148,7 @@
 
         <div class="mt-4 flex justify-end border-t border-slate-200 dark:border-slate-800 pt-3">
           <button onclick={() => (showAIDialog = false)} class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs">
-            閉じる
+            {$_('log.close')}
           </button>
         </div>
       </div>

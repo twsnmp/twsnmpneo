@@ -1,5 +1,9 @@
 import * as echarts from "echarts";
 import { isDarkMode } from "./utils";
+import { locale } from "svelte-i18n";
+import { get } from "svelte/store";
+
+const getIsJa = () => (get(locale) || "ja").startsWith("ja");
 
 let currentChart: echarts.ECharts | undefined;
 
@@ -47,12 +51,13 @@ export const showMqttClientIDChart = (div: string, stats: any[]) => {
   const dom = document.getElementById(div);
   if (!dom) return;
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
-      text: "クライアントID別受信統計",
+      text: isJa ? "クライアントID別受信統計" : "Received Stats by Client ID",
       left: "center",
       textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
@@ -66,7 +71,7 @@ export const showMqttClientIDChart = (div: string, stats: any[]) => {
     legend: {
       top: 30,
       textStyle: { color: dark ? "#94a3b8" : "#64748b" },
-      data: ["受信回数", "データ量 (MB)"],
+      data: [isJa ? "受信回数" : "Received Count", isJa ? "データ量 (MB)" : "Data Size (MB)"],
     },
     grid: {
       left: "15%",
@@ -78,7 +83,7 @@ export const showMqttClientIDChart = (div: string, stats: any[]) => {
     xAxis: [
       {
         type: "value",
-        name: "受信回数",
+        name: isJa ? "受信回数" : "Count",
         axisLabel: { color: dark ? "#94a3b8" : "#64748b" },
         nameTextStyle: { color: dark ? "#94a3b8" : "#64748b" },
         splitLine: { lineStyle: { color: dark ? "#1e293b" : "#f1f5f9" } },
@@ -99,13 +104,13 @@ export const showMqttClientIDChart = (div: string, stats: any[]) => {
     },
     series: [
       {
-        name: "受信回数",
+        name: isJa ? "受信回数" : "Received Count",
         type: "bar",
         data: counts,
         itemStyle: { color: "#06b6d4" },
       },
       {
-        name: "データ量 (MB)",
+        name: isJa ? "データ量 (MB)" : "Data Size (MB)",
         type: "bar",
         xAxisIndex: 1,
         data: bytesMB,
@@ -140,12 +145,13 @@ export const showMqttRemoteChart = (div: string, stats: any[]) => {
   const dom = document.getElementById(div);
   if (!dom) return;
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
-      text: "送信元IP別受信統計",
+      text: isJa ? "送信元IP別受信統計" : "Received Stats by Remote IP",
       left: "center",
       textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
@@ -156,7 +162,7 @@ export const showMqttRemoteChart = (div: string, stats: any[]) => {
       textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
       formatter: (params: any) => {
         const bytesMB = (params.data.bytes / (1024 * 1024)).toFixed(2);
-        return `${params.name}<br/>受信回数: <strong>${params.value.toLocaleString()}</strong><br/>データ量: <strong>${bytesMB} MB</strong> (${params.percent}%)`;
+        return `${params.name}<br/>${isJa ? "受信回数" : "Count"}: <strong>${params.value.toLocaleString()}</strong><br/>${isJa ? "データ量" : "Data Size"}: <strong>${bytesMB} MB</strong> (${params.percent}%)`;
       },
     },
     legend: {
@@ -169,7 +175,7 @@ export const showMqttRemoteChart = (div: string, stats: any[]) => {
     },
     series: [
       {
-        name: "送信元別",
+        name: isJa ? "送信元別" : "By Remote",
         type: "pie",
         radius: ["30%", "70%"],
         center: ["40%", "55%"],
@@ -224,12 +230,13 @@ export const showMqttTopicChart = (div: string, stats: any[]) => {
   const dom = document.getElementById(div);
   if (!dom) return;
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
-      text: "トピック別受信回数 (TOP 25)",
+      text: isJa ? "トピック別受信回数 (TOP 25)" : "Received Count by Topic (TOP 25)",
       left: "center",
       textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
@@ -249,7 +256,7 @@ export const showMqttTopicChart = (div: string, stats: any[]) => {
     },
     xAxis: {
       type: "value",
-      name: "受信回数",
+      name: isJa ? "受信回数" : "Count",
       axisLabel: { color: dark ? "#94a3b8" : "#64748b" },
       nameTextStyle: { color: dark ? "#94a3b8" : "#64748b" },
       splitLine: { lineStyle: { color: dark ? "#1e293b" : "#f1f5f9" } },
@@ -266,7 +273,7 @@ export const showMqttTopicChart = (div: string, stats: any[]) => {
     },
     series: [
       {
-        name: "受信回数",
+        name: isJa ? "受信回数" : "Count",
         type: "bar",
         data: counts,
         itemStyle: { color: "#10b981" },
@@ -282,6 +289,7 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
   const dom = document.getElementById(div);
   if (!dom) return;
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
 
@@ -320,7 +328,7 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
     chart.setOption({
       backgroundColor: "transparent",
       title: {
-        text: "クライアント × トピック 受信回数ヒートマップ",
+        text: isJa ? "クライアント × トピック 受信回数ヒートマップ" : "Client x Topic Ingestion Heatmap",
         left: "center",
         textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
       },
@@ -436,7 +444,7 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
   chart.setOption({
     backgroundColor: "transparent",
     title: {
-      text: "日別・時間帯別 受信ヒートマップ",
+      text: isJa ? "日別・時間帯別 受信ヒートマップ" : "Daily & Hourly Ingestion Heatmap",
       left: "center",
       textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
@@ -448,7 +456,7 @@ export const showMqttHeatmap = (div: string, stats: any[], mode: "time" | "clien
       formatter: (params: any) => {
         const dStr = sortedDates[params.data[0]];
         const hStr = hours[params.data[1]];
-        return `${dStr} ${hStr}<br/>推定回数: ${params.data[2]}`;
+        return `${dStr} ${hStr}<br/>${isJa ? "推定回数" : "Est. Count"}: ${params.data[2]}`;
       },
     },
     grid: {
@@ -505,8 +513,9 @@ export const showMqttStateChart = (div: string, stats: any[]) => {
     });
   }
 
+  const isJa = getIsJa();
   const data = Array.from(map.entries()).map(([state, count]) => ({
-    name: state === "normal" ? "正常 (Normal)" : state === "warn" ? "注意 (Warn)" : "未受信 (Low)",
+    name: state === "normal" ? (isJa ? "正常 (Normal)" : "Normal") : state === "warn" ? (isJa ? "注意 (Warn)" : "Warning") : (isJa ? "未受信 (Low)" : "Inactive"),
     value: count,
   }));
 
@@ -518,7 +527,7 @@ export const showMqttStateChart = (div: string, stats: any[]) => {
   chart.setOption({
     backgroundColor: "transparent",
     title: {
-      text: "トピック状態別割合",
+      text: isJa ? "トピック状態別割合" : "Topic State Distribution",
       left: "center",
       textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
@@ -537,7 +546,7 @@ export const showMqttStateChart = (div: string, stats: any[]) => {
     },
     series: [
       {
-        name: "状態別",
+        name: isJa ? "状態別" : "By State",
         type: "pie",
         radius: ["40%", "70%"],
         data: data,
@@ -614,12 +623,13 @@ export const showMqttTopicTreemap = (div: string, stats: any[]) => {
   const dom = document.getElementById(div);
   if (!dom) return;
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
   currentChart = chart;
   chart.setOption({
     backgroundColor: "transparent",
     title: {
-      text: "トピック階層ツリーマップ",
+      text: isJa ? "トピック階層ツリーマップ" : "Topic Hierarchy Treemap",
       left: "center",
       textStyle: { fontSize: 14, color: dark ? "#f8fafc" : "#1e293b", fontWeight: 600 },
     },
@@ -627,7 +637,7 @@ export const showMqttTopicTreemap = (div: string, stats: any[]) => {
       backgroundColor: dark ? "#0f172a" : "#ffffff",
       borderColor: dark ? "#334155" : "#cbd5e1",
       textStyle: { color: dark ? "#f8fafc" : "#1e293b" },
-      formatter: "{b}: <strong>{c}</strong> 回",
+      formatter: isJa ? "{b}: <strong>{c}</strong> 回" : "{b}: <strong>{c}</strong>",
     },
     series: [
       {
@@ -666,6 +676,7 @@ export const showMqttOverviewStatePie = (div: string | HTMLElement, stats: any[]
   if (!dom) return null;
 
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
 
   const map = new Map<string, number>();
@@ -677,9 +688,9 @@ export const showMqttOverviewStatePie = (div: string | HTMLElement, stats: any[]
   }
 
   const data = [
-    { name: "正常 (Normal)", value: map.get("normal") || 0, color: "#10b981" },
-    { name: "注意 (Warn)", value: map.get("warn") || 0, color: "#f59e0b" },
-    { name: "未受信 (Low)", value: map.get("low") || 0, color: "#f43f5e" },
+    { name: isJa ? "正常 (Normal)" : "Normal", value: map.get("normal") || 0, color: "#10b981" },
+    { name: isJa ? "注意 (Warn)" : "Warning", value: map.get("warn") || 0, color: "#f59e0b" },
+    { name: isJa ? "未受信 (Low)" : "Inactive", value: map.get("low") || 0, color: "#f43f5e" },
   ].filter((d) => d.value > 0);
 
   const option: echarts.EChartsOption = {
@@ -701,7 +712,7 @@ export const showMqttOverviewStatePie = (div: string | HTMLElement, stats: any[]
     },
     series: [
       {
-        name: "状態別",
+        name: isJa ? "状態別" : "By State",
         type: "pie",
         radius: ["45%", "72%"],
         center: ["36%", "50%"],
@@ -723,7 +734,7 @@ export const showMqttOverviewStatePie = (div: string | HTMLElement, stats: any[]
             color: dark ? "#f8fafc" : "#0f172a",
           },
         },
-        data: data.length > 0 ? data.map((d) => ({ name: d.name, value: d.value, itemStyle: { color: d.color } })) : [{ name: "データなし", value: 0, itemStyle: { color: "#94a3b8" } }],
+        data: data.length > 0 ? data.map((d) => ({ name: d.name, value: d.value, itemStyle: { color: d.color } })) : [{ name: isJa ? "データなし" : "No Data", value: 0, itemStyle: { color: "#94a3b8" } }],
       },
     ],
   };
@@ -741,6 +752,7 @@ export const showMqttOverviewTopicBar = (div: string | HTMLElement, stats: any[]
   if (!dom) return null;
 
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(dom, dark ? "dark" : undefined);
 
   const sorted = [...(stats || [])].sort((a, b) => (b.Count || 0) - (a.Count || 0)).slice(0, 10).reverse();
@@ -757,7 +769,9 @@ export const showMqttOverviewTopicBar = (div: string | HTMLElement, stats: any[]
       textStyle: { color: dark ? "#f8fafc" : "#1e293b", fontSize: 11 },
       formatter: (params: any) => {
         if (!params || params.length === 0) return "";
-        return `トピック: <strong class="break-all">${params[0].name}</strong><br/>受信回数: <strong>${params[0].value.toLocaleString()}</strong> 回`;
+        return isJa
+          ? `トピック: <strong class="break-all">${params[0].name}</strong><br/>受信回数: <strong>${params[0].value.toLocaleString()}</strong> 回`
+          : `Topic: <strong class="break-all">${params[0].name}</strong><br/>Count: <strong>${params[0].value.toLocaleString()}</strong>`;
       },
     },
     grid: {

@@ -1,4 +1,6 @@
 import P5 from "p5";
+import { get } from "svelte/store";
+import { locale } from "svelte-i18n";
 import { getIconCode, getStateColor } from "../common";
 import {
   fetchNodes,
@@ -736,13 +738,14 @@ const mapMain = (p5: P5) => {
       p5.textFont("Roboto, sans-serif");
       p5.textSize(fontSize);
       p5.fill(dark ? "#f1f5f9" : "#1e293b");
-      p5.text(net.name || (net as any).Name || "ネットワーク", 10, fontSize + 8);
+      const isJa = (get(locale) || "ja").startsWith("ja");
+      p5.text(net.name || (net as any).Name || (isJa ? "ネットワーク" : "Network"), 10, fontSize + 8);
 
       const ports = net.ports || (net as any).Ports || [];
       const netError = net.error || (net as any).Error || "";
       if (ports.length < 1) {
         p5.fill(netError ? "#ef4444" : "#10b981");
-        p5.text(netError ? netError : "ネットワーク (ポートなし)", 15, fontSize * 2 + 15);
+        p5.text(netError ? netError : (isJa ? "ネットワーク (ポートなし)" : "Network (No Ports)"), 15, fontSize * 2 + 15);
       } else {
         p5.textSize(8);
         for (const pt of ports) {

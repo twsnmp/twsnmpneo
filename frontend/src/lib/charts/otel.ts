@@ -1,5 +1,9 @@
 import * as echarts from 'echarts';
 import { setZoomCallback, isDarkMode } from './utils';
+import { locale } from 'svelte-i18n';
+import { get } from 'svelte/store';
+
+const getIsJa = () => (get(locale) || 'ja').startsWith('ja');
 
 /**
  * Renders an interactive scatter plot of traces over time.
@@ -14,6 +18,7 @@ export function showOTelTrace(
   if (!el) return null;
 
   const dark = isDarkMode();
+  const isJa = getIsJa();
   const chart = echarts.init(el, dark ? 'dark' : undefined);
   let maxDur = 0.1;
 
@@ -47,10 +52,10 @@ export function showOTelTrace(
         }
         return `
           <div style="font-size: 11px; line-height: 1.5;">
-            <div><strong>日時:</strong> ${echarts.time.format(d[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}.{SSS}', false)}</div>
-            <div><strong>サービス:</strong> ${d[4] || '-'}</div>
-            <div><strong>所要時間:</strong> <span style="color:#38bdf8; font-weight:bold;">${durStr}</span></div>
-            <div><strong>スパン数:</strong> ${d[2]}</div>
+            <div><strong>${isJa ? '日時:' : 'Time:'}</strong> ${echarts.time.format(d[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}.{SSS}', false)}</div>
+            <div><strong>${isJa ? 'サービス:' : 'Service:'}</strong> ${d[4] || '-'}</div>
+            <div><strong>${isJa ? '所要時間:' : 'Duration:'}</strong> <span style="color:#38bdf8; font-weight:bold;">${durStr}</span></div>
+            <div><strong>${isJa ? 'スパン数:' : 'Spans:'}</strong> ${d[2]}</div>
             <div style="font-family:monospace; color:${dark ? '#94a3b8' : '#64748b'}; font-size:10px;">ID: ${d[3]}</div>
           </div>
         `;
@@ -87,7 +92,7 @@ export function showOTelTrace(
       top: 'middle',
       itemWidth: 12,
       itemHeight: 90,
-      text: ['遅い', '速い'],
+      text: isJa ? ['遅い', '速い'] : ['Slow', 'Fast'],
       textGap: 8,
       textStyle: { color: dark ? '#94a3b8' : '#475569', fontSize: 10 },
       inRange: {
@@ -209,10 +214,11 @@ export function showOTelDAG(div: string | HTMLElement, data: { Nodes: any[]; Lin
     backgroundColor: 'transparent',
     tooltip: {
       formatter: (params: any) => {
+        const isJa = getIsJa();
         if (params.dataType === 'node') {
-          return `<strong>サービス:</strong> ${params.name}<br/><strong>リクエスト数:</strong> ${params.value}`;
+          return `<strong>${isJa ? 'サービス:' : 'Service:'}</strong> ${params.name}<br/><strong>${isJa ? 'リクエスト数:' : 'Requests:'}</strong> ${params.value}`;
         } else if (params.dataType === 'edge') {
-          return `<strong>呼び出し関係:</strong> ${params.data.source} → ${params.data.target}<br/><strong>回数:</strong> ${params.data.value}`;
+          return `<strong>${isJa ? '呼び出し関係:' : 'Call Dependency:'}</strong> ${params.data.source} → ${params.data.target}<br/><strong>${isJa ? '回数:' : 'Count:'}</strong> ${params.data.value}`;
         }
         return '';
       },
@@ -296,12 +302,13 @@ export function showOTelTimeline(div: string | HTMLElement, trace: any): echarts
         const offset = startItem ? startItem.value.toFixed(2) : 0;
         const dur = durItem.value.toFixed(3);
         const dataObj = durItem.data;
+        const isJa = getIsJa();
         return `
           <div style="font-size:11px;">
             <div><strong>${durItem.name}</strong></div>
-            <div>サービス: ${dataObj.service || '-'}</div>
-            <div>開始オフセット: +${offset} ms</div>
-            <div>所要時間: <span style="color:#38bdf8; font-weight:bold;">${dur} ms</span></div>
+            <div>${isJa ? 'サービス:' : 'Service:'} ${dataObj.service || '-'}</div>
+            <div>${isJa ? '開始オフセット:' : 'Start Offset:'} +${offset} ms</div>
+            <div>${isJa ? '所要時間:' : 'Duration:'} <span style="color:#38bdf8; font-weight:bold;">${dur} ms</span></div>
           </div>
         `;
       },
@@ -419,7 +426,7 @@ export function showOTelMetricTypePie(div: string | HTMLElement, metrics: any[])
             color: dark ? '#f8fafc' : '#0f172a',
           },
         },
-        data: data.length > 0 ? data : [{ name: 'データなし', value: 0 }],
+        data: data.length > 0 ? data : [{ name: getIsJa() ? 'データなし' : 'No Data', value: 0 }],
         color: colorPalette,
       },
     ],
@@ -460,7 +467,7 @@ export function showOTelServiceMetricBar(div: string | HTMLElement, metrics: any
       textStyle: { color: dark ? '#f8fafc' : '#1e293b', fontSize: 11 },
       formatter: (params: any) => {
         if (!params || params.length === 0) return '';
-        return `${params[0].name}: <strong>${params[0].value}</strong> 系列`;
+        return `${params[0].name}: <strong>${params[0].value}</strong> ${getIsJa() ? '系列' : 'Series'}`;
       },
     },
     grid: {
@@ -672,10 +679,11 @@ export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.E
       formatter: (params: any) => {
         if (!params || params.length === 0) return '';
         const p = params[0];
+        const isJa = getIsJa();
         return `
           <div style="font-size:11px;">
-            <div>バケット範囲: <strong>${p.name}</strong></div>
-            <div>度数 (件数): <strong style="color:#34d399;">${p.value}</strong></div>
+            <div>${isJa ? 'バケット範囲:' : 'Bucket Range:'} <strong>${p.name}</strong></div>
+            <div>${isJa ? '度数 (件数):' : 'Frequency (Count):'} <strong style="color:#34d399;">${p.value}</strong></div>
           </div>
         `;
       },
@@ -699,7 +707,7 @@ export function showOTelHistogram(div: string | HTMLElement, dp: any): echarts.E
     },
     yAxis: {
       type: 'value',
-      name: '度数 (件数)',
+      name: getIsJa() ? '度数 (件数)' : 'Frequency (Count)',
       nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
       axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
       splitLine: { lineStyle: { color: dark ? '#1e293b' : '#e2e8f0' } },

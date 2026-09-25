@@ -2,6 +2,8 @@ import * as echarts from 'echarts';
 import type { MonitorDataEnt } from '../api';
 import { renderBytes, renderSpeed } from '../common';
 import { isDarkMode } from './utils';
+import { locale } from 'svelte-i18n';
+import { get } from 'svelte/store';
 
 let resChartInstance: echarts.ECharts | null = null;
 let netChartInstance: echarts.ECharts | null = null;
@@ -12,6 +14,11 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
     resChartInstance.dispose();
   }
   const isDark = isDarkMode();
+  const isJa = (get(locale) || 'ja').startsWith('ja');
+  const memLegend = isJa ? 'Mem (ホストメモリ)' : 'Mem (Host Memory)';
+  const loadLegend = isJa ? 'Load (平均負荷)' : 'Load (Avg Load)';
+  const rateAxis = isJa ? '使用率 (%)' : 'Usage (%)';
+  const loadAxis = isJa ? 'Load (負荷)' : 'Load';
   resChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const cpuData: [Date, number][] = [];
@@ -49,7 +56,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
         const dateStr = echarts.time.format(params[0].value[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}', false);
         let html = `<div class="font-bold text-slate-200 mb-1 font-mono">${dateStr}</div>`;
         for (const p of params) {
-          const isLoad = p.seriesName === 'Load (平均負荷)';
+          const isLoad = p.seriesName === loadLegend;
           const valStr = isLoad ? p.value[1].toFixed(2) : p.value[1].toFixed(2) + '%';
           html += `<div class="flex items-center justify-between gap-4 text-xs">
             <span style="color:${p.color}">${p.marker} ${p.seriesName}</span>
@@ -62,7 +69,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
     legend: {
       top: 8,
       textStyle: { color: '#94a3b8', fontSize: 11 },
-      data: ['CPU', 'Mem (ホストメモリ)', 'My CPU (TWSNMP)', 'My Mem (TWSNMP)', 'Swap', 'Disk', 'Load (平均負荷)'],
+      data: ['CPU', memLegend, 'My CPU (TWSNMP)', 'My Mem (TWSNMP)', 'Swap', 'Disk', loadLegend],
     },
     grid: {
       left: '4%',
@@ -98,7 +105,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
     yAxis: [
       {
         type: 'value',
-        name: '使用率 (%)',
+        name: rateAxis,
         min: 0,
         max: 100,
         nameTextStyle: { color: '#64748b', fontSize: 10 },
@@ -108,7 +115,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
       },
       {
         type: 'value',
-        name: 'Load (負荷)',
+        name: loadAxis,
         min: 0,
         nameTextStyle: { color: '#64748b', fontSize: 10 },
         axisLine: { lineStyle: { color: '#334155' } },
@@ -127,7 +134,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
         data: cpuData,
       },
       {
-        name: 'Mem (ホストメモリ)',
+        name: memLegend,
         type: 'line',
         showSymbol: false,
         smooth: true,
@@ -172,7 +179,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
         data: diskData,
       },
       {
-        name: 'Load (平均負荷)',
+        name: loadLegend,
         type: 'bar',
         yAxisIndex: 1,
         itemStyle: { color: 'rgba(52, 211, 153, 0.4)' }, // emerald-400 translucent
@@ -191,6 +198,12 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
     netChartInstance.dispose();
   }
   const isDark = isDarkMode();
+  const isJa = (get(locale) || 'ja').startsWith('ja');
+  const speedLegend = isJa ? 'トラフィック速度 (Speed)' : 'Traffic Speed';
+  const connLegend = isJa ? 'TCP 接続数' : 'TCP Connections';
+  const speedAxis = isJa ? '速度 (bps)' : 'Speed (bps)';
+  const connAxis = isJa ? '接続数 (Conn)' : 'Connections';
+
   netChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const speedData: [Date, number][] = [];
@@ -218,7 +231,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
         const dateStr = echarts.time.format(params[0].value[0], '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}', false);
         let html = `<div class="font-bold text-slate-200 mb-1 font-mono">${dateStr}</div>`;
         for (const p of params) {
-          const isConn = p.seriesName === 'TCP 接続数';
+          const isConn = p.seriesName === connLegend;
           const valStr = isConn ? `${p.value[1]} conn` : renderSpeed(p.value[1]);
           html += `<div class="flex items-center justify-between gap-4 text-xs">
             <span style="color:${p.color}">${p.marker} ${p.seriesName}</span>
@@ -231,7 +244,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
     legend: {
       top: 8,
       textStyle: { color: '#94a3b8', fontSize: 11 },
-      data: ['トラフィック速度 (Speed)', 'TCP 接続数'],
+      data: [speedLegend, connLegend],
     },
     grid: {
       left: '4%',
@@ -267,7 +280,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
     yAxis: [
       {
         type: 'value',
-        name: '速度 (bps)',
+        name: speedAxis,
         min: 0,
         nameTextStyle: { color: '#64748b', fontSize: 10 },
         axisLine: { lineStyle: { color: '#334155' } },
@@ -280,7 +293,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
       },
       {
         type: 'value',
-        name: '接続数 (Conn)',
+        name: connAxis,
         min: 0,
         nameTextStyle: { color: '#64748b', fontSize: 10 },
         axisLine: { lineStyle: { color: '#334155' } },
@@ -290,7 +303,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
     ],
     series: [
       {
-        name: 'トラフィック速度 (Speed)',
+        name: speedLegend,
         type: 'line',
         showSymbol: false,
         smooth: true,
@@ -305,7 +318,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
         data: speedData,
       },
       {
-        name: 'TCP 接続数',
+        name: connLegend,
         type: 'bar',
         yAxisIndex: 1,
         itemStyle: { color: 'rgba(56, 189, 248, 0.45)' }, // sky-400
@@ -342,6 +355,16 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
     forecastChartInstance.dispose();
   }
   const isDark = isDarkMode();
+  const isJa = (get(locale) || 'ja').startsWith('ja');
+  const titleText = isJa ? 'ディスク容量 & DBサイズ将来予測 (1年推移シミュレーション)' : 'Disk & DB Size Future Capacity Projection (1-Year Simulation)';
+  const predSuffix = isJa ? '(予測)' : '(Projected)';
+  const diskPredLegend = isJa ? 'ディスク使用率予測 (%)' : 'Projected Disk Usage (%)';
+  const dbPredLegend = isJa ? 'DBサイズ予測 (Bytes)' : 'Projected DB Size (Bytes)';
+  const diskAxis = isJa ? 'ディスク使用率 (%)' : 'Disk Usage (%)';
+  const dbAxis = isJa ? 'DBサイズ (Bytes)' : 'DB Size (Bytes)';
+  const warnThresh = isJa ? '警告閾値 90%' : 'Warning 90%';
+  const dangerThresh = isJa ? '危険閾値 95%' : 'Critical 95%';
+
   forecastChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const diskHistory: [number, number][] = [];
@@ -375,7 +398,7 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
   const option: echarts.EChartsOption = {
     backgroundColor: 'transparent',
     title: {
-      text: 'ディスク容量 & DBサイズ将来予測 (1年推移シミュレーション)',
+      text: titleText,
       left: 'center',
       top: 10,
       textStyle: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: 13, fontWeight: 'bold' },
@@ -389,9 +412,9 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
       formatter: (params: any) => {
         if (!params || !params.length) return '';
         const dateStr = echarts.time.format(params[0].value[0], '{yyyy}/{MM}/{dd}', false);
-        let html = `<div class="font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'} mb-1 font-mono">${dateStr} (予測)</div>`;
+        let html = `<div class="font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'} mb-1 font-mono">${dateStr} ${predSuffix}</div>`;
         for (const p of params) {
-          const isDisk = p.seriesName.includes('Disk');
+          const isDisk = p.seriesName === diskPredLegend;
           const valStr = isDisk ? p.value[1].toFixed(2) + '%' : renderBytes(p.value[1]);
           html += `<div class="flex items-center justify-between gap-4 text-xs">
             <span style="color:${p.color}">${p.marker} ${p.seriesName}</span>
@@ -404,7 +427,7 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
     legend: {
       top: 38,
       textStyle: { color: isDark ? '#94a3b8' : '#475569', fontSize: 11 },
-      data: ['ディスク使用率予測 (%)', 'DBサイズ予測 (Bytes)'],
+      data: [diskPredLegend, dbPredLegend],
     },
     grid: {
       left: '5%',
@@ -426,7 +449,7 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
     yAxis: [
       {
         type: 'value',
-        name: 'ディスク使用率 (%)',
+        name: diskAxis,
         min: 0,
         max: 100,
         nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
@@ -436,7 +459,7 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
       },
       {
         type: 'value',
-        name: 'DBサイズ (Bytes)',
+        name: dbAxis,
         min: 0,
         nameTextStyle: { color: '#64748b', fontSize: 10 },
         axisLine: { lineStyle: { color: '#334155' } },
@@ -450,7 +473,7 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
     ],
     series: [
       {
-        name: 'ディスク使用率予測 (%)',
+        name: diskPredLegend,
         type: 'line',
         itemStyle: { color: '#f59e0b' }, // amber-500
         lineStyle: { width: 2.5 },
@@ -460,19 +483,19 @@ export const showMonitorForecastChart = (el: HTMLElement, monitorData: MonitorDa
             {
               yAxis: 90,
               lineStyle: { color: '#f59e0b', type: 'dashed' },
-              label: { formatter: '警告閾値 90%', color: '#f59e0b', position: 'insideEndTop' },
+              label: { formatter: warnThresh, color: '#f59e0b', position: 'insideEndTop' },
             },
             {
               yAxis: 95,
               lineStyle: { color: '#ef4444', type: 'dashed' },
-              label: { formatter: '危険閾値 95%', color: '#ef4444', position: 'insideEndTop' },
+              label: { formatter: dangerThresh, color: '#ef4444', position: 'insideEndTop' },
             },
           ],
         },
         data: forecastDisk,
       },
       {
-        name: 'DBサイズ予測 (Bytes)',
+        name: dbPredLegend,
         type: 'line',
         yAxisIndex: 1,
         itemStyle: { color: '#38bdf8' }, // sky-400

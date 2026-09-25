@@ -18,6 +18,7 @@
     type DrawItemEnt,
   } from "../api";
   import { getStateColor, getStateName, formatTimeStr } from "../common";
+  import { _ } from "svelte-i18n";
   import NodeDialog from "../components/NodeDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
   import PollingDialog from "../components/PollingDialog.svelte";
@@ -81,13 +82,13 @@
   let selectedDrawItem = $state<DrawItemEnt | null>(null);
 
   // Categories definition
-  const categories = [
-    { id: "nodes" as const, name: "ノード (Node)", icon: Laptop },
-    { id: "pollings" as const, name: "ポーリング (Polling)", icon: CheckSquare },
-    { id: "networks" as const, name: "ネットワーク (Network)", icon: Network },
-    { id: "lines" as const, name: "ライン (Line)", icon: GitCommitHorizontal },
-    { id: "drawitems" as const, name: "描画アイテム (Draw Item)", icon: Boxes },
-  ];
+  const categories = $derived([
+    { id: "nodes" as const, name: $_('list.categories.nodes'), icon: Laptop },
+    { id: "pollings" as const, name: $_('list.categories.pollings'), icon: CheckSquare },
+    { id: "networks" as const, name: $_('list.categories.networks'), icon: Network },
+    { id: "lines" as const, name: $_('list.categories.lines'), icon: GitCommitHorizontal },
+    { id: "drawitems" as const, name: $_('list.categories.drawitems'), icon: Boxes },
+  ]);
 
   const loadAll = async () => {
     loading = true;
@@ -239,15 +240,7 @@
   };
 
   const getDrawItemTypeName = (type: number) => {
-    switch (type) {
-      case 2: return "テキスト (Text)";
-      case 4: return "矩形枠 (Container)";
-      case 6: return "ラジアルゲージ (Gauge)";
-      case 7: return "バーグラフ (Bar)";
-      case 8: return "折れ線 (Sparkline)";
-      case 11: return "KPI カード (KPI)";
-      default: return `アイテム (${type})`;
-    }
+    return $_(`drawItem.types.${type}`) || `Item (${type})`;
   };
 
   const getDrawItemIcon = (type: number) => {
@@ -267,7 +260,7 @@
     if (activeCategory === "nodes") {
       selectedNode = {
         id: "",
-        name: "新規ノード",
+        name: "",
         ip: "192.168.1.10",
         mac: "",
         descr: "",
@@ -302,7 +295,7 @@
     showDetailModal = true;
   };
   const handleDeleteNode = async (id: string) => {
-    if (confirm("このノードを削除してもよろしいですか？関連するポーリングやラインに影響する場合があります。")) {
+    if (confirm($_('list.confirmDelete.node'))) {
       await deleteNode(id);
       await loadAll();
     }
@@ -314,7 +307,7 @@
     showPollingDialog = true;
   };
   const handleDeletePolling = async (id: string) => {
-    if (confirm("このポーリング設定を削除してもよろしいですか？")) {
+    if (confirm($_('list.confirmDelete.polling'))) {
       await deletePolling(id);
       await loadAll();
     }
@@ -326,7 +319,7 @@
     showNetworkDialog = true;
   };
   const handleDeleteNetwork = async (id: string) => {
-    if (confirm("このネットワークを削除してもよろしいですか？接続されているラインも削除または孤立します。")) {
+    if (confirm($_('list.confirmDelete.network'))) {
       await deleteNetwork(id);
       await loadAll();
     }
@@ -338,7 +331,7 @@
     showLineDialog = true;
   };
   const handleDeleteLine = async (id: string) => {
-    if (confirm("このラインを削除してもよろしいですか？")) {
+    if (confirm($_('list.confirmDelete.line'))) {
       await deleteLine(id);
       await loadAll();
     }
@@ -350,7 +343,7 @@
     showDrawItemDialog = true;
   };
   const handleDeleteDrawItem = async (id: string) => {
-    if (confirm("この描画アイテムを削除してもよろしいですか？")) {
+    if (confirm($_('list.confirmDelete.drawItem'))) {
       await deleteDrawItem(id);
       await loadAll();
     }
@@ -362,7 +355,7 @@
   <div class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70 p-3 space-y-1.5 shrink-0 flex flex-col justify-between transition-colors">
     <div class="space-y-1">
       <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        構成・管理リスト (Items)
+        {$_('list.itemsTitle')}
       </div>
 
       {#each categories as cat}
@@ -396,9 +389,9 @@
     <!-- Live Status & Orphan Inspection Card -->
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-2 transition-colors">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-700 dark:text-slate-200">データ同期</span>
+        <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('list.sync')}</span>
         <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-          ● リアルタイム
+          ● {$_('list.realtime')}
         </span>
       </div>
 
@@ -406,19 +399,19 @@
         <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300 space-y-1">
           <div class="font-bold flex items-center gap-1">
             <AlertTriangle class="h-3 w-3 text-amber-500 dark:text-amber-400" />
-            <span>マップ外・孤立アイテム検出</span>
+            <span>{$_('list.orphanAlert')}</span>
           </div>
           {#if orphanLinesCount > 0}
-            <div>・未接続ライン: <span class="font-bold">{orphanLinesCount}</span> 件</div>
+            <div>• {$_('list.orphanLines')}: <span class="font-bold">{orphanLinesCount}</span></div>
           {/if}
           {#if offscreenDrawItemsCount > 0}
-            <div>・画面外アイテム: <span class="font-bold">{offscreenDrawItemsCount}</span> 件</div>
+            <div>• {$_('list.offscreenItems')}: <span class="font-bold">{offscreenDrawItemsCount}</span></div>
           {/if}
         </div>
       {/if}
 
       <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800/80">
-        全アイテム: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{nodes.length + pollings.length + networks.length + lines.length + drawItems.length}</span> 件
+        {$_('list.totalItems')}: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{nodes.length + pollings.length + networks.length + lines.length + drawItems.length}</span>
       </div>
     </div>
   </div>
@@ -434,11 +427,11 @@
           <input
             type="text"
             placeholder={
-              activeCategory === "nodes" ? "ノード名・IP・説明で検索..." :
-              activeCategory === "pollings" ? "ポーリング名・ターゲットで検索..." :
-              activeCategory === "networks" ? "ネットワーク名・IPで検索..." :
-              activeCategory === "lines" ? "接続元・接続先・情報で検索..." :
-              "テキスト・ラベルで検索..."
+              activeCategory === "nodes" ? $_('list.search.nodes') :
+              activeCategory === "pollings" ? $_('list.search.pollings') :
+              activeCategory === "networks" ? $_('list.search.networks') :
+              activeCategory === "lines" ? $_('list.search.lines') :
+              $_('list.search.drawitems')
             }
             bind:value={searchQuery}
             class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
@@ -451,22 +444,22 @@
             bind:value={statusFilter}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
-            <option value="all">全ステータス ({nodes.length})</option>
-            <option value="normal">正常</option>
-            <option value="warn">注意</option>
-            <option value="low">軽度障害</option>
-            <option value="high">重度障害</option>
+            <option value="all">{$_('list.filter.allStatus')} ({nodes.length})</option>
+            <option value="normal">{$_('status.normal')}</option>
+            <option value="warn">{$_('status.warn')}</option>
+            <option value="low">{$_('status.low')}</option>
+            <option value="high">{$_('status.high')}</option>
           </select>
         {:else if activeCategory === "pollings"}
           <select
             bind:value={typeFilter}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
-            <option value="all">全プロトコル ({pollings.length})</option>
+            <option value="all">{$_('list.filter.allProtocols')} ({pollings.length})</option>
             <option value="ping">PING</option>
             <option value="http">HTTP/HTTPS</option>
             <option value="snmp">SNMP</option>
-            <option value="tcp">TCP ポート</option>
+            <option value="tcp">TCP</option>
             <option value="dns">DNS</option>
             <option value="ntp">NTP</option>
           </select>
@@ -475,9 +468,9 @@
             bind:value={statusFilter}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
-            <option value="all">全ライン ({lines.length})</option>
+            <option value="all">{$_('list.filter.allLines')} ({lines.length})</option>
             {#if orphanLinesCount > 0}
-              <option value="orphan">⚠️ 接続先未検出（孤立）のみ ({orphanLinesCount})</option>
+              <option value="orphan">{$_('list.filter.orphanOnly')} ({orphanLinesCount})</option>
             {/if}
           </select>
         {:else if activeCategory === "drawitems"}
@@ -485,13 +478,13 @@
             bind:value={typeFilter}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
-            <option value="all">全アイテム種別 ({drawItems.length})</option>
-            <option value="2">テキスト (Text)</option>
-            <option value="4">矩形枠 (Container)</option>
-            <option value="6">ラジアルゲージ (Gauge)</option>
-            <option value="7">バーグラフ (Bar)</option>
-            <option value="8">折れ線 (Sparkline)</option>
-            <option value="11">KPI カード (KPI)</option>
+            <option value="all">{$_('list.filter.allItemTypes')} ({drawItems.length})</option>
+            <option value="2">{$_('drawItem.types.2')}</option>
+            <option value="4">{$_('drawItem.types.4')}</option>
+            <option value="6">{$_('drawItem.types.6')}</option>
+            <option value="7">{$_('drawItem.types.7')}</option>
+            <option value="8">{$_('drawItem.types.8')}</option>
+            <option value="11">{$_('drawItem.types.11')}</option>
           </select>
         {/if}
       </div>
@@ -503,7 +496,7 @@
           class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
         >
           <RefreshCw class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 {loading ? 'animate-spin' : ''}" />
-          <span>更新</span>
+          <span>{$_('common.refresh')}</span>
         </button>
 
         <button
@@ -512,11 +505,11 @@
         >
           <Plus class="h-4 w-4" />
           <span>
-            {activeCategory === "nodes" ? "ノード追加" :
-             activeCategory === "pollings" ? "ポーリング追加" :
-             activeCategory === "networks" ? "ネットワーク追加" :
-             activeCategory === "lines" ? "ライン追加" :
-             "描画アイテム追加"}
+            {activeCategory === "nodes" ? $_('list.addBtn.nodes') :
+             activeCategory === "pollings" ? $_('list.addBtn.pollings') :
+             activeCategory === "networks" ? $_('list.addBtn.networks') :
+             activeCategory === "lines" ? $_('list.addBtn.lines') :
+             $_('list.addBtn.drawitems')}
           </span>
         </button>
       </div>
@@ -531,13 +524,13 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-28">ステータス</th>
-                <th class="py-2.5 px-3.5">ノード名</th>
-                <th class="py-2.5 px-3.5">IP アドレス</th>
-                <th class="py-2.5 px-3.5">MAC アドレス</th>
-                <th class="py-2.5 px-3.5 w-32">マップ座標 (X, Y)</th>
-                <th class="py-2.5 px-3.5">説明</th>
-                <th class="py-2.5 px-3.5 text-right w-28">操作</th>
+                <th class="py-2.5 px-3.5 w-28">{$_('list.table.status')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.nodeName')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.ip')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.mac')}</th>
+                <th class="py-2.5 px-3.5 w-32">{$_('list.table.coords')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.descr')}</th>
+                <th class="py-2.5 px-3.5 text-right w-28">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -546,7 +539,7 @@
                   <td class="py-2 px-3.5">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(n.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(n.state)}"></span>
-                      {getStateName(n.state)}
+                      {getStateName(n.state, $_)}
                     </span>
                   </td>
                   <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
@@ -564,21 +557,21 @@
                       <button
                         onclick={() => handleDetailNode(n)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                        title="詳細情報 / 仮想パネル"
+                        title={$_('map.context.vpanelDetail')}
                       >
                         <Box class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleEditNode(n)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                        title="編集"
+                        title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteNode(n.id)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                        title="削除"
+                        title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -589,7 +582,7 @@
               {#if filteredNodes.length === 0}
                 <tr>
                   <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
-                    ノードが見つかりません
+                    {$_('list.empty.nodes')}
                   </td>
                 </tr>
               {/if}
@@ -601,14 +594,14 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-28">状態</th>
-                <th class="py-2.5 px-3.5">ポーリング名</th>
-                <th class="py-2.5 px-3.5 w-28">種別</th>
-                <th class="py-2.5 px-3.5">ターゲット</th>
-                <th class="py-2.5 px-3.5">対象ノード</th>
-                <th class="py-2.5 px-3.5 w-32">最新応答値</th>
-                <th class="py-2.5 px-3.5 w-40">最終実行日時</th>
-                <th class="py-2.5 px-3.5 text-right w-24">操作</th>
+                <th class="py-2.5 px-3.5 w-28">{$_('list.table.status')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.pollingName')}</th>
+                <th class="py-2.5 px-3.5 w-28">{$_('list.table.type')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.target')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.targetNode')}</th>
+                <th class="py-2.5 px-3.5 w-32">{$_('list.table.lastVal')}</th>
+                <th class="py-2.5 px-3.5 w-40">{$_('list.table.lastTime')}</th>
+                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -617,7 +610,7 @@
                   <td class="py-2 px-3.5">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(p.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(p.state)}"></span>
-                      {getStateName(p.state)}
+                      {getStateName(p.state, $_)}
                     </span>
                   </td>
                   <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans">{p.name}</td>
@@ -639,14 +632,14 @@
                       <button
                         onclick={() => handleEditPolling(p)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                        title="編集"
+                        title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeletePolling(p.id)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                        title="削除"
+                        title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -657,7 +650,7 @@
               {#if filteredPollings.length === 0}
                 <tr>
                   <td colspan="8" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
-                    ポーリング項目が見つかりません
+                    {$_('list.empty.pollings')}
                   </td>
                 </tr>
               {/if}
@@ -669,13 +662,13 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5">ネットワーク名</th>
-                <th class="py-2.5 px-3.5">IP アドレス</th>
-                <th class="py-2.5 px-3.5 w-28">ポート数</th>
-                <th class="py-2.5 px-3.5 w-32">サイズ (W × H)</th>
-                <th class="py-2.5 px-3.5 w-32">マップ座標 (X, Y)</th>
-                <th class="py-2.5 px-3.5">説明</th>
-                <th class="py-2.5 px-3.5 text-right w-24">操作</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.netName')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.ip')}</th>
+                <th class="py-2.5 px-3.5 w-28">{$_('list.table.portsCount')}</th>
+                <th class="py-2.5 px-3.5 w-32">{$_('list.table.size')}</th>
+                <th class="py-2.5 px-3.5 w-32">{$_('list.table.coords')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.descr')}</th>
+                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -688,7 +681,7 @@
                   <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-semibold">{net.ip || "-"}</td>
                   <td class="py-2 px-3.5">
                     <span class="rounded px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                      {(net.ports || []).length} ポート
+                      {(net.ports || []).length} {$_('network.portsUnit')}
                     </span>
                   </td>
                   <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
@@ -703,14 +696,14 @@
                       <button
                         onclick={() => handleEditNetwork(net)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                        title="編集"
+                        title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteNetwork(net.id)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                        title="削除"
+                        title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -721,7 +714,7 @@
               {#if filteredNetworks.length === 0}
                 <tr>
                   <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
-                    ネットワークが見つかりません
+                    {$_('list.empty.networks')}
                   </td>
                 </tr>
               {/if}
@@ -733,13 +726,13 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-28">状態</th>
-                <th class="py-2.5 px-3.5">接続元 1</th>
-                <th class="py-2.5 px-3.5">接続先 2</th>
-                <th class="py-2.5 px-3.5 w-24">太さ</th>
-                <th class="py-2.5 px-3.5">情報・ポート</th>
-                <th class="py-2.5 px-3.5 w-48">接続健全性</th>
-                <th class="py-2.5 px-3.5 text-right w-24">操作</th>
+                <th class="py-2.5 px-3.5 w-28">{$_('list.table.status')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.source1')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.target2')}</th>
+                <th class="py-2.5 px-3.5 w-24">{$_('list.table.width')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.infoPort')}</th>
+                <th class="py-2.5 px-3.5 w-48">{$_('list.table.health')}</th>
+                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -749,7 +742,7 @@
                   <td class="py-2 px-3.5">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(l.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(l.state)}"></span>
-                      {getStateName(l.state)}
+                      {getStateName(l.state, $_)}
                     </span>
                   </td>
                   <td class="py-2 px-3.5 font-sans font-medium text-slate-800 dark:text-slate-200">
@@ -766,12 +759,12 @@
                     {#if orphaned}
                       <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
                         <AlertTriangle class="h-3 w-3" />
-                        未接続（マップ描画不可）
+                        {$_('list.table.orphaned')}
                       </span>
                     {:else}
                       <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         <CheckCircle2 class="h-3 w-3" />
-                        接続正常
+                        {$_('list.table.healthy')}
                       </span>
                     {/if}
                   </td>
@@ -780,14 +773,14 @@
                       <button
                         onclick={() => handleEditLine(l)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                        title="編集"
+                        title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteLine(l.id)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                        title="削除 (マップから消滅したラインの救済削除)"
+                        title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -798,7 +791,7 @@
               {#if filteredLines.length === 0}
                 <tr>
                   <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
-                    ラインが見つかりません
+                    {$_('list.empty.lines')}
                   </td>
                 </tr>
               {/if}
@@ -810,13 +803,13 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-44">アイテム種別</th>
-                <th class="py-2.5 px-3.5">表示テキスト / ラベル</th>
-                <th class="py-2.5 px-3.5">バインド情報</th>
-                <th class="py-2.5 px-3.5 w-32">マップ座標 (X, Y)</th>
-                <th class="py-2.5 px-3.5 w-32">サイズ (W × H)</th>
-                <th class="py-2.5 px-3.5 w-28">カラー</th>
-                <th class="py-2.5 px-3.5 text-right w-24">操作</th>
+                <th class="py-2.5 px-3.5 w-44">{$_('list.table.itemType')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.itemText')}</th>
+                <th class="py-2.5 px-3.5">{$_('list.table.bindInfo')}</th>
+                <th class="py-2.5 px-3.5 w-32">{$_('list.table.coords')}</th>
+                <th class="py-2.5 px-3.5 w-32">{$_('list.table.size')}</th>
+                <th class="py-2.5 px-3.5 w-28">{$_('list.table.color')}</th>
+                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -834,7 +827,7 @@
                   </td>
                   <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 font-sans text-[11px]">
                     {#if d.node_id}
-                      <span>ノード: {getNodeName(d.node_id)}</span>
+                      <span>{$_('list.categories.nodes')}: {getNodeName(d.node_id)}</span>
                     {:else}
                       <span>-</span>
                     {/if}
@@ -844,7 +837,7 @@
                       <span>({d.x ?? 0}, {d.y ?? 0})</span>
                       {#if offscreen}
                         <span class="rounded bg-amber-500/10 border border-amber-500/30 px-1 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                          画面外
+                          {$_('list.table.offscreen')}
                         </span>
                       {/if}
                     </div>
@@ -863,14 +856,14 @@
                       <button
                         onclick={() => handleEditDrawItem(d)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                        title="編集"
+                        title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteDrawItem(d.id)}
                         class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                        title="削除 (マップ外で拾えなくなったアイテムの削除)"
+                        title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -881,7 +874,7 @@
               {#if filteredDrawItems.length === 0}
                 <tr>
                   <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
-                    描画アイテムが見つかりません
+                    {$_('list.empty.drawitems')}
                   </td>
                 </tr>
               {/if}
@@ -905,6 +898,7 @@
   <NodeDetailModal
     bind:show={showDetailModal}
     node={detailNode}
+    pollings={pollings}
   />
 {/if}
 

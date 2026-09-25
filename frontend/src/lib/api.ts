@@ -1,3 +1,6 @@
+import { get } from 'svelte/store';
+import { locale } from 'svelte-i18n';
+
 export interface NodeEnt {
   id: string;
   name: string;
@@ -9,6 +12,7 @@ export interface NodeEnt {
   x: number;
   y: number;
   descr?: string;
+  vendor?: string;
   snmp_mode?: string;
   community?: string;
   user?: string;
@@ -20,6 +24,7 @@ export interface NodeEnt {
   Name?: string;
   IP?: string;
   MAC?: string;
+  Vendor?: string;
   Icon?: string;
   Image?: string;
   State?: string;
@@ -229,6 +234,7 @@ export function normalizeNode(raw: any): NodeEnt {
   const name = raw.name || raw.Name || 'Node';
   const ip = raw.ip || raw.IP || '';
   const mac = raw.mac || raw.MAC || '';
+  const vendor = raw.vendor || raw.Vendor || '';
   const icon = raw.icon || raw.Icon || 'desktop';
   const image = raw.image || raw.Image || '';
   const state = raw.state || raw.State || 'normal';
@@ -247,6 +253,7 @@ export function normalizeNode(raw: any): NodeEnt {
     name, Name: name,
     ip, IP: ip,
     mac, MAC: mac,
+    vendor, Vendor: vendor,
     icon, Icon: icon,
     image, Image: image,
     state, State: state,
@@ -264,7 +271,8 @@ export function normalizeNode(raw: any): NodeEnt {
 export function normalizeNetwork(raw: any): NetworkEnt {
   if (!raw) return { id: '', name: '', ip: '', x: 300, y: 150, w: 420, h: 90, ports: [] };
   const id = raw.id || raw.ID || '';
-  const name = raw.name || raw.Name || 'ネットワーク';
+  const isJa = (get(locale) || 'ja').startsWith('ja');
+  const name = raw.name || raw.Name || (isJa ? 'ネットワーク' : 'Network');
   const ip = raw.ip || raw.IP || '';
   const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 300);
   const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 150);
@@ -1215,5 +1223,109 @@ export async function fetchIPAM(): Promise<IPAMReportResp> {
     return { Ranges: [], TotalRanges: 0, TotalSize: 0, TotalUsed: 0, TotalUsage: 0 };
   }
 }
+
+export interface VPanelPortEnt {
+  Index: number;
+  Name: string;
+  State: string; // up, down, off
+  Speed: number;
+  InBytes?: number;
+  OutBytes?: number;
+  InError?: number;
+  OutError?: number;
+}
+
+export interface NodePortsResp {
+  supported: boolean;
+  reason?: string;
+  message?: string;
+  error?: string;
+  ports?: VPanelPortEnt[];
+}
+
+export interface HrSystem {
+  Index: number;
+  Key: string;
+  Value: string;
+}
+
+export interface HrStorage {
+  Index: string;
+  Type: string;
+  Descr: string;
+  Size: number;
+  Used: number;
+  Unit: number;
+  Rate: number;
+}
+
+export interface HrDevice {
+  Index: string;
+  Type: string;
+  Descr: string;
+  Status: string;
+  Errors: string;
+}
+
+export interface HrFileSystem {
+  Index: string;
+  Type: string;
+  Mount: string;
+  Remote: string;
+  Bootable: number;
+  Access: number;
+}
+
+export interface HrProcess {
+  PID: string;
+  Name: string;
+  Type: string;
+  Status: string;
+  Path: string;
+  Param: string;
+  CPU: number;
+  Mem: number;
+}
+
+export interface HostResourceEnt {
+  System: HrSystem[];
+  Storage: HrStorage[];
+  Device: HrDevice[];
+  FileSystem: HrFileSystem[];
+  Process: HrProcess[];
+}
+
+export interface NodeHostResourceResp {
+  supported: boolean;
+  reason?: string;
+  message?: string;
+  error?: string;
+  data?: HostResourceEnt;
+}
+
+export async function fetchNodePorts(nodeId: string): Promise<NodePortsResp> {
+  try {
+    const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/ports`);
+    if (!res.ok) {
+      return { supported: false, error: `HTTP ${res.status}` };
+    }
+    return await res.json();
+  } catch (err: any) {
+    return { supported: false, error: String(err?.message || err) };
+  }
+}
+
+export async function fetchNodeHostResource(nodeId: string): Promise<NodeHostResourceResp> {
+  try {
+    const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/hostresource`);
+    if (!res.ok) {
+      return { supported: false, error: `HTTP ${res.status}` };
+    }
+    return await res.json();
+  } catch (err: any) {
+    return { supported: false, error: String(err?.message || err) };
+  }
+}
+
 
 

@@ -51,6 +51,7 @@
     AlertCircle,
     AlertTriangle,
   } from "@lucide/svelte";
+  import { _ } from "svelte-i18n";
 
   type TabType = "metric" | "trace" | "log";
 
@@ -208,11 +209,11 @@
             try {
               const inner = JSON.parse(afterBar);
               if (inner.resource_metrics || inner.resourceMetrics) {
-                parsed.message = `${prefix} (メトリクスデータ)`;
+                parsed.message = `${prefix} ${$_('otel.msgMetricData')}`;
               } else if (inner.resource_spans || inner.resourceSpans) {
-                parsed.message = `${prefix} (トレースデータ)`;
+                parsed.message = `${prefix} ${$_('otel.msgTraceData')}`;
               } else if (inner.resource_logs || inner.resourceLogs) {
-                parsed.message = `${prefix} (ログデータ)`;
+                parsed.message = `${prefix} ${$_('otel.msgLogData')}`;
               } else {
                 parsed.message = afterBar;
               }
@@ -660,7 +661,7 @@
 
   // Global Delete
   const handleDeleteAll = async () => {
-    if (!confirm("保存されているすべてのOpenTelemetryデータ（メトリック、トレース、ログ）を一括消去しますか？")) {
+    if (!confirm($_('otel.confirmDeleteAll'))) {
       return;
     }
     loading = true;
@@ -687,13 +688,13 @@
   <div class="w-60 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 p-3 space-y-1.5 shrink-0 flex flex-col justify-between transition-colors">
     <div class="space-y-1">
       <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        テレメトリ種別 (Telemetry)
+        {$_('otel.telemetryType')}
       </div>
 
       {#each [
-        { id: "metric", name: "メトリック (Metric)", icon: BarChart3, count: metrics.length },
-        { id: "trace", name: "トレース (Trace)", icon: Eye, count: traces.length },
-        { id: "log", name: "ログ (Log)", icon: FileText, count: parsedLogs.length }
+        { id: "metric", name: $_('otel.tabMetric'), icon: BarChart3, count: metrics.length },
+        { id: "trace", name: $_('otel.tabTrace'), icon: Eye, count: traces.length },
+        { id: "log", name: $_('otel.tabLog'), icon: FileText, count: parsedLogs.length }
       ] as item}
         <button
           type="button"
@@ -714,10 +715,10 @@
     <!-- Receiver Endpoint Info -->
     <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 text-[10px] text-slate-500 dark:text-slate-400 space-y-1">
       <div class="flex items-center justify-between font-semibold text-slate-700 dark:text-slate-300">
-        <span>OTel レシーバー</span>
+        <span>{$_('otel.receiver')}</span>
         <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
           <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-          稼働中
+          {$_('otel.running')}
         </span>
       </div>
       <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">HTTP :4318 (OTLP)</div>
@@ -733,13 +734,13 @@
         <h2 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           {#if activeTab === "metric"}
             <BarChart3 class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            <span>OpenTelemetry メトリック (Metrics)</span>
+            <span>{$_('otel.titleMetric')}</span>
           {:else if activeTab === "trace"}
             <Eye class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            <span>OpenTelemetry トレース (Distributed Traces)</span>
+            <span>{$_('otel.titleTrace')}</span>
           {:else}
             <FileText class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            <span>OpenTelemetry ログ (Structured Logs)</span>
+            <span>{$_('otel.titleLog')}</span>
           {/if}
         </h2>
       </div>
@@ -753,7 +754,7 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <Info class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span>メトリック情報</span>
+            <span>{$_('otel.btnMetricInfo')}</span>
           </button>
 
           <button
@@ -762,7 +763,7 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>レポート</span>
+            <span>{$_('otel.btnReport')}</span>
           </button>
         {/if}
 
@@ -773,7 +774,7 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-300 dark:border-indigo-800/60 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <GitBranch class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>サービス DAG</span>
+            <span>{$_('otel.btnServiceDag')}</span>
           </button>
 
           {#if selectedTrace}
@@ -783,7 +784,7 @@
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>レポート</span>
+              <span>{$_('otel.btnReport')}</span>
             </button>
           {/if}
         {/if}
@@ -791,22 +792,22 @@
         <button
           type="button"
           onclick={handleDeleteAll}
-          title="全OpenTelemetryデータを消去"
+          title={$_('otel.btnDeleteAllTitle')}
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
         >
           <Trash2 class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-          <span>全データ削除</span>
+          <span>{$_('otel.btnDeleteAll')}</span>
         </button>
 
         <button
           type="button"
           onclick={() => refresh(true)}
-          title="データを更新"
+          title={$_('otel.btnReloadTitle')}
           disabled={loading}
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
         >
           <RefreshCw class="h-3.5 w-3.5 {loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : 'text-cyan-600 dark:text-cyan-400'}" />
-          <span>再読み込み</span>
+          <span>{$_('otel.btnReload')}</span>
         </button>
       </div>
     </div>
@@ -825,7 +826,7 @@
                   <div class="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/80">
                     <BarChart3 class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">メトリック系列</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('otel.metricSeries')}</span>
                 </div>
                 <span class="text-lg font-bold font-mono text-cyan-600 dark:text-cyan-300">{metricKPIs.totalMetrics.toLocaleString()}</span>
               </div>
@@ -835,7 +836,7 @@
                   <div class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80">
                     <Server class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">サービス数</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('otel.serviceCount')}</span>
                 </div>
                 <span class="text-lg font-bold font-mono text-indigo-600 dark:text-indigo-300">{metricKPIs.serviceCount.toLocaleString()}</span>
               </div>
@@ -845,7 +846,7 @@
                   <div class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80">
                     <Layers class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">ホスト数</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('otel.hostCount')}</span>
                 </div>
                 <span class="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-300">{metricKPIs.hostCount.toLocaleString()}</span>
               </div>
@@ -855,7 +856,7 @@
                   <div class="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80">
                     <Activity class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">総受信回数</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('otel.totalReceived')}</span>
                 </div>
                 <span class="text-lg font-bold font-mono text-amber-600 dark:text-amber-300">{metricKPIs.totalCount.toLocaleString()}</span>
               </div>
@@ -864,7 +865,7 @@
             <!-- Metric Types Chart (col-span-3) -->
             <div class="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 relative shadow-sm dark:shadow-lg h-full flex flex-col">
               <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-2 pt-1 z-10 flex items-center gap-1.5">
-                <span>メトリック種別内訳</span>
+                <span>{$_('otel.metricTypeBreakdown')}</span>
               </div>
               <div id="metricTypeChart" class="flex-1 w-full min-h-0"></div>
             </div>
@@ -872,7 +873,7 @@
             <!-- Top Services Chart (col-span-6) -->
             <div class="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 relative shadow-sm dark:shadow-lg h-full flex flex-col">
               <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-2 pt-1 z-10 flex items-center gap-1.5">
-                <span>サービス別 メトリック数</span>
+                <span>{$_('otel.metricsByService')}</span>
               </div>
               <div id="metricServiceChart" class="flex-1 w-full min-h-0"></div>
             </div>
@@ -887,12 +888,12 @@
               <input
                 type="text"
                 bind:value={metricSearch}
-                placeholder="ホスト、サービス、名前で検索..."
+                placeholder={$_("otel.searchMetricPlaceholder")}
                 class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500"
               />
             </div>
             <div class="text-xs text-slate-400">
-              全 <span class="font-bold text-slate-200">{filteredMetrics.length}</span> 件
+              {$_("otel.totalRecords", { values: { count: filteredMetrics.length } })}
             </div>
           </div>
 
@@ -903,7 +904,7 @@
                 <tr>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Host")}>
                     <div class="flex items-center gap-1">
-                      <span>ホスト</span>
+                      <span>{$_("otel.colHost")}</span>
                       {#if metricSortKey === "Host"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -913,7 +914,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Service")}>
                     <div class="flex items-center gap-1">
-                      <span>サービス</span>
+                      <span>{$_("otel.colService")}</span>
                       {#if metricSortKey === "Service"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -923,7 +924,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Scope")}>
                     <div class="flex items-center gap-1">
-                      <span>スコープ</span>
+                      <span>{$_("otel.colScope")}</span>
                       {#if metricSortKey === "Scope"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -933,7 +934,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Name")}>
                     <div class="flex items-center gap-1">
-                      <span>メトリック名</span>
+                      <span>{$_("otel.colMetricName")}</span>
                       {#if metricSortKey === "Name"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -943,7 +944,7 @@
                   </th>
                   <th class="py-2.5 px-3 text-center cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Type")}>
                     <div class="flex items-center justify-center gap-1">
-                      <span>種別</span>
+                      <span>{$_("otel.colType")}</span>
                       {#if metricSortKey === "Type"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -953,7 +954,7 @@
                   </th>
                   <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Count")}>
                     <div class="flex items-center justify-end gap-1">
-                      <span>回数</span>
+                      <span>{$_("otel.colCount")}</span>
                       {#if metricSortKey === "Count"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -963,7 +964,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("First")}>
                     <div class="flex items-center gap-1">
-                      <span>初回日時</span>
+                      <span>{$_("otel.colFirstTime")}</span>
                       {#if metricSortKey === "First"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -973,7 +974,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Last")}>
                     <div class="flex items-center gap-1">
-                      <span>最終受信</span>
+                      <span>{$_("otel.colLastTime")}</span>
                       {#if metricSortKey === "Last"}
                         {#if metricSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -987,7 +988,7 @@
                 {#if paginatedMetrics.length === 0}
                   <tr>
                     <td colspan="8" class="py-8 text-center text-slate-500">
-                      メトリックデータがありません
+                      {$_("otel.noMetricData")}
                     </td>
                   </tr>
                 {:else}
@@ -1018,7 +1019,7 @@
           <!-- Pagination -->
           <div class="flex items-center justify-between p-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-400">
             <div>
-              ページ {metricPage} / {Math.max(1, Math.ceil(filteredMetrics.length / metricPageSize))}
+              {$_("otel.pageInfo", { values: { page: metricPage, total: Math.max(1, Math.ceil(filteredMetrics.length / metricPageSize)) } })}
             </div>
             <div class="flex items-center gap-1">
               <button
@@ -1063,7 +1064,7 @@
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm dark:shadow-lg flex flex-col justify-between">
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <Activity class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-              総トレース数
+              {$_("otel.totalTraces")}
             </span>
             <span class="text-xl font-bold font-mono text-cyan-600 dark:text-cyan-300 mt-1">{traceKPIs.total.toLocaleString()}</span>
           </div>
@@ -1071,7 +1072,7 @@
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm dark:shadow-lg flex flex-col justify-between">
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <Clock class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-              平均所要時間
+              {$_("otel.avgDuration")}
             </span>
             <span class="text-xl font-bold font-mono text-indigo-600 dark:text-indigo-300 mt-1">
               {traceKPIs.avgMs.toFixed(2)} <span class="text-xs font-normal text-slate-400">ms</span>
@@ -1081,7 +1082,7 @@
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm dark:shadow-lg flex flex-col justify-between">
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <Zap class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              最大所要時間
+              {$_("otel.maxDuration")}
             </span>
             <span class="text-xl font-bold font-mono text-amber-600 dark:text-amber-300 mt-1">
               {#if traceKPIs.maxMs >= 1000}
@@ -1095,7 +1096,7 @@
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm dark:shadow-lg flex flex-col justify-between">
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <Activity class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-              遅延トレース (&ge;500ms)
+              {$_("otel.slowTraces")}
             </span>
             <span class="text-xl font-bold font-mono {traceKPIs.slowCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'} mt-1">
               {traceKPIs.slowCount.toLocaleString()}
@@ -1106,11 +1107,11 @@
         <!-- Scatter Chart -->
         <div class="h-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 relative shadow-sm dark:shadow-lg shrink-0">
           <div class="text-[11px] font-semibold text-slate-400 absolute top-2 left-4 z-10 flex items-center gap-2">
-            <span>トレース応答時間 (秒) 散布図</span>
-            <span class="text-[10px] text-slate-500 font-normal">色: 所要時間 / ドットサイズ: スパン数</span>
+            <span>{$_("otel.scatterTitle")}</span>
+            <span class="text-[10px] text-slate-500 font-normal">{$_("otel.scatterSubtitle")}</span>
             {#if traceZoomRange}
               <span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                ズーム中 ({renderTimeMili(traceZoomRange.st)} ～ {renderTimeMili(traceZoomRange.et)})
+                {$_("otel.zoomedRange", { values: { st: renderTimeMili(traceZoomRange.st), et: renderTimeMili(traceZoomRange.et) } })}
               </span>
               <button
                 onclick={() => {
@@ -1119,7 +1120,7 @@
                 }}
                 class="px-2 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
               >
-                ズーム解除
+                {$_("otel.resetZoom")}
               </button>
             {/if}
           </div>
@@ -1136,7 +1137,7 @@
                 <input
                   type="text"
                   bind:value={traceSearch}
-                  placeholder="TraceID、サービス、ホスト..."
+                  placeholder={$_("otel.searchTracePlaceholder")}
                   class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                 />
               </div>
@@ -1144,10 +1145,10 @@
               <!-- Time Range Presets -->
               <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 p-0.5 rounded-lg">
                 {#each [
-                  { id: "1h", label: "直近1時間" },
-                  { id: "6h", label: "直近6時間" },
-                  { id: "24h", label: "直近24時間" },
-                  { id: "all", label: "全期間" }
+                  { id: "1h", label: $_("otel.period1h") },
+                  { id: "6h", label: $_("otel.period6h") },
+                  { id: "24h", label: $_("otel.period24h") },
+                  { id: "all", label: $_("otel.periodAll") }
                 ] as opt}
                   <button
                     onclick={async () => {
@@ -1163,25 +1164,25 @@
 
               <!-- Limit Dropdown -->
               <div class="flex items-center gap-1.5">
-                <span class="text-xs text-slate-500 dark:text-slate-400">上限:</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">{$_("otel.limitLabel")}</span>
                 <select
                   bind:value={traceLimit}
                   onchange={refresh}
                   class="h-7 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 px-2 focus:outline-none focus:border-cyan-500"
                 >
-                  <option value={1000}>1,000件</option>
-                  <option value={5000}>5,000件</option>
-                  <option value={10000}>10,000件</option>
+                  <option value={1000}>{$_("otel.limitCount", { values: { count: "1,000" } })}</option>
+                  <option value={5000}>{$_("otel.limitCount", { values: { count: "5,000" } })}</option>
+                  <option value={10000}>{$_("otel.limitCount", { values: { count: "10,000" } })}</option>
                 </select>
               </div>
 
               <!-- Latency Filter Buttons -->
               <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 p-0.5 rounded-lg">
                 {#each [
-                  { id: "all", label: "すべて" },
+                  { id: "all", label: $_("otel.filterAll") },
                   { id: "slow100", label: "> 100ms" },
                   { id: "slow500", label: "> 500ms" },
-                  { id: "slow1000", label: "> 1秒" }
+                  { id: "slow1000", label: $_("otel.filterSlow1s") }
                 ] as lat}
                   <button
                     onclick={() => (traceLatencyFilter = lat.id as any)}
@@ -1194,7 +1195,7 @@
             </div>
 
             <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-              <span>表示: <strong class="text-slate-800 dark:text-slate-200">{sortedTraces.length}</strong> / 取得: <strong class="text-slate-800 dark:text-slate-200">{traces.length}</strong> 件</span>
+              <span>{$_("otel.displayCount", { values: { filtered: sortedTraces.length, total: traces.length } })}</span>
             </div>
           </div>
 
@@ -1205,7 +1206,7 @@
                 <tr>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Start")}>
                     <div class="flex items-center gap-1">
-                      <span>開始日時</span>
+                      <span>{$_("otel.colStartTime")}</span>
                       {#if traceSortKey === "Start"}
                         {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1215,7 +1216,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("End")}>
                     <div class="flex items-center gap-1">
-                      <span>終了日時</span>
+                      <span>{$_("otel.colEndTime")}</span>
                       {#if traceSortKey === "End"}
                         {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1225,7 +1226,7 @@
                   </th>
                   <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Dur")}>
                     <div class="flex items-center justify-end gap-1">
-                      <span>所要時間 (ms)</span>
+                      <span>{$_("otel.colDuration")}</span>
                       {#if traceSortKey === "Dur"}
                         {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1245,7 +1246,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Hosts")}>
                     <div class="flex items-center gap-1">
-                      <span>送信元ホスト</span>
+                      <span>{$_("otel.colHost")}</span>
                       {#if traceSortKey === "Hosts"}
                         {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1255,7 +1256,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Services")}>
                     <div class="flex items-center gap-1">
-                      <span>サービス</span>
+                      <span>{$_("otel.colService")}</span>
                       {#if traceSortKey === "Services"}
                         {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1275,7 +1276,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Scopes")}>
                     <div class="flex items-center gap-1">
-                      <span>スコープ</span>
+                      <span>{$_("otel.colScope")}</span>
                       {#if traceSortKey === "Scopes"}
                         {#if traceSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1289,7 +1290,7 @@
                 {#if paginatedTraces.length === 0}
                   <tr>
                     <td colspan="8" class="py-8 text-center text-slate-500">
-                      トレースデータがありません
+                      {$_("otel.noTraceData")}
                     </td>
                   </tr>
                 {:else}
@@ -1322,7 +1323,7 @@
           <!-- Pagination -->
           <div class="flex items-center justify-between p-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-400">
             <div>
-              ページ {tracePage} / {Math.max(1, Math.ceil(sortedTraces.length / tracePageSize))}
+              {$_("otel.pageInfo", { values: { page: tracePage, total: Math.max(1, Math.ceil(sortedTraces.length / tracePageSize)) } })}
             </div>
             <div class="flex items-center gap-1">
               <button
@@ -1371,7 +1372,7 @@
           >
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <FileText class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-              総ログ件数
+              {$_("otel.totalLogs")}
             </span>
             <span class="text-xl font-bold font-mono text-cyan-600 dark:text-cyan-300 mt-1">{logKPIs.total.toLocaleString()}</span>
           </button>
@@ -1383,7 +1384,7 @@
           >
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <AlertCircle class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-              ERROR ログ
+              {$_("otel.errorLogs")}
             </span>
             <div class="flex items-baseline justify-between mt-1">
               <span class="text-xl font-bold font-mono {logKPIs.errorCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}">
@@ -1404,7 +1405,7 @@
           >
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <AlertTriangle class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              WARN ログ
+              {$_("otel.warnLogs")}
             </span>
             <div class="flex items-baseline justify-between mt-1">
               <span class="text-xl font-bold font-mono {logKPIs.warnCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}">
@@ -1421,16 +1422,16 @@
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm dark:shadow-lg flex flex-col justify-between">
             <span class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
               <Server class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-              サービス / ホスト数
+              {$_("otel.servicesHosts")}
             </span>
             <div class="flex items-baseline gap-2 mt-1">
               <span class="text-xl font-bold font-mono text-indigo-600 dark:text-indigo-300">
                 {logKPIs.serviceCount}
-                <span class="text-xs font-normal text-slate-500 dark:text-slate-400">サービス</span>
+                <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("otel.serviceUnit")}</span>
               </span>
               <span class="text-sm font-semibold font-mono text-slate-600 dark:text-slate-400">
                 / {logKPIs.hostCount}
-                <span class="text-xs font-normal text-slate-500 dark:text-slate-500">ホスト</span>
+                <span class="text-xs font-normal text-slate-500 dark:text-slate-500">{$_("otel.hostUnit")}</span>
               </span>
             </div>
           </div>
@@ -1439,7 +1440,7 @@
         <!-- Top Log Histogram -->
         <div class="h-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 relative shadow-sm dark:shadow-lg shrink-0">
           <div class="text-[11px] font-semibold text-slate-400 absolute top-2 left-4 z-10">
-            OpenTelemetry ログ受信件数推移
+            {$_("otel.logTrendTitle")}
           </div>
           <div id="otelLogChart" class="h-full w-full"></div>
         </div>
@@ -1453,7 +1454,7 @@
                 <input
                   type="text"
                   bind:value={logSearch}
-                  placeholder="メッセージ、ホスト、TraceIDで検索..."
+                  placeholder={$_("otel.searchLogPlaceholder")}
                   class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                 />
               </div>
@@ -1461,7 +1462,7 @@
               <!-- Level Filter Badges -->
               <div class="flex items-center gap-1">
                 {#each [
-                  { id: "all", label: "すべて" },
+                  { id: "all", label: $_("otel.filterAll") },
                   { id: "ERROR", label: "ERROR" },
                   { id: "WARN", label: "WARN" },
                   { id: "INFO", label: "INFO" },
@@ -1478,7 +1479,7 @@
             </div>
 
             <div class="text-xs text-slate-400">
-              全 <span class="font-bold text-slate-200">{filteredLogs.length}</span> 件
+              {$_("otel.totalRecords", { values: { count: filteredLogs.length } })}
             </div>
           </div>
 
@@ -1489,7 +1490,7 @@
                 <tr>
                   <th class="py-2.5 px-3 text-center cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("level")}>
                     <div class="flex items-center justify-center gap-1">
-                      <span>レベル</span>
+                      <span>{$_("otel.colLevel")}</span>
                       {#if logSortKey === "level"}
                         {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -1499,7 +1500,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("time")}>
                     <div class="flex items-center gap-1">
-                      <span>日時</span>
+                      <span>{$_("otel.colTime")}</span>
                       {#if logSortKey === "time"}
                         {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -1509,7 +1510,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("host")}>
                     <div class="flex items-center gap-1">
-                      <span>ホスト</span>
+                      <span>{$_("otel.colHost")}</span>
                       {#if logSortKey === "host"}
                         {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                       {:else}
@@ -1519,7 +1520,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("service")}>
                     <div class="flex items-center gap-1">
-                      <span>サービス / スコープ</span>
+                      <span>{$_("otel.colServiceScope")}</span>
                       {#if logSortKey === "service"}
                         {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1529,7 +1530,7 @@
                   </th>
                   <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("message")}>
                     <div class="flex items-center gap-1">
-                      <span>メッセージ</span>
+                      <span>{$_("otel.colMessage")}</span>
                       {#if logSortKey === "message"}
                         {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                       {:else}
@@ -1553,7 +1554,7 @@
                 {#if paginatedLogs.length === 0}
                   <tr>
                     <td colspan="6" class="py-8 text-center text-slate-500 font-sans">
-                      ログレコードがありません
+                      {$_("otel.noLogData")}
                     </td>
                   </tr>
                 {:else}
@@ -1592,7 +1593,7 @@
           <!-- Pagination -->
           <div class="flex items-center justify-between p-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-400">
             <div>
-              ページ {logPage} / {Math.max(1, Math.ceil(filteredLogs.length / logPageSize))}
+              {$_("otel.pageInfo", { values: { page: logPage, total: Math.max(1, Math.ceil(filteredLogs.length / logPageSize)) } })}
             </div>
             <div class="flex items-center gap-1">
               <button
@@ -1641,51 +1642,51 @@
       <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
         <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <Info class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-          <span>メトリック情報</span>
+          <span>{$_("otel.metricInfoModalTitle")}</span>
         </h3>
-        <button onclick={() => (showMetricInfo = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+        <button onclick={() => (showMetricInfo = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
           <X class="h-4 w-4" />
         </button>
       </div>
       <div class="p-4 space-y-2 text-xs">
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">送信元ホスト</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.colHost")}</span>
           <span class="col-span-2 font-mono text-slate-800 dark:text-slate-200">{selectedMetric.Host}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">サービス</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.colService")}</span>
           <span class="col-span-2 text-slate-800 dark:text-slate-200 font-semibold">{selectedMetric.Service}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">スコープ</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.colScope")}</span>
           <span class="col-span-2 text-slate-700 dark:text-slate-300">{selectedMetric.Scope}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">メトリック名</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.colMetricName")}</span>
           <span class="col-span-2 font-bold text-cyan-600 dark:text-cyan-300">{selectedMetric.Name}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">種別</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.colType")}</span>
           <span class="col-span-2 font-mono text-slate-800 dark:text-slate-200">{selectedMetric.Type}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">単位</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.unit")}</span>
           <span class="col-span-2 text-slate-800 dark:text-slate-200">{selectedMetric.Unit || "-"}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">説明</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.description")}</span>
           <span class="col-span-2 text-slate-700 dark:text-slate-300">{selectedMetric.Description || "-"}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">累計受信回数</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.cumulativeReceived")}</span>
           <span class="col-span-2 font-mono text-cyan-600 dark:text-cyan-400 font-bold">{selectedMetric.Count}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5 border-b border-slate-200 dark:border-slate-800/60">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">初回日時</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.colFirstTime")}</span>
           <span class="col-span-2 font-mono text-slate-700 dark:text-slate-300">{formatTimeStr(selectedMetric.First)}</span>
         </div>
         <div class="grid grid-cols-3 py-1.5">
-          <span class="text-slate-500 dark:text-slate-400 font-medium">最終日時</span>
+          <span class="text-slate-500 dark:text-slate-400 font-medium">{$_("otel.lastTime")}</span>
           <span class="col-span-2 font-mono text-slate-700 dark:text-slate-300">{formatTimeStr(selectedMetric.Last)}</span>
         </div>
       </div>
@@ -1694,7 +1695,7 @@
           onclick={() => (showMetricInfo = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_("otel.close")}
         </button>
       </div>
     </div>
@@ -1724,9 +1725,9 @@
               {/if}
             </div>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              ホスト: <span class="text-slate-700 dark:text-slate-300 font-mono">{metricDetail.Host}</span> | 
-              サービス: <span class="text-slate-700 dark:text-slate-300">{metricDetail.Service}</span> | 
-              スコープ: <span class="text-slate-700 dark:text-slate-300">{metricDetail.Scope || "-"}</span>
+              {$_("otel.colHost")}: <span class="text-slate-700 dark:text-slate-300 font-mono">{metricDetail.Host}</span> | 
+              {$_("otel.colService")}: <span class="text-slate-700 dark:text-slate-300">{metricDetail.Service}</span> | 
+              {$_("otel.colScope")}: <span class="text-slate-700 dark:text-slate-300">{metricDetail.Scope || "-"}</span>
               {#if metricDetail.Description}
                 | <span class="text-slate-500 dark:text-slate-400 italic">{metricDetail.Description}</span>
               {/if}
@@ -1738,13 +1739,13 @@
           <!-- Attribute Filter if more than 1 attribute exists -->
           {#if metricAttributesList.length > 1}
             <div class="flex items-center gap-1.5 text-xs text-slate-400">
-              <span>属性:</span>
+              <span>{$_("otel.attributesLabel")}</span>
               <select
                 bind:value={selectedAttributeFilter}
                 onchange={() => tick().then(renderMetricChart)}
                 class="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-cyan-500 max-w-[200px] truncate"
               >
-                <option value="all">すべて ({metricAttributesList.length})</option>
+                <option value="all">{$_("otel.allAttributes", { values: { count: metricAttributesList.length } })}</option>
                 {#each metricAttributesList as attr}
                   <option value={attr}>{attr}</option>
                 {/each}
@@ -1761,7 +1762,7 @@
                 }}
                 class="px-2.5 py-1 rounded {metricChartMode === 'time' ? 'bg-cyan-600 text-white font-medium shadow' : 'text-slate-400 hover:text-slate-200'}"
               >
-                時系列
+                {$_("otel.btnTimeSeries")}
               </button>
               <button
                 onclick={() => {
@@ -1770,7 +1771,7 @@
                 }}
                 class="px-2.5 py-1 rounded {metricChartMode === 'histogram' ? 'bg-cyan-600 text-white font-medium shadow' : 'text-slate-400 hover:text-slate-200'}"
               >
-                ヒストグラム
+                {$_("otel.btnHistogram")}
               </button>
             </div>
           {/if}
@@ -1789,15 +1790,15 @@
             <span class="font-semibold text-slate-300 flex items-center gap-1.5">
               {#if metricChartMode === "histogram"}
                 <BarChart3 class="h-3.5 w-3.5 text-emerald-400" />
-                選択されたデータポイントのヒストグラム分布 ({selectedDataPoint ? formatTimeStr(selectedDataPoint.Time) : ''})
+                {$_("otel.histogramTitle", { values: { time: selectedDataPoint ? formatTimeStr(selectedDataPoint.Time) : '' } })}
               {:else}
                 <Activity class="h-3.5 w-3.5 text-cyan-400" />
-                時系列推移 ({filteredModalDataPoints.length} データポイント)
+                {$_("otel.timeSeriesTitle", { values: { count: filteredModalDataPoints.length } })}
               {/if}
             </span>
             {#if metricChartMode === "histogram"}
               <span class="text-slate-500 text-[10px]">
-                下のテーブルの行をクリックして表示するデータポイントを切り替えられます
+                {$_("otel.histogramHint")}
               </span>
             {/if}
           </div>
@@ -1808,11 +1809,11 @@
         <div class="flex-1 min-h-0 flex flex-col border border-slate-800 rounded-xl bg-slate-950/60 overflow-hidden shadow-inner">
           <div class="px-3 py-2 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
             <span class="text-xs font-semibold text-slate-300">
-              データポイント一覧 ({filteredModalDataPoints.length} 件)
+              {$_("otel.dataPointList", { values: { count: filteredModalDataPoints.length } })}
             </span>
             {#if selectedDataPoint && metricChartMode === "histogram"}
               <span class="text-[11px] text-emerald-400 font-mono">
-                選択中: {formatTimeStr(selectedDataPoint.Time)}
+                {$_("otel.selectedPoint", { values: { time: formatTimeStr(selectedDataPoint.Time) } })}
               </span>
             {/if}
           </div>
@@ -1820,12 +1821,12 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
               <thead class="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800 font-medium z-10">
                 <tr>
-                  <th class="py-2 px-3">日時</th>
-                  <th class="py-2 px-3">属性 (Attributes)</th>
-                  <th class="py-2 px-3 text-right">値 (Sum / Gauge)</th>
+                  <th class="py-2 px-3">{$_("otel.colTime")}</th>
+                  <th class="py-2 px-3">{$_("otel.thAttributes")}</th>
+                  <th class="py-2 px-3 text-right">{$_("otel.thVal")}</th>
                   {#if metricDetail.Type === "Histogram" || metricDetail.Type === "ExponentialHistogram"}
-                    <th class="py-2 px-3 text-right">回数 (Count)</th>
-                    <th class="py-2 px-3 text-right">最小 / 最大</th>
+                    <th class="py-2 px-3 text-right">{$_("otel.thCount")}</th>
+                    <th class="py-2 px-3 text-right">{$_("otel.thMinMax")}</th>
                   {/if}
                 </tr>
               </thead>
@@ -1833,7 +1834,7 @@
                 {#if filteredModalDataPoints.length === 0}
                   <tr>
                     <td colspan="5" class="py-6 text-center text-slate-500">
-                      データポイントがありません
+                      {$_("otel.noDataPoints")}
                     </td>
                   </tr>
                 {:else}
@@ -1873,7 +1874,7 @@
           onclick={() => (showMetricReport = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_("otel.close")}
         </button>
       </div>
     </div>
@@ -1887,9 +1888,9 @@
       <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
         <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <GitBranch class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-          <span>サービス間 呼び出し依存関係図 (DAG)</span>
+          <span>{$_("otel.dagTitle")}</span>
         </h3>
-        <button onclick={() => (showDAGModal = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+        <button onclick={() => (showDAGModal = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
           <X class="h-4 w-4" />
         </button>
       </div>
@@ -1900,14 +1901,14 @@
 
       <div class="flex justify-between items-center p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-600 dark:text-slate-400">
         <div>
-          ノード: <span class="font-bold text-slate-800 dark:text-slate-200">{dagData?.Nodes?.length || 0}</span> /
-          リンク: <span class="font-bold text-slate-800 dark:text-slate-200">{dagData?.Links?.length || 0}</span>
+          {$_("otel.dagNodes")} <span class="font-bold text-slate-800 dark:text-slate-200">{dagData?.Nodes?.length || 0}</span> /
+          {$_("otel.dagLinks")} <span class="font-bold text-slate-800 dark:text-slate-200">{dagData?.Links?.length || 0}</span>
         </div>
         <button
           onclick={() => (showDAGModal = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_("otel.close")}
         </button>
       </div>
     </div>
@@ -1922,14 +1923,14 @@
         <div>
           <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Activity class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span>トレース ウォーターフォール: {traceDetail.TraceID}</span>
+            <span>{$_("otel.traceWaterfallTitle", { values: { traceId: traceDetail.TraceID } })}</span>
           </h3>
           <p class="text-[11px] text-slate-500 dark:text-slate-400">
-            所要時間: <span class="font-bold text-cyan-600 dark:text-cyan-300">{(traceDetail.Dur * 1000).toFixed(3)} ms</span> /
-            スパン数: <span class="font-bold text-slate-800 dark:text-slate-200">{traceDetail.Spans?.length || 0}</span>
+            {$_("otel.traceDuration")} <span class="font-bold text-cyan-600 dark:text-cyan-300">{(traceDetail.Dur * 1000).toFixed(3)} ms</span> /
+            {$_("otel.traceSpanCount")} <span class="font-bold text-slate-800 dark:text-slate-200">{traceDetail.Spans?.length || 0}</span>
           </p>
         </div>
-        <button onclick={() => (showTraceReport = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+        <button onclick={() => (showTraceReport = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
           <X class="h-4 w-4" />
         </button>
       </div>
@@ -1943,13 +1944,13 @@
           <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th class="py-2 px-3">スパン名</th>
-                <th class="py-2 px-3">サービス</th>
-                <th class="py-2 px-3">開始日時</th>
-                <th class="py-2 px-3">終了日時</th>
-                <th class="py-2 px-3 text-right">所要時間 (ms)</th>
+                <th class="py-2 px-3">{$_("otel.colSpanName")}</th>
+                <th class="py-2 px-3">{$_("otel.colService")}</th>
+                <th class="py-2 px-3">{$_("otel.colStartTime")}</th>
+                <th class="py-2 px-3">{$_("otel.colEndTime")}</th>
+                <th class="py-2 px-3 text-right">{$_("otel.colDuration")}</th>
                 <th class="py-2 px-3">Span ID</th>
-                <th class="py-2 px-3">親Span ID</th>
+                <th class="py-2 px-3">{$_("otel.colParentSpan")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono">
@@ -1974,7 +1975,7 @@
           onclick={() => (showTraceReport = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_("otel.close")}
         </button>
       </div>
     </div>
@@ -1988,9 +1989,9 @@
       <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60">
         <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <FileText class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-          <span>OpenTelemetry ログ詳細</span>
+          <span>{$_("otel.logDetailTitle")}</span>
         </h3>
-        <button onclick={() => (showLogModal = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+        <button onclick={() => (showLogModal = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
           <X class="h-4 w-4" />
         </button>
       </div>
@@ -1998,21 +1999,21 @@
       <div class="p-5 space-y-4 text-xs overflow-auto max-h-[75vh]">
         <div class="grid grid-cols-2 gap-3">
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80">
-            <span class="text-slate-500 dark:text-slate-400 block mb-1">日時</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-1">{$_("otel.colTime")}</span>
             <span class="text-slate-800 dark:text-slate-200 font-mono">{formatTimeStr(selectedLog.time)}</span>
           </div>
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80">
-            <span class="text-slate-500 dark:text-slate-400 block mb-1">重要度</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-1">{$_("otel.severity")}</span>
             <span class="font-bold {selectedLog.level === 'ERROR' ? 'text-rose-500 dark:text-rose-400' : selectedLog.level === 'WARN' ? 'text-amber-500 dark:text-amber-400' : selectedLog.level === 'INFO' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-600 dark:text-slate-400'}">
               {selectedLog.severityText} (Level: {selectedLog.severity})
             </span>
           </div>
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80">
-            <span class="text-slate-500 dark:text-slate-400 block mb-1">ホスト</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-1">{$_("otel.colHost")}</span>
             <span class="text-slate-800 dark:text-slate-200 font-mono">{selectedLog.host}</span>
           </div>
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80">
-            <span class="text-slate-500 dark:text-slate-400 block mb-1">サービス / スコープ</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-1">{$_("otel.colServiceScope")}</span>
             <span class="text-slate-800 dark:text-slate-200 font-semibold">{selectedLog.service} / {selectedLog.scope}</span>
           </div>
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80">
@@ -2026,13 +2027,13 @@
         </div>
 
         <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-1">
-          <span class="text-slate-500 dark:text-slate-400 block font-semibold">メッセージ</span>
+          <span class="text-slate-500 dark:text-slate-400 block font-semibold">{$_("otel.colMessage")}</span>
           <p class="text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">{selectedLog.message}</p>
         </div>
 
         {#if selectedLog.attributes && Object.keys(selectedLog.attributes).length > 0}
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2">
-            <span class="text-slate-500 dark:text-slate-400 block font-semibold">属性 (Attributes)</span>
+            <span class="text-slate-500 dark:text-slate-400 block font-semibold">{$_("otel.thAttributes")}</span>
             <div class="space-y-1">
               {#each Object.entries(selectedLog.attributes) as [k, v]}
                 <div class="flex items-start gap-2 font-mono text-[11px]">
@@ -2046,7 +2047,7 @@
 
         {#if selectedLog.rawText && selectedLog.rawText !== selectedLog.message}
           <div class="p-3 bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-1">
-            <span class="text-slate-500 dark:text-slate-400 block font-semibold">Raw ログ</span>
+            <span class="text-slate-500 dark:text-slate-400 block font-semibold">{$_("otel.rawLog")}</span>
             <pre class="text-slate-700 dark:text-slate-400 font-mono text-[10px] whitespace-pre-wrap break-all max-h-40 overflow-auto">{selectedLog.rawText}</pre>
           </div>
         {/if}
@@ -2057,7 +2058,7 @@
           onclick={() => (showLogModal = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_("otel.close")}
         </button>
       </div>
     </div>

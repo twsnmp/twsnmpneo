@@ -23,6 +23,7 @@
   } from "../charts/eventlog";
   import { renderDuration, renderSLA, getStateColor } from "../common";
   import { askAI } from "../api";
+  import { _ } from "svelte-i18n";
 
   let {
     show = $bindable(false),
@@ -86,19 +87,30 @@
     aiSummary = "";
     try {
       const stats = calcEventLogDowntimeAndSLA(logs);
-      const topNodes = stats.nodeStats.slice(0, 5).map((n) => `${n.nodeName}: SLA ${renderSLA(n.sla)}, 停止時間 ${renderDuration(n.totalDowntimeSec)} (${n.count}回)`).join("; ");
-      const prompt = `以下のネットワーク監視ログ集計データを解析し、システム全体の健全性評価、主なボトルネック、および具体的な推奨改善アクションを専門家として簡潔にレポートしてください。\n\n` +
-        `【集計データ】\n` +
-        `- ログ対象件数: ${logs.length} 件\n` +
-        `- 全体稼働率 (SLA): ${renderSLA(stats.overallSLA)}\n` +
-        `- 障害発生件数: ${stats.totalIncidents} 件 (現在障害中: ${stats.ongoingIncidents} 件)\n` +
-        `- 総ダウンタイム: ${renderDuration(stats.totalDowntimeSec)}\n` +
-        `- 平均復旧時間 (MTTR): ${renderDuration(stats.mttrSec)}\n` +
-        `- 障害上位ノード: ${topNodes || "なし"}`;
+      const topNodes = stats.nodeStats.slice(0, 5).map((n) =>
+        $_('logReport.aiPromptNodeItem', {
+          values: {
+            name: n.nodeName,
+            sla: renderSLA(n.sla),
+            downtime: renderDuration(n.totalDowntimeSec),
+            count: n.count,
+          },
+        })
+      ).join("; ");
 
-      aiSummary = await askAI(prompt, "あなたは高可用性ネットワーク運用のシニアインフラエンジニアです。");
+      const prompt =
+        $_('logReport.aiPromptHeader') +
+        $_('logReport.aiPromptStats') +
+        $_('logReport.aiPromptLogs', { values: { count: logs.length } }) +
+        $_('logReport.aiPromptSla', { values: { sla: renderSLA(stats.overallSLA) } }) +
+        $_('logReport.aiPromptIncidents', { values: { total: stats.totalIncidents, ongoing: stats.ongoingIncidents } }) +
+        $_('logReport.aiPromptDowntime', { values: { downtime: renderDuration(stats.totalDowntimeSec) } }) +
+        $_('logReport.aiPromptMttr', { values: { mttr: renderDuration(stats.mttrSec) } }) +
+        $_('logReport.aiPromptTopNodes', { values: { nodes: topNodes || $_('logReport.aiPromptNone') } });
+
+      aiSummary = await askAI(prompt, $_('logReport.aiSystemPrompt'));
     } catch (e: any) {
-      aiSummary = `AIレポート生成エラー: ${e.message}`;
+      aiSummary = $_('logReport.aiError', { values: { error: e.message } });
     } finally {
       aiLoading = false;
     }
@@ -106,9 +118,9 @@
 
   const exportReportCSV = () => {
     const stats = calcEventLogDowntimeAndSLA(logs);
-    let csv = "ノード名,稼働率(SLA),障害回数,総停止時間(秒),最大停止時間(秒),現在の状態\n";
+    let csv = $_('logReport.csvHeader');
     csv += stats.nodeStats
-      .map((n) => `"${n.nodeName}","${n.sla.toFixed(3)}%","${n.count}","${n.totalDowntimeSec}","${n.maxDowntimeSec}","${n.ongoing ? '障害発生中' : n.currentLevel}"`)
+      .map((n) => `"${n.nodeName}","${n.sla.toFixed(3)}%","${n.count}","${n.totalDowntimeSec}","${n.maxDowntimeSec}","${n.ongoing ? $_('logReport.ongoing') : n.currentLevel}"`)
       .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -130,10 +142,10 @@
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
-              ログ総合アナリティクスレポート ({logCategory.toUpperCase()})
+              {$_('logReport.title', { values: { type: logCategory.toUpperCase() } })}
             </h2>
             <p class="text-[11px] text-slate-400">
-              対象レコード: <span class="font-mono text-cyan-400 font-bold">{logs.length.toLocaleString()}</span> 件 の統計分析
+              {$_('logReport.subtitle', { values: { count: logs.length.toLocaleString() } })}
             </p>
           </div>
         </div>
@@ -145,7 +157,7 @@
             class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
           >
             <Download class="h-3.5 w-3.5 text-emerald-400" />
-            <span>CSVエクスポート</span>
+            <span>{$_('logReport.btnExportCsv')}</span>
           </button>
           <button
             type="button"
@@ -165,7 +177,7 @@
           class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'downtime' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
         >
           <ShieldAlert class="h-4 w-4" />
-          <span>稼働率・障害 (SLA)</span>
+          <span>{$_('logReport.tabSla')}</span>
         </button>
 
         <button
@@ -174,7 +186,7 @@
           class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'state' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
         >
           <PieChart class="h-4 w-4" />
-          <span>重要度分布</span>
+          <span>{$_('logReport.tabLevel')}</span>
         </button>
 
         <button
@@ -183,7 +195,7 @@
           class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'heatmap' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
         >
           <Calendar class="h-4 w-4" />
-          <span>時間帯ヒートマップ</span>
+          <span>{$_('logReport.tabHeatmap')}</span>
         </button>
 
         <button
@@ -192,7 +204,7 @@
           class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'nodes' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
         >
           <Server class="h-4 w-4" />
-          <span>ノード別障害件数</span>
+          <span>{$_('logReport.tabNodes')}</span>
         </button>
 
         <button
@@ -201,7 +213,7 @@
           class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'ai' ? 'border-pink-500 text-pink-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
         >
           <Sparkles class="h-4 w-4 text-pink-400" />
-          <span>AI 総合分析要約</span>
+          <span>{$_('logReport.tabAi')}</span>
         </button>
       </div>
 
@@ -212,62 +224,62 @@
             <!-- KPI Summary Cards -->
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
               <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">全体稼働率 (SLA)</span>
+                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.overallSla')}</span>
                 <div class="text-xl font-mono font-black text-emerald-400">
                   {renderSLA(downtimeStats.overallSLA)}
                 </div>
               </div>
 
               <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">総障害件数</span>
+                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.totalIncidents')}</span>
                 <div class="text-xl font-mono font-black text-rose-400">
-                  {downtimeStats.totalIncidents.toLocaleString()} <span class="text-xs font-sans text-slate-400 font-normal">回</span>
+                  {downtimeStats.totalIncidents.toLocaleString()} <span class="text-xs font-sans text-slate-400 font-normal">{$_('logReport.timesUnit')}</span>
                 </div>
               </div>
 
               <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">総停止時間</span>
+                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.totalDowntime')}</span>
                 <div class="text-sm font-sans font-bold text-slate-200 truncate mt-1">
                   {renderDuration(downtimeStats.totalDowntimeSec)}
                 </div>
               </div>
 
               <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">平均復旧時間 (MTTR)</span>
+                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.mttr')}</span>
                 <div class="text-sm font-sans font-bold text-slate-200 truncate mt-1">
                   {renderDuration(downtimeStats.mttrSec)}
                 </div>
               </div>
 
               <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">現在障害中ノード</span>
+                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.ongoingIncidents')}</span>
                 <div class="text-xl font-mono font-black {downtimeStats.ongoingIncidents > 0 ? 'text-red-400 animate-pulse' : 'text-slate-400'}">
-                  {downtimeStats.ongoingIncidents} <span class="text-xs font-sans text-slate-400 font-normal">台</span>
+                  {downtimeStats.ongoingIncidents} <span class="text-xs font-sans text-slate-400 font-normal">{$_('logReport.nodesUnit')}</span>
                 </div>
               </div>
             </div>
 
             <!-- Top Downtime Chart -->
             <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-              <h3 class="text-xs font-bold text-slate-300 mb-2">ノード別 累積停止時間ランキング (上位15)</h3>
+              <h3 class="text-xs font-bold text-slate-300 mb-2">{$_('logReport.downtimeRanking')}</h3>
               <div id="reportDowntimeChart" class="h-64 w-full"></div>
             </div>
 
             <!-- Downtime Table -->
             <div class="rounded-2xl border border-slate-800 bg-slate-950/70 overflow-hidden shadow-sm">
               <div class="px-4 py-3 border-b border-slate-800 text-xs font-bold text-slate-300">
-                ノード別稼働実績一覧 ({downtimeStats.nodeStats.length} ノード)
+                {$_('logReport.nodeReportList', { values: { count: downtimeStats.nodeStats.length } })}
               </div>
               <div class="max-h-60 overflow-y-auto">
                 <table class="w-full text-left text-xs">
                   <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] uppercase text-slate-400">
                     <tr>
-                      <th class="py-2.5 px-3.5">ノード名</th>
-                      <th class="py-2.5 px-3.5 text-right">稼働率 (SLA)</th>
-                      <th class="py-2.5 px-3.5 text-right">障害回数</th>
-                      <th class="py-2.5 px-3.5 text-right">総停止時間</th>
-                      <th class="py-2.5 px-3.5 text-right">最大停止時間</th>
-                      <th class="py-2.5 px-3.5 text-center">現在の状態</th>
+                      <th class="py-2.5 px-3.5">{$_('logReport.thNode')}</th>
+                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thSla')}</th>
+                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thCount')}</th>
+                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thTotalDown')}</th>
+                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thMaxDown')}</th>
+                      <th class="py-2.5 px-3.5 text-center">{$_('logReport.thStatus')}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
@@ -283,7 +295,7 @@
                         <td class="py-2 px-3.5 text-center font-sans">
                           {#if node.ongoing}
                             <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                              障害発生中
+                              {$_('logReport.ongoing')}
                             </span>
                           {:else}
                             <span class="inline-flex items-center gap-1 text-[11px]">
@@ -296,7 +308,7 @@
                     {/each}
                     {#if downtimeStats.nodeStats.length === 0}
                       <tr>
-                        <td colspan="6" class="py-8 text-center text-slate-500 font-sans">障害履歴はありません</td>
+                        <td colspan="6" class="py-8 text-center text-slate-500 font-sans">{$_('logReport.noIncidents')}</td>
                       </tr>
                     {/if}
                   </tbody>
@@ -306,17 +318,17 @@
           </div>
         {:else if activeTab === "state"}
           <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 class="text-xs font-bold text-slate-300 mb-4">ログ重要度レベル分布</h3>
+            <h3 class="text-xs font-bold text-slate-300 mb-4">{$_('logReport.levelDistribution')}</h3>
             <div id="reportStateChart" class="h-96 w-full"></div>
           </div>
         {:else if activeTab === "heatmap"}
           <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 class="text-xs font-bold text-slate-300 mb-2">曜日・時間帯別 ログ発生ヒートマップ (24時間 × 7日間)</h3>
+            <h3 class="text-xs font-bold text-slate-300 mb-2">{$_('logReport.heatmapTitle')}</h3>
             <div id="reportHeatmapChart" class="h-96 w-full"></div>
           </div>
         {:else if activeTab === "nodes"}
           <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 class="text-xs font-bold text-slate-300 mb-2">ノード別 発生イベント件数ランキング (上位15)</h3>
+            <h3 class="text-xs font-bold text-slate-300 mb-2">{$_('logReport.nodeIncidentsRanking')}</h3>
             <div id="reportNodesChart" class="h-96 w-full"></div>
           </div>
         {:else if activeTab === "ai"}
@@ -324,7 +336,7 @@
             <div class="flex items-center justify-between rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4">
               <div class="flex items-center gap-2.5 text-xs text-pink-300">
                 <Sparkles class="h-4 w-4" />
-                <span>AIによる統計解析と推奨運用アクション</span>
+                <span>{$_('logReport.aiSectionTitle')}</span>
               </div>
               <button
                 type="button"
@@ -333,7 +345,7 @@
                 class="flex items-center gap-1.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 px-3.5 py-1.5 text-xs font-semibold text-pink-300 transition-colors cursor-pointer"
               >
                 <RefreshCw class="h-3.5 w-3.5 {aiLoading ? 'animate-spin' : ''}" />
-                <span>再分析</span>
+                <span>{$_('logReport.btnReanalyze')}</span>
               </button>
             </div>
 
@@ -341,13 +353,13 @@
               {#if aiLoading}
                 <div class="flex items-center justify-center py-16 gap-3 text-cyan-400">
                   <RefreshCw class="h-5 w-5 animate-spin" />
-                  <span class="text-sm font-semibold">マルチLLM推論中... ログ統計データを分析しています</span>
+                  <span class="text-sm font-semibold">{$_('logReport.aiAnalyzing')}</span>
                 </div>
               {:else if aiSummary}
                 {aiSummary}
               {:else}
                 <div class="py-12 text-center text-slate-500">
-                  「再分析」ボタンを押してAIレポートを生成してください
+                  {$_('logReport.aiPlaceholder')}
                 </div>
               {/if}
             </div>

@@ -20,6 +20,7 @@
     Upload,
     Trash2
   } from "@lucide/svelte";
+  import { _ } from "svelte-i18n";
 
   let { show = $bindable(false), onSaved }: { show: boolean; onSaved?: () => void } = $props();
 
@@ -148,10 +149,10 @@
     saveError = "";
     try {
       const res = await uploadGeoIP(file);
-      saveMsg = `IP位置情報DB (GeoIP) を更新しました (Ver: ${res.version || "有効"})`;
+      saveMsg = `${$_('config.geoipUpdated')} (Ver: ${res.version || "OK"})`;
       await loadConfig();
     } catch (err: any) {
-      saveError = `GeoIP DB更新失敗: ${err.message || err}`;
+      saveError = `${$_('config.geoipUpdateFailed')}: ${err.message || err}`;
     } finally {
       geoIPLoading = false;
       if (geoIPFileInput) geoIPFileInput.value = "";
@@ -159,17 +160,17 @@
   }
 
   async function handleDeleteGeoIP() {
-    if (!confirm("本当にIP位置情報DB (GeoIP) を削除しますか？")) return;
+    if (!confirm($_('config.geoipConfirmDelete'))) return;
     geoIPLoading = true;
     saveMsg = "";
     saveError = "";
     try {
       await deleteGeoIP();
-      saveMsg = "IP位置情報DB (GeoIP) を削除しました";
+      saveMsg = $_('config.geoipDeleted');
       geoIPInfo = "";
       await loadConfig();
     } catch (err: any) {
-      saveError = `GeoIP DB削除失敗: ${err.message || err}`;
+      saveError = `${$_('config.geoipDeleteFailed')}: ${err.message || err}`;
     } finally {
       geoIPLoading = false;
     }
@@ -235,13 +236,13 @@
         InsecureSkipVerify: Boolean(insecureSkipVerify),
       });
 
-      saveMsg = "設定を正常に保存しました。";
+      saveMsg = $_('config.saveSuccess');
       onSaved?.();
       setTimeout(() => {
         if (saveMsg) show = false;
       }, 1200);
     } catch (e: any) {
-      saveError = "保存エラー: " + (e.message || e);
+      saveError = $_('config.saveError') + ": " + (e.message || e);
     }
   };
 </script>
@@ -262,13 +263,13 @@
             <Sliders class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">システム環境設定 (System Configuration)</h2>
-            <p class="text-[11px] text-slate-400">マップ監視パラメータ・受信デーモン・通知・AI連携設定</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{$_('config.title')}</h2>
+            <p class="text-[11px] text-slate-400">{$_('app.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
         >
@@ -286,7 +287,7 @@
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'map' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Sliders class="h-4 w-4" />
-            マップ・ポーリング
+            {$_('config.tabMap')}
           </button>
           <button
             type="button"
@@ -294,7 +295,7 @@
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'receivers' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Radio class="h-4 w-4" />
-            受信デーモン
+            {$_('config.tabReceivers')}
           </button>
           <button
             type="button"
@@ -302,7 +303,7 @@
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'notify' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Bell class="h-4 w-4" />
-            通知・アラート
+            {$_('config.tabNotify')}
           </button>
           <button
             type="button"
@@ -310,7 +311,7 @@
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'ai' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Brain class="h-4 w-4" />
-            AI / LLM 支援
+            {$_('config.tabAi')}
           </button>
           <button
             type="button"
@@ -318,7 +319,7 @@
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'datastore' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Database class="h-4 w-4" />
-            データストア
+            {$_('config.tabDatastore')}
           </button>
         </div>
 
@@ -341,13 +342,13 @@
           {#if activeTab === "map"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Sliders class="w-4 h-4 text-cyan-400" />
-                  マップ基本設定
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Sliders class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.tabMapTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label for="map-name" class="block text-xs font-semibold text-slate-400 mb-1.5">マップ名称</label>
+                    <label for="map-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mapName')}</label>
                     <input
                       id="map-name"
                       type="text"
@@ -356,23 +357,23 @@
                     />
                   </div>
                   <div>
-                    <label for="map-size" class="block text-xs font-semibold text-slate-400 mb-1.5">マップキャンバスサイズ</label>
+                    <label for="map-size" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mapSize')}</label>
                     <select
                       id="map-size"
                       bind:value={mapSize}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
-                      <option value={0}>自動 (Auto 2500x5000)</option>
-                      <option value={1}>A4縦 (2894x4093 A4P)</option>
-                      <option value={2}>A4横 (4093x2894 A4L)</option>
+                      <option value={0}>{$_('config.mapSizeAuto')}</option>
+                      <option value={1}>A4P (2894x4093)</option>
+                      <option value={2}>A4L (4093x2894)</option>
                     </select>
                   </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                   <div>
-                    <label for="icon-size" class="block text-xs font-semibold text-slate-400 mb-1.5">
-                      ノードアイコンサイズ: <span class="font-mono text-cyan-400">{iconSize}</span> (1:極小 〜 5:極大)
+                    <label for="icon-size" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      {$_('config.iconSize')}: <span class="font-mono text-cyan-600 dark:text-cyan-400">{iconSize}</span> ({$_('config.iconSizeDesc')})
                     </label>
                     <input
                       id="icon-size"
@@ -384,7 +385,7 @@
                     />
                   </div>
                   <div>
-                    <label for="log-days" class="block text-xs font-semibold text-slate-400 mb-1.5">イベントログ保持期間 (日数)</label>
+                    <label for="log-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.logDays')}</label>
                     <input
                       id="log-days"
                       type="number"
@@ -398,13 +399,13 @@
               </div>
 
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Network class="w-4 h-4 text-cyan-400" />
-                  ポーリング & SNMP デフォルトパラメータ
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Network class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.pollingSnmpTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label for="poll-int" class="block text-xs font-semibold text-slate-400 mb-1.5">通常ポーリング間隔 (秒)</label>
+                    <label for="poll-int" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.pollInt')}</label>
                     <input
                       id="poll-int"
                       type="number"
@@ -414,7 +415,7 @@
                     />
                   </div>
                   <div>
-                    <label for="poll-timeout" class="block text-xs font-semibold text-slate-400 mb-1.5">タイムアウト (秒)</label>
+                    <label for="poll-timeout" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.timeout')}</label>
                     <input
                       id="poll-timeout"
                       type="number"
@@ -424,7 +425,7 @@
                     />
                   </div>
                   <div>
-                    <label for="poll-retry" class="block text-xs font-semibold text-slate-400 mb-1.5">リトライ回数</label>
+                    <label for="poll-retry" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.retry')}</label>
                     <input
                       id="poll-retry"
                       type="number"
@@ -437,19 +438,19 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div>
-                    <label for="snmp-mode" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMP モード</label>
+                    <label for="snmp-mode" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.snmpMode')}</label>
                     <select
                       id="snmp-mode"
                       bind:value={snmpMode}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
-                      <option value="v2c">SNMP v2c (推奨)</option>
-                      <option value="v3">SNMP v3 (セキュア)</option>
+                      <option value="v2c">SNMP v2c ({$_('config.recommended')})</option>
+                      <option value="v3">SNMP v3</option>
                       <option value="v1">SNMP v1</option>
                     </select>
                   </div>
                   <div>
-                    <label for="snmp-comm" class="block text-xs font-semibold text-slate-400 mb-1.5">コミュニティ名 (v1/v2c)</label>
+                    <label for="snmp-comm" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.community')}</label>
                     <input
                       id="snmp-comm"
                       type="text"
@@ -460,9 +461,9 @@
                 </div>
 
                 {#if snmpMode === "v3"}
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/60">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800/60">
                     <div>
-                      <label for="snmp-user" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMPv3 ユーザー名</label>
+                      <label for="snmp-user" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpUser')}</label>
                       <input
                         id="snmp-user"
                         type="text"
@@ -471,7 +472,7 @@
                       />
                     </div>
                     <div>
-                      <label for="snmp-pwd" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMPv3 パスワード</label>
+                      <label for="snmp-pwd" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpPassword')}</label>
                       <input
                         id="snmp-pwd"
                         type="password"
@@ -485,32 +486,33 @@
 
               <!-- GeoIP Database Section (TWSNMP FC / FK Compatible) -->
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                   <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <Globe class="w-4 h-4 text-cyan-400" />
-                    IP位置情報データベース (GeoIP)
+                    <Globe class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                    {$_('config.geoipTitle')}
                   </h3>
                   {#if geoIPInfo}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      データベース有効 (Ver: {geoIPInfo})
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
+                      {$_('config.geoipActive')} (Ver: {geoIPInfo})
                     </span>
                   {:else}
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-400">
-                      未登録
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+                      {$_('config.geoipInactive')}
                     </span>
                   {/if}
                 </div>
 
-                <p class="text-[11px] text-slate-400 leading-relaxed">
-                  NetFlow や各種ログの IP アドレスから地理的位置（国・緯度経度・都市名）を検索するための MaxMind GeoIP2 / GeoLite2 形式のバイナリデータベース (<code class="text-cyan-400">.mmdb</code>) を管理します。
+                <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {$_('config.geoipDesc')}
                 </p>
 
-                <div class="rounded-xl border border-slate-800/80 bg-slate-950/60 p-4 space-y-3">
+                <!-- Fixed: Light/Dark adaptive card for GeoIP upload -->
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-4 space-y-3">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="space-y-0.5">
-                      <span class="block text-xs font-semibold text-slate-300">GeoIP データベースファイル (.mmdb)</span>
-                      <span class="block text-[11px] text-slate-500">GeoLite2-City.mmdb などを選択してアップロードします</span>
+                      <span class="block text-xs font-semibold text-slate-800 dark:text-slate-200">{$_('config.geoipFile')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.geoipFileDesc')}</span>
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -524,10 +526,10 @@
                       />
                       <label
                         for="geoip-file-input"
-                        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-2 text-xs font-semibold text-cyan-300 transition-colors cursor-pointer {geoIPLoading ? 'opacity-50 pointer-events-none' : ''}"
+                        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-2 text-xs font-semibold text-cyan-600 dark:text-cyan-300 transition-colors cursor-pointer {geoIPLoading ? 'opacity-50 pointer-events-none' : ''}"
                       >
                         <Upload class="w-3.5 h-3.5" />
-                        <span>{geoIPLoading ? "適用中..." : "ファイルを選択して適用"}</span>
+                        <span>{geoIPLoading ? $_('common.loading') : $_('config.geoipApply')}</span>
                       </label>
 
                       {#if geoIPInfo}
@@ -535,10 +537,10 @@
                           type="button"
                           onclick={handleDeleteGeoIP}
                           disabled={geoIPLoading}
-                          class="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-xs font-semibold text-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                          class="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-300 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           <Trash2 class="w-3.5 h-3.5" />
-                          <span>削除</span>
+                          <span>{$_('common.delete')}</span>
                         </button>
                       {/if}
                     </div>
@@ -551,77 +553,77 @@
           {:else if activeTab === "receivers"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Radio class="w-4 h-4 text-cyan-400" />
-                  ネットワークログ・パケット受信デーモン
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Radio class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.receiverTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableSyslogd} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableSyslogd} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">Syslog サーバー</span>
-                      <span class="block text-[11px] text-slate-400">UDP/TCP 514番ポートで受信</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.syslogd')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.syslogDesc')}</span>
                     </div>
                   </label>
 
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableTrapd} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableTrapd} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">SNMP Trap サーバー</span>
-                      <span class="block text-[11px] text-slate-400">UDP 162番ポートで受信</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.trapd')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.trapDesc')}</span>
                     </div>
                   </label>
 
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableNetflowd} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableNetflowd} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">NetFlow サーバー</span>
-                      <span class="block text-[11px] text-slate-400">UDP 2055番ポートでフロー収集</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.netflowd')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.netflowDesc')}</span>
                     </div>
                   </label>
 
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableSFlowd} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableSFlowd} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">sFlow サーバー</span>
-                      <span class="block text-[11px] text-slate-400">UDP 6343番ポートでフロー収集</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.sflowd')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.sflowDesc')}</span>
                     </div>
                   </label>
 
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableArpWatch} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableArpWatch} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">ARP 監視デーモン</span>
-                      <span class="block text-[11px] text-slate-400">ローカルARPパケット変化の検知</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.arpwatch')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.arpWatchDesc')}</span>
                     </div>
                   </label>
 
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableOTel} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableOTel} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">OpenTelemetry コレクタ</span>
-                      <span class="block text-[11px] text-slate-400">gRPC/HTTP OTLP メトリクス受信</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.otel')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.otelDesc')}</span>
                     </div>
                   </label>
 
-                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition-colors">
-                    <input type="checkbox" bind:checked={enableMqtt} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors">
+                    <input type="checkbox" bind:checked={enableMqtt} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
                     <div>
-                      <span class="block font-semibold text-slate-200 text-xs">MQTT ブローカー連携</span>
-                      <span class="block text-[11px] text-slate-400">IoTテレメトリ・センサー受信</span>
+                      <span class="block font-semibold text-slate-800 dark:text-slate-200 text-xs">{$_('config.mqtt')}</span>
+                      <span class="block text-[11px] text-slate-500 dark:text-slate-400">{$_('config.mqttDesc')}</span>
                     </div>
                   </label>
                 </div>
 
                 {#if enableArpWatch}
-                  <div class="mt-3 p-3 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
-                    <label for="arp-range" class="block text-xs font-semibold text-slate-400 mb-1">ARP監視範囲 (CIDR)</label>
+                  <div class="mt-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-3">
+                    <label for="arp-range" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('config.arpRangeLabel')}</label>
                     <input
                       id="arp-range"
                       type="text"
                       bind:value={arpWatchRange}
-                      placeholder="例: 192.168.1.0/24"
-                      class="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      placeholder={$_('config.arpRangePlaceholder')}
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 {/if}
@@ -632,26 +634,26 @@
           {:else if activeTab === "notify"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Bell class="w-4 h-4 text-cyan-400" />
-                  障害検知アラート通知ポリシー
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Bell class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.notifyPolicyTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label for="notify-level" class="block text-xs font-semibold text-slate-400 mb-1.5">最小通知レベル</label>
+                    <label for="notify-level" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.notifyLevel')}</label>
                     <select
                       id="notify-level"
                       bind:value={notifyLevel}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
-                      <option value="none">通知なし (オフ)</option>
-                      <option value="warn">注意 (Warn 以上すべて)</option>
-                      <option value="low">軽微障害 (Low 以上)</option>
-                      <option value="high">重度障害 (High/Error のみ)</option>
+                      <option value="none">{$_('config.notifyLevelNone')}</option>
+                      <option value="warn">{$_('config.notifyLevelWarn')}</option>
+                      <option value="low">{$_('config.notifyLevelLow')}</option>
+                      <option value="high">{$_('config.notifyLevelHigh')}</option>
                     </select>
                   </div>
                   <div>
-                    <label for="notify-interval" class="block text-xs font-semibold text-slate-400 mb-1.5">同一アラート再通知間隔 (分)</label>
+                    <label for="notify-interval" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.notifyIntervalLabel')}</label>
                     <input
                       id="notify-interval"
                       type="number"
@@ -664,22 +666,22 @@
 
                 <div class="space-y-3 pt-2">
                   <div>
-                    <label for="webhook-url" class="block text-xs font-semibold text-slate-400 mb-1.5">Webhook URL (Slack / Teams / Discord)</label>
+                    <label for="webhook-url" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.webhookUrl')}</label>
                     <input
                       id="webhook-url"
                       type="text"
                       bind:value={webhookUrl}
-                      placeholder="https://hooks.slack.com/services/... または https://discord.com/api/webhooks/..."
+                      placeholder={$_('config.webhookPlaceholder')}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label for="line-token" class="block text-xs font-semibold text-slate-400 mb-1.5">LINE Notify アクセストークン</label>
+                    <label for="line-token" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.lineTokenLabel')}</label>
                     <input
                       id="line-token"
                       type="password"
                       bind:value={lineToken}
-                      placeholder="LINE Notify トークン"
+                      placeholder={$_('config.lineTokenPlaceholder')}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
@@ -687,13 +689,13 @@
               </div>
 
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Mail class="w-4 h-4 text-cyan-400" />
-                  SMTP メール通知設定
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Mail class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.smtpTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label for="mail-server" class="block text-xs font-semibold text-slate-400 mb-1.5">SMTP サーバー (host:port)</label>
+                    <label for="mail-server" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailServerLabel')}</label>
                     <input
                       id="mail-server"
                       type="text"
@@ -703,7 +705,7 @@
                     />
                   </div>
                   <div>
-                    <label for="mail-from" class="block text-xs font-semibold text-slate-400 mb-1.5">送信元アドレス (From)</label>
+                    <label for="mail-from" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailFromLabel')}</label>
                     <input
                       id="mail-from"
                       type="email"
@@ -713,7 +715,7 @@
                     />
                   </div>
                   <div>
-                    <label for="mail-to" class="block text-xs font-semibold text-slate-400 mb-1.5">宛先アドレス (To)</label>
+                    <label for="mail-to" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailToLabel')}</label>
                     <input
                       id="mail-to"
                       type="email"
@@ -723,7 +725,7 @@
                     />
                   </div>
                   <div>
-                    <label for="mail-user" class="block text-xs font-semibold text-slate-400 mb-1.5">SMTP 認証ユーザー</label>
+                    <label for="mail-user" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailUserLabel')}</label>
                     <input
                       id="mail-user"
                       type="text"
@@ -733,7 +735,7 @@
                     />
                   </div>
                   <div class="md:col-span-2">
-                    <label for="mail-pwd" class="block text-xs font-semibold text-slate-400 mb-1.5">SMTP パスワード</label>
+                    <label for="mail-pwd" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailPasswordLabel')}</label>
                     <input
                       id="mail-pwd"
                       type="password"
@@ -745,8 +747,8 @@
                 </div>
 
                 <label class="flex items-center gap-3 pt-2 cursor-pointer">
-                  <input type="checkbox" bind:checked={insecureSkipVerify} class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
-                  <span class="text-xs text-slate-300">TLS 証明書検証をスキップする (自己署名証明書環境など)</span>
+                  <input type="checkbox" bind:checked={insecureSkipVerify} class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20" />
+                  <span class="text-xs text-slate-600 dark:text-slate-300">{$_('config.skipTlsVerify')}</span>
                 </label>
               </div>
             </div>
@@ -755,26 +757,26 @@
           {:else if activeTab === "ai"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Brain class="w-4 h-4 text-cyan-400" />
-                  AI アシスタント & 自動障害診断エンジン
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Brain class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.aiTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label for="llm-provider" class="block text-xs font-semibold text-slate-400 mb-1.5">AI プロバイダー</label>
+                    <label for="llm-provider" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiProvider')}</label>
                     <select
                       id="llm-provider"
                       bind:value={llmProvider}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
-                      <option value="gemini">Google Gemini (推奨)</option>
-                      <option value="openai">OpenAI (GPT-4o)</option>
-                      <option value="claude">Anthropic Claude 3.5</option>
-                      <option value="ollama">Ollama (ローカル LLM)</option>
+                      <option value="gemini">{$_('config.aiGeminiRecommended')}</option>
+                      <option value="openai">{$_('config.aiOpenAI')}</option>
+                      <option value="claude">{$_('config.aiClaude')}</option>
+                      <option value="ollama">{$_('config.aiOllama')}</option>
                     </select>
                   </div>
                   <div>
-                    <label for="llm-model" class="block text-xs font-semibold text-slate-400 mb-1.5">モデル名</label>
+                    <label for="llm-model" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiModel')}</label>
                     <input
                       id="llm-model"
                       type="text"
@@ -786,7 +788,7 @@
 
                 {#if llmProvider === "ollama"}
                   <div>
-                    <label for="llm-url" class="block text-xs font-semibold text-slate-400 mb-1.5">Ollama エンドポイント URL</label>
+                    <label for="llm-url" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiOllamaUrl')}</label>
                     <input
                       id="llm-url"
                       type="text"
@@ -796,12 +798,12 @@
                   </div>
                 {:else}
                   <div>
-                    <label for="llm-key" class="block text-xs font-semibold text-slate-400 mb-1.5">API キー</label>
+                    <label for="llm-key" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiApiKey')}</label>
                     <input
                       id="llm-key"
                       type="password"
                       bind:value={llmApiKey}
-                      placeholder="{llmProvider.toUpperCase()} の API キーを入力"
+                      placeholder="{llmProvider.toUpperCase()} {$_('config.aiApiKeyPlaceholder')}"
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
@@ -809,24 +811,24 @@
               </div>
 
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-3">
-                  <Cpu class="w-4 h-4 text-cyan-400" />
-                  Model Context Protocol (MCP) 連携
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Cpu class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.mcpTitle')}
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label for="mcp-trans" class="block text-xs font-semibold text-slate-400 mb-1.5">MCP トランスポート</label>
+                    <label for="mcp-trans" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpTransport')}</label>
                     <select
                       id="mcp-trans"
                       bind:value={mcpTransport}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
-                      <option value="stdio">標準入出力 (stdio)</option>
-                      <option value="sse">Server-Sent Events (SSE / HTTP)</option>
+                      <option value="stdio">{$_('config.mcpStdio')}</option>
+                      <option value="sse">{$_('config.mcpSse')}</option>
                     </select>
                   </div>
                   <div>
-                    <label for="mcp-endpoint" class="block text-xs font-semibold text-slate-400 mb-1.5">エンドポイント / コマンド</label>
+                    <label for="mcp-endpoint" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpEndpoint')}</label>
                     <input
                       id="mcp-endpoint"
                       type="text"
@@ -844,53 +846,53 @@
             <div class="space-y-6 max-w-2xl">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- BBolt Status Card -->
-                <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-3">
-                  <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 p-5 shadow-sm dark:shadow-lg space-y-3">
+                  <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
                     <div class="flex items-center gap-2">
-                      <Database class="w-4 h-4 text-cyan-400" />
-                      <h4 class="text-xs font-bold text-slate-100">bbolt 構成ストア</h4>
+                      <Database class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                      <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100">{$_('config.bboltTitle')}</h4>
                     </div>
-                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                      稼働中
+                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      {$_('config.statusRunning')}
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400">
-                    ACID トランザクション対応の軽量組み込み KV データベース。ノード・ポーリング定義・描画アイテムを保持します。
+                  <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {$_('config.bboltDesc')}
                   </p>
-                  <div class="pt-2 text-[11px] text-slate-300 font-mono space-y-1">
+                  <div class="pt-2 text-[11px] text-slate-700 dark:text-slate-300 font-mono space-y-1">
                     <div class="flex justify-between">
-                      <span class="text-slate-400">DB パス:</span>
-                      <span class="text-slate-200">./data/twsnmpneo.db</span>
+                      <span class="text-slate-500 dark:text-slate-400">{$_('config.dbPath')}</span>
+                      <span class="text-slate-900 dark:text-slate-200">./data/twsnmpneo.db</span>
                     </div>
                     <div class="flex justify-between">
-                      <span class="text-slate-400">整合性チェック:</span>
-                      <span class="text-emerald-400">正常 (OK)</span>
+                      <span class="text-slate-500 dark:text-slate-400">{$_('config.integrityCheck')}</span>
+                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{$_('config.statusNormalOk')}</span>
                     </div>
                   </div>
                 </div>
 
                 <!-- Parquet Status Card -->
-                <div class="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-lg space-y-3">
-                  <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 p-5 shadow-sm dark:shadow-lg space-y-3">
+                  <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
                     <div class="flex items-center gap-2">
-                      <Server class="w-4 h-4 text-cyan-400" />
-                      <h4 class="text-xs font-bold text-slate-100">Apache Parquet ログ</h4>
+                      <Server class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                      <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100">{$_('config.parquetTitle')}</h4>
                     </div>
-                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                      稼働中
+                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      {$_('config.statusRunning')}
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400">
-                    列指向圧縮ストレージ。大容量の Syslog / Trap / NetFlow / ポーリング結果を高速に分析・長期保存します。
+                  <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {$_('config.parquetDesc')}
                   </p>
-                  <div class="pt-2 text-[11px] text-slate-300 font-mono space-y-1">
+                  <div class="pt-2 text-[11px] text-slate-700 dark:text-slate-300 font-mono space-y-1">
                     <div class="flex justify-between">
-                      <span class="text-slate-400">保存ディレクトリ:</span>
-                      <span class="text-slate-200">./data/logs</span>
+                      <span class="text-slate-500 dark:text-slate-400">{$_('config.saveDir')}</span>
+                      <span class="text-slate-900 dark:text-slate-200">./data/logs</span>
                     </div>
                     <div class="flex justify-between">
-                      <span class="text-slate-400">圧縮形式:</span>
-                      <span class="text-cyan-400">Snappy / Parquet v2</span>
+                      <span class="text-slate-500 dark:text-slate-400">{$_('config.compression')}</span>
+                      <span class="text-cyan-600 dark:text-cyan-400">Snappy / Parquet v2</span>
                     </div>
                   </div>
                 </div>
@@ -898,14 +900,14 @@
 
               <!-- Format selector -->
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-3">
-                <h4 class="text-xs font-bold text-slate-100">ログ記録フォーマット</h4>
-                <p class="text-[11px] text-slate-400">
-                  TWSNMP NEO はデフォルトで Apache Parquet 形式を採用しています。
+                <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100">{$_('config.logFormatTitle')}</h4>
+                <p class="text-[11px] text-slate-600 dark:text-slate-400">
+                  {$_('config.logFormatDesc')}
                 </p>
                 <div class="flex items-center gap-4 pt-1">
                   <label class="flex items-center gap-2 cursor-pointer">
                     <input type="radio" bind:group={logFormat} value="parquet" class="text-cyan-500 focus:ring-cyan-500/20" />
-                    <span class="text-xs text-slate-200 font-medium">Apache Parquet (標準・高圧縮・高速集計)</span>
+                    <span class="text-xs text-slate-800 dark:text-slate-200 font-medium">{$_('config.parquetOption')}</span>
                   </label>
                 </div>
               </div>
@@ -916,8 +918,8 @@
 
       <!-- Modal Footer -->
       <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5">
-        <div class="text-[11px] text-slate-400">
-          変更を有効にするには保存ボタンをクリックしてください
+        <div class="text-[11px] text-slate-500 dark:text-slate-400">
+          {$_('config.saveHint')}
         </div>
         <div class="flex items-center gap-3">
           <button
@@ -925,7 +927,7 @@
             onclick={() => (show = false)}
             class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors"
           >
-            キャンセル
+            {$_('common.cancel')}
           </button>
           <button
             type="button"
@@ -933,7 +935,7 @@
             class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer"
           >
             <Save class="w-4 h-4" />
-            保存
+            {$_('common.save')}
           </button>
         </div>
       </div>

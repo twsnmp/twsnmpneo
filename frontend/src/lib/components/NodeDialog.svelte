@@ -4,6 +4,7 @@
   import { saveNode, type NodeEnt } from "../api";
   import { checkNodePos } from "../map/map";
   import { X, Save, Cpu, Shield, Key, Network, Globe } from "@lucide/svelte";
+  import { _ } from "svelte-i18n";
 
   let { show = $bindable(false), node = $bindable<NodeEnt | null>(null), onSave = () => {} } = $props<{
     show: boolean;
@@ -37,7 +38,7 @@
     if (show) {
       untrack(() => {
         saveError = "";
-        if (node) {
+        if (node && node.id) {
           name = node.name || (node as any).Name || "";
           ip = node.ip || (node as any).IP || "";
           mac = node.mac || (node as any).MAC || "";
@@ -56,21 +57,26 @@
           sshUser = (node as any).ssh_user || (node as any).SSHUser || "";
           publicKey = (node as any).public_key || (node as any).PublicKey || "";
         } else {
-          name = "新規ノード";
-          ip = "192.168.1.10";
-          mac = "";
-          descr = "";
-          icon = "desktop";
-          addrMode = "ip";
-          autoAck = false;
-          url = "";
-          snmpMode = "v2c";
-          community = "public";
-          snmpPort = 161;
-          user = "";
-          password = "";
-          sshUser = "";
-          publicKey = "";
+          const rawName = node?.name || (node as any)?.Name || "";
+          if (rawName && rawName !== "新規ノード" && rawName !== "New Node") {
+            name = rawName;
+          } else {
+            name = $_('node.defaultName');
+          }
+          ip = node?.ip || (node as any)?.IP || "192.168.1.10";
+          mac = node?.mac || (node as any)?.MAC || "";
+          descr = node?.descr || (node as any)?.Descr || "";
+          icon = node?.icon || (node as any)?.Icon || "desktop";
+          addrMode = (node as any)?.addr_mode || (node as any)?.AddrMode || "ip";
+          autoAck = (node as any)?.auto_ack ?? (node as any)?.AutoAck ?? false;
+          url = (node as any)?.url || (node as any)?.URL || "";
+          snmpMode = (node as any)?.snmp_mode || (node as any)?.SnmpMode || "v2c";
+          community = (node as any)?.community || (node as any)?.Community || "public";
+          snmpPort = Number((node as any)?.snmp_port || (node as any)?.SnmpPort || 161);
+          user = (node as any)?.user || (node as any)?.User || "";
+          password = (node as any)?.password || (node as any)?.Password || "";
+          sshUser = (node as any)?.ssh_user || (node as any)?.SSHUser || "";
+          publicKey = (node as any)?.public_key || (node as any)?.PublicKey || "";
         }
       });
     }
@@ -78,7 +84,7 @@
 
   const handleSave = async () => {
     if (!name || !ip) {
-      saveError = "ノード名とIPアドレスは必須入力です。";
+      saveError = $_('node.saveError');
       return;
     }
     const n: any = {
@@ -108,7 +114,7 @@
       onSave(saved);
       show = false;
     } catch (e: any) {
-      saveError = "保存エラー: " + (e.message || e);
+      saveError = $_('node.saveError') + ": " + (e.message || e);
     }
   };
 </script>
@@ -129,13 +135,13 @@
             <Cpu class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{node?.id ? "ノードの編集 (Edit Node)" : "ノードの追加 (Add Node)"}</h2>
-            <p class="text-[11px] text-slate-400">ネットワーク監視対象機器の基本情報および接続パラメータ設定</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{node?.id ? $_('node.editTitle') : $_('node.createTitle')}</h2>
+            <p class="text-[11px] text-slate-400">{$_('app.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
         >
@@ -154,28 +160,28 @@
 
         <!-- Section 1: Basic Information -->
         <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-          <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
-            <Network class="w-4 h-4 text-cyan-400" />
-            基本情報
+          <h3 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <Network class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+            {$_('node.tabBasic')}
           </h3>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label for="node-name" class="block text-xs font-semibold text-slate-400 mb-1.5">
-                ノード名称 <span class="text-rose-400">*</span>
+              <label for="node-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                {$_('node.name')} <span class="text-rose-500">*</span>
               </label>
               <input
                 id="node-name"
                 type="text"
                 bind:value={name}
-                placeholder="例: Web-Server-01"
+                placeholder="Web-Server-01"
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label for="node-ip" class="block text-xs font-semibold text-slate-400 mb-1.5">
-                IP アドレス / ホスト名 <span class="text-rose-400">*</span>
+              <label for="node-ip" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                {$_('node.ip')} <span class="text-rose-500">*</span>
               </label>
               <input
                 id="node-ip"
@@ -187,7 +193,7 @@
             </div>
 
             <div>
-              <label for="node-mac" class="block text-xs font-semibold text-slate-400 mb-1.5">MAC アドレス</label>
+              <label for="node-mac" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.mac')}</label>
               <input
                 id="node-mac"
                 type="text"
@@ -198,33 +204,33 @@
             </div>
 
             <div>
-              <label for="node-icon" class="block text-xs font-semibold text-slate-400 mb-1.5">ノードアイコン</label>
+              <label for="node-icon" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.icon')}</label>
               <select
                 id="node-icon"
                 bind:value={icon}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 {#each iconList as ic}
-                  <option value={ic.value}>{ic.name}</option>
+                  <option value={ic.value}>{$_('icons.' + ic.value, { default: ic.name })}</option>
                 {/each}
               </select>
             </div>
 
             <div>
-              <label for="node-addr-mode" class="block text-xs font-semibold text-slate-400 mb-1.5">アドレス解決モード</label>
+              <label for="node-addr-mode" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.addrMode')}</label>
               <select
                 id="node-addr-mode"
                 bind:value={addrMode}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                {#each addrModeList as am}
-                  <option value={am.value}>{am.name}</option>
-                {/each}
+                <option value="ip">{$_('node.addrModeIp')}</option>
+                <option value="mac">{$_('node.addrModeMac')}</option>
+                <option value="host">{$_('node.addrModeHost')}</option>
               </select>
             </div>
 
             <div>
-              <label for="node-url" class="block text-xs font-semibold text-slate-400 mb-1.5">Web管理コンソール URL</label>
+              <label for="node-url" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.url')}</label>
               <input
                 id="node-url"
                 type="text"
@@ -235,12 +241,12 @@
             </div>
 
             <div class="md:col-span-2">
-              <label for="node-descr" class="block text-xs font-semibold text-slate-400 mb-1.5">説明・設置場所・メモ</label>
+              <label for="node-descr" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.descr')}</label>
               <input
                 id="node-descr"
                 type="text"
                 bind:value={descr}
-                placeholder="例: 本社 3F サーバールーム Rack-A"
+                placeholder="Rack-A"
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -250,9 +256,9 @@
                 <input
                   type="checkbox"
                   bind:checked={autoAck}
-                  class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20"
+                  class="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-500 focus:ring-cyan-500/20"
                 />
-                <span class="text-xs text-slate-300 font-medium">障害復旧時に自動で確認状態（Auto Ack）にする</span>
+                <span class="text-xs text-slate-700 dark:text-slate-300 font-medium">{$_('node.autoAck')}</span>
               </label>
             </div>
           </div>
@@ -260,14 +266,14 @@
 
         <!-- Section 2: SNMP & Authentication -->
         <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-          <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
-            <Shield class="w-4 h-4 text-cyan-400" />
-            SNMP & 認証設定
+          <h3 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <Shield class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+            {$_('node.tabSnmp')}
           </h3>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label for="snmp-ver" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMP モード</label>
+              <label for="snmp-ver" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpMode')}</label>
               <select
                 id="snmp-ver"
                 bind:value={snmpMode}
@@ -280,7 +286,7 @@
             </div>
 
             <div>
-              <label for="snmp-community" class="block text-xs font-semibold text-slate-400 mb-1.5">コミュニティ名 (v1/v2c)</label>
+              <label for="snmp-community" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.community')}</label>
               <input
                 id="snmp-community"
                 type="text"
@@ -291,7 +297,7 @@
             </div>
 
             <div>
-              <label for="snmp-port" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMP ポート</label>
+              <label for="snmp-port" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpPort')}</label>
               <input
                 id="snmp-port"
                 type="number"
@@ -304,9 +310,9 @@
           </div>
 
           {#if snmpMode.startsWith("v3")}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800/80">
               <div>
-                <label for="snmp-user" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMPv3 ユーザー名</label>
+                <label for="snmp-user" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpUser')}</label>
                 <input
                   id="snmp-user"
                   type="text"
@@ -316,7 +322,7 @@
                 />
               </div>
               <div>
-                <label for="snmp-pass" class="block text-xs font-semibold text-slate-400 mb-1.5">SNMPv3 パスワード / 認証鍵</label>
+                <label for="snmp-pass" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpPassword')}</label>
                 <input
                   id="snmp-pass"
                   type="password"
@@ -329,9 +335,9 @@
           {/if}
 
           <!-- SSH Section -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-800/80">
             <div>
-              <label for="ssh-user" class="block text-xs font-semibold text-slate-400 mb-1.5">SSH ログインユーザー (任意)</label>
+              <label for="ssh-user" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.sshUser')}</label>
               <input
                 id="ssh-user"
                 type="text"
@@ -341,7 +347,7 @@
               />
             </div>
             <div>
-              <label for="ssh-key" class="block text-xs font-semibold text-slate-400 mb-1.5">SSH 公開鍵 / 鍵識別名</label>
+              <label for="ssh-key" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.publicKey')}</label>
               <input
                 id="ssh-key"
                 type="text"
@@ -361,7 +367,7 @@
           onclick={() => (show = false)}
           class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
         >
-          キャンセル
+          {$_('common.cancel')}
         </button>
         <button
           type="button"
@@ -369,7 +375,7 @@
           class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer"
         >
           <Save class="w-4 h-4" />
-          保存
+          {$_('common.save')}
         </button>
       </div>
     </div>

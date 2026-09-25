@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { saveDrawItem, type DrawItemEnt, type NodeEnt, type PollingEnt } from "../api";
   import { checkItemPos } from "../map/map";
+  import { _ } from "svelte-i18n";
   import { X, Save, Palette, Gauge, BarChart3, TrendingUp, CreditCard, Type, Square } from "@lucide/svelte";
 
   let { show = $bindable(false), item = $bindable<DrawItemEnt | null>(null), nodes = [], pollings = [], onSave = () => {} } = $props<{
@@ -23,20 +24,20 @@
   let value = $state(50);
   let saveError = $state("");
 
-  const itemTypes = [
-    { value: 2, name: "テキスト (Text)", icon: Type },
-    { value: 4, name: "矩形枠 (Container)", icon: Square },
-    { value: 6, name: "ラジアルゲージ (Gauge)", icon: Gauge },
-    { value: 7, name: "バーグラフ (Bar Chart)", icon: BarChart3 },
-    { value: 8, name: "折れ線トレンド (Sparkline)", icon: TrendingUp },
-    { value: 11, name: "KPI カード (KPI Card)", icon: CreditCard },
+  const rawItemTypes = [
+    { value: 2, icon: Type },
+    { value: 4, icon: Square },
+    { value: 6, icon: Gauge },
+    { value: 7, icon: BarChart3 },
+    { value: 8, icon: TrendingUp },
+    { value: 11, icon: CreditCard },
   ];
 
   $effect(() => {
     if (show) {
       untrack(() => {
         saveError = "";
-        if (item) {
+        if (item && (item.id || (item as any).ID)) {
           type = item.type || (item as any).Type || 2;
           text = item.text || (item as any).Text || "";
           color = item.color || (item as any).Color || "#06b6d4";
@@ -47,15 +48,15 @@
           pollingId = item.polling_id || "";
           value = item.value ?? 50;
         } else {
-          type = 2;
-          text = "ラベル";
-          color = "#06b6d4";
-          size = 14;
-          w = 200;
-          h = 80;
-          nodeId = "";
-          pollingId = "";
-          value = 50;
+          type = item?.type || 2;
+          text = item?.text || $_('drawItem.defaultText');
+          color = item?.color || "#06b6d4";
+          size = item?.size || 14;
+          w = item?.w || 200;
+          h = item?.h || 80;
+          nodeId = item?.node_id || "";
+          pollingId = item?.polling_id || "";
+          value = item?.value ?? 50;
         }
       });
     }
@@ -85,7 +86,7 @@
       onSave(saved);
       show = false;
     } catch (e: any) {
-      saveError = "保存エラー: " + (e.message || e);
+      saveError = $_('drawItem.saveError') + ": " + (e.message || e);
     }
   };
 </script>
@@ -106,13 +107,13 @@
             <Palette class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{item?.id ? "描画アイテムの編集" : "描画アイテムの追加"}</h2>
-            <p class="text-[11px] text-slate-400">マップ上の装飾ラベル・ゲージ・グラフの表示設定</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{item?.id ? $_('drawItem.editTitle') : $_('drawItem.createTitle')}</h2>
+            <p class="text-[11px] text-slate-400">{$_('drawItem.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
         >
@@ -131,16 +132,16 @@
 
         <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
           <div>
-            <span class="block text-xs font-semibold text-slate-400 mb-2">アイテム種別の選択</span>
+            <span class="block text-xs font-semibold text-slate-400 mb-2">{$_('drawItem.selectType')}</span>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {#each itemTypes as it}
+              {#each rawItemTypes as it}
                 <button
                   type="button"
                   onclick={() => (type = it.value)}
                   class="flex items-center gap-2 rounded-xl border p-2.5 text-left text-xs transition-all cursor-pointer {type === it.value ? 'border-cyan-500/80 bg-cyan-500/15 text-cyan-300 font-bold shadow-sm shadow-cyan-500/20' : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400'}"
                 >
                   <it.icon class="h-4 w-4 shrink-0 text-cyan-400" />
-                  <span class="truncate">{it.name}</span>
+                  <span class="truncate">{$_(`drawItem.types.${it.value}`)}</span>
                 </button>
               {/each}
             </div>
@@ -148,7 +149,7 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">
             <div>
-              <label for="item-text" class="block text-xs font-semibold text-slate-400 mb-1.5">表示テキスト / タイトル</label>
+              <label for="item-text" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('drawItem.text')}</label>
               <input
                 id="item-text"
                 type="text"
@@ -158,7 +159,7 @@
             </div>
 
             <div>
-              <label for="item-color" class="block text-xs font-semibold text-slate-400 mb-1.5">テーマカラー</label>
+              <label for="item-color" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('drawItem.color')}</label>
               <div class="flex items-center gap-2">
                 <input
                   id="item-color"
@@ -175,13 +176,13 @@
             </div>
 
             <div>
-              <label for="item-node" class="block text-xs font-semibold text-slate-400 mb-1.5">連動ノード (任意)</label>
+              <label for="item-node" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('drawItem.bindNode')}</label>
               <select
                 id="item-node"
                 bind:value={nodeId}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value="">(なし)</option>
+                <option value="">{$_('drawItem.none')}</option>
                 {#each nodes as n}
                   <option value={n.id}>{n.name} ({n.ip})</option>
                 {/each}
@@ -189,13 +190,13 @@
             </div>
 
             <div>
-              <label for="item-poll" class="block text-xs font-semibold text-slate-400 mb-1.5">連動ポーリング (任意)</label>
+              <label for="item-poll" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('drawItem.bindPolling')}</label>
               <select
                 id="item-poll"
                 bind:value={pollingId}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value="">(なし)</option>
+                <option value="">{$_('drawItem.none')}</option>
                 {#each pollings as p}
                   <option value={p.id}>{p.name} ({p.type})</option>
                 {/each}
@@ -205,7 +206,7 @@
             {#if type >= 6}
               <div class="md:col-span-2 pt-1">
                 <label for="item-val" class="block text-xs font-semibold text-slate-400 mb-1.5">
-                  プレビュー値 / 現在値: <span class="font-mono text-cyan-400">{value}</span>
+                  {$_('drawItem.previewVal')}: <span class="font-mono text-cyan-400">{value}</span>
                 </label>
                 <input
                   id="item-val"
@@ -228,7 +229,7 @@
           onclick={() => (show = false)}
           class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
         >
-          キャンセル
+          {$_('common.cancel')}
         </button>
         <button
           type="button"
@@ -236,7 +237,7 @@
           class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer"
         >
           <Save class="w-4 h-4" />
-          保存
+          {$_('common.save')}
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { saveNetwork, type NetworkEnt } from "../api";
   import { checkNetworkPos } from "../map/map";
+  import { _ } from "svelte-i18n";
   import { X, Save, Server, Plus, Trash2, Network } from "@lucide/svelte";
 
   let { show = $bindable(false), network = $bindable<any>(null), onSave = () => {} } = $props<{
@@ -23,7 +24,7 @@
     if (show) {
       untrack(() => {
         saveError = "";
-        if (network) {
+        if (network && (network.id || network.ID)) {
           name = network.name || network.Name || "";
           ip = network.ip || network.IP || "";
           descr = network.descr || network.Descr || "";
@@ -34,13 +35,14 @@
           ports = Array.isArray(rawPorts) ? JSON.parse(JSON.stringify(rawPorts)) : [];
           if (ports.length === 0) generateDefaultPorts();
         } else {
-          name = "ネットワーク";
-          ip = "";
-          descr = "";
-          totalPorts = 8;
-          hPorts = 8;
-          unmanaged = true;
-          generateDefaultPorts();
+          name = network?.name || $_('network.defaultName');
+          ip = network?.ip || "";
+          descr = network?.descr || "";
+          totalPorts = network?.ports?.length || 8;
+          hPorts = network?.h_ports || 8;
+          unmanaged = network?.unmanaged ?? true;
+          ports = Array.isArray(network?.ports) ? JSON.parse(JSON.stringify(network.ports)) : [];
+          if (ports.length === 0) generateDefaultPorts();
         }
       });
     }
@@ -68,7 +70,7 @@
 
   const handleSave = async () => {
     if (!name) {
-      saveError = "ネットワーク名は必須入力です。";
+      saveError = $_('network.requiredName');
       return;
     }
     if (unmanaged && ports.length !== totalPorts) {
@@ -95,7 +97,7 @@
       onSave(saved);
       show = false;
     } catch (e: any) {
-      saveError = "保存エラー: " + (e.message || e);
+      saveError = $_('network.saveError') + ": " + (e.message || e);
     }
   };
 </script>
@@ -116,13 +118,13 @@
             <Network class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{network?.id ? "ネットワークの編集" : "ネットワークの追加"}</h2>
-            <p class="text-[11px] text-slate-400">ネットワークのポートレイアウトおよび管理接続設定</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{network?.id ? $_('network.editTitle') : $_('network.createTitle')}</h2>
+            <p class="text-[11px] text-slate-400">{$_('network.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
         >
@@ -142,25 +144,25 @@
         <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
           <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
             <Network class="w-4 h-4 text-cyan-400" />
-            ネットワーク パラメータ
+            {$_('network.paramsTitle')}
           </h3>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label for="hub-name" class="block text-xs font-semibold text-slate-400 mb-1.5">
-                ネットワーク名 <span class="text-rose-400">*</span>
+                {$_('network.name')} <span class="text-rose-400">*</span>
               </label>
               <input
                 id="hub-name"
                 type="text"
                 bind:value={name}
-                placeholder="例: Network-01"
+                placeholder="Network-01"
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label for="hub-ip" class="block text-xs font-semibold text-slate-400 mb-1.5">IP アドレス</label>
+              <label for="hub-ip" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('network.ip')}</label>
               <input
                 id="hub-ip"
                 type="text"
@@ -171,23 +173,23 @@
             </div>
 
             <div>
-              <label for="hub-total-ports" class="block text-xs font-semibold text-slate-400 mb-1.5">ポート総数</label>
+              <label for="hub-total-ports" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('network.totalPorts')}</label>
               <select
                 id="hub-total-ports"
                 bind:value={totalPorts}
                 onchange={generateDefaultPorts}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value={4}>4 ポート</option>
-                <option value={8}>8 ポート</option>
-                <option value={16}>16 ポート</option>
-                <option value={24}>24 ポート</option>
-                <option value={48}>48 ポート</option>
+                <option value={4}>4 {$_('network.portsUnit')}</option>
+                <option value={8}>8 {$_('network.portsUnit')}</option>
+                <option value={16}>16 {$_('network.portsUnit')}</option>
+                <option value={24}>24 {$_('network.portsUnit')}</option>
+                <option value={48}>48 {$_('network.portsUnit')}</option>
               </select>
             </div>
 
             <div>
-              <label for="hub-h-ports" class="block text-xs font-semibold text-slate-400 mb-1.5">横並びポート数 (行折り返し)</label>
+              <label for="hub-h-ports" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('network.hPorts')}</label>
               <input
                 id="hub-h-ports"
                 type="number"
@@ -200,12 +202,12 @@
             </div>
 
             <div class="md:col-span-2">
-              <label for="hub-descr" class="block text-xs font-semibold text-slate-400 mb-1.5">説明・設置場所</label>
+              <label for="hub-descr" class="block text-xs font-semibold text-slate-400 mb-1.5">{$_('network.descr')}</label>
               <input
                 id="hub-descr"
                 type="text"
                 bind:value={descr}
-                placeholder="例: 本社 MDF ラック 1U"
+                placeholder=""
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -217,7 +219,7 @@
                   bind:checked={unmanaged}
                   class="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20"
                 />
-                <span class="text-xs text-slate-300 font-medium">非管理ネットワークとしてポートを自動生成・配置</span>
+                <span class="text-xs text-slate-300 font-medium">{$_('network.unmanaged')}</span>
               </label>
             </div>
           </div>
@@ -228,7 +230,7 @@
           <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
             <h3 class="text-xs font-bold text-slate-100 flex items-center gap-2">
               <Server class="w-4 h-4 text-cyan-400" />
-              ポート一覧プレビュー ({ports.length} ポート)
+              {$_('network.portsTitle')} ({ports.length} {$_('network.portsUnit')})
             </h3>
           </div>
 
@@ -252,7 +254,7 @@
           onclick={() => (show = false)}
           class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
         >
-          キャンセル
+          {$_('common.cancel')}
         </button>
         <button
           type="button"
@@ -260,7 +262,7 @@
           class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer"
         >
           <Save class="w-4 h-4" />
-          保存
+          {$_('common.save')}
         </button>
       </div>
     </div>

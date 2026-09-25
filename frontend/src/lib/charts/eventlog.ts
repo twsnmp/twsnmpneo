@@ -1,4 +1,8 @@
 import * as echarts from 'echarts';
+import { locale } from 'svelte-i18n';
+import { get } from 'svelte/store';
+
+const getIsJa = () => (get(locale) || 'ja').startsWith('ja');
 
 export interface NodeDowntimeStat {
   nodeID: string;
@@ -166,6 +170,7 @@ export const showEventLogDowntimeChart = (dom: HTMLElement | string, stats: Node
   if (!el) return undefined;
 
   const chart = echarts.init(el, 'dark');
+  const isJa = getIsJa();
   const top15 = [...stats].slice(0, 15).reverse();
   const yData = top15.map((s) => s.nodeName);
   const seriesData = top15.map((s) => Math.round(s.totalDowntimeSec / 60)); // minutes
@@ -180,12 +185,12 @@ export const showEventLogDowntimeChart = (dom: HTMLElement | string, stats: Node
       textStyle: { color: '#f8fafc' },
       formatter: (params: any) => {
         const item = params[0];
-        return `${item.name}<br/>総停止時間: ${item.value} 分`;
+        return `${item.name}<br/>${isJa ? '総停止時間' : 'Total Downtime'}: ${item.value} ${isJa ? '分' : 'min'}`;
       },
     },
     xAxis: {
       type: 'value',
-      name: '停止時間 (分)',
+      name: isJa ? '停止時間 (分)' : 'Downtime (min)',
       nameTextStyle: { color: '#64748b', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       splitLine: { lineStyle: { color: '#1e293b' } },
@@ -215,8 +220,11 @@ export const showLogHeatmap = (dom: HTMLElement | string, logs: any[]): echarts.
   if (!el) return undefined;
 
   const chart = echarts.init(el, 'dark');
-  const days = ['日', '月', '火', '水', '木', '金', '土'];
-  const hours = Array.from({ length: 24 }, (_, i) => `${i}時`);
+  const isJa = getIsJa();
+  const days = isJa
+    ? ['日', '月', '火', '水', '木', '金', '土']
+    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const hours = Array.from({ length: 24 }, (_, i) => isJa ? `${i}時` : `${i}:00`);
 
   const matrix: number[][] = [];
   for (let d = 0; d < 7; d++) {
@@ -248,7 +256,9 @@ export const showLogHeatmap = (dom: HTMLElement | string, logs: any[]): echarts.
       backgroundColor: '#0f172a',
       borderColor: '#334155',
       textStyle: { color: '#f8fafc' },
-      formatter: (p: any) => `${days[p.data[1]]}曜日 ${p.data[0]}時: ${p.data[2]} 件`,
+      formatter: isJa
+        ? (p: any) => `${days[p.data[1]]}曜日 ${p.data[0]}時: ${p.data[2]} 件`
+        : (p: any) => `${days[p.data[1]]} ${p.data[0]}:00: ${p.data[2]} events`,
     },
     xAxis: {
       type: 'category',
@@ -314,12 +324,13 @@ export const showEventLogStateChart = (dom: HTMLElement | string, logs: any[]): 
     }
   });
 
+  const isJa = getIsJa();
   const pieData = [
-    { name: '重度 (High)', value: counts.high, itemStyle: { color: '#ef4444' } },
-    { name: '軽度 (Low)', value: counts.low, itemStyle: { color: '#f87171' } },
-    { name: '注意 (Warn)', value: counts.warn, itemStyle: { color: '#eab308' } },
-    { name: '正常 (Normal)', value: counts.normal, itemStyle: { color: '#10b981' } },
-    { name: '情報 (Info)', value: counts.info, itemStyle: { color: '#06b6d4' } },
+    { name: isJa ? '重度 (High)' : 'High', value: counts.high, itemStyle: { color: '#ef4444' } },
+    { name: isJa ? '軽度 (Low)' : 'Low', value: counts.low, itemStyle: { color: '#f87171' } },
+    { name: isJa ? '注意 (Warn)' : 'Warn', value: counts.warn, itemStyle: { color: '#eab308' } },
+    { name: isJa ? '正常 (Normal)' : 'Normal', value: counts.normal, itemStyle: { color: '#10b981' } },
+    { name: isJa ? '情報 (Info)' : 'Info', value: counts.info, itemStyle: { color: '#06b6d4' } },
   ].filter((p) => p.value > 0);
 
   chart.setOption({
@@ -329,7 +340,7 @@ export const showEventLogStateChart = (dom: HTMLElement | string, logs: any[]): 
       backgroundColor: '#0f172a',
       borderColor: '#334155',
       textStyle: { color: '#f8fafc' },
-      formatter: '{b}: {c} 件 ({d}%)',
+      formatter: isJa ? '{b}: {c} 件 ({d}%)' : '{b}: {c} ({d}%)',
     },
     legend: {
       orient: 'vertical',
@@ -360,6 +371,7 @@ export const showEventLogNodeChart = (dom: HTMLElement | string, logs: any[]): e
   if (!el) return undefined;
 
   const chart = echarts.init(el, 'dark');
+  const isJaNode = getIsJa();
   const nodeCountMap = new Map<string, number>();
 
   logs.forEach((l) => {
@@ -383,7 +395,7 @@ export const showEventLogNodeChart = (dom: HTMLElement | string, logs: any[]): e
     },
     xAxis: {
       type: 'value',
-      name: 'イベント数',
+      name: isJaNode ? 'イベント数' : 'Event Count',
       nameTextStyle: { color: '#64748b', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       splitLine: { lineStyle: { color: '#1e293b' } },

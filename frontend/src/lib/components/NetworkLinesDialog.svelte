@@ -1,6 +1,7 @@
 <script lang="ts">
   import { deleteLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../api";
   import { getStateColor } from "../common";
+  import { _ } from "svelte-i18n";
   import { X, Network, Edit3, Trash2, Link, Server, Laptop, Activity } from "@lucide/svelte";
 
   let {
@@ -45,7 +46,7 @@
     const remotePollingId = isFirst ? (l.polling_id2 || (l as any).PollingID2 || "") : (l.polling_id1 || (l as any).PollingID1 || "");
 
     // Local port name
-    let localPortName = "自動 / 未指定";
+    let localPortName = "-";
     if (network && network.ports) {
       const p = network.ports.find((port) => (port.id || (port as any).ID) === localPortId);
       if (p) localPortName = p.name || (p as any).Name || localPortId;
@@ -87,12 +88,12 @@
   const handleDelete = async (line: LineEnt) => {
     const lineId = line.id || (line as any).ID;
     if (!lineId) return;
-    if (confirm("このライン（結線）を切断・削除しますか？")) {
+    if (confirm($_('networkLines.deleteConfirm'))) {
       try {
         await deleteLine(lineId);
         onDeleteLine(lineId);
       } catch (e: any) {
-        alert("削除エラー: " + (e.message || e));
+        alert("Error: " + (e.message || e));
       }
     }
   };
@@ -115,14 +116,14 @@
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">
-              {network.name || (network as any).Name || "ネットワーク"} - 接続ライン編集
+              {network.name || (network as any).Name || $_('network.defaultName')} - {$_('networkLines.titleSuffix')}
             </h2>
-            <p class="text-[11px] text-slate-400">ネットワーク各ポートに接続されているラインの一覧と管理</p>
+            <p class="text-[11px] text-slate-400">{$_('networkLines.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
         >
@@ -135,19 +136,19 @@
         {#if hubLines.length === 0}
           <div class="flex flex-col items-center justify-center py-12 text-slate-500">
             <Link class="h-10 w-10 mb-3 opacity-30" />
-            <p class="text-sm font-semibold">接続されているラインはありません</p>
-            <p class="text-xs text-slate-500 mt-1">Shiftキーを押しながらノードとネットワークを選択して接続するか、接続先探索を実行してください</p>
+            <p class="text-sm font-semibold">{$_('networkLines.noLines')}</p>
+            <p class="text-xs text-slate-500 mt-1">{$_('networkLines.noLinesDesc')}</p>
           </div>
         {:else}
           <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg">
             <table class="w-full text-left text-xs text-slate-300">
               <thead class="bg-slate-950/80 uppercase font-mono text-[11px] text-slate-400 border-b border-slate-800">
                 <tr>
-                  <th class="py-2.5 px-3">自ポート</th>
-                  <th class="py-2.5 px-3">接続先機器</th>
-                  <th class="py-2.5 px-3">相手側ポート / ポーリング</th>
-                  <th class="py-2.5 px-3">状態</th>
-                  <th class="py-2.5 px-3 text-right">操作</th>
+                  <th class="py-2.5 px-3">{$_('networkLines.colLocalPort')}</th>
+                  <th class="py-2.5 px-3">{$_('networkLines.colRemoteDevice')}</th>
+                  <th class="py-2.5 px-3">{$_('networkLines.colRemotePolling')}</th>
+                  <th class="py-2.5 px-3">{$_('networkLines.colState')}</th>
+                  <th class="py-2.5 px-3 text-right">{$_('networkLines.colAction')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
@@ -184,7 +185,7 @@
                           class="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-slate-700 hover:border-slate-600 transition-all cursor-pointer"
                         >
                           <Edit3 class="h-3 w-3 text-cyan-400" />
-                          編集
+                          {$_('common.edit')}
                         </button>
                         <button
                           type="button"
@@ -192,7 +193,7 @@
                           class="flex items-center gap-1 rounded-lg border border-rose-800/40 bg-rose-950/30 px-2.5 py-1 text-[11px] font-semibold text-rose-400 hover:bg-rose-900/40 transition-all cursor-pointer"
                         >
                           <Trash2 class="h-3 w-3" />
-                          切断
+                          {$_('line.disconnect')}
                         </button>
                       </div>
                     </td>
@@ -211,7 +212,7 @@
           onclick={() => (show = false)}
           class="px-5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
         >
-          閉じる
+          {$_('common.close')}
         </button>
       </div>
     </div>

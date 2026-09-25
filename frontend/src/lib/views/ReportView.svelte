@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { _, locale } from "svelte-i18n";
+  import { get } from "svelte/store";
   import * as echarts from "echarts";
   import {
     fetchNodes,
@@ -72,16 +74,16 @@
   let loading = $state(false);
   let searchQuery = $state("");
 
-  const categories: { id: ReportCategory; name: string; icon: any; count?: number }[] = [
-    { id: "device", name: "デバイス分析 (LAN/MAC)", icon: Laptop },
-    { id: "ipam", name: "IPアドレス管理 (IPAM)", icon: Network },
-    { id: "polling", name: "ポーリング稼働率 (SLA)", icon: Activity },
-    { id: "flow", name: "NetFlow / トラフィック分析", icon: BarChart3 },
-    { id: "event", name: "イベント & ログ集計", icon: FileText },
-    { id: "cert", name: "サーバー証明書監視", icon: ShieldCheck },
-    { id: "sensor", name: "環境・IoTセンサー", icon: Thermometer },
-    { id: "ai", name: "AI異常検知スコア (AIList)", icon: Sparkles },
-  ];
+  const categories = $derived<{ id: ReportCategory; name: string; icon: any; count?: number }[]>([
+    { id: "device", name: $_("report.tabDevice"), icon: Laptop },
+    { id: "ipam", name: $_("report.tabIpam"), icon: Network },
+    { id: "polling", name: $_("report.tabPolling"), icon: Activity },
+    { id: "flow", name: $_("report.tabFlow"), icon: BarChart3 },
+    { id: "event", name: $_("report.tabEvent"), icon: FileText },
+    { id: "cert", name: $_("report.tabCert"), icon: ShieldCheck },
+    { id: "sensor", name: $_("report.tabSensor"), icon: Thermometer },
+    { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
+  ]);
 
   const loadData = async () => {
     loading = true;
@@ -163,7 +165,7 @@
       if (!seenIPs.has(a.IP) && (!cleanMAC || !seenMACs.has(cleanMAC))) {
         list.push({
           id: `arp-${a.IP}`,
-          name: `未管理デバイス (${a.IP})`,
+          name: $_("report.unmanagedDeviceName", { values: { ip: a.IP } }),
           ip: a.IP,
           mac: a.MAC || "",
           vendor: a.Vendor || getVendor(a.MAC || ""),
@@ -262,26 +264,26 @@
   });
 
   const handleDeleteArp = async (ip: string, mac: string) => {
-    if (!confirm(`ARPエントリー ${ip} (${mac}) を削除しますか？`)) {
+    if (!confirm($_("report.confirmDeleteArp", { values: { ip, mac } }))) {
       return;
     }
     try {
       await deleteArpEntries([ip]);
       await loadData();
     } catch (e: any) {
-      alert(`削除に失敗しました: ${e.message}`);
+      alert($_("report.alertDeleteFailed", { values: { error: e.message } }));
     }
   };
 
   const handleResetArp = async () => {
-    if (!confirm("本当にすべてのARP監視エントリーを消去しますか？\n（次回のポーリング/プローブ時に再検知されます）")) {
+    if (!confirm($_("report.confirmResetArp"))) {
       return;
     }
     try {
       await resetArpTable();
       await loadData();
     } catch (e: any) {
-      alert(`全消去に失敗しました: ${e.message}`);
+      alert($_("report.alertResetFailed", { values: { error: e.message } }));
     }
   };
 
@@ -359,7 +361,8 @@
         formatter: (params: any) => {
           const val = params.value;
           const rangeName = yData[val[1]];
-          return `<b>${rangeName}</b><br/>相対位置: ${val[0]}% 〜 ${val[0] + 1}%<br/>使用中ホスト: ${val[2]} 件`;
+          const isJa = (get(locale) || "ja").startsWith("ja");
+          return `<b>${rangeName}</b><br/>${isJa ? "相対位置: " : "Relative Pos: "}${val[0]}% 〜 ${val[0] + 1}%<br/>${isJa ? "使用中ホスト: " : "Active Hosts: "}${val[2]}${isJa ? " 件" : ""}`;
         },
       },
       grid: {
@@ -391,7 +394,7 @@
         top: "middle",
         itemWidth: 10,
         itemHeight: 90,
-        text: ["高 (ホスト)", "低"],
+        text: (get(locale) || "ja").startsWith("ja") ? ["高 (ホスト)", "低"] : ["High", "Low"],
         textGap: 8,
         textStyle: { color: isDark ? "#94a3b8" : "#475569", fontSize: 9 },
         inRange: {
@@ -416,7 +419,7 @@
       },
       series: [
         {
-          name: "IP利用密度",
+          name: (get(locale) || "ja").startsWith("ja") ? "IP利用密度" : "IP Utilization Density",
           type: "heatmap",
           data: seriesData,
           emphasis: {
@@ -551,7 +554,7 @@
   <div class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70 p-3 space-y-1.5 shrink-0 flex flex-col justify-between">
     <div class="space-y-1">
       <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        分析レポートスイート (Reports)
+        {$_("report.titleSuite")}
       </div>
       {#each categories as cat}
         <button
@@ -568,13 +571,13 @@
     <!-- Live Status Pill in Sidebar -->
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-700 dark:text-slate-800 dark:text-slate-200">データ同期</span>
+        <span class="font-semibold text-slate-700 dark:text-slate-800 dark:text-slate-200">{$_("report.dataSync")}</span>
         <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-          ● リアルタイム
+          {$_("report.realtime")}
         </span>
       </div>
       <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-        ノード: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{nodes.length}</span> / ポーリング: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{pollings.length}</span>
+        {$_("report.nodesAndPollings", { values: { nodes: nodes.length, pollings: pollings.length } })}
       </div>
     </div>
   </div>
@@ -588,7 +591,7 @@
           <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="項目を検索 (ノード名・IP・MAC等)..."
+            placeholder={$_("report.searchPlaceholder")}
             bind:value={searchQuery}
             oninput={() => (currentPage = 1)}
             class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
@@ -603,10 +606,10 @@
             onclick={handleResetArp}
             disabled={loading}
             class="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 px-3.5 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 transition-colors cursor-pointer"
-            title="ARP監視テーブル全消去"
+            title={$_("report.clearArpTitle")}
           >
             <Trash2 class="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
-            <span>全消去</span>
+            <span>{$_("report.btnClear")}</span>
           </button>
         {/if}
         <button
@@ -616,7 +619,7 @@
           class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-800 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
           <RefreshCw class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 {loading ? 'animate-spin' : ''}" />
-          <span>更新</span>
+          <span>{$_("report.btnRefresh")}</span>
         </button>
         <button
           type="button"
@@ -624,60 +627,60 @@
           class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
         >
           <Download class="h-3.5 w-3.5" />
-          <span>CSV 出力</span>
+          <span>{$_("report.btnExportCsv")}</span>
         </button>
       </div>
     </div>
 
-    <!-- REPORT 1: LAN デバイス一覧 (MAC / Vendor 分析) -->
+    <!-- REPORT 1: {$_("report.deviceTitle")} -->
     {#if activeReport === "device"}
       <div class="space-y-6">
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Laptop class="w-5 h-5 text-cyan-400" />
-            LAN デバイス一覧 (MAC / Vendor 分析)
+            {$_("report.deviceTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">ARP / SNMP / NetFlow から自動収集された MAC アドレスおよび OUI ベンダー分析レポート</p>
+          <p class="text-xs text-slate-400 mt-1">{$_("report.deviceSubtitle")}</p>
         </div>
 
         <!-- KPI Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
-              <span>検出デバイス総数</span>
+              <span>{$_("report.totalDevices")}</span>
               <Laptop class="w-4 h-4 text-cyan-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{allDevices.length} <span class="text-xs font-normal text-slate-400">台</span></div>
-            <div class="text-[10px] text-slate-400">登録ノード: {nodes.length} / ARP未管理: {arpList.length}</div>
+            <div class="text-2xl font-bold font-mono text-cyan-400">{allDevices.length} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.deviceNodesSub", { values: { nodes: nodes.length, unmanaged: arpList.length } })}</div>
           </div>
 
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
-              <span>稼働中 (Normal / Info)</span>
+              <span>{$_("report.runningDevices")}</span>
               <CheckCircle2 class="w-4 h-4 text-emerald-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-emerald-400">{allDevices.filter((n) => n.state === 'normal' || n.state === 'info').length} <span class="text-xs font-normal text-slate-400">台</span></div>
-            <div class="text-[10px] text-emerald-400/80">正常通信 / ARP応答確認済み</div>
+            <div class="text-2xl font-bold font-mono text-emerald-400">{allDevices.filter((n) => n.state === 'normal' || n.state === 'info').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span></div>
+            <div class="text-[10px] text-emerald-400/80">{$_("report.runningDevicesSub")}</div>
           </div>
 
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <span>ベンダー種別数</span>
+              <span>{$_("report.vendorCount")}</span>
               <Layers class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {new Set(allDevices.map((n) => n.vendor || getVendor(n.mac || ''))).size} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">種別</span>
+              {new Set(allDevices.map((n) => n.vendor || getVendor(n.mac || ''))).size} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitVendors")}</span>
             </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">OUI ベンダー自動分類</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.vendorSub")}</div>
           </div>
 
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-400">
-              <span>障害検知中 (Alert)</span>
+              <span>{$_("report.alertDevices")}</span>
               <AlertTriangle class="w-4 h-4 text-rose-400" />
             </div>
-            <div class="text-2xl font-bold font-mono text-rose-400">{allDevices.filter((n) => n.state !== 'normal' && n.state !== 'info').length} <span class="text-xs font-normal text-slate-400">台</span></div>
-            <div class="text-[10px] text-rose-400/80">要確認ノード</div>
+            <div class="text-2xl font-bold font-mono text-rose-400">{allDevices.filter((n) => n.state !== 'normal' && n.state !== 'info').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span></div>
+            <div class="text-[10px] text-rose-400/80">{$_("report.alertDevicesSub")}</div>
           </div>
         </div>
 
@@ -688,7 +691,7 @@
               <tr>
                 <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("name")}>
                   <div class="inline-flex items-center gap-1">
-                    <span>ノード / ホスト名</span>
+                    <span>{$_("report.colNodeName")}</span>
                     {#if sortColumn === "name"}
                       {#if sortDirection === "asc"}
                         <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -702,7 +705,7 @@
                 </th>
                 <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("ip")}>
                   <div class="inline-flex items-center gap-1">
-                    <span>IP アドレス</span>
+                    <span>{$_("report.colIp")}</span>
                     {#if sortColumn === "ip"}
                       {#if sortDirection === "asc"}
                         <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -716,7 +719,7 @@
                 </th>
                 <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("mac")}>
                   <div class="inline-flex items-center gap-1">
-                    <span>MAC アドレス</span>
+                    <span>{$_("report.colMac")}</span>
                     {#if sortColumn === "mac"}
                       {#if sortDirection === "asc"}
                         <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -730,7 +733,7 @@
                 </th>
                 <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("vendor")}>
                   <div class="inline-flex items-center gap-1">
-                    <span>ベンダー推定</span>
+                    <span>{$_("report.colVendor")}</span>
                     {#if sortColumn === "vendor"}
                       {#if sortDirection === "asc"}
                         <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -744,7 +747,7 @@
                 </th>
                 <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("addr_mode")}>
                   <div class="inline-flex items-center gap-1">
-                    <span>種別</span>
+                    <span>{$_("report.colType")}</span>
                     {#if sortColumn === "addr_mode"}
                       {#if sortDirection === "asc"}
                         <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -758,7 +761,7 @@
                 </th>
                 <th class="py-1 px-2.5 cursor-pointer hover:text-slate-800 dark:text-slate-200" onclick={() => handleSort("state")}>
                   <div class="inline-flex items-center gap-1">
-                    <span>稼働ステータス</span>
+                    <span>{$_("report.colStatus")}</span>
                     {#if sortColumn === "state"}
                       {#if sortDirection === "asc"}
                         <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -770,14 +773,14 @@
                     {/if}
                   </div>
                 </th>
-                <th class="py-1 px-2 text-center w-12">操作</th>
+                <th class="py-1 px-2 text-center w-12">{$_("report.colAction")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 font-mono text-slate-700 dark:text-slate-300">
               {#if paginatedDevices.length === 0}
                 <tr>
                   <td colspan="7" class="p-8 text-center text-slate-500 font-sans">
-                    条件に一致するデバイスが見つかりません
+                    {$_("report.noDevices")}
                   </td>
                 </tr>
               {:else}
@@ -809,8 +812,8 @@
                         <button
                           type="button"
                           onclick={() => handleDeleteArp(n.ip, n.mac || "")}
-                          title="エントリー削除"
-                          aria-label="削除"
+                          title={$_("report.deleteEntryTitle")}
+                          aria-label={$_("report.deleteAriaLabel")}
                           class="inline-flex items-center justify-center rounded border border-rose-500/30 bg-rose-500/10 p-1 text-rose-400 hover:bg-rose-500/20 hover:text-rose-200 transition-all cursor-pointer"
                         >
                           <Trash2 class="h-3 w-3" />
@@ -828,25 +831,25 @@
           <!-- Pagination Footer -->
           <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-4 py-2 text-xs text-slate-600 dark:text-slate-400 shrink-0">
             <div class="flex items-center gap-3">
-              <span>表示件数:</span>
+              <span>{$_("report.pageShowCount")}</span>
               <select
                 bind:value={pageSize}
                 onchange={() => (currentPage = 1)}
                 class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-700 dark:text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
               >
-                <option value={10}>10 件 / ページ</option>
-                <option value={25}>25 件 / ページ</option>
-                <option value={50}>50 件 / ページ</option>
-                <option value={100}>100 件 / ページ</option>
-                <option value={250}>250 件 / ページ</option>
-                <option value={-1}>全件表示</option>
+                <option value={10}>{$_("report.itemsPerPage", { values: { count: 10 } })}</option>
+                <option value={25}>{$_("report.itemsPerPage", { values: { count: 25 } })}</option>
+                <option value={50}>{$_("report.itemsPerPage", { values: { count: 50 } })}</option>
+                <option value={100}>{$_("report.itemsPerPage", { values: { count: 100 } })}</option>
+                <option value={250}>{$_("report.itemsPerPage", { values: { count: 250 } })}</option>
+                <option value={-1}>{$_("report.showAll")}</option>
               </select>
 
               <span class="font-mono text-[11px] text-slate-400">
                 {#if filteredDevices.length > 0}
-                  {filteredDevices.length.toLocaleString()} 件中 {(currentPage - 1) * (pageSize === -1 ? filteredDevices.length : pageSize) + 1} 〜 {pageSize === -1 ? filteredDevices.length : Math.min(currentPage * pageSize, filteredDevices.length)} 件を表示
+                  {$_("report.paginationRange", { values: { total: filteredDevices.length.toLocaleString(), from: (currentPage - 1) * (pageSize === -1 ? filteredDevices.length : pageSize) + 1, to: pageSize === -1 ? filteredDevices.length : Math.min(currentPage * pageSize, filteredDevices.length) } })}
                 {:else}
-                  0 件
+                  {$_("report.totalZero")}
                 {/if}
               </span>
             </div>
@@ -858,7 +861,7 @@
                   disabled={currentPage <= 1}
                   onclick={() => (currentPage = 1)}
                   class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
-                  title="最初のページ"
+                  title={$_("report.firstPage")}
                 >
                   <ChevronsLeft class="h-4 w-4" />
                 </button>
@@ -868,7 +871,7 @@
                   disabled={currentPage <= 1}
                   onclick={() => currentPage--}
                   class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
-                  title="前のページ"
+                  title={$_("report.prevPage")}
                 >
                   <ChevronLeft class="h-4 w-4" />
                 </button>
@@ -882,7 +885,7 @@
                   disabled={currentPage >= totalPages}
                   onclick={() => currentPage++}
                   class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
-                  title="次のページ"
+                  title={$_("report.nextPage")}
                 >
                   <ChevronRight class="h-4 w-4" />
                 </button>
@@ -892,7 +895,7 @@
                   disabled={currentPage >= totalPages}
                   onclick={() => (currentPage = totalPages)}
                   class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
-                  title="最後のページ"
+                  title={$_("report.lastPage")}
                 >
                   <ChevronsRight class="h-4 w-4" />
                 </button>
@@ -902,16 +905,16 @@
         </div>
       </div>
 
-    <!-- REPORT 2: IPAM (IP アドレス管理 & サブネット利用率) -->
+    <!-- REPORT 2: {$_("report.ipamTitle")} -->
     {:else if activeReport === "ipam"}
       <div class="space-y-6">
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Network class="w-5 h-5 text-cyan-400" />
-            IPAM (IP アドレス管理 & サブネット利用率)
+            {$_("report.ipamTitle")}
           </h2>
           <p class="text-xs text-slate-400 mt-1">
-            ARP監視設定（ArpWatchRange）の全サブネット範囲、利用率ヒートマップおよび広域アドレス階層ドリルダウン
+            {$_("report.ipamSubtitle")}
           </p>
         </div>
 
@@ -919,49 +922,49 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <span>対象アドレス範囲数</span>
+              <span>{$_("report.targetRangeCount")}</span>
               <FolderTree class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">
-              {ipamReport.TotalRanges} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">範囲</span>
+              {ipamReport.TotalRanges} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitRanges")}</span>
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">
-              {currentRange ? `選択中: ${currentRange.Range}` : "サブネット未検出"}
+              {currentRange ? $_("report.selectedRange", { values: { range: currentRange.Range } }) : $_("report.noSubnetDetected")}
             </div>
           </div>
 
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <span>全空間アドレス総数</span>
+              <span>{$_("report.totalPoolAddresses")}</span>
               <Layers class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {ipamReport.TotalSize.toLocaleString()} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">アドレス</span>
+              {ipamReport.TotalSize.toLocaleString()} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitAddresses")}</span>
             </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">管理対象アドレスプール総計</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.poolSub")}</div>
           </div>
 
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <span>使用中 IP 総数</span>
+              <span>{$_("report.usedIpCount")}</span>
               <CheckCircle2 class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {ipamReport.TotalUsed.toLocaleString()} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">/ {ipamReport.TotalSize.toLocaleString()}</span>
             </div>
-            <div class="text-[10px] text-emerald-600 dark:text-emerald-400/80">割り当て・検知済みホスト</div>
+            <div class="text-[10px] text-emerald-600 dark:text-emerald-400/80">{$_("report.usedSub")}</div>
           </div>
 
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
             <div class="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <span>全体平均利用率</span>
+              <span>{$_("report.avgUsageRate")}</span>
               <Activity class="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
             </div>
             <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-300">
               {ipamReport.TotalUsage.toFixed(1)} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">%</span>
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">
-              空きアドレス: {(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}
+              {$_("report.freeAddresses", { values: { count: (ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString() } })}
             </div>
           </div>
         </div>
@@ -972,20 +975,20 @@
             <div>
               <h3 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Network class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                サブネット相対利用密度ヒートマップ (0% 〜 100%)
+                {$_("report.heatmapDensityTitle")}
               </h3>
               <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                全アドレス範囲を100分割（パーセンタイル）で正規化集約し、広域ネットワークでも軽量・高速に俯瞰表示します
+                {$_("report.heatmapDensityDesc")}
               </p>
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              行またはセルをクリックすると、そのサブネットの詳細へ切り替わります
+              {$_("report.heatmapDensityHint")}
             </div>
           </div>
 
           {#if ipamReport.Ranges.length === 0}
             <div class="p-8 text-center text-slate-500 text-xs font-sans">
-              IPAM対象のアドレス範囲が登録されていません
+              {$_("report.noIpamRanges")}
             </div>
           {:else}
             <div bind:this={ipamChartElem} class="w-full h-48"></div>
@@ -997,28 +1000,28 @@
           <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 flex items-center justify-between">
             <span class="text-xs font-bold text-slate-800 dark:text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <FolderTree class="w-4 h-4 text-cyan-400" />
-              サブネット範囲一覧 ({ipamReport.Ranges.length} 件)
+              {$_("report.subnetListTitle", { values: { count: ipamReport.Ranges.length } })}
             </span>
-            <span class="text-[11px] text-slate-400">クリックで下部の詳細マップを切り替え</span>
+            <span class="text-[11px] text-slate-400">{$_("report.subnetListHint")}</span>
           </div>
 
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
               <tr>
-                <th class="py-2 px-3">選択</th>
-                <th class="py-2 px-3">アドレス範囲 (CIDR / Range)</th>
-                <th class="py-2 px-3">開始 IP</th>
-                <th class="py-2 px-3">終了 IP</th>
-                <th class="py-2 px-3 text-right">アドレス数 (Size)</th>
-                <th class="py-2 px-3 text-right">使用中 (Used)</th>
-                <th class="py-2 px-3 w-48">利用率 (Usage)</th>
+                <th class="py-2 px-3">{$_("report.colSelect")}</th>
+                <th class="py-2 px-3">{$_("report.colRange")}</th>
+                <th class="py-2 px-3">{$_("report.colStartIp")}</th>
+                <th class="py-2 px-3">{$_("report.colEndIp")}</th>
+                <th class="py-2 px-3 text-right">{$_("report.colSize")}</th>
+                <th class="py-2 px-3 text-right">{$_("report.colUsed")}</th>
+                <th class="py-2 px-3 w-48">{$_("report.colUsage")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if ipamReport.Ranges.length === 0}
                 <tr>
                   <td colspan="7" class="p-6 text-center text-slate-500 font-sans">
-                    サブネット範囲が登録されていません
+                    {$_("report.noRangesRegistered")}
                   </td>
                 </tr>
               {:else}
@@ -1039,7 +1042,7 @@
                       <span>{r.Range}</span>
                       {#if r.Size > 256}
                         <span class="rounded bg-indigo-100 dark:bg-indigo-950 border border-indigo-300 dark:border-indigo-800/70 px-1 text-[9px] text-indigo-700 dark:text-indigo-300 leading-none">
-                          広域
+                          {$_("report.wideArea")}
                         </span>
                       {/if}
                     </td>
@@ -1080,11 +1083,11 @@
                     onclick={() => { selectedSubnetBlock = null; }}
                     class="text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
                   >
-                    {currentRange.Range} ({currentRange.Size.toLocaleString()} アドレス)
+                    {$_("report.rangeDetailHeader", { values: { range: currentRange.Range, size: currentRange.Size.toLocaleString() } })}
                   </button>
                   {#if selectedSubnetBlock}
                     <ChevronRight class="w-3.5 h-3.5 text-slate-600" />
-                    <span class="text-cyan-400 font-mono">{selectedSubnetBlock} (詳細)</span>
+                    <span class="text-cyan-400 font-mono">{selectedSubnetBlock} {$_("report.detailTag")}</span>
                   {/if}
                 </div>
               </div>
@@ -1098,20 +1101,20 @@
                     class="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer rounded-lg bg-cyan-950/60 border border-cyan-800/60 px-2.5 py-1"
                   >
                     <CornerUpLeft class="w-3.5 h-3.5" />
-                    <span>ブロック一覧に戻る</span>
+                    <span>{$_("report.btnBackToBlocks")}</span>
                   </button>
                 {/if}
 
                 <div class="flex items-center gap-3 text-[10px] text-slate-400">
                   <span class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> 使用中
+                    <span class="h-2.5 w-2.5 rounded bg-emerald-500"></span> {$_("report.legendUsed")}
                   </span>
                   <span class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"></span> 空き
+                    <span class="h-2.5 w-2.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"></span> {$_("report.legendFree")}
                   </span>
                   {#if searchQuery}
                     <span class="flex items-center gap-1.5 text-amber-400">
-                      <span class="h-2.5 w-2.5 rounded bg-amber-400 animate-pulse"></span> 検索一致
+                      <span class="h-2.5 w-2.5 rounded bg-amber-400 animate-pulse"></span> {$_("report.legendSearchMatch")}
                     </span>
                   {/if}
                 </div>
@@ -1123,10 +1126,10 @@
               <div class="space-y-2">
                 <div class="flex items-center justify-between text-[11px] text-slate-400">
                   <span>
-                    広域アドレス空間のため /24 サブネットブロック単位で利用状況を集約表示しています。ブロックをクリックすると 1〜254 の個別ホストにドリルダウンします。
+                    {$_("report.wideAreaHint")}
                   </span>
                   <span class="font-mono text-cyan-400 font-bold shrink-0">
-                    {currentRange.Subnets?.length || 0} ブロック
+                    {currentRange.Subnets?.length || 0} {$_("report.unitBlocks")}
                   </span>
                 </div>
 
@@ -1137,7 +1140,7 @@
                     <button
                       type="button"
                       onclick={() => { selectedSubnetBlock = block.Subnet; }}
-                      title="{block.Subnet} - 使用中: {block.Used} / {block.Size} ({block.Usage.toFixed(1)}%)"
+                      title={$_("report.blockTooltip", { values: { subnet: block.Subnet, used: block.Used, size: block.Size, usage: block.Usage.toFixed(1) } })}
                       class="p-2 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer hover:scale-105 hover:z-10 {isQueryMatch ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-950/30' : hasUsed ? 'bg-white dark:bg-slate-900 border-cyan-200 dark:border-cyan-800/60 hover:border-cyan-400 shadow-xs' : 'bg-slate-100/60 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-900 opacity-60'}"
                     >
                       <div class="text-[10px] font-mono font-bold truncate text-slate-800 dark:text-slate-200">
@@ -1161,10 +1164,10 @@
               <div class="space-y-3">
                 <div class="flex items-center justify-between text-[11px] text-slate-400">
                   <span>
-                    サブネット <span class="font-mono text-cyan-400 font-bold">{currentSubnetHosts.prefix}.0/24</span> の個別ホスト割当状況 (1 〜 254)
+                    {$_("report.subnetHostHeader", { values: { prefix: currentSubnetHosts.prefix } })}
                   </span>
                   <span class="text-[10px] font-mono">
-                    マスをクリックするとホスト詳細が表示されます
+                    {$_("report.hostClickHint")}
                   </span>
                 </div>
 
@@ -1181,7 +1184,7 @@
                           ? { ip: hostIP, name: host.name, mac: host.mac, vendor: host.vendor, state: host.state, isManaged: host.isManaged }
                           : { ip: hostIP, isFree: true };
                       }}
-                      title="{hostIP} {isUsed ? `(${host.name || host.mac})` : '(空き)'}"
+                      title="{hostIP} {isUsed ? `(${host.name || host.mac})` : `(${$_('report.legendFree')})`}"
                       class="h-5 rounded text-[9px] flex items-center justify-center font-mono cursor-pointer transition-transform hover:scale-125 {isQueryMatch ? 'ring-2 ring-amber-400 font-bold' : ''} {isUsed ? 'bg-emerald-500 text-slate-950 font-bold shadow-xs shadow-emerald-500/50' : 'bg-slate-200 dark:bg-slate-800/60 text-slate-500 dark:text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'}"
                     >
                       {hostNum}
@@ -1197,7 +1200,7 @@
                       <div>
                         <span class="text-cyan-400 font-bold text-sm">{selectedHostInfo.ip}</span>
                         {#if selectedHostInfo.isFree}
-                          <span class="ml-2 text-slate-400 font-sans text-xs">（未割当・空きIP）</span>
+                          <span class="ml-2 text-slate-400 font-sans text-xs">{$_("report.unassignedFreeIp")}</span>
                         {:else}
                           <span class="ml-2 text-slate-800 dark:text-slate-100 font-bold font-sans">{selectedHostInfo.name}</span>
                           <span class="ml-2 text-slate-500 dark:text-slate-400 text-[11px]">MAC: {selectedHostInfo.mac || "-"}</span>
@@ -1212,7 +1215,7 @@
                       onclick={() => { selectedHostInfo = null; }}
                       class="rounded px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 text-[11px] font-sans cursor-pointer transition-colors"
                     >
-                      閉じる
+                      {$_("report.close")}
                     </button>
                   </div>
                 {/if}
@@ -1228,31 +1231,31 @@
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Activity class="w-5 h-5 text-cyan-400" />
-            ポーリング稼働率 & SLA レポート
+            {$_("report.pollingTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">各種ポーリング（PING, SNMP, HTTP, TCP）の死活状況・応答時間統計</p>
+          <p class="text-xs text-slate-400 mt-1">{$_("report.pollingSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">総ポーリング件数</span>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{pollingStats.total} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">常時ヘルスチェック中</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.totalPollings")}</span>
+            <div class="text-2xl font-bold font-mono text-cyan-400">{pollingStats.total} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.pollingMonitoringSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">サービス稼働率 (SLA)</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.serviceSla")}</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">{pollingStats.rate} <span class="text-xs font-normal text-slate-400">%</span></div>
-            <div class="text-[10px] text-slate-400">過去24時間アベイラビリティ</div>
+            <div class="text-[10px] text-slate-400">{$_("report.serviceSlaSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">警告・注意 (Warn/Low)</span>
-            <div class="text-2xl font-bold font-mono text-amber-400">{pollingStats.warn} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">閾値超過・レイテンシ増</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.warnPollings")}</span>
+            <div class="text-2xl font-bold font-mono text-amber-400">{pollingStats.warn} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.warnPollingsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">ダウン / 障害 (Error)</span>
-            <div class="text-2xl font-bold font-mono text-rose-400">{pollingStats.error} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">サービス停止</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.errorPollings")}</span>
+            <div class="text-2xl font-bold font-mono text-rose-400">{pollingStats.error} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.errorPollingsSub")}</div>
           </div>
         </div>
 
@@ -1260,18 +1263,18 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">ポーリング名</th>
-                <th class="py-1 px-2.5">種別</th>
-                <th class="py-1 px-2.5">監視ターゲット</th>
-                <th class="py-1 px-2.5">応答ステータス</th>
-                <th class="py-1 px-2.5">最新応答値</th>
+                <th class="py-1 px-2.5">{$_("report.colPollingName")}</th>
+                <th class="py-1 px-2.5">{$_("report.colType")}</th>
+                <th class="py-1 px-2.5">{$_("report.colTarget")}</th>
+                <th class="py-1 px-2.5">{$_("report.colResponseStatus")}</th>
+                <th class="py-1 px-2.5">{$_("report.colLatestValue")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if pollings.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
-                    登録されているポーリングはありません
+                    {$_("report.noPollings")}
                   </td>
                 </tr>
               {:else}
@@ -1305,49 +1308,49 @@
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BarChart3 class="w-5 h-5 text-cyan-400" />
-            NetFlow / トラフィック分析レポート
+            {$_("report.flowTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">NetFlow v5/v9/IPFIX パケットから抽出されたセッション通信量および上位プロトコル統計</p>
+          <p class="text-xs text-slate-400 mt-1">{$_("report.flowSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">総転送量 (24h)</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.totalTransfer")}</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">148.6 <span class="text-xs font-normal text-slate-400">GB</span></div>
-            <div class="text-[10px] text-slate-400">インバウンド + アウトバウンド</div>
+            <div class="text-[10px] text-slate-400">{$_("report.totalTransferSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">総フローセッション数</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.totalFlowSessions")}</span>
             <div class="text-2xl font-bold font-mono text-emerald-400">186,400 <span class="text-xs font-normal text-slate-400">flows</span></div>
-            <div class="text-[10px] text-slate-400">アクティブセッション</div>
+            <div class="text-[10px] text-slate-400">{$_("report.totalFlowSessionsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">主要プロトコル</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.mainProtocols")}</span>
             <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">HTTPS <span class="text-xs font-normal text-slate-500 dark:text-slate-400">(68%)</span></div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">ポート 443 / 暗号化通信</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.mainProtocolsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">ピーク帯域</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.peakBandwidth")}</span>
             <div class="text-2xl font-bold font-mono text-cyan-300">42.8 <span class="text-xs font-normal text-slate-400">Mbps</span></div>
-            <div class="text-[10px] text-slate-400">最大バースト通信</div>
+            <div class="text-[10px] text-slate-400">{$_("report.peakBandwidthSub")}</div>
           </div>
         </div>
 
         <!-- Flow Conversations Table -->
         <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
           <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200">
-            トップカンバセーション (Top IP Conversations)
+            {$_("report.topConversations")}
           </div>
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">送信元 (Source)</th>
-                <th class="py-1 px-2.5">宛先 (Destination)</th>
-                <th class="py-1 px-2.5">プロトコル / ポート</th>
-                <th class="py-1 px-2.5">パケット数</th>
-                <th class="py-1 px-2.5">データ量 (Bytes)</th>
-                <th class="py-1 px-2.5">継続時間</th>
-                <th class="py-1 px-2.5">状態</th>
+                <th class="py-1 px-2.5">{$_("report.colSource")}</th>
+                <th class="py-1 px-2.5">{$_("report.colDest")}</th>
+                <th class="py-1 px-2.5">{$_("report.colProtoPort")}</th>
+                <th class="py-1 px-2.5">{$_("report.colPackets")}</th>
+                <th class="py-1 px-2.5">{$_("report.colBytes")}</th>
+                <th class="py-1 px-2.5">{$_("report.colDuration")}</th>
+                <th class="py-1 px-2.5">{$_("report.colStatus")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -1373,31 +1376,31 @@
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <FileText class="w-5 h-5 text-cyan-400" />
-            イベント & Syslog 監査集計レポート
+            {$_("report.eventTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">障害ログ、復旧通知、Syslogメッセージのレベル別頻度および監査証跡</p>
+          <p class="text-xs text-slate-400 mt-1">{$_("report.eventSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">総ログイベント</span>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{logs.length} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">蓄積イベント総計</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.totalLogEvents")}</span>
+            <div class="text-2xl font-bold font-mono text-cyan-400">{logs.length} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.totalLogEventsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">重大障害 (High / Error)</span>
-            <div class="text-2xl font-bold font-mono text-rose-400">{logs.filter((l) => l.level === 'high' || l.level === 'error').length} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">緊急対応アラート</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.highErrorEvents")}</span>
+            <div class="text-2xl font-bold font-mono text-rose-400">{logs.filter((l) => l.level === 'high' || l.level === 'error').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.highErrorEventsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">注意・軽微 (Warn / Low)</span>
-            <div class="text-2xl font-bold font-mono text-amber-400">{logs.filter((l) => l.level === 'warn' || l.level === 'low').length} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">予防保守対象</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.warnLowEvents")}</span>
+            <div class="text-2xl font-bold font-mono text-amber-400">{logs.filter((l) => l.level === 'warn' || l.level === 'low').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.warnLowEventsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">正常復旧 (Normal)</span>
-            <div class="text-2xl font-bold font-mono text-emerald-400">{logs.filter((l) => l.level === 'normal' || l.level === 'info').length} <span class="text-xs font-normal text-slate-400">件</span></div>
-            <div class="text-[10px] text-slate-400">自己修復・回復</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.normalInfoEvents")}</span>
+            <div class="text-2xl font-bold font-mono text-emerald-400">{logs.filter((l) => l.level === 'normal' || l.level === 'info').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.normalInfoEventsSub")}</div>
           </div>
         </div>
 
@@ -1405,18 +1408,18 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">発生日時</th>
-                <th class="py-1 px-2.5">レベル</th>
-                <th class="py-1 px-2.5">種別</th>
-                <th class="py-1 px-2.5">対象ノード</th>
-                <th class="py-1 px-2.5">イベント内容</th>
+                <th class="py-1 px-2.5">{$_("report.colTimestamp")}</th>
+                <th class="py-1 px-2.5">{$_("report.colLevel")}</th>
+                <th class="py-1 px-2.5">{$_("report.colType")}</th>
+                <th class="py-1 px-2.5">{$_("report.colTargetNode")}</th>
+                <th class="py-1 px-2.5">{$_("report.colEventContent")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if logs.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
-                    イベントログはまだ記録されていません
+                    {$_("report.noLogs")}
                   </td>
                 </tr>
               {:else}
@@ -1446,26 +1449,26 @@
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <ShieldCheck class="w-5 h-5 text-cyan-400" />
-            サーバー証明書監視 (TLS Certificate Monitor)
+            {$_("report.certTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">Web / API サーバーの SSL/TLS 証明書有効期限・発行元認証局・暗号強度の自動追跡</p>
+          <p class="text-xs text-slate-400 mt-1">{$_("report.certSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">監視対象証明書数</span>
-            <div class="text-2xl font-bold font-mono text-cyan-400">{certItems.length} <span class="text-xs font-normal text-slate-400">枚</span></div>
-            <div class="text-[10px] text-slate-400">HTTPS / TLS エンドポイント</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.monitoredCerts")}</span>
+            <div class="text-2xl font-bold font-mono text-cyan-400">{certItems.length} <span class="text-xs font-normal text-slate-400">{$_("report.unitCerts")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.monitoredCertsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">有効証明書 (正常)</span>
-            <div class="text-2xl font-bold font-mono text-emerald-400">{certItems.filter((c) => c.status === 'valid').length} <span class="text-xs font-normal text-slate-400">枚</span></div>
-            <div class="text-[10px] text-slate-400">期限まで 30 日以上</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.validCerts")}</span>
+            <div class="text-2xl font-bold font-mono text-emerald-400">{certItems.filter((c) => c.status === 'valid').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitCerts")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.validCertsSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">期限切れ間近 (30日以内)</span>
-            <div class="text-2xl font-bold font-mono text-amber-400">{certItems.filter((c) => c.status === 'warning').length} <span class="text-xs font-normal text-slate-400">枚</span></div>
-            <div class="text-[10px] text-amber-400/80">更新推奨ターゲット</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.expiringCerts")}</span>
+            <div class="text-2xl font-bold font-mono text-amber-400">{certItems.filter((c) => c.status === 'warning').length} <span class="text-xs font-normal text-slate-400">{$_("report.unitCerts")}</span></div>
+            <div class="text-[10px] text-amber-400/80">{$_("report.expiringCertsSub")}</div>
           </div>
         </div>
 
@@ -1473,13 +1476,13 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">監視対象サービス / ホスト</th>
-                <th class="py-1 px-2.5">発行元認証局 (Issuer)</th>
-                <th class="py-1 px-2.5">証明書 Subject</th>
-                <th class="py-1 px-2.5">鍵種別 / 強度</th>
-                <th class="py-1 px-2.5">有効期限 (Valid Until)</th>
-                <th class="py-1 px-2.5">残り日数</th>
-                <th class="py-1 px-2.5">ステータス</th>
+                <th class="py-1 px-2.5">{$_("report.colMonitoredService")}</th>
+                <th class="py-1 px-2.5">{$_("report.colIssuer")}</th>
+                <th class="py-1 px-2.5">{$_("report.colSubject")}</th>
+                <th class="py-1 px-2.5">{$_("report.colKeyStrength")}</th>
+                <th class="py-1 px-2.5">{$_("report.colValidUntil")}</th>
+                <th class="py-1 px-2.5">{$_("report.colRemainingDays")}</th>
+                <th class="py-1 px-2.5">{$_("report.colStatus")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -1490,7 +1493,7 @@
                   <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{c.subject}</td>
                   <td class="py-1 px-2.5 text-slate-800 dark:text-slate-200 text-[11px]">{c.key}</td>
                   <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{c.validUntil}</td>
-                  <td class="py-1 px-2.5 font-bold text-[11px] {c.days < 30 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">{c.days} 日</td>
+                  <td class="py-1 px-2.5 font-bold text-[11px] {c.days < 30 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">{$_("report.remainingDaysUnit", { values: { days: c.days } })}</td>
                   <td class="py-1 px-2.5">
                     <span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {c.status === 'valid' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30' : 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30'}">
                       {c.status}
@@ -1509,66 +1512,66 @@
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Thermometer class="w-5 h-5 text-cyan-400" />
-            環境・IoT センサー (Telemetry & MQTT)
+            {$_("report.sensorTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">サーバルーム温湿度センサー、UPSバッテリー状態、電力消費量等のテレメトリレポート</p>
+          <p class="text-xs text-slate-400 mt-1">{$_("report.sensorSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">サーバルーム温度</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.serverRoomTemp")}</span>
             <div class="text-2xl font-bold font-mono text-cyan-400">22.4 <span class="text-xs font-normal text-slate-400">℃</span></div>
-            <div class="text-[10px] text-emerald-400">推奨範囲内 (18〜26℃)</div>
+            <div class="text-[10px] text-emerald-400">{$_("report.serverRoomTempSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">サーバルーム湿度</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.serverRoomHumidity")}</span>
             <div class="text-2xl font-bold font-mono text-cyan-300">46.5 <span class="text-xs font-normal text-slate-400">%</span></div>
-            <div class="text-[10px] text-emerald-400">結露・静電気リスクなし</div>
+            <div class="text-[10px] text-emerald-400">{$_("report.serverRoomHumiditySub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">UPS 電源ステータス</span>
-            <div class="text-2xl font-bold font-mono text-emerald-400">100 <span class="text-xs font-normal text-slate-400">% バッテリー</span></div>
-            <div class="text-[10px] text-slate-400">商用電源給電中 (AC 100V)</div>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.upsBatteryStatus")}</span>
+            <div class="text-2xl font-bold font-mono text-emerald-400">100 <span class="text-xs font-normal text-slate-400">{$_("report.unitBattery")}</span></div>
+            <div class="text-[10px] text-slate-400">{$_("report.upsPowerSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">MQTT 受信メッセージ</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.mqttReceived")}</span>
             <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">1,842 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">msgs</span></div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">トピック: twsnmp/sensor/#</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.mqttTopicSub")}</div>
           </div>
         </div>
       </div>
 
-    <!-- REPORT 8: AI 異常検知スコア (AIList) -->
+    <!-- REPORT 8: {$_("report.aiTitle")} -->
     {:else if activeReport === "ai"}
       <div class="space-y-6">
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Sparkles class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-            AI 異常検知スコア (AIList)
+            {$_("report.aiTitle")}
           </h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">統計的変化点検出およびLLMエージェントによるノード・ポーリングの複合異常判定レポート</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.aiSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">解析対象ノード数</span>
-            <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">{nodes.length} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">台</span></div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">時系列特徴量抽出中</div>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnalyzedNodes")}</span>
+            <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">{nodes.length} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitDevices")}</span></div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.aiFeaturesSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">異常検出ノード</span>
-            <div class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">0 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">件</span></div>
-            <div class="text-[10px] text-emerald-600 dark:text-emerald-400">特異なスパイクなし</div>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnomalyNodes")}</span>
+            <div class="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">0 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitPollings")}</span></div>
+            <div class="text-[10px] text-emerald-600 dark:text-emerald-400">{$_("report.aiNoSpikesSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">平均異常度スコア</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAvgScore")}</span>
             <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">4.2 <span class="text-xs font-normal text-slate-500 dark:text-slate-400">/ 100</span></div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">全体安定稼働中</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.aiStableSub")}</div>
           </div>
           <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-            <span class="text-xs font-semibold text-slate-400">診断推論エンジン</span>
+            <span class="text-xs font-semibold text-slate-400">{$_("report.aiEngine")}</span>
             <div class="text-xl font-bold font-mono text-cyan-300">Gemini / Ollama</div>
-            <div class="text-[10px] text-slate-400">マルチLLM統合</div>
+            <div class="text-[10px] text-slate-400">{$_("report.aiEngineSub")}</div>
           </div>
         </div>
 
@@ -1576,18 +1579,18 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">対象ノード</th>
-                <th class="py-1 px-2.5">IP アドレス</th>
-                <th class="py-1 px-2.5">異常度スコア (0-100)</th>
-                <th class="py-1 px-2.5">主な変化点・評価要素</th>
-                <th class="py-1 px-2.5">AI 診断判定</th>
+                <th class="py-1 px-2.5">{$_("report.colTargetNode")}</th>
+                <th class="py-1 px-2.5">{$_("report.colIp")}</th>
+                <th class="py-1 px-2.5">{$_("report.colAnomalyScore")}</th>
+                <th class="py-1 px-2.5">{$_("report.colEvaluationFactors")}</th>
+                <th class="py-1 px-2.5">{$_("report.colAiVerdict")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#if nodes.length === 0}
                 <tr>
                   <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
-                    ノードが登録されていません
+                    {$_("report.noNodes")}
                   </td>
                 </tr>
               {:else}
@@ -1597,10 +1600,10 @@
                     <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{n.name}</td>
                     <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
                     <td class="py-1 px-2.5 font-bold font-mono text-emerald-600 dark:text-emerald-400 text-[11px]">{score}</td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 font-sans text-[11px]">Ping RTT / 応答ジッター正常範囲内</td>
+                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{$_("report.normalRttJitter")}</td>
                     <td class="py-1 px-2.5">
                       <span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 font-sans leading-none">
-                        正常安定 (Stable)
+                        {$_("report.stableVerdict")}
                       </span>
                     </td>
                   </tr>

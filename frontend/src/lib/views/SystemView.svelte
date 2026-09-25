@@ -8,6 +8,7 @@
     type SystemInfo,
     type MonitorDataEnt,
   } from "../api";
+  import { _ } from "svelte-i18n";
   import { renderBytes, renderSpeed, renderPercent, formatTimeStr } from "../common";
   import {
     showMonitorResChart,
@@ -134,7 +135,7 @@
 
   // Handle Backup
   const handleBackup = async () => {
-    if (!confirm("データベースのスナップショットバックアップを実行しますか？")) {
+    if (!confirm($_('system.confirmBackup'))) {
       return;
     }
     backupLoading = true;
@@ -147,7 +148,7 @@
         backupStatus = null;
       }, 7000);
     } catch (e: any) {
-      backupError = e.message || "バックアップに失敗しました";
+      backupError = e.message || $_('system.backupFailed');
       setTimeout(() => {
         backupError = null;
       }, 7000);
@@ -304,10 +305,10 @@
     <div class="flex items-center gap-6">
       <div>
         <div class="flex items-center gap-2">
-          <Server class="h-5 w-5 text-cyan-400" />
-          <h1 class="text-base font-bold text-slate-900 dark:text-slate-100 tracking-wide">システムステータス & リソースモニター</h1>
+          <Server class="h-5 w-5 text-cyan-500 dark:text-cyan-400" />
+          <h1 class="text-base font-bold text-slate-900 dark:text-slate-100 tracking-wide">{$_('system.title')}</h1>
         </div>
-        <p class="text-xs text-slate-400 mt-0.5">TWSNMP NEO デーモンプロセスおよびリソース稼働状況</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{$_('system.subtitle')}</p>
       </div>
 
       <!-- Navigation Tabs -->
@@ -318,7 +319,7 @@
           class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'overview' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <BarChart3 class="h-3.5 w-3.5" />
-          <span>概要 & リソース推移</span>
+          <span>{$_('system.tabOverview')}</span>
         </button>
 
         <button
@@ -327,7 +328,7 @@
           class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'table' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <TableIcon class="h-3.5 w-3.5" />
-          <span>リソース履歴テーブル</span>
+          <span>{$_('system.tabHistory')}</span>
           {#if monitorLogs.length > 0}
             <span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono {activeTab === 'table' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
               {monitorLogs.length}
@@ -343,10 +344,10 @@
         type="button"
         onclick={openForecast}
         class="flex items-center gap-1.5 rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 px-3.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 transition-colors cursor-pointer shadow-xs"
-        title="1年間のストレージ・DB使用量予測"
+        title={$_('system.btnCapacityForecastTitle')}
       >
         <TrendingUp class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-        <span>容量予測</span>
+        <span>{$_('system.btnCapacityForecast')}</span>
       </button>
 
       <button
@@ -354,10 +355,10 @@
         onclick={handleBackup}
         disabled={backupLoading}
         class="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer shadow-xs"
-        title="データベースのスナップショットバックアップ作成"
+        title={$_('system.btnBackupTitle')}
       >
         <Database class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 {backupLoading ? 'animate-pulse' : ''}" />
-        <span>DBバックアップ</span>
+        <span>{$_('system.btnBackup')}</span>
       </button>
 
       {#if activeTab === "table"}
@@ -365,10 +366,10 @@
           type="button"
           onclick={exportCSV}
           class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
-          title="CSVエクスポート"
+          title={$_('system.btnExportCsvTitle')}
         >
-          <FileSpreadsheet class="h-3.5 w-3.5 text-cyan-400" />
-          <span>CSV保存</span>
+          <FileSpreadsheet class="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
+          <span>{$_('system.btnExportCsv')}</span>
         </button>
       {/if}
 
@@ -378,8 +379,8 @@
         disabled={refreshing || loading}
         class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
       >
-        <RotateCcw class="h-3.5 w-3.5 text-cyan-400 {refreshing ? 'animate-spin' : ''}" />
-        <span>再読み込み</span>
+        <RotateCcw class="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400 {refreshing ? 'animate-spin' : ''}" />
+        <span>{$_('system.btnReload')}</span>
       </button>
     </div>
   </header>
@@ -390,7 +391,7 @@
       <div class="flex items-center gap-2">
         <CheckCircle2 class="h-4 w-4 text-emerald-400 shrink-0" />
         <div>
-          <span class="font-bold">データベースバックアップ成功:</span>
+          <span class="font-bold">{$_('system.backupSuccess')}</span>
           <span class="ml-1 font-mono text-emerald-300">{backupStatus.file}</span>
           <span class="ml-2 font-mono text-slate-300">({renderBytes(backupStatus.size)})</span>
         </div>
@@ -405,7 +406,7 @@
     <div class="mx-6 mt-3 flex items-center justify-between rounded-xl border border-rose-500/50 bg-rose-950/70 p-3 text-xs text-rose-200 shadow-md">
       <div class="flex items-center gap-2">
         <AlertTriangle class="h-4 w-4 text-rose-400 shrink-0" />
-        <span>バックアップ失敗: {backupError}</span>
+        <span>{$_('system.backupError')} {backupError}</span>
       </div>
       <button onclick={() => (backupError = null)} class="text-rose-400 hover:text-rose-200 cursor-pointer">
         <X class="h-4 w-4" />
@@ -423,7 +424,7 @@
           <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
             <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Server class="h-3.5 w-3.5" />
-              <span>デーモン稼働状態</span>
+              <span>{$_('system.daemonStatus')}</span>
             </span>
             <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/80 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
               ● ACTIVE
@@ -434,7 +435,7 @@
             <span>{sysInfo?.status?.toUpperCase() || "HEALTHY"}</span>
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            稼働: <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || "起動中"}</span>
+            {$_('system.uptime')} <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || $_('system.starting')}</span>
           </div>
         </div>
 
@@ -443,7 +444,7 @@
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Activity class="h-3.5 w-3.5" />
-              <span>バージョン</span>
+              <span>{$_('system.version')}</span>
             </span>
           </div>
           <div class="my-2 text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
@@ -463,15 +464,15 @@
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Clock class="h-3.5 w-3.5" />
-              <span>サーバー現在時刻</span>
+              <span>{$_('system.serverTime')}</span>
             </span>
-            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">NTP同期</span>
+            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">{$_('system.ntpSync')}</span>
           </div>
           <div class="my-2 text-base font-bold font-mono text-slate-900 dark:text-slate-100 leading-tight">
             {formatTimeStr(sysInfo?.time || new Date().toISOString())}
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400">
-            タイムゾーン: ローカル同期
+            {$_('system.tzLocalSync')}
           </div>
         </div>
 
@@ -480,9 +481,9 @@
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Cpu class="h-3.5 w-3.5" />
-              <span>CPU & 負荷</span>
+              <span>{$_('system.cpuLoad')}</span>
             </span>
-            <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">{sysInfo?.num_cpu || 1} コア</span>
+            <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">{sysInfo?.num_cpu || 1} {$_('system.cores')}</span>
           </div>
           <div class="my-2 flex items-baseline gap-2">
             <span class="text-2xl font-bold font-mono text-sky-600 dark:text-sky-400">
@@ -493,7 +494,7 @@
             </span>
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
-            自プロセス: <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{renderPercent(latestSnapshot?.MyCPU)}</span>
+            {$_('system.myCpu')} <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{renderPercent(latestSnapshot?.MyCPU)}</span>
           </div>
         </div>
 
@@ -502,7 +503,7 @@
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Layers class="h-3.5 w-3.5" />
-              <span>メモリ使用状況</span>
+              <span>{$_('system.memoryUsage')}</span>
             </span>
             <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">Swap {renderPercent(latestSnapshot?.Swap)}</span>
           </div>
@@ -524,7 +525,7 @@
           <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span class="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400">
               <Database class="h-3.5 w-3.5" />
-              <span>ストレージ & DB</span>
+              <span>{$_('system.storageDb')}</span>
             </span>
             <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">bbolt+pq</span>
           </div>
@@ -534,7 +535,7 @@
             </span>
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
-            Disk: <span class="text-amber-600 dark:text-amber-300 font-semibold">{renderPercent(latestSnapshot?.Disk)}</span> 使用
+            Disk: <span class="text-amber-600 dark:text-amber-300 font-semibold">{renderPercent(latestSnapshot?.Disk)}</span> {$_('system.diskUsed')}
           </div>
         </div>
       </div>
@@ -547,11 +548,11 @@
             <div class="flex items-center gap-2">
               <Cpu class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                システムリソース推移 (CPU / Memory / Disk / Load)
+                {$_('system.resChartTitle')}
               </h3>
             </div>
             <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              {monitorLogs.length} サンプル
+              {monitorLogs.length} {$_('system.samples')}
             </span>
           </div>
           <div bind:this={resChartElem} class="w-full h-72"></div>
@@ -563,11 +564,11 @@
             <div class="flex items-center gap-2">
               <Radio class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                ネットワークトラフィック & TCP 接続数推移
+                {$_('system.netChartTitle')}
               </h3>
             </div>
             <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              現在: {renderSpeed(latestSnapshot?.Net || 0)} / {latestSnapshot?.Conn || 0} conn
+              {$_('system.current')} {renderSpeed(latestSnapshot?.Net || 0)} / {latestSnapshot?.Conn || 0} conn
             </span>
           </div>
           <div bind:this={netChartElem} class="w-full h-72"></div>
@@ -579,11 +580,11 @@
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <ShieldCheck class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">サーバー稼働状態</h3>
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">{$_('system.serverHealth')}</h3>
           </div>
           <div class="flex items-center gap-4 text-xs font-mono text-slate-500 dark:text-slate-400">
-            <span>監視ノード数: <strong class="text-cyan-600 dark:text-cyan-400">{sysInfo?.node_count ?? 0}</strong></span>
-            <span>アクティブポーリング: <strong class="text-cyan-600 dark:text-cyan-400">{sysInfo?.poll_count ?? 0}</strong></span>
+            <span>{$_('system.monitoredNodes')} <strong class="text-cyan-600 dark:text-cyan-400">{sysInfo?.node_count ?? 0}</strong></span>
+            <span>{$_('system.activePolling')} <strong class="text-cyan-600 dark:text-cyan-400">{sysInfo?.poll_count ?? 0}</strong></span>
           </div>
         </div>
 
@@ -593,7 +594,7 @@
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">Syslog</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
@@ -607,7 +608,7 @@
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">SNMP TRAP</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
@@ -621,7 +622,7 @@
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">NetFlow / IPFIX</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
@@ -630,18 +631,18 @@
             <div class="text-[10px] text-slate-500 dark:text-slate-400">NetFlow v5 / v9 / IPFIX</div>
           </div>
 
-          <!-- MCP サーバー -->
+          <!-- MCP Server -->
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-800 dark:text-slate-200">MCP サーバー</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.mcpServer')}</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
               {sysInfo?.receivers?.mcp?.port || "SSE /api/mcp/sse"}
             </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">AI エージェント統合 (Model Context Protocol)</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.mcpDesc')}</div>
           </div>
 
           <!-- OpenTelemetry -->
@@ -649,7 +650,7 @@
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">OpenTelemetry</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
@@ -661,15 +662,15 @@
           <!-- MQTT Broker -->
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
-              <span class="font-semibold text-slate-800 dark:text-slate-200">MQTT ブローカー</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.mqttBroker')}</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.mqtt?.port || "TCP :1883"}
             </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">IoT / センサーパブリッシュ監視</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.mqttDesc')}</div>
           </div>
 
           <!-- sFlow -->
@@ -677,13 +678,13 @@
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">sFlow</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
               {sysInfo?.receivers?.sflow?.port || "UDP :6343"}
             </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">sFlow v5 Flow / Counter サンプル</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.sflowDesc')}</div>
           </div>
 
           <!-- ARP Watch -->
@@ -691,13 +692,13 @@
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">ARP Watch</span>
               <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                ● 稼働中
+                {$_('system.running')}
               </span>
             </div>
             <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              ローカル ARP スキャン
+              {$_('system.arpScan')}
             </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400">IP-MAC コンフリクト検知 & デバイス発見</div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.arpDesc')}</div>
           </div>
         </div>
       </div>
@@ -714,29 +715,29 @@
             <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="日時で検索..."
+              placeholder={$_('system.searchPlaceholder')}
               bind:value={tableSearch}
               oninput={() => (tablePage = 1)}
               class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
             />
           </div>
-          <span class="text-xs text-slate-400">
-            全 <strong class="text-cyan-400 font-mono">{filteredLogs.length}</strong> 件のレコード
+          <span class="text-xs text-slate-500 dark:text-slate-400">
+            {$_('system.recordsCount', { values: { count: filteredLogs.length } })}
           </span>
         </div>
 
         <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>表示件数:</span>
+          <span>{$_('system.displayCount')}</span>
           <select
             bind:value={tablePageSize}
             onchange={() => (tablePage = 1)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none cursor-pointer shadow-xs"
           >
-            <option value={15}>15 件</option>
-            <option value={25}>25 件</option>
-            <option value={50}>50 件</option>
-            <option value={100}>100 件</option>
-            <option value={-1}>すべて</option>
+            <option value={15}>15 {$_('system.items')}</option>
+            <option value={25}>25 {$_('system.items')}</option>
+            <option value={50}>50 {$_('system.items')}</option>
+            <option value={100}>100 {$_('system.items')}</option>
+            <option value={-1}>{$_('system.all')}</option>
           </select>
         </div>
       </div>
@@ -749,7 +750,7 @@
               <tr>
                 <th onclick={() => handleSort("Time")} class="px-4 py-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center gap-1">
-                    <span>日時</span>
+                    <span>{$_('system.time')}</span>
                     {#if sortColumn === "Time"}
                       {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {:else}
@@ -767,7 +768,7 @@
                 </th>
                 <th onclick={() => handleSort("Mem")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
-                    <span>メモリ</span>
+                    <span>{$_('system.memory')}</span>
                     {#if sortColumn === "Mem"}
                       {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {/if}
@@ -783,7 +784,7 @@
                 </th>
                 <th onclick={() => handleSort("MyMem")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
-                    <span>My メモリ</span>
+                    <span>{$_('system.myMemory')}</span>
                     {#if sortColumn === "MyMem"}
                       {#if sortDirection === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                     {/if}
@@ -792,7 +793,7 @@
                 <th onclick={() => handleSort("Swap")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Swap</th>
                 <th onclick={() => handleSort("Disk")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Disk</th>
                 <th onclick={() => handleSort("Load")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Load</th>
-                <th onclick={() => handleSort("Net")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">通信速度</th>
+                <th onclick={() => handleSort("Net")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">{$_('system.netSpeed')}</th>
                 <th onclick={() => handleSort("Conn")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Conn</th>
                 <th onclick={() => handleSort("Proc")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Proc</th>
                 <th onclick={() => handleSort("NumGoroutine")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Goroutine</th>
@@ -805,7 +806,7 @@
               {#if paginatedLogs.length === 0}
                 <tr>
                   <td colspan="15" class="py-12 text-center text-slate-500 font-sans">
-                    リソースモニターの記録データがありません
+                    {$_('system.noData')}
                   </td>
                 </tr>
               {:else}
@@ -839,10 +840,7 @@
         {#if tablePageSize !== -1 && totalPages > 1}
           <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-4 py-3 shrink-0 text-xs text-slate-600 dark:text-slate-400">
             <div>
-              <span>全 <strong class="text-slate-800 dark:text-slate-200">{filteredLogs.length}</strong> 件中</span>
-              <span class="ml-1 font-mono text-cyan-600 dark:text-cyan-400">
-                {(tablePage - 1) * tablePageSize + 1} - {Math.min(tablePage * tablePageSize, filteredLogs.length)}
-              </span>
+              <span>{$_('system.pageInfo', { values: { total: filteredLogs.length, from: (tablePage - 1) * tablePageSize + 1, to: Math.min(tablePage * tablePageSize, filteredLogs.length) } })}</span>
             </div>
 
             <div class="flex items-center gap-1.5">
@@ -897,7 +895,7 @@
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4">
         <div class="flex items-center gap-2.5">
           <TrendingUp class="h-5 w-5 text-amber-500 dark:text-amber-400" />
-          <h2 class="text-sm font-bold text-slate-900 dark:text-slate-100">ストレージ & データベース将来容量予測 (1年間)</h2>
+          <h2 class="text-sm font-bold text-slate-900 dark:text-slate-100">{$_('system.forecastModalTitle')}</h2>
         </div>
         <button
           type="button"
@@ -911,7 +909,7 @@
       <!-- Modal Body -->
       <div class="p-6">
         <div class="mb-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-xs text-slate-600 dark:text-slate-400">
-          過去のリソースサンプルの推移に基づき、線形回帰分析（Linear Regression）を用いて今後365日間のディスク使用率およびデータベースサイズを予測します。
+          {$_('system.forecastModalDesc')}
         </div>
         <div bind:this={forecastChartElem} class="w-full h-96"></div>
       </div>
@@ -923,7 +921,7 @@
           onclick={() => (showForecastModal = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_('system.close')}
         </button>
       </div>
     </div>

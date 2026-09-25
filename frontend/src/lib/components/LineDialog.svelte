@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { saveLine, deleteLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../api";
+  import { _ } from "svelte-i18n";
   import { X, Save, GitCommitHorizontal, Trash2, Network, Link, Unlink, Server, Laptop, Activity } from "@lucide/svelte";
 
   let {
@@ -54,7 +55,7 @@
       const net = target1 as NetworkEnt;
       return (net.ports || []).map((p) => ({
         id: p.id || (p as any).ID,
-        label: `ポート: ${p.name || (p as any).Name}`,
+        label: `${$_('line.connectPort')}: ${p.name || (p as any).Name}`,
       }));
     }
     return pollings
@@ -71,7 +72,7 @@
       const net = target2 as NetworkEnt;
       return (net.ports || []).map((p) => ({
         id: p.id || (p as any).ID,
-        label: `ポート: ${p.name || (p as any).Name}`,
+        label: `${$_('line.connectPort')}: ${p.name || (p as any).Name}`,
       }));
     }
     return pollings
@@ -126,11 +127,11 @@
 
   const handleConnectOrUpdate = async () => {
     if (!nodeId1 || !nodeId2) {
-      saveError = "接続元と接続先が指定されていません。";
+      saveError = $_('line.errEndpointsRequired');
       return;
     }
     if (nodeId1 === nodeId2) {
-      saveError = "接続元と接続先は異なる機器を指定してください。";
+      saveError = $_('line.errDifferentEndpoints');
       return;
     }
 
@@ -152,19 +153,19 @@
       onSave(saved);
       show = false;
     } catch (e: any) {
-      saveError = "保存エラー: " + (e.message || e);
+      saveError = $_('line.saveError') + ": " + (e.message || e);
     }
   };
 
   const handleDisconnect = async () => {
     if (line?.id) {
-      if (confirm("このライン（結線）を切断しますか？")) {
+      if (confirm($_('line.disconnectConfirm'))) {
         try {
           await deleteLine(line.id);
           onDelete(line.id);
           show = false;
         } catch (e: any) {
-          saveError = "切断エラー: " + (e.message || e);
+          saveError = $_('line.disconnectError') + ": " + (e.message || e);
         }
       }
     }
@@ -187,13 +188,13 @@
             <GitCommitHorizontal class="h-5 w-5" />
           </div>
           <div>
-            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{line?.id ? "ライン（結線）の編集" : "ライン（結線）の接続"}</h2>
-            <p class="text-[11px] text-slate-400">ノードおよびネットワークポート間の結線設定</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{line?.id ? $_('line.editTitle') : $_('line.createTitle')}</h2>
+            <p class="text-[11px] text-slate-400">{$_('line.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
         >
@@ -217,28 +218,28 @@
             <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
               {#if isNet1}
                 <Network class="w-4 h-4 text-cyan-400" />
-                <span>ネットワーク 1</span>
+                <span>{$_('line.net1')}</span>
               {:else}
                 <Laptop class="w-4 h-4 text-emerald-400" />
-                <span>ノード 1</span>
+                <span>{$_('line.node1')}</span>
               {/if}
             </div>
             <div>
-              <label for="endpoint-1-name" class="block text-[11px] font-semibold text-slate-400 mb-1">機器名称</label>
+              <label for="endpoint-1-name" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.deviceName')}</label>
               <div id="endpoint-1-name" class="w-full rounded-xl border border-slate-800/80 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 truncate">
                 {target1?.name || (target1 as any)?.Name || nodeId1 || "-"}
               </div>
             </div>
             <div>
               <label for="endpoint-1-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">
-                {isNet1 ? "接続ポート" : "ポーリング (状態連動)"}
+                {isNet1 ? $_('line.connectPort') : $_('line.statusLinkedPolling')}
               </label>
               <select
                 id="endpoint-1-polling"
                 bind:value={pollingId1}
                 class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value="">(指定なし)</option>
+                <option value="">{$_('line.unspecified')}</option>
                 {#each options1 as opt}
                   <option value={opt.id}>{opt.label}</option>
                 {/each}
@@ -251,28 +252,28 @@
             <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
               {#if isNet2}
                 <Network class="w-4 h-4 text-cyan-400" />
-                <span>ネットワーク 2</span>
+                <span>{$_('line.net2')}</span>
               {:else}
                 <Laptop class="w-4 h-4 text-emerald-400" />
-                <span>ノード 2</span>
+                <span>{$_('line.node2')}</span>
               {/if}
             </div>
             <div>
-              <label for="endpoint-2-name" class="block text-[11px] font-semibold text-slate-400 mb-1">機器名称</label>
+              <label for="endpoint-2-name" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.deviceName')}</label>
               <div id="endpoint-2-name" class="w-full rounded-xl border border-slate-800/80 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 truncate">
                 {target2?.name || (target2 as any)?.Name || nodeId2 || "-"}
               </div>
             </div>
             <div>
               <label for="endpoint-2-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">
-                {isNet2 ? "接続ポート" : "ポーリング (状態連動)"}
+                {isNet2 ? $_('line.connectPort') : $_('line.statusLinkedPolling')}
               </label>
               <select
                 id="endpoint-2-polling"
                 bind:value={pollingId2}
                 class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value="">(指定なし)</option>
+                <option value="">{$_('line.unspecified')}</option>
                 {#each options2 as opt}
                   <option value={opt.id}>{opt.label}</option>
                 {/each}
@@ -285,18 +286,18 @@
         <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-3.5">
           <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
             <Activity class="w-4 h-4 text-cyan-400" />
-            <span>ライン属性 & 情報</span>
+            <span>{$_('line.attrTitle')}</span>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <div>
-              <label for="line-info-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">情報表示ポーリング</label>
+              <label for="line-info-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.infoPolling')}</label>
               <select
                 id="line-info-polling"
                 bind:value={pollingId}
                 class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value="">(指定なし)</option>
+                <option value="">{$_('line.unspecified')}</option>
                 {#each infoPollingOptions as opt}
                   <option value={opt.id}>{opt.label}</option>
                 {/each}
@@ -304,11 +305,11 @@
             </div>
 
             <div>
-              <label for="line-info-text" class="block text-[11px] font-semibold text-slate-400 mb-1">表示情報 / メモ</label>
+              <label for="line-info-text" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.info')}</label>
               <input
                 id="line-info-text"
                 type="text"
-                placeholder="1000Mbps, VLAN 10 など"
+                placeholder={$_('line.infoPlaceholder')}
                 bind:value={info}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
@@ -317,7 +318,7 @@
 
           <div class="grid grid-cols-2 gap-3.5 pt-1">
             <div>
-              <label for="line-width" class="block text-[11px] font-semibold text-slate-400 mb-1">線の太さ (1〜5)</label>
+              <label for="line-width" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.width')}</label>
               <input
                 id="line-width"
                 type="number"
@@ -329,16 +330,16 @@
             </div>
 
             <div>
-              <label for="line-state" class="block text-[11px] font-semibold text-slate-400 mb-1">状態 (ステータス)</label>
+              <label for="line-state" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('common.status')}</label>
               <select
                 id="line-state"
                 bind:value={state}
                 class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
-                <option value="normal">正常 (Normal / Green)</option>
-                <option value="warn">注意 (Warn / Amber)</option>
-                <option value="low">軽度障害 (Low / Orange)</option>
-                <option value="high">重度障害 (High / Red)</option>
+                <option value="normal">{$_('status.normal')}</option>
+                <option value="warn">{$_('status.warn')}</option>
+                <option value="low">{$_('status.low')}</option>
+                <option value="high">{$_('status.high')}</option>
               </select>
             </div>
           </div>
@@ -354,7 +355,7 @@
             class="flex items-center gap-1.5 rounded-xl border border-rose-800/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900/60 transition-all cursor-pointer shadow-lg shadow-rose-950/50"
           >
             <Unlink class="h-4 w-4" />
-            切断
+            {$_('line.disconnect')}
           </button>
         {:else}
           <div></div>
@@ -366,7 +367,7 @@
             onclick={() => (show = false)}
             class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
-            キャンセル
+            {$_('common.cancel')}
           </button>
           <button
             type="button"
@@ -375,10 +376,10 @@
           >
             {#if line?.id}
               <Save class="w-4 h-4" />
-              更新
+              {$_('line.update')}
             {:else}
               <Link class="w-4 h-4" />
-              接続
+              {$_('line.connect')}
             {/if}
           </button>
         </div>

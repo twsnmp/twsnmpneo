@@ -251,6 +251,9 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
 
+		// Node SNMP Details (Host Resource, Ports)
+		registerSNMPDetailEndpoints(apiGroup, cfg.Store)
+
 		// Pollings
 		apiGroup.GET("/pollings", func(c echo.Context) error {
 			polls, err := cfg.Store.ListPollings(c.Request().Context())

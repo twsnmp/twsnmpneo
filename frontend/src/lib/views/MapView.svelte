@@ -37,6 +37,7 @@
     type PollingEnt,
   } from "../api";
   import { getStateColor } from "../common";
+  import { _ } from "svelte-i18n";
   import {
     ZoomIn,
     ZoomOut,
@@ -245,7 +246,7 @@
 
     selectedNode = {
       id: "",
-      name: "新規ノード",
+      name: "",
       ip: "192.168.1.10",
       mac: "",
       descr: "",
@@ -267,7 +268,7 @@
 
     selectedNetwork = {
       id: "",
-      name: "ネットワーク",
+      name: "",
       ip: "192.168.1.254",
       x: clampedX,
       y: clampedY,
@@ -312,7 +313,7 @@
       y: clampedY,
       w: 120,
       h: 40,
-      text: "新規アイテム",
+      text: "",
       color: "#06b6d4",
     };
     showDrawItemDialog = true;
@@ -471,7 +472,7 @@
     <div class="absolute top-3 right-4 z-20">
       <button
         onclick={reloadAllData}
-        title="再読み込み"
+        title={$_('map.reload')}
         class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all backdrop-blur-md active:scale-95"
       >
         <RefreshCw class="h-4 w-4" />
@@ -481,8 +482,8 @@
     <!-- Bottom-right Floating Map Controls (Save, Zoom In, Zoom Out) matching twsnmpfk -->
     <div class="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2">
       <button
-        onclick={() => alert("マップ配置を保存しました")}
-        title="マップ保存"
+        onclick={() => alert($_('map.saved'))}
+        title={$_('map.save')}
         class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
       >
         <Save class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
@@ -490,14 +491,14 @@
       <div class="flex items-center gap-1.5">
         <button
           onclick={() => zoom(true)}
-          title="拡大"
+          title={$_('map.zoomIn')}
           class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
         >
           <ZoomIn class="h-4 w-4" />
         </button>
         <button
           onclick={() => zoom(false)}
-          title="縮小"
+          title={$_('map.zoomOut')}
           class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
         >
           <ZoomOut class="h-4 w-4" />
@@ -514,8 +515,8 @@
     <div class="flex items-center justify-between flex-shrink-0 px-1">
       <div class="flex items-center gap-2">
         <Calendar class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">リアルタイム イベントログ (Event Log)</span>
-        <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">({eventLogs.length} 件)</span>
+        <span class="text-xs font-bold text-slate-800 dark:text-slate-200">{$_('map.eventLogTitle')}</span>
+        <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">({eventLogs.length})</span>
       </div>
     </div>
 
@@ -524,11 +525,11 @@
       <table class="w-full text-left text-xs">
         <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
           <tr>
-            <th class="py-2 px-3 w-28">Level</th>
-            <th class="py-2 px-3 w-44">Time</th>
-            <th class="py-2 px-3 w-28">Type</th>
-            <th class="py-2 px-3 w-48">Node</th>
-            <th class="py-2 px-3">Event</th>
+            <th class="py-2 px-3 w-28">{$_('map.level')}</th>
+            <th class="py-2 px-3 w-44">{$_('map.time')}</th>
+            <th class="py-2 px-3 w-28">{$_('map.type')}</th>
+            <th class="py-2 px-3 w-48">{$_('map.node')}</th>
+            <th class="py-2 px-3">{$_('map.event')}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -558,7 +559,7 @@
           {#if eventLogs.length === 0}
             <tr>
               <td colspan="5" class="py-8 text-center text-slate-400 dark:text-slate-500 font-sans">
-                記録されたイベントログはありません
+                {$_('map.noLogs')}
               </td>
             </tr>
           {/if}
@@ -581,70 +582,70 @@
       {#if contextTargetNode}
         <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Info class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          3D パネル / 詳細
+          {$_('map.context.vpanelDetail')}
         </button>
         <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Edit3 class="h-3.5 w-3.5 text-slate-400" />
-          ノードの編集
+          {$_('map.context.editNode')}
         </button>
         <button onclick={handleFindNeighborNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-          接続先を探す
+          {$_('map.context.findNeighbor')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
-          ノードの削除
+          {$_('map.context.deleteNode')}
         </button>
       {:else if contextTargetNet}
         <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Network class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          ネットワークの編集
+          {$_('map.context.editNetwork')}
         </button>
         <button onclick={handleOpenNetworkLines} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-          ライン編集
+          {$_('map.context.editLines')}
         </button>
         <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-          接続先を探す
+          {$_('map.context.findNeighbor')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
-          ネットワークの削除
+          {$_('map.context.deleteNetwork')}
         </button>
       {:else if contextTargetItem}
         <button onclick={handleEditTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-          描画アイテムの編集
+          {$_('map.context.editDrawItem')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleDeleteTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
-          描画アイテムの削除
+          {$_('map.context.deleteDrawItem')}
         </button>
       {:else}
         <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Plus class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          ノードの追加
+          {$_('map.context.addNode')}
         </button>
         <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Network class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-          ネットワークの追加
+          {$_('map.context.addNetwork')}
         </button>
         <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-          描画アイテムの追加
+          {$_('map.context.addDrawItem')}
         </button>
         <button onclick={handleOpenAddLine} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Activity class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          ライン結線
+          {$_('map.context.addLine')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={reloadAllData} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
           <RefreshCw class="h-3.5 w-3.5 text-slate-400" />
-          再読み込み
+          {$_('map.reload')}
         </button>
       {/if}
     </div>
@@ -661,23 +662,23 @@
       oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onkeydown={(e) => e.key === 'Escape' && (showFormatMenu = false)}
     >
-      <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">選択ノード ({formatNodesList.length}個)</div>
+      <div class="px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{$_('map.context.selectedNodes')} ({formatNodesList.length})</div>
       <button onclick={() => handleFormat('horizontal')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
         <AlignCenterHorizontal class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-        水平に整列
+        {$_('map.context.alignH')}
       </button>
       <button onclick={() => handleFormat('vertical')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
         <AlignCenterVertical class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-        垂直に整列
+        {$_('map.context.alignV')}
       </button>
       <button onclick={() => handleFormat('circle')} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800">
         <CircleDot class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-        円形に配置
+        {$_('map.context.alignCircle')}
       </button>
       <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
       <button onclick={handleDeleteSelectedNodes} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-400 hover:bg-rose-500/10">
         <Trash2 class="h-3.5 w-3.5" />
-        選択ノードを削除
+        {$_('map.context.deleteSelected')}
       </button>
     </div>
   {/if}

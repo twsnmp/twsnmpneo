@@ -19,6 +19,7 @@
     PieChart,
     FolderTree,
   } from "@lucide/svelte";
+  import { _ } from "svelte-i18n";
 
   let {
     show = $bindable(false),
@@ -98,8 +99,8 @@
           </div>
           <div>
             <h2 class="text-sm font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-              MQTT 受信統計レポート
-              <span class="text-xs font-normal text-slate-500 dark:text-slate-400">({stats.length} 件)</span>
+              {$_('mqtt.reportTitle')}
+              <span class="text-xs font-normal text-slate-500 dark:text-slate-400">({stats.length} {$_('mqtt.items')})</span>
             </h2>
           </div>
         </div>
@@ -120,42 +121,42 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'client' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800'}"
           >
             <Users class="h-3.5 w-3.5" />
-            クライアント別
+            {$_('mqtt.reportByClient')}
           </button>
           <button
             onclick={() => switchTab("remote")}
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'remote' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800'}"
           >
             <Network class="h-3.5 w-3.5" />
-            送信元別
+            {$_('mqtt.reportByRemote')}
           </button>
           <button
             onclick={() => switchTab("topic")}
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'topic' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800'}"
           >
             <Tag class="h-3.5 w-3.5" />
-            トピック別
+            {$_('mqtt.reportByTopic')}
           </button>
           <button
             onclick={() => switchTab("heatmap")}
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'heatmap' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800'}"
           >
             <Grid class="h-3.5 w-3.5" />
-            ヒートマップ
+            {$_('mqtt.reportHeatmap')}
           </button>
           <button
             onclick={() => switchTab("state")}
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'state' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800'}"
           >
             <PieChart class="h-3.5 w-3.5" />
-            状態別
+            {$_('mqtt.reportByState')}
           </button>
           <button
             onclick={() => switchTab("treemap")}
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer {activeTab === 'treemap' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800'}"
           >
             <FolderTree class="h-3.5 w-3.5" />
-            トピックツリー
+            {$_('mqtt.reportTopicTree')}
           </button>
         </div>
 
@@ -165,13 +166,13 @@
               onclick={() => toggleHeatmapMode("time")}
               class="px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-all {heatmapMode === 'time' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
             >
-              時間帯別
+              {$_('mqtt.reportHourly')}
             </button>
             <button
               onclick={() => toggleHeatmapMode("client_topic")}
               class="px-2.5 py-1 text-[11px] font-medium rounded cursor-pointer transition-all {heatmapMode === 'client_topic' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
             >
-              クライアント×トピック
+              {$_('mqtt.reportClientTopic')}
             </button>
           </div>
         {/if}
@@ -188,7 +189,7 @@
           onclick={() => (show = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer shadow-xs transition-colors"
         >
-          閉じる
+          {$_('mqtt.close')}
         </button>
       </div>
     </div>

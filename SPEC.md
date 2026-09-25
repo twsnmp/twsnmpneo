@@ -289,13 +289,29 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 
 ### 4.5 Node Detail & Telemetry Modal (`NodeDetailModal.svelte`)
 
-* **Virtual Panel Tab**: Embedded 3D `vpanel` canvas for live port inspection.
-* **Ports Tab**: Interface table (ifIndex, ifDescr, ifType, ifSpeed, ifOperStatus, inOctets, outOctets, error counters).
-* **Host Resource Tab**: CPU utilization gauge, Memory usage, Storage partitions, Running processes table.
-* **RMON Tab**: RMON Ethernet statistics (drop events, packets, broadcast, multicast, CRC align errors, collision counters).
-* **Polling Tab**: List of active pollings for this node with manual run triggers and status editing.
-* **Logs Tab**: Filtered log entries specifically for this node's IP (Syslog, Trap, NetFlow).
-* **Diagnose Tab**: One-click health check (Ping test, SNMP connectivity check, Web port test).
+* **Window Sizing & Layout**:
+  - Horizontal landscape modal layout (`w-full max-w-6xl h-[88vh]` or `max-w-7xl`) tailored for wide multi-column data visualization and side-by-side inspection, matching `twsnmpfk` layout aesthetics.
+* **Tabs & Specifications**:
+  1. **Basic Info Tab (`基本情報 / Basic Info`)**:
+     - Key-value item list (Node Name, State badge, IP Address, MAC Address with one-click copy button and feedback indicator, Vendor name, Description, Coordinates, Auto-Ack).
+  2. **Virtual Panel Tab (`パネル / Panel`)**:
+     - Embedded 3D `vpanel` canvas for live port inspection with auto-rotation toggle and zoom in/out controls.
+     - **SNMP-Not-Supported Detection**: If SNMP is not configured on the node (`snmp_mode` is none/empty), the modal must explicitly display an informative amber alert card (`nodeDetail.snmpNotSupportedTitle` / `nodeDetail.snmpNotSupportedDesc`) rather than an empty, black, or hanging canvas.
+  3. **Ports Tab (`ポート / Ports`)**:
+     - SNMP interface port table (Port name, Link Status badge, Link Speed, Ingress Rx bytes, Egress Tx bytes).
+     - Full column sorting (ascending/descending) and table pagination controls.
+     - If SNMP is not configured, displays the SNMP-not-supported alert card.
+  4. **Polling Tab (`ポーリング / Polling`)**:
+     - Full tabular list displaying all pollings configured for this node (State, Name, Type, Target, Last Value, Last Time).
+     - Standardized column sorting, pagination controls, and compact vertical row spacing matching `ListView.svelte`.
+  5. **Event Log Tab (`イベントログ / Event Log`)**:
+     - Tabular list of historical event logs filtered for this node (Time, Level, Type, Event Message).
+     - Column sorting, pagination controls, compact row spacing, and non-breaking single-line timestamps (`whitespace-nowrap font-mono`) to prevent unwanted multiline wrapping.
+  6. **Host Resource Tab (`ホストリソース / Host Resource`)**:
+     - Sub-tab navigation for **System**, **Storage**, **Device**, **File System**, and **Process**.
+     - Full column sorting, pagination controls, compact row spacing, and SNMP-not-supported handling.
+  7. **RMON Tab**: RMON Ethernet statistics (drop events, packets, broadcast, multicast, CRC align errors, collision counters).
+  8. **Diagnose Tab**: One-click health check (Ping test, SNMP connectivity check, Web port test).
 
 ---
 
@@ -426,6 +442,39 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 * **Top Summary Dashboard (`h-64`)**:
   - Tabular views should feature an upper dashboard (`h-64`) above the main table.
   - Layout: 4 compact vertical KPI cards on the left edge, and broad breakdown charts (status donut charts, top N horizontal bar charts, scatter plots) on the right.
+
+#### 4.10.5 Multi-Language & Internationalization (i18n) Standards
+* **Framework & Storage**:
+  - Internationalization is managed via `svelte-i18n`. Supported locales are Japanese (`ja`, default) and English (`en`).
+  - Active locale preference is stored in `localStorage` under `twsnmp_locale` and toggled directly via the top navbar language switch button.
+* **100% Translation Key Parity**:
+  - `frontend/src/locales/ja.json` and `frontend/src/locales/en.json` must maintain strict 1:1 key parity. All translation keys present in one locale file must exist in the other.
+  - Zero tolerance for hardcoded non-English/non-Japanese text in Svelte views. All user-facing strings must use `$_('...')` or dynamic locale guards (`(get(locale) || 'ja').startsWith('ja') ? ... : ...`).
+* **Common Utilities & Formatting (`common.ts`)**:
+  - **State Names (`getStateName(state, t)`)**: Returns localized state names dynamically based on locale (e.g. `重度障害` / `High Severity`, `軽度障害` / `Low Severity`, `注意` / `Warning`, `正常` / `Normal`, `復旧` / `Repaired`, `不明` / `Unknown`).
+  - **Duration Formatting (`renderDuration(sec)`)**: Dynamically outputs `X日 Y時間 Z分 W秒` in Japanese mode, and `Xd Yh Zm Ws` in English mode.
+  - **Metadata Collections (`stateList`, `iconList`, `addrModeList`)**: Must include English metadata fields (`textEn`, `nameEn`) and accessor functions (`getIconName(val)`, `getAddrModeName(val)`).
+* **Canvas & Telemetry Chart i18n (`map.ts`, `vpanel.ts`, `echarts`)**:
+  - Canvas graphics engines and ECharts tooltips/axes must reactively determine locale via `(get(locale) || 'ja').startsWith('ja')` to ensure all chart legends, axis names, and canvas labels render in the active language.
+
+#### 4.10.6 AI Cat Assistant Specifications
+* **Character & Persona Branding**:
+  - The AI assistant is formally branded as **AI Cat アシスタント / AI Cat Assistant** (successor to generic AI copilots).
+  - Displays the feline character avatar (`frontend/src/assets/images/aicat_thumb.jpg`) via `CatAvatar.svelte`.
+* **Zero-Latency Slide-In Drawer**:
+  - Rendered globally in `App.svelte` as an off-canvas drawer (`fixed inset-0 z-50 flex justify-end`) with CSS transform slide-in (`translate-x-full` -> `translate-x-0`).
+  - Pre-mounted in DOM to guarantee instantaneous opening without component initialization lag or network delays.
+* **Context-Aware Assistance**:
+  - Preloaded suggestion chips for quick queries (Network diagnosis, high-load detection, log anomaly scanning).
+  - Direct integration with backend LLM orchestration and MCP diagnostic tools.
+
+#### 4.10.7 GeoIP Database Management Standards
+* **Database Format**: MaxMind GeoLite2 / GeoIP2 City & ASN binary databases (`.mmdb`).
+* **Theme-Adaptive Upload UI**:
+  - The GeoIP upload and management card in `ConfigModal.svelte` must fully adapt to dark and light modes (`bg-slate-50 dark:bg-slate-950/60`, `border-slate-200 dark:border-slate-800`).
+* **Lifecycle & Operations**:
+  - Upload via `/api/conf/geoip` with automatic database version extraction.
+  - One-click deletion via `/api/conf/geoip` with confirmation prompt and live status reflection.
 
 ---
 

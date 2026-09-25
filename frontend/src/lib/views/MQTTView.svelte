@@ -12,6 +12,7 @@
     type PollingEnt,
     type ParquetLogRecord,
   } from "../api";
+  import { _ } from "svelte-i18n";
   import { renderBytes, renderTime, getStateColor } from "../common";
   import { showLogCountChart, resizeLogCountChart, disposeLogCountChart } from "../charts/logcount";
   import {
@@ -322,7 +323,7 @@
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`選択した ${selectedIds.size} 件のMQTT統計を削除しますか？`)) return;
+    if (!confirm($_('mqtt.confirmDeleteSelected', { values: { count: selectedIds.size } }))) return;
     const ids = Array.from(selectedIds);
     await deleteMqttStats(ids);
     await refreshStats();
@@ -361,7 +362,7 @@
   };
 
   const formatJsonOrText = (raw: string) => {
-    if (!raw) return '<div class="text-slate-400 italic">ペイロードなし</div>';
+    if (!raw) return `<div class="text-slate-400 italic">${$_('mqtt.noPayload')}</div>`;
     try {
       const parsed = JSON.parse(raw);
       const pretty = JSON.stringify(parsed, null, 2);
@@ -472,7 +473,7 @@
 
   const exportLogsCSV = () => {
     if (filteredLogs.length === 0) return;
-    const headers = ["日時", "送信元", "クライアントID", "トピック", "ペイロード"];
+    const headers = [$_('mqtt.csvTime'), $_('mqtt.csvRemote'), $_('mqtt.csvClientId'), $_('mqtt.csvTopic'), $_('mqtt.csvPayload')];
     const rows = filteredLogs.map((l) => [
       renderTime(l.time),
       `"${l.src}"`,
@@ -496,12 +497,12 @@
   <div class="w-60 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 p-3 space-y-1.5 shrink-0 flex flex-col justify-between transition-colors">
     <div class="space-y-1">
       <div class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        MQTT 項目 (Navigation)
+        MQTT
       </div>
 
       {#each [
-        { id: "stats", name: "トピック統計 (Stats)", icon: Radio, count: stats.length },
-        { id: "logs", name: "受信ログ (Logs)", icon: FileText, count: logs.length }
+        { id: "stats", name: $_('mqtt.navStats'), icon: Radio, count: stats.length },
+        { id: "logs", name: $_('mqtt.navLogs'), icon: FileText, count: logs.length }
       ] as item}
         <button
           type="button"
@@ -522,10 +523,10 @@
     <!-- Broker Endpoint Info -->
     <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 text-[10px] text-slate-500 dark:text-slate-400 space-y-1">
       <div class="flex items-center justify-between font-semibold text-slate-700 dark:text-slate-300">
-        <span>MQTT ブローカー</span>
+        <span>{$_('mqtt.broker')}</span>
         <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
           <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-          稼働中
+          {$_('mqtt.running')}
         </span>
       </div>
       <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">TCP :1883</div>
@@ -541,10 +542,10 @@
         <h2 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           {#if activeTab === "stats"}
             <Radio class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            <span>MQTT トピック統計 (Stats)</span>
+            <span>{$_('mqtt.navStats')}</span>
           {:else}
             <FileText class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            <span>MQTT 受信ログ (Logs)</span>
+            <span>{$_('mqtt.navLogs')}</span>
           {/if}
           <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono border border-slate-200 dark:border-slate-700">
             Port: 1883
@@ -562,7 +563,7 @@
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               <Plus class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              <span>ポーリング作成</span>
+              <span>{$_('mqtt.btnCreatePolling')}</span>
             </button>
           {/if}
 
@@ -573,7 +574,7 @@
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               <Trash2 class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-              <span>選択削除 ({selectedIds.size})</span>
+              <span>{$_('mqtt.btnDeleteSelected', { values: { count: selectedIds.size } })}</span>
             </button>
           {/if}
 
@@ -584,7 +585,7 @@
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
             >
               <PieChart class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>レポート</span>
+              <span>{$_('mqtt.btnReport')}</span>
             </button>
           {/if}
 
@@ -594,7 +595,7 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <Trash2 class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-            <span>全データ削除</span>
+            <span>{$_('mqtt.btnDeleteAll')}</span>
           </button>
 
           <button
@@ -604,7 +605,7 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <RefreshCw class="h-3.5 w-3.5 {loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : 'text-cyan-600 dark:text-cyan-400'}" />
-            <span>再読み込み</span>
+            <span>{$_('mqtt.btnReload')}</span>
           </button>
         {:else}
           <button
@@ -614,7 +615,7 @@
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
             <RefreshCw class="h-3.5 w-3.5 {loading ? 'animate-spin text-cyan-600 dark:text-cyan-400' : 'text-cyan-600 dark:text-cyan-400'}" />
-            <span>再読み込み</span>
+            <span>{$_('mqtt.btnReload')}</span>
           </button>
         {/if}
       </div>
@@ -633,7 +634,7 @@
                   <div class="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/80">
                     <Radio class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">総トピック数</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('mqtt.totalTopics')}</span>
                 </div>
                 <span class="text-lg font-bold font-mono text-cyan-600 dark:text-cyan-300">{mqttKPIs.totalTopics.toLocaleString()}</span>
               </div>
@@ -643,7 +644,7 @@
                   <div class="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80">
                     <Users class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">送信元 / クライアント</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('mqtt.remoteClients')}</span>
                 </div>
                 <span class="text-base font-bold font-mono text-indigo-600 dark:text-indigo-300">
                   {mqttKPIs.remoteCount} <span class="text-xs font-normal text-slate-400">/</span> {mqttKPIs.clientCount}
@@ -655,7 +656,7 @@
                   <div class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80">
                     <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">総受信回数</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('mqtt.totalReceived')}</span>
                 </div>
                 <span class="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-300">{mqttKPIs.totalCount.toLocaleString()}</span>
               </div>
@@ -665,7 +666,7 @@
                   <div class="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80">
                     <HardDrive class="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">総データ量</span>
+                  <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('mqtt.totalData')}</span>
                 </div>
                 <span class="text-base font-bold font-mono text-amber-600 dark:text-amber-300">{renderBytes(mqttKPIs.totalBytes)}</span>
               </div>
@@ -674,7 +675,7 @@
             <!-- State Donut Chart (col-span-3) -->
             <div class="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 relative shadow-xs dark:shadow-md h-full flex flex-col">
               <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-2 pt-1 z-10 flex items-center gap-1.5">
-                <span>トピック状態別割合</span>
+                <span>{$_('mqtt.stateDistribution')}</span>
               </div>
               <div id="mqttStateOverviewChart" class="flex-1 w-full min-h-0"></div>
             </div>
@@ -682,7 +683,7 @@
             <!-- Top 10 Topics Bar Chart (col-span-6) -->
             <div class="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 relative shadow-xs dark:shadow-md h-full flex flex-col">
               <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-2 pt-1 z-10 flex items-center gap-1.5">
-                <span>トピック別 受信回数 (TOP 10)</span>
+                <span>{$_('mqtt.topTopics')}</span>
               </div>
               <div id="mqttTopicOverviewChart" class="flex-1 w-full min-h-0"></div>
             </div>
@@ -693,7 +694,7 @@
             <!-- Top Toolbar -->
             <div class="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800/80 px-4 py-3 bg-slate-50 dark:bg-slate-900/40">
               <div class="flex items-center gap-2">
-                <span class="text-xs text-slate-500 dark:text-slate-400">表示件数:</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">{$_('mqtt.rowsPerPage')}</span>
                 <select
                   bind:value={statPageSize}
                   onchange={() => (statPage = 1)}
@@ -704,7 +705,7 @@
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                 </select>
-                <span class="text-xs text-slate-500 dark:text-slate-400">件</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400">{$_('mqtt.items')}</span>
               </div>
 
               <div class="flex items-center gap-2">
@@ -712,7 +713,7 @@
                   <Search class="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="トピック / クライアント検索..."
+                    placeholder={$_('mqtt.searchPlaceholder')}
                     bind:value={statSearch}
                     oninput={() => (statPage = 1)}
                     class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/80 pl-8 pr-3 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
@@ -832,14 +833,13 @@
                         {#if loading}
                           <div class="flex items-center justify-center gap-2">
                             <RefreshCw class="h-4 w-4 animate-spin text-cyan-600 dark:text-cyan-400" />
-                            <span>データを読み込み中...</span>
+                            <span>{$_('mqtt.loading')}</span>
                           </div>
                         {:else}
-                          MQTTトピック統計データはありません
+                          {$_('mqtt.noStats')}
                         {/if}
                       </td>
                     </tr>
-                  {:else}
                     {#each paginatedStats as s (s.ID)}
                       <tr
                         class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {selectedIds.has(s.ID) ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200' : ''}"
@@ -858,7 +858,7 @@
                         <td class="py-1 px-1 text-center">
                           <button
                             onclick={() => toggleExpand(s.ID)}
-                            title="ペイロード詳細展開"
+                            title={$_('mqtt.expandPayload')}
                             class="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           >
                             {#if expandedRows.has(s.ID)}
@@ -894,7 +894,7 @@
                             <button
                               type="button"
                               onclick={(e) => { e.stopPropagation(); copyTopic(s.Topic, s.ID); }}
-                              title="トピック名をコピー"
+                              title={$_('mqtt.copyTopic')}
                               class="opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all cursor-pointer shrink-0"
                             >
                               {#if copiedTopicId === s.ID}
@@ -935,7 +935,7 @@
                               <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                                 <span class="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                   <Eye class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-                                  最新ペイロード (Payload):
+                                  {$_('mqtt.latestPayload')}
                                 </span>
                                 <span class="font-mono text-[10px] text-slate-500">
                                   Topic: {s.Topic} ({s.Bytes} bytes)
@@ -1004,10 +1004,10 @@
             <div class="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-3 shadow-xs dark:shadow-lg shrink-0 transition-all">
               <div class="flex items-center justify-between mb-1 px-1">
                 <div class="flex items-center gap-2">
-                  <span class="text-[11px] font-bold text-slate-800 dark:text-slate-300">MQTT ログ受信件数推移 (時系列グラフ)</span>
+                  <span class="text-[11px] font-bold text-slate-800 dark:text-slate-300">{$_('mqtt.logTrendTitle')}</span>
                   {#if chartZoomRange}
                     <span class="inline-flex items-center gap-1 rounded-full bg-cyan-100 dark:bg-cyan-950/80 border border-cyan-300 dark:border-cyan-800 px-2 py-0.5 text-[10px] text-cyan-800 dark:text-cyan-300 font-mono">
-                      期間絞り込み適用中
+                      {$_('mqtt.filterApplied')}
                     </span>
                     <button
                       type="button"
@@ -1015,7 +1015,7 @@
                       class="flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
                     >
                       <RotateCcw class="h-3 w-3" />
-                      <span>全期間に戻す</span>
+                      <span>{$_('mqtt.resetFilter')}</span>
                     </button>
                   {/if}
                 </div>
@@ -1024,7 +1024,7 @@
                   onclick={() => (showChart = false)}
                   class="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors"
                 >
-                  グラフを隠す ▲
+                  {$_('mqtt.hideGraph')}
                 </button>
               </div>
               <div id="mqttLogReceptionChart" class="h-52 min-h-[200px] w-full"></div>
@@ -1040,7 +1040,7 @@
                 class="flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 cursor-pointer"
               >
                 <BarChart3 class="h-3.5 w-3.5" />
-                <span>受信状況推移グラフを表示 ▼</span>
+                <span>{$_('mqtt.showGraph')}</span>
               </button>
             </div>
           {/if}
@@ -1054,7 +1054,7 @@
                   <Search class="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="ログ / トピック / ペイロード検索..."
+                    placeholder={$_('mqtt.searchLogPlaceholder')}
                     bind:value={logSearch}
                     oninput={() => (logPage = 1)}
                     class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/80 pl-8 pr-3 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
@@ -1071,7 +1071,7 @@
 
                 <!-- Time range presets -->
                 <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
-                  {#each [["1h", "1時間"], ["24h", "24時間"], ["7d", "7日間"], ["30d", "30日間"], ["all", "全期間"]] as [val, label]}
+                  {#each [["1h", $_('mqtt.period1h')], ["24h", $_('mqtt.period24h')], ["7d", $_('mqtt.period7d')], ["30d", $_('mqtt.period30d')], ["all", $_('mqtt.periodAll')]] as [val, label]}
                     <button
                       onclick={() => { logTimeRange = val; refreshLogs(); }}
                       class="px-2.5 py-1 rounded-lg font-medium transition-all {logTimeRange === val ? 'bg-cyan-600 text-white shadow-xs font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
@@ -1090,7 +1090,7 @@
                   class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-40 shadow-xs cursor-pointer"
                 >
                   <Download class="h-3.5 w-3.5" />
-                  <span>CSV出力</span>
+                  <span>{$_('mqtt.btnExportCsv')}</span>
                 </button>
 
                 <!-- Clear Logs -->
@@ -1100,7 +1100,7 @@
                   class="flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-800 dark:text-rose-300 px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-40 shadow-xs cursor-pointer"
                 >
                   <Trash2 class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-                  <span>ログ消去</span>
+                  <span>{$_('mqtt.btnClearLogs')}</span>
                 </button>
               </div>
             </div>
@@ -1112,7 +1112,7 @@
                   <tr>
                     <th class="w-44 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("time")}>
                       <div class="flex items-center gap-1">
-                        <span>日時 (Time)</span>
+                        <span>{$_('mqtt.colTime')}</span>
                         {#if logSortKey === "time"}
                           {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                         {:else}
@@ -1122,7 +1122,7 @@
                     </th>
                     <th class="w-36 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("src")}>
                       <div class="flex items-center gap-1">
-                        <span>送信元 (Remote)</span>
+                        <span>{$_('mqtt.colRemote')}</span>
                         {#if logSortKey === "src"}
                           {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{/if}
                         {:else}
@@ -1132,7 +1132,7 @@
                     </th>
                     <th class="w-44 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("clientID")}>
                       <div class="flex items-center gap-1">
-                        <span>クライアントID</span>
+                        <span>{$_('mqtt.colClientId')}</span>
                         {#if logSortKey === "clientID"}
                           {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                         {:else}
@@ -1142,7 +1142,7 @@
                     </th>
                     <th class="w-64 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("topic")}>
                       <div class="flex items-center gap-1">
-                        <span>トピック (Topic)</span>
+                        <span>{$_('mqtt.colTopic')}</span>
                         {#if logSortKey === "topic"}
                           {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                         {:else}
@@ -1152,7 +1152,7 @@
                     </th>
                     <th class="py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("payload")}>
                       <div class="flex items-center gap-1">
-                        <span>ペイロード (Payload)</span>
+                        <span>{$_('mqtt.colPayload')}</span>
                         {#if logSortKey === "payload"}
                           {#if logSortDir === "asc"}<ArrowUp class="h-3 w-3 text-cyan-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-cyan-400" />{/if}
                         {:else}
@@ -1170,10 +1170,10 @@
                         {#if loading}
                           <div class="flex items-center justify-center gap-2">
                             <RefreshCw class="h-4 w-4 animate-spin text-cyan-600 dark:text-cyan-400" />
-                            <span>Parquetログを読み込み中...</span>
+                            <span>{$_('mqtt.loadingLogs')}</span>
                           </div>
                         {:else}
-                          MQTT受信ログは見つかりませんでした
+                          {$_('mqtt.noLogs')}
                         {/if}
                       </td>
                     </tr>
@@ -1278,23 +1278,23 @@
     <div class="w-full max-w-md rounded-2xl border border-rose-300 dark:border-rose-800/60 bg-white dark:bg-slate-900 p-6 shadow-2xl">
       <div class="flex items-center gap-3 text-rose-600 dark:text-rose-400 mb-3">
         <AlertTriangle class="h-6 w-6" />
-        <h3 class="text-sm font-bold text-slate-900 dark:text-white">すべてのMQTT統計を削除しますか？</h3>
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white">{$_('mqtt.confirmDeleteAllTitle')}</h3>
       </div>
       <p class="text-xs text-slate-600 dark:text-slate-400 mb-6">
-        蓄積されたすべてのMQTTトピック・クライアント統計がデータベースから完全に削除されます。この操作は取り消せません。
+        {$_('mqtt.confirmDeleteAllDesc')}
       </p>
       <div class="flex justify-end gap-2">
         <button
           onclick={() => (showDeleteAllConfirm = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer shadow-xs"
         >
-          キャンセル
+          {$_('mqtt.cancel')}
         </button>
         <button
           onclick={handleDeleteAll}
           class="rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-md cursor-pointer"
         >
-          全データ削除
+          {$_('mqtt.btnDeleteAll')}
         </button>
       </div>
     </div>
@@ -1307,23 +1307,23 @@
     <div class="w-full max-w-md rounded-2xl border border-rose-300 dark:border-rose-800/60 bg-white dark:bg-slate-900 p-6 shadow-2xl">
       <div class="flex items-center gap-3 text-rose-600 dark:text-rose-400 mb-3">
         <AlertTriangle class="h-6 w-6" />
-        <h3 class="text-sm font-bold text-slate-900 dark:text-white">MQTTログをすべて消去しますか？</h3>
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white">{$_('mqtt.confirmClearLogsTitle')}</h3>
       </div>
       <p class="text-xs text-slate-600 dark:text-slate-400 mb-6">
-        Parquetファイルに保存されているMQTT受信ログがすべて削除されます。統計データは削除されません。
+        {$_('mqtt.confirmClearLogsDesc')}
       </p>
       <div class="flex justify-end gap-2">
         <button
           onclick={() => (showClearLogsConfirm = false)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer shadow-xs"
         >
-          キャンセル
+          {$_('mqtt.cancel')}
         </button>
         <button
           onclick={handleClearLogs}
           class="rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-md cursor-pointer"
         >
-          ログ消去
+          {$_('mqtt.btnClearLogs')}
         </button>
       </div>
     </div>
@@ -1337,7 +1337,7 @@
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-3.5 bg-slate-50 dark:bg-slate-950/60">
         <div class="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
           <FileText class="h-4 w-4" />
-          <h3 class="text-sm font-bold text-slate-900 dark:text-white">MQTT ログ詳細</h3>
+          <h3 class="text-sm font-bold text-slate-900 dark:text-white">{$_('mqtt.logDetailTitle')}</h3>
         </div>
         <button
           onclick={() => (selectedLog = null)}
@@ -1350,25 +1350,25 @@
       <div class="p-6 space-y-4">
         <div class="grid grid-cols-2 gap-4 text-xs">
           <div>
-            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">受信日時</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">{$_('mqtt.logDetailTime')}</span>
             <span class="font-mono text-slate-800 dark:text-slate-200">{renderTime(selectedLog.time)}</span>
           </div>
           <div>
-            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">送信元 (Remote)</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">{$_('mqtt.logDetailRemote')}</span>
             <span class="font-mono text-slate-800 dark:text-slate-200">{selectedLog.src}</span>
           </div>
           <div>
-            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">クライアントID</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">{$_('mqtt.logDetailClientId')}</span>
             <span class="font-mono text-slate-800 dark:text-slate-200">{selectedLog.clientID}</span>
           </div>
           <div>
-            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">トピック (Topic)</span>
+            <span class="text-slate-500 dark:text-slate-400 block mb-0.5">{$_('mqtt.logDetailTopic')}</span>
             <span class="font-mono text-cyan-600 dark:text-cyan-300 font-semibold">{selectedLog.topic || "-"}</span>
           </div>
         </div>
 
         <div>
-          <span class="text-xs text-slate-500 dark:text-slate-400 block mb-1">ペイロード内容 (Payload)</span>
+          <span class="text-xs text-slate-500 dark:text-slate-400 block mb-1">{$_('mqtt.logDetailPayload')}</span>
           <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl overflow-x-auto max-h-72">
             {@html formatJsonOrText(selectedLog.payload)}
           </div>
@@ -1380,7 +1380,7 @@
           onclick={() => (selectedLog = null)}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer shadow-xs"
         >
-          閉じる
+          {$_('mqtt.close')}
         </button>
       </div>
     </div>

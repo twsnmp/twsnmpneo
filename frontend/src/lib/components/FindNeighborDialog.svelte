@@ -7,6 +7,7 @@
     type NetworkEnt,
     type NodeEnt,
   } from "../api";
+  import { _ } from "svelte-i18n";
   import { X, Search, Link, Check, AlertCircle, Server, Laptop, Compass, Sparkles } from "@lucide/svelte";
 
   let {
@@ -54,7 +55,7 @@
         const p = net.ports.find((port) => (port.id || (port as any).ID) === pollingOrPortId);
         if (p) port = p.name || (p as any).Name || pollingOrPortId;
       }
-      return { name, port: port ? `ポート ${port}` : "", isNet: true };
+      return { name, port: port ? `Port ${port}` : "", isNet: true };
     } else {
       const n = nodes.find((node) => (node.id || (node as any).ID) === id);
       const name = n ? `${n.name || (n as any).Name || id}` : id;
@@ -78,7 +79,7 @@
       // Select all candidate lines by default
       selectedIndices = candidateLines.map((_, i) => i);
     } catch (e: any) {
-      errorMsg = "探索エラー: " + (e.message || e);
+      errorMsg = "Error: " + (e.message || e);
     } finally {
       loading = false;
     }
@@ -110,7 +111,6 @@
 
   const handleConnect = async () => {
     if (selectedIndices.length === 0) {
-      errorMsg = "接続するラインを選択してください。";
       return;
     }
     const linesToConnect = selectedIndices.map((i) => candidateLines[i]);
@@ -118,13 +118,13 @@
     errorMsg = "";
     try {
       const res = await connectLines(linesToConnect);
-      successMsg = `${res.connected} 本のラインを正常に接続しました。`;
+      successMsg = `${res.connected} ${$_('neighbor.connectSuccess')}`;
       onConnect();
       setTimeout(() => {
         show = false;
       }, 1000);
     } catch (e: any) {
-      errorMsg = "接続保存エラー: " + (e.message || e);
+      errorMsg = "Error: " + (e.message || e);
     } finally {
       loading = false;
     }
@@ -148,15 +148,15 @@
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{isNode ? "ノードの接続先を探す" : "ネットワークの接続先を探す"}</span>
+              <span>{isNode ? $_('neighbor.titleNode') : $_('neighbor.titleNet')}</span>
               <span class="text-xs font-normal text-cyan-300">({targetName})</span>
             </h2>
-            <p class="text-[11px] text-slate-400">SNMP (LLDP/CDP/FDB/ARP) およびサブネット推測による自動トポロジー探索</p>
+            <p class="text-[11px] text-slate-400">{$_('neighbor.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
-          aria-label="閉じる"
+          aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
         >
@@ -183,25 +183,25 @@
         {#if loading}
           <div class="flex flex-col items-center justify-center py-12 space-y-3 text-slate-400">
             <div class="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent"></div>
-            <p class="text-xs font-medium">トポロジーと接続先を探索中...</p>
+            <p class="text-xs font-medium">{$_('neighbor.searching')}</p>
           </div>
         {:else if candidateLines.length === 0}
           <div class="flex flex-col items-center justify-center py-12 text-slate-500">
             <Search class="h-10 w-10 mb-3 opacity-30" />
-            <p class="text-sm font-semibold">接続可能な候補が見つかりませんでした</p>
-            <p class="text-xs text-slate-500 mt-1">ネットワークのIPアドレスやSNMP設定、または同一サブネット内のノード登録を確認してください</p>
+            <p class="text-sm font-semibold">{$_('neighbor.notFound')}</p>
+            <p class="text-xs text-slate-500 mt-1">{$_('neighbor.notFoundDesc')}</p>
           </div>
         {:else}
           <div class="flex items-center justify-between px-1">
             <span class="text-xs font-bold text-slate-200">
-              検出された接続候補 ({candidateLines.length} 件)
+              {$_('neighbor.candidatesTitle')} ({candidateLines.length})
             </span>
             <button
               type="button"
               onclick={toggleSelectAll}
               class="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
             >
-              {selectedIndices.length === candidateLines.length ? "すべて解除" : "すべて選択"}
+              {selectedIndices.length === candidateLines.length ? $_('neighbor.deselectAll') : $_('neighbor.selectAll')}
             </button>
           </div>
 
@@ -209,11 +209,11 @@
             <table class="w-full text-left text-xs text-slate-300">
               <thead class="bg-slate-950/80 uppercase font-mono text-[11px] text-slate-400 border-b border-slate-800">
                 <tr>
-                  <th class="py-2.5 px-3 w-10 text-center">選択</th>
-                  <th class="py-2.5 px-3">接続元</th>
-                  <th class="py-2.5 px-3">接続先</th>
-                  <th class="py-2.5 px-3">判定理由</th>
-                  <th class="py-2.5 px-3 text-center">確信度</th>
+                  <th class="py-2.5 px-3 w-10 text-center">{$_('neighbor.colSelect')}</th>
+                  <th class="py-2.5 px-3">{$_('neighbor.colSrc')}</th>
+                  <th class="py-2.5 px-3">{$_('neighbor.colDst')}</th>
+                  <th class="py-2.5 px-3">{$_('neighbor.colReason')}</th>
+                  <th class="py-2.5 px-3 text-center">{$_('neighbor.colConfidence')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
@@ -266,7 +266,7 @@
                       <span
                         class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {l.Confidence === 'strict' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'}"
                       >
-                        {l.Confidence === "strict" ? "確実 (Strict)" : "推測 (Speculative)"}
+                        {l.Confidence === "strict" ? $_('neighbor.strict') : $_('neighbor.speculative')}
                       </span>
                     </td>
                   </tr>
@@ -286,7 +286,7 @@
           class="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
         >
           <Search class="w-3.5 h-3.5" />
-          再探索
+          {$_('neighbor.research')}
         </button>
 
         <div class="flex items-center gap-3">
@@ -295,7 +295,7 @@
             onclick={() => (show = false)}
             class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
-            閉じる
+            {$_('common.close')}
           </button>
           <button
             type="button"
@@ -304,7 +304,7 @@
             class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Link class="w-4 h-4" />
-            選択したラインを接続 ({selectedIndices.length})
+            {$_('neighbor.connectBtn')} ({selectedIndices.length})
           </button>
         </div>
       </div>

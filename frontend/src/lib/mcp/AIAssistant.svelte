@@ -1,6 +1,8 @@
 <script lang="ts">
   import { askAI } from '$lib/api';
   import { Bot, Send, User, Sparkles, Loader2, AlertCircle, X } from '@lucide/svelte';
+  import { _, locale } from 'svelte-i18n';
+  import CatAvatar from '../components/CatAvatar.svelte';
 
   let { onClose = () => {} } = $props<{ onClose?: () => void }>();
 
@@ -15,21 +17,29 @@
     {
       id: 'msg-init',
       role: 'assistant',
-      content: 'こんにちは！TWSNMP NEO AI アシスタントです。ネットワークのトポロジー、障害アラート、ログ、テレメトリ解析について何でもご質問ください。',
+      content: $_('ai.greeting'),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
+
+  // Update greeting dynamically on locale change
+  $effect(() => {
+    const greeting = $_('ai.greeting');
+    if (messages.length === 1 && messages[0].id === 'msg-init') {
+      messages[0].content = greeting;
+    }
+  });
 
   let inputPrompt = $state('');
   let isLoading = $state(false);
   let chatError = $state<string | null>(null);
 
-  const quickPrompts = [
-    '直近のアラートと障害状況を要約して',
-    'SNMP v3 の推奨設定手順を教えて',
-    'スイッチ間のPing遅延増加の原因調査方法は？',
-    'Syslog の Parquet 保存と保持期間のベストプラクティス',
-  ];
+  const quickPrompts = $derived([
+    $_('ai.quickPrompt1'),
+    $_('ai.quickPrompt2'),
+    $_('ai.quickPrompt3'),
+    $_('ai.quickPrompt4'),
+  ]);
 
   async function handleSend(textToSend?: string) {
     const text = (textToSend || inputPrompt).trim();
@@ -47,7 +57,10 @@
     isLoading = true;
 
     try {
-      const systemPrompt = 'You are TWSNMP NEO AI Assistant, an expert network engineer, SRE, and cybersecurity analyst. Respond in Japanese in a clear, concise, and actionable manner.';
+      const isJa = $locale?.startsWith('ja');
+      const systemPrompt = isJa
+        ? 'You are TWSNMP NEO AI Cat Assistant, a friendly, knowledgeable cat network engineer and cybersecurity analyst. Respond in Japanese in a clear, concise, and helpful manner with friendly cat nuances (e.g. 🐾).'
+        : 'You are TWSNMP NEO AI Cat Assistant, a friendly, knowledgeable cat network engineer and cybersecurity analyst. Respond in English in a clear, concise, and helpful manner with friendly cat nuances (e.g. 🐾).';
       const answer = await askAI(text, systemPrompt);
 
       const aiMsg: ChatMessage = {
@@ -58,7 +71,7 @@
       };
       messages = [...messages, aiMsg];
     } catch (e: any) {
-      chatError = e.message || 'AI 応答の生成に失敗しました';
+      chatError = e.message || $_('ai.errorGen');
     } finally {
       isLoading = false;
     }
@@ -76,23 +89,21 @@
   <!-- Header -->
   <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
     <div class="flex items-center space-x-2.5">
-      <div class="p-2 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-xl">
-        <Sparkles class="w-4 h-4" />
-      </div>
+      <CatAvatar size="w-8 h-8" />
       <div>
         <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-          AI Assistant & MCP Client
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 font-mono border border-cyan-200 dark:border-cyan-500/30">
-            Copilot
+          {$_('ai.title')}
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 font-medium border border-cyan-200 dark:border-cyan-500/30">
+            {$_('ai.badge')}
           </span>
         </h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400">Intelligent network root-cause & query copilot</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400">{$_('ai.subtitle')}</p>
       </div>
     </div>
     <button
       onclick={onClose}
       class="rounded-xl p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-      title="閉じる"
+      title={$_('common.close')}
     >
       <X class="w-5 h-5" />
     </button>
@@ -102,18 +113,18 @@
   <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/50">
     {#each messages as msg}
       <div class="flex items-start gap-3 {msg.role === 'user' ? 'flex-row-reverse' : ''}">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 {msg.role === 'user' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'bg-slate-100 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 border border-slate-200 dark:border-slate-700'}">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 {msg.role === 'user' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-600 border border-amber-300/40'}">
           {#if msg.role === 'user'}
             <User class="w-4 h-4" />
           {:else}
-            <Bot class="w-4 h-4" />
+            <CatAvatar size="w-6 h-6" />
           {/if}
         </div>
 
         <div class="max-w-[85%] space-y-1">
           <div class="flex items-center gap-2 {msg.role === 'user' ? 'justify-end' : ''}">
             <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {msg.role === 'user' ? 'あなた' : 'NEO Copilot'}
+              {msg.role === 'user' ? ($locale?.startsWith('ja') ? 'あなた' : 'You') : 'AI Cat 🐾'}
             </span>
             <span class="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{msg.time}</span>
           </div>
@@ -130,12 +141,10 @@
 
     {#if isLoading}
       <div class="flex items-start gap-3">
-        <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0">
-          <Bot class="w-4 h-4" />
-        </div>
+        <CatAvatar size="w-8 h-8" class="animate-bounce" />
         <div class="p-3.5 bg-white dark:bg-slate-950/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-none flex items-center space-x-2 text-xs">
           <Loader2 class="w-4 h-4 animate-spin text-cyan-600 dark:text-cyan-400" />
-          <span>LLM 推論中... ネットワーク状態を解析しています</span>
+          <span>{$_('ai.reasoning')}</span>
         </div>
       </div>
     {/if}
@@ -168,7 +177,7 @@
         type="text"
         bind:value={inputPrompt}
         onkeydown={handleKeydown}
-        placeholder="ネットワークの障害や設定について質問..."
+        placeholder={$_('ai.promptPlaceholder')}
         disabled={isLoading}
         class="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50 font-sans shadow-xs"
       />

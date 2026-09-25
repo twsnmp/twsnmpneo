@@ -1,5 +1,6 @@
 import { mount } from 'svelte'
 import '@mdi/font/css/materialdesignicons.css'
+import './lib/i18n'
 import './app.css'
 import App from './App.svelte'
 
