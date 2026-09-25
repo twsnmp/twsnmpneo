@@ -143,21 +143,21 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
+    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400">
             <Compass class="h-5 w-5" />
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <span>{isAll ? $_('map.context.discover') : isNode ? $_('neighbor.titleNode') : $_('neighbor.titleNet')}</span>
               {#if !isAll}
-                <span class="text-xs font-normal text-cyan-300">({targetName})</span>
+                <span class="text-xs font-normal text-cyan-600 dark:text-cyan-300">({targetName})</span>
               {/if}
             </h2>
-            <p class="text-[11px] text-slate-400">
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
               {isAll ? ($_('neighbor.discoverAllSubtitle') || $_('neighbor.subtitle')) : $_('neighbor.subtitle')}
             </p>
           </div>
@@ -166,7 +166,7 @@
           type="button"
           aria-label={$_('common.close')}
           onclick={() => (show = false)}
-          class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
+          class="rounded-xl p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X class="h-5 w-5" />
         </button>
@@ -175,47 +175,47 @@
       <!-- Content -->
       <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/60 dark:bg-slate-900/30 text-xs">
         {#if errorMsg}
-          <div class="flex items-center gap-2 rounded-xl border border-rose-800/40 bg-rose-950/40 p-3.5 text-xs font-medium text-rose-300 shadow-sm">
-            <AlertCircle class="h-4 w-4 text-rose-400 shrink-0" />
+          <div class="flex items-center gap-2 rounded-xl border border-rose-200 dark:border-rose-800/40 bg-rose-50 dark:bg-rose-950/40 p-3.5 text-xs font-medium text-rose-700 dark:text-rose-300 shadow-sm">
+            <AlertCircle class="h-4 w-4 text-rose-500 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         {/if}
 
         {#if successMsg}
-          <div class="flex items-center gap-2 rounded-xl border border-emerald-800/40 bg-emerald-950/40 p-3.5 text-xs font-medium text-emerald-300 shadow-sm">
-            <Check class="h-4 w-4 text-emerald-400 shrink-0" />
+          <div class="flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50 dark:bg-emerald-950/40 p-3.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 shadow-sm">
+            <Check class="h-4 w-4 text-emerald-500 shrink-0" />
             <span>{successMsg}</span>
           </div>
         {/if}
 
         {#if loading}
-          <div class="flex flex-col items-center justify-center py-12 space-y-3 text-slate-400">
-            <div class="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent"></div>
+          <div class="flex flex-col items-center justify-center py-12 space-y-3 text-slate-500 dark:text-slate-400">
+            <div class="h-8 w-8 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent"></div>
             <p class="text-xs font-medium">{$_('neighbor.searching')}</p>
           </div>
         {:else if candidateLines.length === 0}
-          <div class="flex flex-col items-center justify-center py-12 text-slate-500">
+          <div class="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
             <Search class="h-10 w-10 mb-3 opacity-30" />
             <p class="text-sm font-semibold">{$_('neighbor.notFound')}</p>
             <p class="text-xs text-slate-500 mt-1">{$_('neighbor.notFoundDesc')}</p>
           </div>
         {:else}
           <div class="flex items-center justify-between px-1">
-            <span class="text-xs font-bold text-slate-200">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
               {$_('neighbor.candidatesTitle')} ({candidateLines.length})
             </span>
             <button
               type="button"
               onclick={toggleSelectAll}
-              class="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
+              class="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
             >
               {selectedIndices.length === candidateLines.length ? $_('neighbor.deselectAll') : $_('neighbor.selectAll')}
             </button>
           </div>
 
-          <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg">
-            <table class="w-full text-left text-xs text-slate-300">
-              <thead class="bg-slate-950/80 uppercase font-mono text-[11px] text-slate-400 border-b border-slate-800">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs">
+            <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+              <thead class="bg-slate-100/80 dark:bg-slate-950/80 uppercase font-mono text-[11px] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th class="py-2.5 px-3 w-10 text-center">{$_('neighbor.colSelect')}</th>
                   <th class="py-2.5 px-3">{$_('neighbor.colSrc')}</th>
@@ -224,55 +224,55 @@
                   <th class="py-2.5 px-3 text-center">{$_('neighbor.colConfidence')}</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-800/60">
+              <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60">
                 {#each candidateLines as l, idx}
                   {@const e1 = getEntityLabel(l.node_id1 || (l as any).NodeID1, l.polling_id1 || (l as any).PollingID1)}
                   {@const e2 = getEntityLabel(l.node_id2 || (l as any).NodeID2, l.polling_id2 || (l as any).PollingID2)}
                   {@const isSelected = selectedIndices.includes(idx)}
                   <tr
                     onclick={() => toggleSelectIndex(idx)}
-                    class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-950/20' : 'hover:bg-slate-800/30'}"
+                    class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-50 dark:bg-cyan-950/20 text-cyan-900 dark:text-cyan-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}"
                   >
                     <td class="py-2.5 px-3 text-center" onclick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onchange={() => toggleSelectIndex(idx)}
-                        class="rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                        class="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-600 focus:ring-cyan-500/30 cursor-pointer"
                       />
                     </td>
-                    <td class="py-2.5 px-3 font-medium text-slate-100">
+                    <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-100">
                       <div class="flex items-center gap-1.5">
                         {#if e1.isNet}
-                          <Server class="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                         {:else}
-                          <Laptop class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <Laptop class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         {/if}
                         <span class="truncate">{e1.name}</span>
                         {#if e1.port}
-                          <span class="text-[10px] text-cyan-300 font-mono">[{e1.port}]</span>
+                          <span class="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono">[{e1.port}]</span>
                         {/if}
                       </div>
                     </td>
-                    <td class="py-2.5 px-3 font-medium text-slate-100">
+                    <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-100">
                       <div class="flex items-center gap-1.5">
                         {#if e2.isNet}
-                          <Server class="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                         {:else}
-                          <Laptop class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <Laptop class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         {/if}
                         <span class="truncate">{e2.name}</span>
                         {#if e2.port}
-                          <span class="text-[10px] text-cyan-300 font-mono">[{e2.port}]</span>
+                          <span class="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono">[{e2.port}]</span>
                         {/if}
                       </div>
                     </td>
-                    <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                       {l.Reason || l.Info || "Heuristic"}
                     </td>
                     <td class="py-2.5 px-3 text-center">
                       <span
-                        class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {l.Confidence === 'strict' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'}"
+                        class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {l.Confidence === 'strict' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}"
                       >
                         {l.Confidence === "strict" ? $_('neighbor.strict') : $_('neighbor.speculative')}
                       </span>
@@ -291,7 +291,7 @@
           type="button"
           onclick={loadNeighbors}
           disabled={loading}
-          class="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+          class="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
         >
           <Search class="w-3.5 h-3.5" />
           {$_('neighbor.research')}
@@ -301,7 +301,7 @@
           <button
             type="button"
             onclick={() => (show = false)}
-            class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            class="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
             {$_('common.close')}
           </button>

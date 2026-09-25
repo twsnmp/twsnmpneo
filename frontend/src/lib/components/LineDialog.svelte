@@ -180,23 +180,23 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
+    <div class="flex h-auto max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header (twnoaa style) -->
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-400">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400">
             <GitCommitHorizontal class="h-5 w-5" />
           </div>
           <div>
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{line?.id ? $_('line.editTitle') : $_('line.createTitle')}</h2>
-            <p class="text-[11px] text-slate-400">{$_('line.subtitle')}</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">{$_('line.subtitle')}</p>
           </div>
         </div>
         <button
           type="button"
           aria-label={$_('common.close')}
           onclick={() => (show = false)}
-          class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
+          class="rounded-xl p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X class="h-5 w-5" />
         </button>
@@ -205,8 +205,8 @@
       <!-- Modal Body -->
       <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/60 dark:bg-slate-900/40 text-xs">
         {#if saveError}
-          <div class="flex items-center gap-2 rounded-xl border border-rose-800/40 bg-rose-950/40 p-3.5 text-xs font-medium text-rose-300 shadow-sm">
-            <X class="h-4 w-4 text-rose-400 shrink-0" />
+          <div class="flex items-center gap-2 rounded-xl border border-rose-200 dark:border-rose-800/40 bg-rose-50 dark:bg-rose-950/40 p-3.5 text-xs font-medium text-rose-700 dark:text-rose-300 shadow-sm">
+            <X class="h-4 w-4 text-rose-500 shrink-0" />
             <span>{saveError}</span>
           </div>
         {/if}
@@ -214,30 +214,30 @@
         <!-- Connection Endpoints Grid matching twsnmpfk -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Endpoint 1 -->
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-3">
-            <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg space-y-3">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800/60 pb-2">
               {#if isNet1}
-                <Network class="w-4 h-4 text-cyan-400" />
+                <Network class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 <span>{$_('line.net1')}</span>
               {:else}
-                <Laptop class="w-4 h-4 text-emerald-400" />
+                <Laptop class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>{$_('line.node1')}</span>
               {/if}
             </div>
             <div>
-              <label for="endpoint-1-name" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.deviceName')}</label>
-              <div id="endpoint-1-name" class="w-full rounded-xl border border-slate-800/80 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 truncate">
+              <label for="endpoint-1-name" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('line.deviceName')}</label>
+              <div id="endpoint-1-name" class="w-full rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
                 {target1?.name || (target1 as any)?.Name || nodeId1 || "-"}
               </div>
             </div>
             <div>
-              <label for="endpoint-1-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">
+              <label for="endpoint-1-polling" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 {isNet1 ? $_('line.connectPort') : $_('line.statusLinkedPolling')}
               </label>
               <select
                 id="endpoint-1-polling"
                 bind:value={pollingId1}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 <option value="">{$_('line.unspecified')}</option>
                 {#each options1 as opt}
@@ -248,30 +248,30 @@
           </div>
 
           <!-- Endpoint 2 -->
-          <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-3">
-            <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg space-y-3">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800/60 pb-2">
               {#if isNet2}
-                <Network class="w-4 h-4 text-cyan-400" />
+                <Network class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 <span>{$_('line.net2')}</span>
               {:else}
-                <Laptop class="w-4 h-4 text-emerald-400" />
+                <Laptop class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>{$_('line.node2')}</span>
               {/if}
             </div>
             <div>
-              <label for="endpoint-2-name" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.deviceName')}</label>
-              <div id="endpoint-2-name" class="w-full rounded-xl border border-slate-800/80 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 truncate">
+              <label for="endpoint-2-name" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('line.deviceName')}</label>
+              <div id="endpoint-2-name" class="w-full rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
                 {target2?.name || (target2 as any)?.Name || nodeId2 || "-"}
               </div>
             </div>
             <div>
-              <label for="endpoint-2-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">
+              <label for="endpoint-2-polling" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 {isNet2 ? $_('line.connectPort') : $_('line.statusLinkedPolling')}
               </label>
               <select
                 id="endpoint-2-polling"
                 bind:value={pollingId2}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 <option value="">{$_('line.unspecified')}</option>
                 {#each options2 as opt}
@@ -283,19 +283,19 @@
         </div>
 
         <!-- Line Parameters matching twsnmpfk -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg space-y-3.5">
-          <div class="flex items-center gap-2 text-xs font-bold text-slate-200 border-b border-slate-800/60 pb-2">
-            <Activity class="w-4 h-4 text-cyan-400" />
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm dark:shadow-lg space-y-3.5">
+          <div class="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800/60 pb-2">
+            <Activity class="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
             <span>{$_('line.attrTitle')}</span>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             <div>
-              <label for="line-info-polling" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.infoPolling')}</label>
+              <label for="line-info-polling" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('line.infoPolling')}</label>
               <select
                 id="line-info-polling"
                 bind:value={pollingId}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 <option value="">{$_('line.unspecified')}</option>
                 {#each infoPollingOptions as opt}
@@ -305,36 +305,36 @@
             </div>
 
             <div>
-              <label for="line-info-text" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.info')}</label>
+              <label for="line-info-text" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('line.info')}</label>
               <input
                 id="line-info-text"
                 type="text"
                 placeholder={$_('line.infoPlaceholder')}
                 bind:value={info}
-                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3.5 pt-1">
             <div>
-              <label for="line-width" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('line.width')}</label>
+              <label for="line-width" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('line.width')}</label>
               <input
                 id="line-width"
                 type="number"
                 min={1}
                 max={5}
                 bind:value={width}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label for="line-state" class="block text-[11px] font-semibold text-slate-400 mb-1">{$_('common.status')}</label>
+              <label for="line-state" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('common.status')}</label>
               <select
                 id="line-state"
                 bind:value={state}
-                class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 <option value="normal">{$_('status.normal')}</option>
                 <option value="warn">{$_('status.warn')}</option>
@@ -352,7 +352,7 @@
           <button
             type="button"
             onclick={handleDisconnect}
-            class="flex items-center gap-1.5 rounded-xl border border-rose-800/50 bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-300 hover:bg-rose-900/60 transition-all cursor-pointer shadow-lg shadow-rose-950/50"
+            class="flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-2 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all cursor-pointer shadow-sm"
           >
             <Unlink class="h-4 w-4" />
             {$_('line.disconnect')}
@@ -365,7 +365,7 @@
           <button
             type="button"
             onclick={() => (show = false)}
-            class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            class="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
           >
             {$_('common.cancel')}
           </button>

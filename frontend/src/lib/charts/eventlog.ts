@@ -1,6 +1,7 @@
 import * as echarts from 'echarts';
 import { locale } from 'svelte-i18n';
 import { get } from 'svelte/store';
+import { isDarkMode } from './utils';
 
 const getIsJa = () => (get(locale) || 'ja').startsWith('ja');
 
@@ -169,7 +170,8 @@ export const showEventLogDowntimeChart = (dom: HTMLElement | string, stats: Node
   const el = typeof dom === 'string' ? document.getElementById(dom) : dom;
   if (!el) return undefined;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   const isJa = getIsJa();
   const top15 = [...stats].slice(0, 15).reverse();
   const yData = top15.map((s) => s.nodeName);
@@ -180,9 +182,9 @@ export const showEventLogDowntimeChart = (dom: HTMLElement | string, stats: Node
     grid: { left: 140, right: 30, top: 20, bottom: 25 },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: (params: any) => {
         const item = params[0];
         return `${item.name}<br/>${isJa ? '総停止時間' : 'Total Downtime'}: ${item.value} ${isJa ? '分' : 'min'}`;
@@ -191,16 +193,16 @@ export const showEventLogDowntimeChart = (dom: HTMLElement | string, stats: Node
     xAxis: {
       type: 'value',
       name: isJa ? '停止時間 (分)' : 'Downtime (min)',
-      nameTextStyle: { color: '#64748b', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
-      splitLine: { lineStyle: { color: '#1e293b' } },
-      axisLabel: { color: '#94a3b8' },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#f1f5f9' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b' },
     },
     yAxis: {
       type: 'category',
       data: yData,
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#cbd5e1', fontSize: 11 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      axisLabel: { color: dark ? '#cbd5e1' : '#334155', fontSize: 11 },
     },
     series: [
       {
@@ -219,7 +221,8 @@ export const showLogHeatmap = (dom: HTMLElement | string, logs: any[]): echarts.
   const el = typeof dom === 'string' ? document.getElementById(dom) : dom;
   if (!el) return undefined;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   const isJa = getIsJa();
   const days = isJa
     ? ['日', '月', '火', '水', '木', '金', '土']
@@ -253,9 +256,9 @@ export const showLogHeatmap = (dom: HTMLElement | string, logs: any[]): echarts.
     grid: { left: 45, right: 30, top: 20, bottom: 40 },
     tooltip: {
       position: 'top',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: isJa
         ? (p: any) => `${days[p.data[1]]}曜日 ${p.data[0]}時: ${p.data[2]} 件`
         : (p: any) => `${days[p.data[1]]} ${p.data[0]}:00: ${p.data[2]} events`,
@@ -264,15 +267,15 @@ export const showLogHeatmap = (dom: HTMLElement | string, logs: any[]): echarts.
       type: 'category',
       data: hours,
       splitArea: { show: true },
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#94a3b8', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
     },
     yAxis: {
       type: 'category',
       data: days,
       splitArea: { show: true },
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#cbd5e1' },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      axisLabel: { color: dark ? '#cbd5e1' : '#334155' },
     },
     visualMap: {
       min: 0,
@@ -282,9 +285,11 @@ export const showLogHeatmap = (dom: HTMLElement | string, logs: any[]): echarts.
       left: 'center',
       bottom: 0,
       inRange: {
-        color: ['#0f172a', '#0369a1', '#06b6d4', '#eab308', '#ef4444'],
+        color: dark
+          ? ['#0f172a', '#0369a1', '#06b6d4', '#eab308', '#ef4444']
+          : ['#f8fafc', '#bae6fd', '#38bdf8', '#f59e0b', '#ef4444'],
       },
-      textStyle: { color: '#94a3b8', fontSize: 10 },
+      textStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
     },
     series: [
       {
@@ -305,7 +310,8 @@ export const showEventLogStateChart = (dom: HTMLElement | string, logs: any[]): 
   const el = typeof dom === 'string' ? document.getElementById(dom) : dom;
   if (!el) return undefined;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   const counts: Record<string, number> = {
     high: 0,
     low: 0,
@@ -337,26 +343,26 @@ export const showEventLogStateChart = (dom: HTMLElement | string, logs: any[]): 
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
       formatter: isJa ? '{b}: {c} 件 ({d}%)' : '{b}: {c} ({d}%)',
     },
     legend: {
       orient: 'vertical',
       right: 20,
       top: 'center',
-      textStyle: { color: '#cbd5e1', fontSize: 11 },
+      textStyle: { color: dark ? '#cbd5e1' : '#334155', fontSize: 11 },
     },
     series: [
       {
         type: 'pie',
         radius: ['45%', '70%'],
         avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 6, borderColor: '#0b1329', borderWidth: 2 },
+        itemStyle: { borderRadius: 6, borderColor: dark ? '#0b1329' : '#ffffff', borderWidth: 2 },
         label: { show: false },
         emphasis: {
-          label: { show: true, fontSize: 13, fontWeight: 'bold', color: '#f8fafc' },
+          label: { show: true, fontSize: 13, fontWeight: 'bold', color: dark ? '#f8fafc' : '#1e293b' },
         },
         data: pieData,
       },
@@ -370,7 +376,8 @@ export const showEventLogNodeChart = (dom: HTMLElement | string, logs: any[]): e
   const el = typeof dom === 'string' ? document.getElementById(dom) : dom;
   if (!el) return undefined;
 
-  const chart = echarts.init(el, 'dark');
+  const dark = isDarkMode();
+  const chart = echarts.init(el, dark ? 'dark' : undefined);
   const isJaNode = getIsJa();
   const nodeCountMap = new Map<string, number>();
 
@@ -389,23 +396,23 @@ export const showEventLogNodeChart = (dom: HTMLElement | string, logs: any[]): e
     grid: { left: 140, right: 30, top: 20, bottom: 25 },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#f8fafc' },
+      backgroundColor: dark ? '#0f172a' : '#ffffff',
+      borderColor: dark ? '#334155' : '#cbd5e1',
+      textStyle: { color: dark ? '#f8fafc' : '#1e293b' },
     },
     xAxis: {
       type: 'value',
       name: isJaNode ? 'イベント数' : 'Event Count',
-      nameTextStyle: { color: '#64748b', fontSize: 10 },
-      axisLine: { lineStyle: { color: '#334155' } },
-      splitLine: { lineStyle: { color: '#1e293b' } },
-      axisLabel: { color: '#94a3b8' },
+      nameTextStyle: { color: dark ? '#94a3b8' : '#64748b', fontSize: 10 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      splitLine: { lineStyle: { color: dark ? '#1e293b' : '#f1f5f9' } },
+      axisLabel: { color: dark ? '#94a3b8' : '#64748b' },
     },
     yAxis: {
       type: 'category',
       data: sorted.map((s) => s[0]),
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#cbd5e1', fontSize: 11 },
+      axisLine: { lineStyle: { color: dark ? '#334155' : '#cbd5e1' } },
+      axisLabel: { color: dark ? '#cbd5e1' : '#334155', fontSize: 11 },
     },
     series: [
       {

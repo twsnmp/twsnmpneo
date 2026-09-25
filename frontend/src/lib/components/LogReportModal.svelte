@@ -154,15 +154,15 @@
           <button
             type="button"
             onclick={exportReportCSV}
-            class="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+            class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
           >
-            <Download class="h-3.5 w-3.5 text-emerald-400" />
+            <Download class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>{$_('logReport.btnExportCsv')}</span>
           </button>
           <button
             type="button"
             onclick={() => (show = false)}
-            class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
+            class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
           >
             <X class="h-5 w-5" />
           </button>
@@ -170,11 +170,11 @@
       </div>
 
       <!-- Tab Navigation -->
-      <div class="flex items-center gap-1 border-b border-slate-800 bg-slate-950/40 px-6 pt-2">
+      <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-950/40 px-6 pt-2">
         <button
           type="button"
           onclick={() => handleTabChange("downtime")}
-          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'downtime' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'downtime' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
         >
           <ShieldAlert class="h-4 w-4" />
           <span>{$_('logReport.tabSla')}</span>
@@ -183,7 +183,7 @@
         <button
           type="button"
           onclick={() => handleTabChange("state")}
-          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'state' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'state' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
         >
           <PieChart class="h-4 w-4" />
           <span>{$_('logReport.tabLevel')}</span>
@@ -192,7 +192,7 @@
         <button
           type="button"
           onclick={() => handleTabChange("heatmap")}
-          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'heatmap' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'heatmap' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
         >
           <Calendar class="h-4 w-4" />
           <span>{$_('logReport.tabHeatmap')}</span>
@@ -201,7 +201,7 @@
         <button
           type="button"
           onclick={() => handleTabChange("nodes")}
-          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'nodes' ? 'border-cyan-500 text-cyan-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'nodes' ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
         >
           <Server class="h-4 w-4" />
           <span>{$_('logReport.tabNodes')}</span>
@@ -210,69 +210,69 @@
         <button
           type="button"
           onclick={() => handleTabChange("ai")}
-          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'ai' ? 'border-pink-500 text-pink-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'ai' ? 'border-pink-500 text-pink-600 dark:text-pink-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
         >
-          <Sparkles class="h-4 w-4 text-pink-400" />
+          <Sparkles class="h-4 w-4 text-pink-500 dark:text-pink-400" />
           <span>{$_('logReport.tabAi')}</span>
         </button>
       </div>
 
       <!-- Tab Content Body -->
-      <div class="flex-1 overflow-y-auto p-6 min-h-0 bg-slate-900/60">
+      <div class="flex-1 overflow-y-auto p-6 min-h-0 bg-slate-50/60 dark:bg-slate-900/60">
         {#if activeTab === "downtime"}
           <div class="space-y-6">
             <!-- KPI Summary Cards -->
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
-              <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.overallSla')}</span>
-                <div class="text-xl font-mono font-black text-emerald-400">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-4 shadow-sm">
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">{$_('logReport.overallSla')}</span>
+                <div class="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400">
                   {renderSLA(downtimeStats.overallSLA)}
                 </div>
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.totalIncidents')}</span>
-                <div class="text-xl font-mono font-black text-rose-400">
-                  {downtimeStats.totalIncidents.toLocaleString()} <span class="text-xs font-sans text-slate-400 font-normal">{$_('logReport.timesUnit')}</span>
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-4 shadow-sm">
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">{$_('logReport.totalIncidents')}</span>
+                <div class="text-xl font-mono font-black text-rose-600 dark:text-rose-400">
+                  {downtimeStats.totalIncidents.toLocaleString()} <span class="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">{$_('logReport.timesUnit')}</span>
                 </div>
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.totalDowntime')}</span>
-                <div class="text-sm font-sans font-bold text-slate-200 truncate mt-1">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-4 shadow-sm">
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">{$_('logReport.totalDowntime')}</span>
+                <div class="text-sm font-sans font-bold text-slate-800 dark:text-slate-200 truncate mt-1">
                   {renderDuration(downtimeStats.totalDowntimeSec)}
                 </div>
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.mttr')}</span>
-                <div class="text-sm font-sans font-bold text-slate-200 truncate mt-1">
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-4 shadow-sm">
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">{$_('logReport.mttr')}</span>
+                <div class="text-sm font-sans font-bold text-slate-800 dark:text-slate-200 truncate mt-1">
                   {renderDuration(downtimeStats.mttrSec)}
                 </div>
               </div>
 
-              <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-                <span class="text-[11px] font-medium text-slate-400 block mb-1">{$_('logReport.ongoingIncidents')}</span>
-                <div class="text-xl font-mono font-black {downtimeStats.ongoingIncidents > 0 ? 'text-red-400 animate-pulse' : 'text-slate-400'}">
-                  {downtimeStats.ongoingIncidents} <span class="text-xs font-sans text-slate-400 font-normal">{$_('logReport.nodesUnit')}</span>
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-4 shadow-sm">
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">{$_('logReport.ongoingIncidents')}</span>
+                <div class="text-xl font-mono font-black {downtimeStats.ongoingIncidents > 0 ? 'text-red-500 dark:text-red-400 animate-pulse' : 'text-slate-400 dark:text-slate-500'}">
+                  {downtimeStats.ongoingIncidents} <span class="text-xs font-sans text-slate-500 dark:text-slate-400 font-normal">{$_('logReport.nodesUnit')}</span>
                 </div>
               </div>
             </div>
 
             <!-- Top Downtime Chart -->
-            <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
-              <h3 class="text-xs font-bold text-slate-300 mb-2">{$_('logReport.downtimeRanking')}</h3>
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-4 shadow-sm">
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-300 mb-2">{$_('logReport.downtimeRanking')}</h3>
               <div id="reportDowntimeChart" class="h-64 w-full"></div>
             </div>
 
             <!-- Downtime Table -->
-            <div class="rounded-2xl border border-slate-800 bg-slate-950/70 overflow-hidden shadow-sm">
-              <div class="px-4 py-3 border-b border-slate-800 text-xs font-bold text-slate-300">
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 overflow-hidden shadow-sm">
+              <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-300">
                 {$_('logReport.nodeReportList', { values: { count: downtimeStats.nodeStats.length } })}
               </div>
               <div class="max-h-60 overflow-y-auto">
                 <table class="w-full text-left text-xs">
-                  <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] uppercase text-slate-400">
+                  <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase text-slate-600 dark:text-slate-400">
                     <tr>
                       <th class="py-2.5 px-3.5">{$_('logReport.thNode')}</th>
                       <th class="py-2.5 px-3.5 text-right">{$_('logReport.thSla')}</th>
@@ -282,11 +282,11 @@
                       <th class="py-2.5 px-3.5 text-center">{$_('logReport.thStatus')}</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+                  <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
                     {#each downtimeStats.nodeStats as node}
-                      <tr class="hover:bg-slate-850/50">
-                        <td class="py-2 px-3.5 font-sans font-semibold text-slate-200">{node.nodeName}</td>
-                        <td class="py-2 px-3.5 text-right {node.sla < 99 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">
+                      <tr class="hover:bg-slate-50 dark:hover:bg-slate-850/50">
+                        <td class="py-2 px-3.5 font-sans font-semibold text-slate-800 dark:text-slate-200">{node.nodeName}</td>
+                        <td class="py-2 px-3.5 text-right {node.sla < 99 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-emerald-600 dark:text-emerald-400'}">
                           {renderSLA(node.sla)}
                         </td>
                         <td class="py-2 px-3.5 text-right">{node.count}</td>
@@ -294,11 +294,11 @@
                         <td class="py-2 px-3.5 text-right font-sans">{renderDuration(node.maxDowntimeSec)}</td>
                         <td class="py-2 px-3.5 text-center font-sans">
                           {#if node.ongoing}
-                            <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30">
                               {$_('logReport.ongoing')}
                             </span>
                           {:else}
-                            <span class="inline-flex items-center gap-1 text-[11px]">
+                            <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300">
                               <span class="h-2 w-2 rounded-full" style="background-color: {getStateColor(node.currentLevel)}"></span>
                               {node.currentLevel}
                             </span>
@@ -308,7 +308,7 @@
                     {/each}
                     {#if downtimeStats.nodeStats.length === 0}
                       <tr>
-                        <td colspan="6" class="py-8 text-center text-slate-500 font-sans">{$_('logReport.noIncidents')}</td>
+                        <td colspan="6" class="py-8 text-center text-slate-400 dark:text-slate-500 font-sans">{$_('logReport.noIncidents')}</td>
                       </tr>
                     {/if}
                   </tbody>
@@ -317,24 +317,24 @@
             </div>
           </div>
         {:else if activeTab === "state"}
-          <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 class="text-xs font-bold text-slate-300 mb-4">{$_('logReport.levelDistribution')}</h3>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-6 shadow-sm">
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-300 mb-4">{$_('logReport.levelDistribution')}</h3>
             <div id="reportStateChart" class="h-96 w-full"></div>
           </div>
         {:else if activeTab === "heatmap"}
-          <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 class="text-xs font-bold text-slate-300 mb-2">{$_('logReport.heatmapTitle')}</h3>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-6 shadow-sm">
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-300 mb-2">{$_('logReport.heatmapTitle')}</h3>
             <div id="reportHeatmapChart" class="h-96 w-full"></div>
           </div>
         {:else if activeTab === "nodes"}
-          <div class="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 class="text-xs font-bold text-slate-300 mb-2">{$_('logReport.nodeIncidentsRanking')}</h3>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 p-6 shadow-sm">
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-300 mb-2">{$_('logReport.nodeIncidentsRanking')}</h3>
             <div id="reportNodesChart" class="h-96 w-full"></div>
           </div>
         {:else if activeTab === "ai"}
           <div class="space-y-4">
             <div class="flex items-center justify-between rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4">
-              <div class="flex items-center gap-2.5 text-xs text-pink-300">
+              <div class="flex items-center gap-2.5 text-xs text-pink-600 dark:text-pink-300 font-medium">
                 <Sparkles class="h-4 w-4" />
                 <span>{$_('logReport.aiSectionTitle')}</span>
               </div>
@@ -342,23 +342,23 @@
                 type="button"
                 onclick={runAIReport}
                 disabled={aiLoading}
-                class="flex items-center gap-1.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 px-3.5 py-1.5 text-xs font-semibold text-pink-300 transition-colors cursor-pointer"
+                class="flex items-center gap-1.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 px-3.5 py-1.5 text-xs font-semibold text-pink-700 dark:text-pink-300 transition-colors cursor-pointer"
               >
                 <RefreshCw class="h-3.5 w-3.5 {aiLoading ? 'animate-spin' : ''}" />
                 <span>{$_('logReport.btnReanalyze')}</span>
               </button>
             </div>
 
-            <div class="rounded-2xl border border-slate-800 bg-slate-950/90 p-6 text-xs leading-relaxed text-slate-200 whitespace-pre-wrap font-sans">
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/90 p-6 text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans shadow-sm">
               {#if aiLoading}
-                <div class="flex items-center justify-center py-16 gap-3 text-cyan-400">
+                <div class="flex items-center justify-center py-16 gap-3 text-cyan-600 dark:text-cyan-400">
                   <RefreshCw class="h-5 w-5 animate-spin" />
                   <span class="text-sm font-semibold">{$_('logReport.aiAnalyzing')}</span>
                 </div>
               {:else if aiSummary}
                 {aiSummary}
               {:else}
-                <div class="py-12 text-center text-slate-500">
+                <div class="py-12 text-center text-slate-400 dark:text-slate-500">
                   {$_('logReport.aiPlaceholder')}
                 </div>
               {/if}
