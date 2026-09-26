@@ -24,6 +24,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
+	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 )
 
 var (
@@ -208,6 +209,9 @@ func main() {
 			slog.Error("Polling manager error", "error", err)
 		}
 	}()
+
+	// Start Network background port manager
+	topology.StartNetworkBackend(ctx, store)
 
 	// Resolve receiver ports from CLI flags and MapConf
 	mapConf, _ := store.GetMapConf(ctx)

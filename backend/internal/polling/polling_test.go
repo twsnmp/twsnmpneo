@@ -176,6 +176,13 @@ func TestPingPoller(t *testing.T) {
 	if res.State != polling.StateNormal {
 		t.Logf("ping result: %s (%s)", res.State, res.Message)
 	}
+
+	// Unreachable IP should return StateHigh
+	unreachNode := &datastore.NodeEnt{IP: "192.0.2.1"}
+	res, _ = poller.Poll(ctx, &datastore.PollingEnt{Timeout: 1, Retry: 0}, unreachNode)
+	if res.State != polling.StateHigh {
+		t.Fatalf("expected StateHigh on unreachable IP, got %s", res.State)
+	}
 }
 
 func TestDNSPoller(t *testing.T) {
@@ -359,4 +366,62 @@ func TestPollingManager_ExecuteAndLog(t *testing.T) {
 	}()
 	time.Sleep(150 * time.Millisecond)
 	cancel()
+}
+
+func TestConcurrentPollingSafety(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(10 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	}))
+	defer ts.Close()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  10,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	task := &datastore.PollingEnt{
+		ID:       "poll-race-1",
+		Name:     "Concurrent Test",
+		Type:     "http",
+		Params:   ts.URL,
+		PollInt:  1,
+		Timeout:  1,
+		LogMode:  datastore.LogModeAlways,
+		NextTime: time.Now().UnixNano(),
+		Result: map[string]interface{}{
+			"init": "val",
+		},
+	}
+	_ = store.SavePolling(ctx, task)
+
+	// Launch multiple concurrent executions of the same task and schedule checks
+	done := make(chan struct{})
+	for i := 0; i < 30; i++ {
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("panic in concurrent execution: %v", r)
+				}
+				done <- struct{}{}
+			}()
+			_, _ = mgr.ExecuteOne(ctx, task)
+			_ = store.SavePolling(ctx, task)
+			_, _ = store.GetPolling(ctx, "poll-race-1")
+			_, _ = store.ListPollings(ctx)
+		}()
+	}
+
+	for i := 0; i < 30; i++ {
+		<-done
+	}
 }

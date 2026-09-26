@@ -223,6 +223,7 @@ export interface SystemInfo {
   num_cpu?: number;
   node_count: number;
   poll_count: number;
+  ping_mode?: string;
   receivers?: Record<string, ReceiverStatusInfo>;
 }
 
@@ -276,10 +277,6 @@ export function normalizeNetwork(raw: any): NetworkEnt {
   const ip = raw.ip || raw.IP || '';
   const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 300);
   const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 150);
-  const w = typeof raw.w === 'number' ? raw.w : (typeof raw.W === 'number' ? raw.W : 420);
-  const h = typeof raw.h === 'number' ? raw.h : (typeof raw.H === 'number' ? raw.H : 90);
-  const h_ports = raw.h_ports || raw.HPorts || 8;
-
   const rawPorts = raw.ports || raw.Ports || [];
   const ports: PortEnt[] = rawPorts.map((p: any, idx: number) => {
     const pid = p.id || p.ID || `p${idx + 1}`;
@@ -296,6 +293,18 @@ export function normalizeNetwork(raw: any): NetworkEnt {
     };
   });
 
+  let xMax = 5;
+  let yMax = 0;
+  for (const p of ports) {
+    if (xMax < p.x) xMax = p.x;
+    if (yMax < p.y) yMax = p.y;
+  }
+  const calcW = (xMax + 1) * 45 + 20;
+  const calcH = (yMax + 1) * 55 + 12 + 20;
+
+  const w = (typeof raw.w === 'number' && raw.w > 0) ? raw.w : ((typeof raw.W === 'number' && raw.W > 0) ? raw.W : calcW);
+  const h = (typeof raw.h === 'number' && raw.h > 0) ? raw.h : ((typeof raw.H === 'number' && raw.H > 0) ? raw.H : calcH);
+
   return {
     ...raw,
     id, ID: id,
@@ -305,7 +314,6 @@ export function normalizeNetwork(raw: any): NetworkEnt {
     y, Y: y,
     w, W: w,
     h, H: h,
-    h_ports,
     ports, Ports: ports,
   };
 }
@@ -593,23 +601,35 @@ export async function fetchNetworks(): Promise<NetworkEnt[]> {
 }
 
 export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt> {
-  const rawPorts = net.ports || net.Ports || [];
+  const rawPorts = net.ports || (net as any).Ports || [];
   const ports = rawPorts.map((p: any, idx: number) => ({
     ID: p.id || p.ID || `p${idx + 1}`,
     Name: p.name || p.Name || `Port ${idx + 1}`,
+    Index: p.index || p.Index || p.id || p.ID || '',
+    Polling: p.polling || p.Polling || '',
     X: typeof p.x === 'number' ? p.x : (typeof p.X === 'number' ? p.X : idx % 8),
     Y: typeof p.y === 'number' ? p.y : (typeof p.Y === 'number' ? p.Y : Math.floor(idx / 8)),
     State: p.state || p.State || 'none',
   }));
 
   const payload = {
-    ID: net.id || net.ID || '',
-    Name: net.name || net.Name || '',
-    IP: net.ip || net.IP || '',
-    X: typeof net.x === 'number' ? net.x : (typeof net.X === 'number' ? net.X : 300),
-    Y: typeof net.y === 'number' ? net.y : (typeof net.Y === 'number' ? net.Y : 150),
-    W: typeof net.w === 'number' ? net.w : (typeof net.W === 'number' ? net.W : 420),
-    H: typeof net.h === 'number' ? net.h : (typeof net.H === 'number' ? net.H : 90),
+    ID: net.id || (net as any).ID || '',
+    Name: net.name || (net as any).Name || '',
+    IP: net.ip || (net as any).IP || '',
+    X: typeof net.x === 'number' ? net.x : (typeof (net as any).X === 'number' ? (net as any).X : 300),
+    Y: typeof net.y === 'number' ? net.y : (typeof (net as any).Y === 'number' ? (net as any).Y : 150),
+    W: typeof net.w === 'number' ? net.w : (typeof (net as any).W === 'number' ? (net as any).W : 420),
+    H: typeof net.h === 'number' ? net.h : (typeof (net as any).H === 'number' ? (net as any).H : 90),
+    SnmpMode: net.snmp_mode || (net as any).SnmpMode || '',
+    Community: net.community || (net as any).Community || '',
+    User: net.user || (net as any).User || '',
+    Password: net.password || (net as any).Password || '',
+    SnmpPort: net.snmp_port || (net as any).SnmpPort || 0,
+    Unmanaged: net.unmanaged ?? (net as any).Unmanaged ?? false,
+    SystemID: net.system_id || (net as any).SystemID || '',
+    Descr: net.descr || (net as any).Descr || '',
+    HPorts: net.hports || (net as any).HPorts || 24,
+    LLDP: net.lldp ?? (net as any).LLDP ?? false,
     Ports: ports,
   };
   const res = await fetch(`${API_BASE}/networks`, {
@@ -625,6 +645,13 @@ export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt>
 export async function deleteNetwork(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/networks/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete network failed: ${res.statusText}`);
+}
+
+export async function refreshNetworkPorts(id: string): Promise<NetworkEnt> {
+  const res = await fetch(`${API_BASE}/networks/${id}/ports`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Refresh network ports failed: ${res.statusText}`);
+  const saved = await res.json();
+  return normalizeNetwork(saved);
 }
 
 export async function fetchDrawItems(): Promise<DrawItemEnt[]> {
@@ -665,6 +692,7 @@ export async function fetchMapConf(): Promise<any> {
   if (!res.ok) throw new Error(`Fetch map conf failed: ${res.statusText}`);
   return res.json();
 }
+export const getMapConf = fetchMapConf;
 
 export async function saveMapConf(conf: any): Promise<any> {
   const res = await fetch(`${API_BASE}/map/conf`, {
@@ -1414,6 +1442,90 @@ export async function importMapData(data: {
   });
   return await res.json();
 }
+
+// Discovery Interfaces and APIs
+export interface SnmpConfEnt {
+  SnmpMode: string;
+  Community: string;
+  SnmpUser: string;
+  SnmpPassword?: string;
+}
+
+export interface DiscoverConfEnt {
+  StartIP: string;
+  EndIP: string;
+  Timeout: number;
+  Retry: number;
+  X: number;
+  Y: number;
+  AddPolling: boolean;
+  PortScan: boolean;
+  ReCheck: boolean;
+  AddNetwork: boolean;
+  AutoDetect: boolean;
+  AutoDetectAI: boolean;
+  AutoLine: number;
+  AutoLayout: number;
+  SnmpConfigs: SnmpConfEnt[];
+}
+
+export interface DiscoverStat {
+  Running: boolean;
+  Total: number;
+  Sent: number;
+  Found: number;
+  Snmp: number;
+  Web: number;
+  Mail: number;
+  SSH: number;
+  File: number;
+  RDP: number;
+  LDAP: number;
+  Wait: number;
+  StartTime: number;
+  Now: number;
+}
+
+export async function getDiscoverConf(): Promise<DiscoverConfEnt> {
+  const res = await fetch(`${API_BASE}/discover/conf`);
+  return await res.json();
+}
+
+export async function saveDiscoverConf(conf: DiscoverConfEnt): Promise<DiscoverConfEnt> {
+  const res = await fetch(`${API_BASE}/discover/conf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(conf),
+  });
+  return await res.json();
+}
+
+export async function startDiscover(conf: DiscoverConfEnt): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API_BASE}/discover/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(conf),
+  });
+  return await res.json();
+}
+
+export async function stopDiscover(): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API_BASE}/discover/stop`, {
+    method: "POST",
+  });
+  return await res.json();
+}
+
+export async function getDiscoverStats(): Promise<DiscoverStat> {
+  const res = await fetch(`${API_BASE}/discover/stat`);
+  return await res.json();
+}
+
+export async function getDiscoverAddressRange(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/discover/ranges`);
+  return await res.json();
+}
+
 
 
 

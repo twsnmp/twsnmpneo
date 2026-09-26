@@ -22,6 +22,7 @@
   import LineDialog from "../components/LineDialog.svelte";
   import NetworkLinesDialog from "../components/NetworkLinesDialog.svelte";
   import FindNeighborDialog from "../components/FindNeighborDialog.svelte";
+  import DiscoverDialog from "../components/DiscoverDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
   import GridDialog from "../components/GridDialog.svelte";
   import {
@@ -106,6 +107,8 @@
   let showFindNeighborDialog = $state(false);
   let findNeighborTargetId = $state("");
 
+  let showDiscoverDialog = $state(false);
+
   let showNodeDetailModal = $state(false);
   let detailNode = $state<NodeEnt | null>(null);
 
@@ -186,7 +189,7 @@
           showNodeInfo = getShowNodeInfo();
           checkUndoAutoLayout()
             .then((res) => {
-              hasUndo = res.canUndo;
+              hasUndo = res.hasUndo;
             })
             .catch(() => {});
           showContextMenu = true;
@@ -305,8 +308,7 @@
 
   const handleDiscover = () => {
     showContextMenu = false;
-    findNeighborTargetId = "ALL";
-    showFindNeighborDialog = true;
+    showDiscoverDialog = true;
   };
 
   const handleRunAutoLayout = async (type: number) => {
@@ -321,7 +323,7 @@
         3: $_('map.autoLayout.categorized') || "分類型",
       };
       const name = typeNames[type] || $_('map.context.autoLayout') || "自動レイアウト";
-      showToastMessage(`${name}を適用しました (${res.moved}ノード)`);
+      showToastMessage(`${name}を適用しました (${res.count}ノード)`);
       await reloadAllData();
     } catch (e: any) {
       showToastMessage("Error: " + (e.message || e));
@@ -954,6 +956,12 @@
     {nodes}
     {networks}
     onConnect={reloadAllData}
+  />
+  <DiscoverDialog
+    bind:show={showDiscoverDialog}
+    posX={contextMapX}
+    posY={contextMapY}
+    onComplete={reloadAllData}
   />
   <NodeDetailModal bind:show={showNodeDetailModal} node={detailNode} {pollings} logs={eventLogs} />
   <GridDialog bind:show={showGridDialog} onTest={handleGridTest} onExec={handleGridExec} />

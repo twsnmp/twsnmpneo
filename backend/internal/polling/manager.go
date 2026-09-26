@@ -29,6 +29,7 @@ type Manager struct {
 	pollers      map[string]Poller
 	mu           sync.RWMutex
 	running      bool
+	inFlight     sync.Map // pollingID -> struct{}
 }
 
 // NewManager creates an initialized PollingManager with default pollers.
@@ -91,8 +92,38 @@ func (m *Manager) Start(ctx context.Context) error {
 	}
 }
 
+func clonePolling(p *datastore.PollingEnt) *datastore.PollingEnt {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	if p.Result != nil {
+		cp.Result = make(map[string]interface{}, len(p.Result))
+		for k, v := range p.Result {
+			cp.Result[k] = v
+		}
+	}
+	return &cp
+}
+
 // ExecuteOne polls a single task immediately, useful for on-demand checks and tests.
-func (m *Manager) ExecuteOne(ctx context.Context, p *datastore.PollingEnt) (*Result, error) {
+func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*Result, error) {
+	if orig == nil {
+		return nil, fmt.Errorf("polling is nil")
+	}
+	if orig.ID != "" {
+		if _, busy := m.inFlight.LoadOrStore(orig.ID, struct{}{}); busy {
+			return &Result{
+				State:   orig.State,
+				Message: "already running",
+			}, nil
+		}
+		defer m.inFlight.Delete(orig.ID)
+	}
+
+	// Defensive copy to prevent concurrent map/struct race conditions
+	p := clonePolling(orig)
+
 	m.mu.RLock()
 	poller, ok := m.pollers[p.Type]
 	m.mu.RUnlock()
@@ -121,14 +152,15 @@ func (m *Manager) ExecuteOne(ctx context.Context, p *datastore.PollingEnt) (*Res
 	oldState := p.State
 	p.State = res.State
 	p.LastTime = now
-	p.Result = map[string]interface{}{
+	resMap := map[string]interface{}{
 		"state":   res.State,
 		"rtt":     res.RTT.Milliseconds(),
 		"message": res.Message,
 	}
 	for k, v := range res.Fields {
-		p.Result[k] = v
+		resMap[k] = v
 	}
+	p.Result = resMap
 
 	// Schedule next run
 	pollInt := p.PollInt
@@ -212,7 +244,13 @@ func (m *Manager) checkAndSchedule(ctx context.Context) {
 
 	now := time.Now().UnixNano()
 	for _, p := range pollings {
+		if p.Level == "off" {
+			continue
+		}
 		if p.NextTime <= now {
+			if _, busy := m.inFlight.Load(p.ID); busy {
+				continue
+			}
 			go func(task *datastore.PollingEnt) {
 				_, _ = m.ExecuteOne(ctx, task)
 			}(p)
@@ -229,10 +267,18 @@ func (m *Manager) CheckAll(ctx context.Context) int {
 	if err != nil || len(pollings) == 0 {
 		return 0
 	}
+	count := 0
 	for _, p := range pollings {
+		if p.Level == "off" {
+			continue
+		}
+		if _, busy := m.inFlight.Load(p.ID); busy {
+			continue
+		}
+		count++
 		go func(task *datastore.PollingEnt) {
 			_, _ = m.ExecuteOne(context.Background(), task)
 		}(p)
 	}
-	return len(pollings)
+	return count
 }

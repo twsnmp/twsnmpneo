@@ -3,13 +3,13 @@ package polling
 import (
 	"context"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/ping"
 )
 
-// PingPoller performs connectivity check via UDP or ICMP.
+// PingPoller performs connectivity check via ICMP.
 type PingPoller struct{}
 
 func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
@@ -20,36 +20,40 @@ func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		}, nil
 	}
 
-	timeout := time.Duration(pe.Timeout) * time.Second
+	timeout := pe.Timeout
 	if timeout <= 0 {
-		timeout = 2 * time.Second
+		timeout = 2
+	}
+	retry := pe.Retry
+	if retry < 0 {
+		retry = 1
 	}
 
-	start := time.Now()
-	addr := net.JoinHostPort(node.IP, "7") // Echo port
+	res := ping.DoPing(node.IP, timeout, retry, 64, 64)
+	rtt := time.Duration(res.Time)
 
-	d := net.Dialer{Timeout: timeout}
-	conn, err := d.DialContext(ctx, "udp", addr)
-	rtt := time.Since(start)
-
-	if err != nil {
+	if res.Stat != ping.PingOK {
+		errMsg := res.Stat.String()
+		if res.Error != nil {
+			errMsg = res.Error.Error()
+		}
 		return &Result{
 			State:   StateHigh,
 			RTT:     rtt,
-			Message: fmt.Sprintf("ping failed: %v", err),
+			Message: fmt.Sprintf("ping failed: %s", errMsg),
 			Fields: map[string]interface{}{
 				"rtt": rtt.Milliseconds(),
 			},
 		}, nil
 	}
-	_ = conn.Close()
 
 	return &Result{
 		State:   StateNormal,
 		RTT:     rtt,
-		Message: fmt.Sprintf("ping ok, rtt=%v", rtt),
+		Message: fmt.Sprintf("ping ok, rtt=%v, ttl=%d", rtt, res.RecvTTL),
 		Fields: map[string]interface{}{
 			"rtt": rtt.Milliseconds(),
+			"ttl": res.RecvTTL,
 		},
 	}, nil
 }

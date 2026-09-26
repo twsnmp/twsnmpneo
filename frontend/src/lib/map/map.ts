@@ -832,8 +832,23 @@ const mapMain = (p5: P5) => {
       p5.translate(nx, ny);
 
       const netId = net.id || (net as any).ID;
-      const nw = net.w || (net as any).W || 320;
-      const nh = net.h || (net as any).H || 140;
+      const ports = net.ports || (net as any).Ports || [];
+      let calcW = 200;
+      let calcH = 80;
+      if (ports.length > 0) {
+        let xMax = 5;
+        let yMax = 0;
+        for (const pt of ports) {
+          const px = (pt.x ?? pt.X) || 0;
+          const py = (pt.y ?? pt.Y) || 0;
+          if (xMax < px) xMax = px;
+          if (yMax < py) yMax = py;
+        }
+        calcW = (xMax + 1) * 45 + 20;
+        calcH = (yMax + 1) * 55 + fontSize + 25;
+      }
+      const nw = Math.max(net.w || (net as any).W || 0, calcW);
+      const nh = Math.max(net.h || (net as any).H || 0, calcH);
 
       if (selectedNetwork === netId) {
         p5.stroke("#06b6d4");
@@ -856,7 +871,6 @@ const mapMain = (p5: P5) => {
       const isJa = (get(locale) || "ja").startsWith("ja");
       p5.text(net.name || (net as any).Name || (isJa ? "ネットワーク" : "Network"), 10, fontSize + 8);
 
-      const ports = net.ports || (net as any).Ports || [];
       const netError = net.error || (net as any).Error || "";
       if (ports.length < 1) {
         p5.fill(netError ? "#ef4444" : "#10b981");

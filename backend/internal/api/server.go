@@ -19,9 +19,11 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/discover"
 	"github.com/twsnmp/twsnmpneo/backend/internal/layout"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
+	"github.com/twsnmp/twsnmpneo/backend/internal/ping"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 	"github.com/twsnmp/twsnmpneo/backend/web"
@@ -96,6 +98,7 @@ func NewServer(cfg Config) (*Server, error) {
 			"uptime":     uptime,
 			"node_count": nodeCount,
 			"poll_count": pollCount,
+			"ping_mode":  ping.GetPingMode(),
 			"receivers":  cfg.Receivers,
 		})
 	})
@@ -490,6 +493,56 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, map[string]int{"connected": count})
 		})
 
+		// Discovery APIs
+		apiGroup.GET("/discover/conf", func(c echo.Context) error {
+			conf, err := cfg.Store.GetDiscoverConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, conf)
+		})
+
+		apiGroup.POST("/discover/conf", func(c echo.Context) error {
+			var conf datastore.DiscoverConfEnt
+			if err := c.Bind(&conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveDiscoverConf(c.Request().Context(), &conf); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, conf)
+		})
+
+		apiGroup.POST("/discover/start", func(c echo.Context) error {
+			var conf datastore.DiscoverConfEnt
+			if err := c.Bind(&conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveDiscoverConf(c.Request().Context(), &conf); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			engine := discover.GetDefaultEngine()
+			if err := engine.StartDiscover(c.Request().Context(), cfg.Store, &conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+		})
+
+		apiGroup.POST("/discover/stop", func(c echo.Context) error {
+			discover.GetDefaultEngine().StopDiscover()
+			return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+		})
+
+		apiGroup.GET("/discover/stat", func(c echo.Context) error {
+			stat := discover.GetDefaultEngine().GetDiscoverStats()
+			return c.JSON(http.StatusOK, stat)
+		})
+
+		apiGroup.GET("/discover/ranges", func(c echo.Context) error {
+			ranges := discover.GetDiscoverAddressRange()
+			return c.JSON(http.StatusOK, ranges)
+		})
+
 		// Networks
 		apiGroup.GET("/networks", func(c echo.Context) error {
 			nets, err := cfg.Store.ListNetworks(c.Request().Context())
@@ -506,6 +559,51 @@ func NewServer(cfg Config) (*Server, error) {
 			isNew := n.ID == ""
 			if isNew {
 				n.ID = datastore.GenerateID()
+			} else {
+				// Preserve existing SNMP settings and port details if omitted in update
+				if old, err := cfg.Store.GetNetwork(c.Request().Context(), n.ID); err == nil && old != nil {
+					if n.Community == "" && old.Community != "" {
+						n.Community = old.Community
+						n.SnmpMode = old.SnmpMode
+						n.User = old.User
+						n.Password = old.Password
+					}
+					if n.SystemID == "" && old.SystemID != "" {
+						n.SystemID = old.SystemID
+					}
+					// Preserve port Index and Polling if missing
+					oldPortMap := make(map[string]datastore.PortEnt)
+					for _, op := range old.Ports {
+						oldPortMap[op.ID] = op
+					}
+					for i := range n.Ports {
+						if op, ok := oldPortMap[n.Ports[i].ID]; ok {
+							if n.Ports[i].Index == "" {
+								n.Ports[i].Index = op.Index
+							}
+							if n.Ports[i].Polling == "" {
+								n.Ports[i].Polling = op.Polling
+							}
+						}
+					}
+				}
+			}
+			// If still missing SNMP settings, fallback to corresponding node with same IP
+			if n.Community == "" && n.IP != "" {
+				if nodes, err := cfg.Store.ListNodes(c.Request().Context()); err == nil {
+					for _, nd := range nodes {
+						if nd.IP == n.IP && (nd.Community != "" || strings.HasPrefix(nd.SnmpMode, "v3")) {
+							n.Community = nd.Community
+							n.SnmpMode = nd.SnmpMode
+							n.User = nd.User
+							n.Password = nd.Password
+							if n.SnmpPort == 0 && nd.SnmpPort != 0 {
+								n.SnmpPort = nd.SnmpPort
+							}
+							break
+						}
+					}
+				}
 			}
 			if err := cfg.Store.SaveNetwork(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -521,6 +619,23 @@ func NewServer(cfg Config) (*Server, error) {
 				Event: fmt.Sprintf("ネットワーク %s を%sしました", n.Name, action),
 			})
 			return c.JSON(http.StatusOK, &n)
+		})
+		apiGroup.POST("/networks/:id/ports", func(c echo.Context) error {
+			id := c.Param("id")
+			nw, err := cfg.Store.GetNetwork(c.Request().Context(), id)
+			if err != nil || nw == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "network not found"})
+			}
+			ports, err := topology.FetchNetworkPorts(c.Request().Context(), nw, 3, 1)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			nw.Ports = ports
+			nw.Error = ""
+			if err := cfg.Store.SaveNetwork(c.Request().Context(), nw); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, nw)
 		})
 		apiGroup.DELETE("/networks/:id", func(c echo.Context) error {
 			id := c.Param("id")
@@ -1229,30 +1344,27 @@ func NewServer(cfg Config) (*Server, error) {
 			req.TTL = 64
 		}
 
-		start := time.Now()
-		d := net.Dialer{Timeout: 2 * time.Second}
-		conn, err := d.DialContext(c.Request().Context(), "udp", net.JoinHostPort(req.IP, "7"))
-		elapsed := time.Since(start)
+		res := ping.DoPing(req.IP, 2, 0, req.Size, req.TTL)
 
-		stat := 1 // Normal
-		recvSrc := req.IP
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				stat = 2 // Timeout
-			} else {
-				stat = 1 // Connected or port handled
-			}
-		} else {
-			_ = conn.Close()
+		stat := 2 // Timeout or error
+		if res.Stat == ping.PingOK {
+			stat = 1 // Normal
+		} else if res.Stat == ping.PingTimeExceeded {
+			stat = 3
+		}
+
+		recvSrc := res.RecvSrc
+		if recvSrc == "" {
+			recvSrc = req.IP
 		}
 
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"Stat":      stat,
 			"TimeStamp": time.Now().Unix(),
-			"Time":      elapsed.Nanoseconds(),
+			"Time":      res.Time,
 			"Size":      req.Size,
 			"SendTTL":   req.TTL,
-			"RecvTTL":   req.TTL,
+			"RecvTTL":   res.RecvTTL,
 			"RecvSrc":   recvSrc,
 			"Loc":       "LOCAL",
 		})

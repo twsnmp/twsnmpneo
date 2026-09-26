@@ -618,3 +618,41 @@ func TestStore_MqttStatOperations(t *testing.T) {
 	}
 }
 
+func TestStore_DiscoverConf(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Default config should exist
+	conf, err := store.GetDiscoverConf(ctx)
+	if err != nil {
+		t.Fatalf("get default discover conf failed: %v", err)
+	}
+	if conf.Timeout != 1 || conf.Retry != 1 || !conf.AddPolling || !conf.PortScan {
+		t.Errorf("unexpected default discover conf: %+v", conf)
+	}
+
+	// Save updated config
+	conf.StartIP = "192.168.1.1"
+	conf.EndIP = "192.168.1.100"
+	conf.AutoLine = datastore.AutoLineStrict
+	conf.AutoLayout = datastore.AutoLayoutHierarchical
+	conf.SnmpConfigs = []datastore.SnmpConfEnt{
+		{SnmpMode: "v2c", Community: "secret"},
+		{SnmpMode: "v3auth", SnmpUser: "admin", SnmpPassword: "pwd"},
+	}
+
+	if err := store.SaveDiscoverConf(ctx, conf); err != nil {
+		t.Fatalf("save discover conf failed: %v", err)
+	}
+
+	got, err := store.GetDiscoverConf(ctx)
+	if err != nil {
+		t.Fatalf("get updated discover conf failed: %v", err)
+	}
+	if got.StartIP != "192.168.1.1" || got.EndIP != "192.168.1.100" || got.AutoLine != datastore.AutoLineStrict || got.AutoLayout != datastore.AutoLayoutHierarchical || len(got.SnmpConfigs) != 2 {
+		t.Errorf("unexpected discover conf retrieved: %+v", got)
+	}
+}
+
+

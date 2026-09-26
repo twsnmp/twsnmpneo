@@ -34,10 +34,11 @@ var (
 	bucketOTelTrace  = []byte("otelTrace")
 	bucketMqttStat   = []byte("mqttStat")
 
-	keyMapConf    = []byte("mapConf")
-	keyNotifyConf = []byte("notifyConf")
-	keyLocConf    = []byte("locConf")
-	keyBackImage  = []byte("backImage")
+	keyMapConf      = []byte("mapConf")
+	keyNotifyConf   = []byte("notifyConf")
+	keyLocConf      = []byte("locConf")
+	keyBackImage    = []byte("backImage")
+	keyDiscoverConf = []byte("discoverConf")
 )
 
 // Store implements datastore.DataStore using bbolt.
@@ -56,11 +57,12 @@ type Store struct {
 	otelMetrics sync.Map // string -> *datastore.OTelMetricEnt
 	mqttStats   sync.Map // string -> *datastore.MqttStatEnt
 
-	mapConf    datastore.MapConfEnt
-	notifyConf datastore.NotifyConfEnt
-	locConf    datastore.LocConfEnt
-	backImage  datastore.BackImageEnt
-	confMu     sync.RWMutex
+	mapConf      datastore.MapConfEnt
+	notifyConf   datastore.NotifyConfEnt
+	locConf      datastore.LocConfEnt
+	backImage    datastore.BackImageEnt
+	discoverConf datastore.DiscoverConfEnt
+	confMu       sync.RWMutex
 }
 
 // New opens or creates a bbolt database file and initializes buckets and caches.
@@ -191,6 +193,19 @@ func (s *Store) loadCache() error {
 			}
 			if v := b.Get(keyBackImage); v != nil {
 				_ = json.Unmarshal(v, &s.backImage)
+			}
+			if v := b.Get(keyDiscoverConf); v != nil {
+				_ = json.Unmarshal(v, &s.discoverConf)
+			} else {
+				s.discoverConf = datastore.DiscoverConfEnt{
+					Timeout:     1,
+					Retry:       1,
+					AddPolling:  true,
+					PortScan:    true,
+					AddNetwork:  true,
+					AutoLayout:  datastore.AutoLayoutNone,
+					SnmpConfigs: []datastore.SnmpConfEnt{},
+				}
 			}
 		}
 		// Load OTel metrics
@@ -556,6 +571,27 @@ func (s *Store) ListNetworks(_ context.Context) ([]*datastore.NetworkEnt, error)
 	return res, nil
 }
 
+func checkNetwork(n *datastore.NetworkEnt) {
+	xMax := 5 // 最小幅は5ポート分
+	yMax := 0 // 最小の高さは1ポート分
+	for _, p := range n.Ports {
+		if xMax < p.X {
+			xMax = p.X
+		}
+		if yMax < p.Y {
+			yMax = p.Y
+		}
+	}
+	n.W = (xMax+1)*45 + 20
+	n.H = (yMax+1)*55 + 12 + 20
+	if n.HPorts < 1 {
+		n.HPorts = 24
+	}
+	if n.SystemID == "" {
+		n.SystemID = n.IP
+	}
+}
+
 func (s *Store) SaveNetwork(_ context.Context, nw *datastore.NetworkEnt) error {
 	if nw == nil {
 		return datastore.ErrInvalidParams
@@ -563,6 +599,7 @@ func (s *Store) SaveNetwork(_ context.Context, nw *datastore.NetworkEnt) error {
 	if nw.ID == "" {
 		nw.ID = makeID()
 	}
+	checkNetwork(nw)
 	data, err := json.Marshal(nw)
 	if err != nil {
 		return fmt.Errorf("marshal network: %w", err)
@@ -673,9 +710,23 @@ func (s *Store) DeleteDrawItem(_ context.Context, id string) error {
 
 // --- Polling Operations ---
 
+func clonePolling(p *datastore.PollingEnt) *datastore.PollingEnt {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	if p.Result != nil {
+		cp.Result = make(map[string]interface{}, len(p.Result))
+		for k, v := range p.Result {
+			cp.Result[k] = v
+		}
+	}
+	return &cp
+}
+
 func (s *Store) GetPolling(_ context.Context, id string) (*datastore.PollingEnt, error) {
 	if val, ok := s.pollings.Load(id); ok {
-		return val.(*datastore.PollingEnt), nil
+		return clonePolling(val.(*datastore.PollingEnt)), nil
 	}
 	return nil, datastore.ErrNotFound
 }
@@ -683,7 +734,7 @@ func (s *Store) GetPolling(_ context.Context, id string) (*datastore.PollingEnt,
 func (s *Store) ListPollings(_ context.Context) ([]*datastore.PollingEnt, error) {
 	res := make([]*datastore.PollingEnt, 0)
 	s.pollings.Range(func(_, val any) bool {
-		res = append(res, val.(*datastore.PollingEnt))
+		res = append(res, clonePolling(val.(*datastore.PollingEnt)))
 		return true
 	})
 	return res, nil
@@ -696,18 +747,19 @@ func (s *Store) SavePolling(_ context.Context, p *datastore.PollingEnt) error {
 	if p.ID == "" {
 		p.ID = makeID()
 	}
-	data, err := json.Marshal(p)
+	cp := clonePolling(p)
+	data, err := json.Marshal(cp)
 	if err != nil {
 		return fmt.Errorf("marshal polling: %w", err)
 	}
 
 	err = s.db.Update(func(tx *bbolt.Tx) error {
-		return tx.Bucket(bucketPollings).Put([]byte(p.ID), data)
+		return tx.Bucket(bucketPollings).Put([]byte(cp.ID), data)
 	})
 	if err != nil {
 		return err
 	}
-	s.pollings.Store(p.ID, p)
+	s.pollings.Store(cp.ID, cp)
 	return nil
 }
 
@@ -870,6 +922,33 @@ func (s *Store) SaveBackImage(_ context.Context, bi *datastore.BackImageEnt) err
 	}
 	s.confMu.Lock()
 	s.backImage = *bi
+	s.confMu.Unlock()
+	return nil
+}
+
+func (s *Store) GetDiscoverConf(_ context.Context) (*datastore.DiscoverConfEnt, error) {
+	s.confMu.RLock()
+	defer s.confMu.RUnlock()
+	c := s.discoverConf
+	return &c, nil
+}
+
+func (s *Store) SaveDiscoverConf(_ context.Context, conf *datastore.DiscoverConfEnt) error {
+	if conf == nil {
+		return datastore.ErrInvalidParams
+	}
+	data, err := json.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	err = s.db.Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(bucketConfig).Put(keyDiscoverConf, data)
+	})
+	if err != nil {
+		return err
+	}
+	s.confMu.Lock()
+	s.discoverConf = *conf
 	s.confMu.Unlock()
 	return nil
 }

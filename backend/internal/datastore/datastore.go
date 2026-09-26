@@ -67,6 +67,8 @@ type DataStore interface {
 	SaveLocConf(ctx context.Context, conf *LocConfEnt) error
 	GetBackImage(ctx context.Context) (*BackImageEnt, error)
 	SaveBackImage(ctx context.Context, bi *BackImageEnt) error
+	GetDiscoverConf(ctx context.Context) (*DiscoverConfEnt, error)
+	SaveDiscoverConf(ctx context.Context, conf *DiscoverConfEnt) error
 
 	// Event Logs
 	AddEventLog(ctx context.Context, event *EventLogEnt) error

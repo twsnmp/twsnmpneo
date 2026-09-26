@@ -434,8 +434,13 @@
             <CheckCircle2 class="h-6 w-6" />
             <span>{sysInfo?.status?.toUpperCase() || "HEALTHY"}</span>
           </div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            {$_('system.uptime')} <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || $_('system.starting')}</span>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center justify-between">
+            <span>{$_('system.uptime')} <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || $_('system.starting')}</span></span>
+            {#if sysInfo?.ping_mode}
+              <span class="rounded px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase {sysInfo.ping_mode === 'icmp' ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'}" title="PING動作モード">
+                PING: {sysInfo.ping_mode}
+              </span>
+            {/if}
           </div>
         </div>
 
@@ -699,6 +704,22 @@
               {$_('system.arpScan')}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.arpDesc')}</div>
+          </div>
+
+          <!-- PING (ICMP Engine) -->
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.pingEngine') || "PING (ICMP)"}</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                {$_('system.running')}
+              </span>
+            </div>
+            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
+              Mode: {sysInfo?.ping_mode?.toUpperCase() || "UDP"}
+            </div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400">
+              {sysInfo?.ping_mode === "icmp" ? ($_('system.pingModeIcmp') || "RAW ICMP Socket (Privileged)") : ($_('system.pingModeUdp') || "Non-privileged ICMP over UDP")}
+            </div>
           </div>
         </div>
       </div>

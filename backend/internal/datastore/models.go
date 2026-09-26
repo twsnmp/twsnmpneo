@@ -312,15 +312,50 @@ type NotifyConfEnt struct {
 	SlackWebhookURL    string `json:"SlackWebhookURL"`
 }
 
+// AutoLine constants for discovery and topology connection
+const (
+	AutoLineNone        = 0
+	AutoLineStrict      = 1
+	AutoLineSpeculative = 2
+)
+
+// AutoLayout constants
+const (
+	AutoLayoutNone         = 0 // Sequential Grid (Default)
+	AutoLayoutHierarchical = 1 // Hierarchical (Tree)
+	AutoLayoutCluster      = 2 // Cluster (Hub & Spoke)
+	AutoLayoutCategorized  = 3 // Categorized (By device type)
+)
+
+// SnmpConfEnt represents candidate SNMP configuration for discovery.
+type SnmpConfEnt struct {
+	SnmpMode     string `json:"SnmpMode"`
+	Community    string `json:"Community"`
+	SnmpUser     string `json:"SnmpUser"`
+	SnmpPassword string `json:"SnmpPassword"`
+}
+
 // DiscoverConfEnt holds auto-discovery parameters.
 type DiscoverConfEnt struct {
-	IPRange    string `json:"IPRange"`
-	AddPolling bool   `json:"AddPolling"`
-	AutoAck    bool   `json:"AutoAck"`
-	Timeout    int    `json:"Timeout"`
-	Retry      int    `json:"Retry"`
-	X          int    `json:"X"`
-	Y          int    `json:"Y"`
+	StartIP      string        `json:"StartIP"`
+	EndIP        string        `json:"EndIP"`
+	Timeout      int           `json:"Timeout"`
+	Retry        int           `json:"Retry"`
+	X            int           `json:"X"`
+	Y            int           `json:"Y"`
+	AddPolling   bool          `json:"AddPolling"`
+	PortScan     bool          `json:"PortScan"`
+	ReCheck      bool          `json:"ReCheck"`
+	AddNetwork   bool          `json:"AddNetwork"`
+	AutoDetect   bool          `json:"AutoDetect"`
+	AutoDetectAI bool          `json:"AutoDetectAI"`
+	AutoLine     int           `json:"AutoLine"`
+	AutoLayout   int           `json:"AutoLayout"`
+	SnmpConfigs  []SnmpConfEnt `json:"SnmpConfigs"`
+
+	// Legacy / Compatibility fields
+	IPRange string `json:"IPRange,omitempty"`
+	AutoAck bool   `json:"AutoAck,omitempty"`
 }
 
 // ArpEnt represents an entry in the ARP cache table.
