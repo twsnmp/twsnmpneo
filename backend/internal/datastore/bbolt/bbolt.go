@@ -1200,7 +1200,7 @@ func (s *Store) ResetArpTable(_ context.Context) error {
 
 // getOTelMetricKey computes unique sha1 key for an OTel metric series.
 func getOTelMetricKey(host, service, scope, name string) string {
-	h := sha1.Sum([]byte(fmt.Sprintf("%s\t%s\t%s\t%s", host, service, scope, name)))
+	h := sha1.Sum(fmt.Appendf(nil, "%s\t%s\t%s\t%s", host, service, scope, name))
 	return hex.EncodeToString(h[:])
 }
 
@@ -1492,9 +1492,9 @@ func (s *Store) GetOTelTraceDAG(_ context.Context, buckets []string) (*datastore
 		Links: make([]datastore.OTelTraceDAGLinkEnt, 0),
 	}
 
-	spanMap := make(map[string]string)     // traceID:spanID -> service
-	nodeMap := make(map[string]int)        // service -> count
-	spanLinkMap := make(map[string]int)    // traceID:parentSpanID \t traceID:spanID -> count
+	spanMap := make(map[string]string)  // traceID:spanID -> service
+	nodeMap := make(map[string]int)     // service -> count
+	spanLinkMap := make(map[string]int) // traceID:parentSpanID \t traceID:spanID -> count
 
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		root := tx.Bucket(bucketOTelTrace)
@@ -1803,6 +1803,3 @@ func (s *Store) CleanOldMqttStats(_ context.Context, days int) error {
 		return nil
 	})
 }
-
-
-
