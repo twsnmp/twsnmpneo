@@ -3,6 +3,7 @@ package polling
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
@@ -13,10 +14,22 @@ import (
 type PingPoller struct{}
 
 func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
-	if node == nil || node.IP == "" {
+	target := ""
+	if pe != nil && pe.Params != "" && !strings.Contains(pe.Params, "=") {
+		// If pe.Params is just a hostname/IP (no '='), use it as target
+		target = strings.TrimSpace(pe.Params)
+	}
+	if target == "" && node != nil {
+		if node.IP != "" {
+			target = node.IP
+		} else if node.Name != "" {
+			target = node.Name
+		}
+	}
+	if target == "" {
 		return &Result{
 			State:   StateHigh,
-			Message: "missing node IP address",
+			Message: "missing node IP address or host target",
 		}, nil
 	}
 
@@ -29,7 +42,7 @@ func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		retry = 1
 	}
 
-	res := ping.DoPing(node.IP, timeout, retry, 64, 64)
+	res := ping.DoPing(target, timeout, retry, 64, 64)
 	rtt := time.Duration(res.Time)
 
 	if res.Stat != ping.PingOK {
@@ -42,7 +55,7 @@ func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 			RTT:     rtt,
 			Message: fmt.Sprintf("ping failed: %s", errMsg),
 			Fields: map[string]interface{}{
-				"rtt": rtt.Milliseconds(),
+				"rtt": float64(rtt.Nanoseconds()),
 			},
 		}, nil
 	}
@@ -52,8 +65,8 @@ func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		RTT:     rtt,
 		Message: fmt.Sprintf("ping ok, rtt=%v, ttl=%d", rtt, res.RecvTTL),
 		Fields: map[string]interface{}{
-			"rtt": rtt.Milliseconds(),
-			"ttl": res.RecvTTL,
+			"rtt": float64(rtt.Nanoseconds()),
+			"ttl": float64(res.RecvTTL),
 		},
 	}, nil
 }

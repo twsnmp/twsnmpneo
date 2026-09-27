@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -307,6 +308,51 @@ func NewServer(cfg Config) (*Server, error) {
 			isNew := p.ID == ""
 			if isNew {
 				p.ID = datastore.GenerateID()
+				if p.PollInt <= 0 {
+					p.PollInt = 60
+				}
+				if p.Timeout <= 0 {
+					p.Timeout = 1
+				}
+				if p.Retry <= 0 {
+					p.Retry = 1
+				}
+				if p.NextTime <= 0 {
+					p.NextTime = time.Now().UnixNano()
+				}
+				if p.State == "" {
+					p.State = "unknown"
+				}
+			} else {
+				existing, err := cfg.Store.GetPolling(c.Request().Context(), p.ID)
+				if err == nil && existing != nil {
+					if p.Result == nil || len(p.Result) == 0 {
+						p.Result = existing.Result
+					}
+					if p.LastTime == 0 {
+						p.LastTime = existing.LastTime
+					}
+					if p.PollInt <= 0 {
+						p.PollInt = existing.PollInt
+					}
+					if p.Timeout <= 0 {
+						p.Timeout = existing.Timeout
+					}
+					if p.Retry <= 0 {
+						p.Retry = existing.Retry
+					}
+					if p.LogMode == 0 && existing.LogMode != 0 {
+						p.LogMode = existing.LogMode
+					}
+					if p.State == "" {
+						p.State = existing.State
+					}
+					if p.FailTime == 0 {
+						p.FailTime = existing.FailTime
+					}
+					// Trigger immediate check upon modification
+					p.NextTime = time.Now().UnixNano()
+				}
 			}
 			if err := cfg.Store.SavePolling(c.Request().Context(), &p); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -658,11 +704,23 @@ func NewServer(cfg Config) (*Server, error) {
 
 		// DrawItems
 		apiGroup.GET("/drawitems", func(c echo.Context) error {
-			items, err := cfg.Store.ListDrawItems(c.Request().Context())
+			ctx := c.Request().Context()
+			items, err := cfg.Store.ListDrawItems(ctx)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
+			for _, it := range items {
+				checkDrawItem(ctx, cfg.Store, it)
+			}
 			return c.JSON(http.StatusOK, items)
+		})
+		apiGroup.GET("/drawitems/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			item, err := cfg.Store.GetDrawItem(c.Request().Context(), id)
+			if err != nil || item == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "DrawItem not found"})
+			}
+			return c.JSON(http.StatusOK, item)
 		})
 		apiGroup.POST("/drawitems", func(c echo.Context) error {
 			var item datastore.DrawItemEnt
@@ -672,6 +730,9 @@ func NewServer(cfg Config) (*Server, error) {
 			isNew := item.ID == ""
 			if isNew {
 				item.ID = datastore.GenerateID()
+			}
+			if item.Type == datastore.DrawItemTypePollingText && item.Text == "" {
+				item.Text = "No Value"
 			}
 			if err := cfg.Store.SaveDrawItem(c.Request().Context(), &item); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -686,7 +747,35 @@ func NewServer(cfg Config) (*Server, error) {
 				Level: "info",
 				Event: fmt.Sprintf("描画アイテム %s を%sしました", item.Text, action),
 			})
+			checkDrawItem(c.Request().Context(), cfg.Store, &item)
 			return c.JSON(http.StatusOK, &item)
+		})
+		apiGroup.POST("/drawitems/:id/copy", func(c echo.Context) error {
+			id := c.Param("id")
+			ctx := c.Request().Context()
+			ds, err := cfg.Store.GetDrawItem(ctx, id)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "DrawItem not found"})
+			}
+			di := *ds
+			di.ID = datastore.GenerateID()
+			di.X = ds.X + 100
+			di.Y = ds.Y
+			if err := cfg.Store.SaveDrawItem(ctx, &di); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			name := di.Text
+			if name == "" {
+				name = "新規アイテム"
+			}
+			_ = cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf("描画アイテム %s をコピーしました", name),
+			})
+			checkDrawItem(ctx, cfg.Store, &di)
+			return c.JSON(http.StatusOK, &di)
 		})
 		apiGroup.DELETE("/drawitems/:id", func(c echo.Context) error {
 			id := c.Param("id")
@@ -1452,3 +1541,281 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) GetEcho() *echo.Echo {
 	return s.echo
 }
+
+func extractNumericValue(raw interface{}) (float64, bool) {
+	if raw == nil {
+		return 0, false
+	}
+	switch v := raw.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case uint:
+		return float64(v), true
+	case uint64:
+		return float64(v), true
+	case uint32:
+		return float64(v), true
+	case json.Number:
+		if f, err := v.Float64(); err == nil {
+			return f, true
+		}
+	case string:
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+func autoGetPollingSetting(di *datastore.DrawItemEnt, p *datastore.PollingEnt) (string, string, float64) {
+	varName := di.VarName
+	format := di.Format
+	scale := di.Scale
+	if scale == 0.0 {
+		scale = 1.0
+	}
+	if varName != "" {
+		if varName == "rtt" {
+			if num, ok := extractNumericValue(p.Result["rtt"]); ok {
+				if num > 1000 {
+					if scale == 1.0 {
+						scale = 0.000001
+					}
+					if format == "" {
+						format = "%.2f ms"
+					}
+				} else {
+					if scale == 0.000001 {
+						scale = 1.0
+					}
+					if format == "" {
+						format = "%.2f ms"
+					}
+				}
+			}
+		}
+		return varName, format, scale
+	}
+	if _, ok := p.Result["bps"]; ok {
+		varName = "bps"
+		if format == "" {
+			format = "BPS"
+		}
+		scale = 1.0
+		return varName, format, scale
+	}
+	if _, ok := p.Result["rtt"]; ok {
+		varName = "rtt"
+		if format == "" {
+			format = "%.2f ms"
+		}
+		if num, ok := extractNumericValue(p.Result["rtt"]); ok && num > 1000 {
+			scale = 0.000001
+		} else {
+			scale = 1.0
+		}
+		return varName, format, scale
+	}
+	if _, ok := p.Result["cpu"]; ok {
+		varName = "cpu"
+		if format == "" {
+			format = "%.1f%%"
+		}
+		scale = 1.0
+		return varName, format, scale
+	}
+	if _, ok := p.Result["state"]; ok {
+		varName = "state"
+		if format == "" {
+			format = "%s"
+		}
+		scale = 1.0
+		return varName, format, scale
+	}
+	if _, ok := p.Result["avg"]; ok {
+		varName = "avg"
+		if format == "" {
+			format = "AVG=%.2f"
+		}
+		scale = 1.0
+		return varName, format, scale
+	}
+	if _, ok := p.Result["count"]; ok {
+		varName = "count"
+		if format == "" {
+			format = "%.0f"
+		}
+		scale = 1.0
+		return varName, format, scale
+	}
+	return varName, format, scale
+}
+
+func formatDrawItemValue(val float64, format string) string {
+	if format == "BPS" || strings.Contains(format, "BPS") {
+		var bps string
+		if val < 1000 {
+			bps = fmt.Sprintf("%.1f bps", val)
+		} else if val < 1000000 {
+			bps = fmt.Sprintf("%.1f Kbps", val/1000)
+		} else if val < 1000000000 {
+			bps = fmt.Sprintf("%.1f Mbps", val/1000000)
+		} else {
+			bps = fmt.Sprintf("%.1f Gbps", val/1000000000)
+		}
+		if format == "BPS" {
+			return bps
+		}
+		return strings.Replace(format, "BPS", bps, 1)
+	}
+	if format == "PPS" || strings.Contains(format, "PPS") {
+		var pps string
+		if val < 1000 {
+			pps = fmt.Sprintf("%.0f PPS", val)
+		} else if val < 1000000 {
+			pps = fmt.Sprintf("%.1f kPPS", val/1000)
+		} else {
+			pps = fmt.Sprintf("%.1f MPPS", val/1000000)
+		}
+		if format == "PPS" {
+			return pps
+		}
+		return strings.Replace(format, "PPS", pps, 1)
+	}
+	if format != "" {
+		if strings.Contains(format, "%") {
+			return fmt.Sprintf(format, val)
+		}
+		return fmt.Sprintf("%s %.1f", format, val)
+	}
+	return fmt.Sprintf("%.1f", val)
+}
+
+func checkDrawItem(ctx context.Context, store datastore.DataStore, di *datastore.DrawItemEnt) {
+	if di.Type < 4 {
+		return
+	}
+	if di.Type == datastore.DrawItemTypePollingText {
+		if di.Text == "" {
+			di.Text = "No Value"
+		}
+		di.FormattedText = di.Text
+	}
+	if di.Type >= 5 {
+		di.Value = 0.0
+	}
+	if di.PollingID == "" {
+		return
+	}
+	p, err := store.GetPolling(ctx, di.PollingID)
+	if err != nil || p == nil {
+		return
+	}
+	if di.Type == datastore.DrawItemTypePollingLine {
+		switch p.State {
+		case "high":
+			di.Color = "#ef4444"
+		case "low":
+			di.Color = "#f87171"
+		case "warn":
+			di.Color = "#f59e0b"
+		default:
+			di.Color = "#00d2ff"
+		}
+		return
+	}
+
+	varName, format, scale := autoGetPollingSetting(di, p)
+
+	val := 0.0
+	text := ""
+	if raw, ok := p.Result[varName]; ok {
+		if num, isNum := extractNumericValue(raw); isNum {
+			val = num * scale
+			text = formatDrawItemValue(val, format)
+		} else if str, isStr := raw.(string); isStr {
+			if format != "" && strings.Contains(format, "%s") {
+				text = fmt.Sprintf(format, str)
+			} else {
+				text = str
+			}
+		}
+	}
+	if text == "" {
+		text = "No Value"
+	}
+
+	switch di.Type {
+	case datastore.DrawItemTypePollingGauge, datastore.DrawItemTypePollingNewGauge, datastore.DrawItemTypePollingBar:
+		if val > 100.0 {
+			val = 100.0
+		}
+		if val >= 90.0 {
+			di.Color = "#ef4444"
+		} else if val >= 80.0 {
+			di.Color = "#f59e0b"
+		} else {
+			di.Color = "#00d2ff"
+		}
+		di.Value = val
+		di.FormattedText = text
+	case datastore.DrawItemTypePollingText:
+		di.Text = text
+		di.FormattedText = text
+		di.Value = val
+		switch p.State {
+		case "high":
+			di.Color = "#e31a1c"
+		case "low":
+			di.Color = "#fb9a99"
+		case "warn":
+			di.Color = "#dfdf22"
+		default:
+			di.Color = "#eee"
+		}
+	case datastore.DrawItemTypePollingKPI:
+		title := di.Text
+		if strings.Contains(title, "\t") {
+			title = strings.Split(title, "\t")[0]
+		}
+		if title == "" {
+			if di.VarName != "" {
+				title = fmt.Sprintf("%s (%s)", p.Name, di.VarName)
+			} else {
+				title = p.Name
+			}
+		}
+		di.Text = title
+		di.FormattedText = text
+		di.Value = val
+		switch p.State {
+		case "high":
+			di.Color = "#ef4444"
+		case "low":
+			di.Color = "#f87171"
+		case "warn":
+			di.Color = "#f59e0b"
+		default:
+			di.Color = "#00d2ff"
+		}
+		if val > 0 {
+			if len(di.Values) == 0 {
+				di.Values = []float64{val}
+			} else if di.Values[len(di.Values)-1] != val {
+				di.Values = append(di.Values, val)
+				if len(di.Values) > 60 {
+					di.Values = di.Values[len(di.Values)-60:]
+				}
+			}
+		}
+	}
+}
+

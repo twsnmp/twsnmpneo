@@ -72,7 +72,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 			RTT:     rtt,
 			Message: fmt.Sprintf("http request to %s failed: %v", url, err),
 			Fields: map[string]interface{}{
-				"rtt": rtt.Milliseconds(),
+				"rtt": float64(rtt.Nanoseconds()),
 			},
 		}, nil
 	}
@@ -89,7 +89,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 			Message: fmt.Sprintf("http status %d from %s", resp.StatusCode, url),
 			Fields: map[string]interface{}{
 				"status": resp.StatusCode,
-				"rtt":    rtt.Milliseconds(),
+				"rtt":    float64(rtt.Nanoseconds()),
 			},
 		}, nil
 	}
@@ -104,7 +104,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 				Message: fmt.Sprintf("response body does not match regex '%s'", pe.Filter),
 				Fields: map[string]interface{}{
 					"status": resp.StatusCode,
-					"rtt":    rtt.Milliseconds(),
+					"rtt":    float64(rtt.Nanoseconds()),
 				},
 			}, nil
 		}
@@ -116,7 +116,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		Message: fmt.Sprintf("http %d ok, rtt=%v", resp.StatusCode, rtt),
 		Fields: map[string]interface{}{
 			"status": strconv.Itoa(resp.StatusCode),
-			"rtt":    rtt.Milliseconds(),
+			"rtt":    float64(rtt.Nanoseconds()),
 		},
 	}, nil
 }

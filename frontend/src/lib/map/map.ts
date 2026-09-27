@@ -24,7 +24,7 @@ import {
   type NetworkEnt,
   type DrawItemEnt,
 } from "../api";
-import { gauge, line, bar, kpi } from "./chart/drawitem";
+import { gauge, line, bar, kpi, classicGauge } from "./chart/drawitem";
 import portImgUrl from "../../assets/images/port.png";
 
 let mapSizeX = 2500;
@@ -295,7 +295,50 @@ export const updateMAP = async () => {
   for (const k in items) {
     const it = items[k];
     switch (it.type) {
+      case 2:
+      case 4: {
+        const displayText = it.formatted_text || (it as any).FormattedText || it.text || (it as any).Text || (it.type === 4 ? "No Value" : "Empty");
+        const textLen = Math.max(displayText.length, 4);
+        const sz = it.size || 14;
+        it.w = (it.w && it.w > 0) ? it.w : sz * textLen;
+        it.h = (it.h && it.h > 0) ? it.h : sz;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        if (imageMap.has(k)) {
+          imageMap.delete(k);
+        }
+        break;
+      }
+      case 3: {
+        if (it.path && _mapP5) {
+          const img = _mapP5.loadImage(it.path, (loaded) => {
+            imageMap.set(k, loaded);
+            mapRedraw = true;
+          });
+          if (!imageMap.has(k)) imageMap.set(k, img);
+        }
+        break;
+      }
+      case 5: {
+        const sz = it.size || 16;
+        it.w = sz * 10;
+        it.h = sz * 10;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        const dataUrl = classicGauge(it.text || "", it.color || "#00d2ff", it.value || 0, sz, dark);
+        const img = _mapP5.loadImage(dataUrl, (loaded) => {
+          imageMap.set(k, loaded);
+          mapRedraw = true;
+        });
+        if (!imageMap.has(k)) imageMap.set(k, img);
+        break;
+      }
       case 6: {
+        const gh = it.h || 120;
+        it.h = gh;
+        it.w = gh;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
         const dataUrl = gauge(it.text || "", it.value || 0, backColor);
         const img = _mapP5.loadImage(dataUrl, (loaded) => {
           imageMap.set(k, loaded);
@@ -305,6 +348,11 @@ export const updateMAP = async () => {
         break;
       }
       case 7: {
+        const bh = it.h || 80;
+        it.h = bh;
+        it.w = bh * 4;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
         const dataUrl = bar(it.text || "", it.color || "white", it.value || 0, backColor);
         const img = _mapP5.loadImage(dataUrl, (loaded) => {
           imageMap.set(k, loaded);
@@ -314,6 +362,11 @@ export const updateMAP = async () => {
         break;
       }
       case 8: {
+        const lh = it.h || 80;
+        it.h = lh;
+        it.w = lh * 4;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
         const dataUrl = line(it.text || "", it.color || "white", it.values || [], backColor);
         const img = _mapP5.loadImage(dataUrl, (loaded) => {
           imageMap.set(k, loaded);
@@ -327,9 +380,11 @@ export const updateMAP = async () => {
         const kpiH = (it.h || 0) > 0 ? it.h! : 84;
         it.w = kpiW;
         it.h = kpiH;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
         let title = it.text || "";
         if (title.includes("\t")) title = title.split("\t")[0];
-        let text = (it as any).formatted_text || "";
+        let text = (it as any).formatted_text || (it as any).FormattedText || "";
         if (!text && it.value !== undefined) text = it.value.toFixed(1);
         const dataUrl = kpi(title, text, it.value || 0, it.color || "#00d2ff", it.values || [], dark, it.w, it.h);
         const img = _mapP5.loadImage(dataUrl, (loaded) => {
@@ -663,20 +718,18 @@ const mapMain = (p5: P5) => {
       return false;
     }
 
-    // 3. Hit test draw items (only if editDrawItems is enabled)
+    // 3. Hit test draw items
     let hitItemId = "";
-    if (editDrawItems) {
-      for (const k in items) {
-        const it = items[k];
-        const iid = it.id || (it as any).ID;
-        const ix = it.x ?? (it as any).X ?? 0;
-        const iy = it.y ?? (it as any).Y ?? 0;
-        const iw = it.w || (it as any).W || 120;
-        const ih = it.h || (it as any).H || 40;
-        if (mx >= ix && mx <= ix + iw && my >= iy && my <= iy + ih) {
-          hitItemId = iid;
-          break;
-        }
+    for (const k in items) {
+      const it = items[k];
+      const iid = it.id || (it as any).ID;
+      const ix = it.x ?? (it as any).X ?? 0;
+      const iy = it.y ?? (it as any).Y ?? 0;
+      const iw = it.w || (it as any).W || 120;
+      const ih = it.h || (it as any).H || 40;
+      if (mx >= ix - 5 && mx <= ix + iw + 5 && my >= iy - 5 && my <= iy + ih + 5) {
+        hitItemId = iid;
+        break;
       }
     }
 
@@ -967,6 +1020,9 @@ const mapMain = (p5: P5) => {
   const drawItems = (p5: P5, dark: boolean) => {
     for (const k in items) {
       const it = items[k];
+      if (it.cond && it.cond > 0 && mapState < it.cond && !editDrawItems) {
+        continue;
+      }
       const iid = it.id || (it as any).ID || "";
       const ix = it.x ?? (it as any).X ?? 0;
       const iy = it.y ?? (it as any).Y ?? 0;
@@ -987,19 +1043,67 @@ const mapMain = (p5: P5) => {
         const img = imageMap.get(k);
         p5.image(img, 0, 0, iw, ih);
       } else {
-        // Simple shape/text fallback
-        if (it.type === 2) {
-          p5.fill(it.color || (dark ? "#f3f4f6" : "#1f2937"));
-          p5.textSize(it.size || 14);
-          p5.text(it.text || "", 0, it.size || 14);
-        } else {
-          p5.stroke(it.color || "#6b7280");
-          p5.fill("rgba(100,100,100,0.1)");
-          p5.rect(0, 0, iw, ih, 4);
-          if (it.text) {
-            p5.fill(dark ? "#f3f4f6" : "#1f2937");
-            p5.text(it.text, 5, 15);
-          }
+        switch (it.type) {
+          case 0: // Rect
+            p5.fill(it.color || "#06b6d4");
+            p5.stroke(dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)");
+            p5.strokeWeight(1);
+            p5.rect(0, 0, iw, ih, 6);
+            break;
+          case 1: // Ellipse
+            p5.fill(it.color || "#06b6d4");
+            p5.stroke(dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)");
+            p5.strokeWeight(1);
+            p5.ellipse(iw / 2, ih / 2, iw, ih);
+            break;
+          case 2: // Label
+          case 4: // Polling Text
+            p5.textSize(it.size || 14);
+            p5.fill(it.color || (dark ? "#f3f4f6" : "#1f2937"));
+            p5.noStroke();
+            p5.textAlign(p5.LEFT, p5.TOP);
+            const textToDraw = it.formatted_text || (it as any).FormattedText || it.text || (it as any).Text || (it.type === 4 ? "No Value" : "Empty");
+            p5.text(textToDraw, 0, 0);
+            break;
+          case 3: // Image fallback
+            p5.fill("#888");
+            p5.rect(0, 0, iw, ih, 4);
+            break;
+          case 9: // GroupFrame
+            p5.fill("rgba(23,23,23,0.02)");
+            p5.strokeWeight(2);
+            p5.stroke(it.color || "#06b6d4");
+            p5.rect(0, 0, iw, ih, 8);
+            if (it.text) {
+              p5.textSize(it.size || 12);
+              p5.fill(dark ? "#eee" : "#333");
+              p5.noStroke();
+              p5.textAlign(p5.RIGHT, p5.BOTTOM);
+              p5.text(it.text, iw - 8, ih - 8);
+            }
+            break;
+          case 10: // GroupFill
+            p5.fill(it.color || "#06b6d4");
+            p5.stroke(dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)");
+            p5.strokeWeight(1);
+            p5.rect(0, 0, iw, ih, 8);
+            if (it.text) {
+              p5.textSize(it.size || 12);
+              p5.fill(dark ? "#eee" : "#333");
+              p5.noStroke();
+              p5.textAlign(p5.RIGHT, p5.BOTTOM);
+              p5.text(it.text, iw - 8, ih - 8);
+            }
+            break;
+          default:
+            p5.stroke(it.color || "#6b7280");
+            p5.fill("rgba(100,100,100,0.1)");
+            p5.rect(0, 0, iw, ih, 4);
+            if (it.text) {
+              p5.fill(dark ? "#f3f4f6" : "#1f2937");
+              p5.text(it.text, 5, 15);
+            }
+            break;
         }
       }
       p5.pop();

@@ -35,6 +35,7 @@
     deleteNode,
     deleteNetwork,
     deleteDrawItem,
+    copyDrawItem,
     deleteLine,
     checkAllPollings,
     applyAutoLayout,
@@ -59,6 +60,8 @@
     Palette,
     Activity,
     Edit3,
+    Pencil,
+    Copy,
     Trash2,
     Info,
     Calendar,
@@ -533,6 +536,30 @@
     showContextMenu = false;
   };
 
+  const handleCopyTargetDrawItem = async () => {
+    if (contextTargetItem) {
+      try {
+        await copyDrawItem(contextTargetItem);
+        await reloadAllData();
+        toastMessage = $_('drawItem.copied') || "描画アイテムをコピーしました";
+        showToast = true;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          showToast = false;
+        }, 3000);
+      } catch (e: any) {
+        console.error("Failed to copy draw item:", e);
+        toastMessage = ($_('drawItem.copyError') || "描画アイテムのコピーに失敗しました") + ": " + (e.message || e);
+        showToast = true;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          showToast = false;
+        }, 4000);
+      }
+    }
+    showContextMenu = false;
+  };
+
   const handleDeleteTargetDrawItem = async () => {
     if (contextTargetItem) {
       await deleteDrawItem(contextTargetItem);
@@ -754,13 +781,17 @@
         </button>
       {:else if contextTargetItem}
         <button onclick={handleEditTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
-          <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-          {$_('map.context.editDrawItem')}
+          <Pencil class="h-3.5 w-3.5 text-blue-400" />
+          {$_('map.context.edit')}
+        </button>
+        <button onclick={handleCopyTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <Copy class="h-3.5 w-3.5 text-blue-400" />
+          {$_('map.context.copy')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleDeleteTargetDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
-          <Trash2 class="h-3.5 w-3.5" />
-          {$_('map.context.deleteDrawItem')}
+          <Trash2 class="h-3.5 w-3.5 text-rose-500" />
+          {$_('map.context.delete')}
         </button>
       {:else}
         <!-- Add node (ノード追加) -->

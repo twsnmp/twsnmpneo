@@ -11,6 +11,7 @@
     deleteLine,
     fetchDrawItems,
     deleteDrawItem,
+    copyDrawItem,
     type NodeEnt,
     type PollingEnt,
     type NetworkEnt,
@@ -36,6 +37,7 @@
     Plus,
     Trash2,
     Edit3,
+    Copy,
     Box,
     AlertTriangle,
     Type,
@@ -342,6 +344,14 @@
     selectedDrawItem = { ...d };
     showDrawItemDialog = true;
   };
+  const handleCopyDrawItem = async (id: string) => {
+    try {
+      await copyDrawItem(id);
+      await loadAll();
+    } catch (e) {
+      console.error("Failed to copy draw item:", e);
+    }
+  };
   const handleDeleteDrawItem = async (id: string) => {
     if (confirm($_('list.confirmDelete.drawItem'))) {
       await deleteDrawItem(id);
@@ -622,7 +632,11 @@
                   <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{p.target || "-"}</td>
                   <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-sans font-medium">{getNodeName(p.node_id || (p as any).NodeID)}</td>
                   <td class="py-2 px-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                    {p.last_val !== undefined ? p.last_val.toFixed(2) + " ms" : "-"}
+                    {#if p.last_val !== undefined}
+                      {['ping', 'tcp', 'http', 'https', 'dns', 'ntp'].includes((p.type || '').toLowerCase()) ? p.last_val.toFixed(2) + " ms" : p.last_val.toFixed(2)}
+                    {:else}
+                      -
+                    {/if}
                   </td>
                   <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 text-[11px]">
                     {formatTimeStr(p.last_time)}
@@ -859,6 +873,13 @@
                         title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
+                      </button>
+                      <button
+                        onclick={() => handleCopyDrawItem(d.id)}
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        title={$_('common.copy') || 'コピー'}
+                      >
+                        <Copy class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteDrawItem(d.id)}

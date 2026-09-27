@@ -309,44 +309,14 @@ export const kpi = (
   const valueColor = dark ? '#f3f4f6' : '#0f172a'
   const unitColor = dark ? '#9ca3af' : '#64748b'
 
-  // Sparkline calculation
-  let sparklinePath = ''
-  let sparklineAreaPath = ''
-  if (values && values.length > 1) {
-    const validValues = values.filter((v) => typeof v === 'number' && !isNaN(v) && isFinite(v))
-    if (validValues.length > 1) {
-      const minVal = Math.min(...validValues)
-      const maxVal = Math.max(...validValues)
-      const range = maxVal - minVal || 1
-      const padX = 14
-      const plotW = safeWidth - padX - 10
-      const plotTop = safeHeight * 0.44
-      const plotH = safeHeight - plotTop - 8
-
-      const points: [number, number][] = validValues.map((v, i) => {
-        const x = padX + (i / (validValues.length - 1)) * plotW
-        const y = plotTop + plotH - ((v - minVal) / range) * plotH
-        return [x, y]
-      })
-
-      sparklinePath = `M ${points.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' L ')}`
-      sparklineAreaPath = `${sparklinePath} L ${points[points.length - 1][0].toFixed(1)},${(plotTop + plotH).toFixed(1)} L ${points[0][0].toFixed(1)},${(plotTop + plotH).toFixed(1)} Z`
-    }
-  }
-
   const uid = Math.random().toString(36).substring(2, 8)
   const cardGradId = `cardGrad_${uid}`
-  const sparkAreaId = `sparkArea_${uid}`
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}">
     <defs>
       <linearGradient id="${cardGradId}" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="${dark ? '#1a1d2d' : '#ffffff'}" stop-opacity="0.95" />
         <stop offset="100%" stop-color="${dark ? '#0c0e14' : '#f1f5f9'}" stop-opacity="0.9" />
-      </linearGradient>
-      <linearGradient id="${sparkAreaId}" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="${accentColor}" stop-opacity="0.32" />
-        <stop offset="100%" stop-color="${accentColor}" stop-opacity="0.0" />
       </linearGradient>
     </defs>
 
@@ -357,15 +327,11 @@ export const kpi = (
     <rect x="0" y="3" width="4" height="${safeHeight - 6}" rx="2" ry="2" fill="${accentColor}" />
 
     <!-- Title Label -->
-    <text x="14" y="20" fill="${titleColor}" font-family="Outfit, Inter, -apple-system, sans-serif" font-size="10.5" font-weight="700" letter-spacing="0.05em">${escapeXml(title || 'METRIC')}</text>
+    <text x="14" y="22" fill="${titleColor}" font-family="Outfit, Inter, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="0.05em">${escapeXml(title || 'METRIC')}</text>
 
-    <!-- Sparkline (Background) -->
-    ${sparklineAreaPath ? `<path d="${sparklineAreaPath}" fill="url(#${sparkAreaId})" />` : ''}
-    ${sparklinePath ? `<path d="${sparklinePath}" fill="none" stroke="${accentColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8" />` : ''}
-
-    <!-- Main Value + Unit -->
-    <g transform="translate(14, ${safeHeight - 18})">
-      <text fill="${valueColor}" font-family="Outfit, Inter, -apple-system, sans-serif" font-size="${Math.min(28, Math.max(16, safeHeight * 0.36))}" font-weight="800">${escapeXml(valStr)}<tspan dx="4" font-size="${Math.min(13, Math.max(10, safeHeight * 0.18))}" font-weight="500" fill="${unitColor}">${escapeXml(unitStr)}</tspan></text>
+    <!-- Main Value + Unit (Clean Display without Graph) -->
+    <g transform="translate(14, ${Math.round(safeHeight * 0.72)})">
+      <text fill="${valueColor}" font-family="Outfit, Inter, -apple-system, sans-serif" font-size="${Math.min(32, Math.max(18, safeHeight * 0.42))}" font-weight="800">${escapeXml(valStr)}<tspan dx="5" font-size="${Math.min(14, Math.max(11, safeHeight * 0.22))}" font-weight="600" fill="${unitColor}">${escapeXml(unitStr)}</tspan></text>
     </g>
   </svg>`
 

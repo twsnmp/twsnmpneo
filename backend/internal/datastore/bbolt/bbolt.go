@@ -660,7 +660,23 @@ func (s *Store) GetDrawItem(_ context.Context, id string) (*datastore.DrawItemEn
 	if val, ok := s.items.Load(id); ok {
 		return val.(*datastore.DrawItemEnt), nil
 	}
-	return nil, datastore.ErrNotFound
+	var item datastore.DrawItemEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketItems)
+		if b == nil {
+			return datastore.ErrNotFound
+		}
+		v := b.Get([]byte(id))
+		if v == nil {
+			return datastore.ErrNotFound
+		}
+		return json.Unmarshal(v, &item)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.items.Store(item.ID, &item)
+	return &item, nil
 }
 
 func (s *Store) ListDrawItems(_ context.Context) ([]*datastore.DrawItemEnt, error) {

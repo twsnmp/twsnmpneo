@@ -318,7 +318,11 @@ func pingBackend(ctx context.Context) {
 		if tracker, tm, te, err := processPacket(&packet{bytes: rp.bytes, nbytes: rp.n, ttl: rp.ttl}); err == nil {
 			if p, ok := pingMap[tracker]; ok {
 				sa := strings.Split(rp.src.String(), ":")
-				if p.Target != sa[0] && !te {
+				isSrcMatch := p.Target == sa[0]
+				if !isSrcMatch && p.ipaddr != nil && p.ipaddr.IP.String() == sa[0] {
+					isSrcMatch = true
+				}
+				if !isSrcMatch && !te {
 					return
 				}
 				delete(pingMap, tracker)

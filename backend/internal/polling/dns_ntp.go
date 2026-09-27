@@ -46,7 +46,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 			RTT:     rtt,
 			Message: fmt.Sprintf("dns lookup for %s failed: %v", host, err),
 			Fields: map[string]interface{}{
-				"rtt": rtt.Milliseconds(),
+				"rtt": float64(rtt.Nanoseconds()),
 			},
 		}, nil
 	}
@@ -57,7 +57,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		Message: fmt.Sprintf("resolved %s to %v in %v", host, ips, rtt),
 		Fields: map[string]interface{}{
 			"ips": ips,
-			"rtt": rtt.Milliseconds(),
+			"rtt": float64(rtt.Nanoseconds()),
 		},
 	}, nil
 }
@@ -124,7 +124,7 @@ func (p *NTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		RTT:     rtt,
 		Message: fmt.Sprintf("ntp response ok, rtt=%v", rtt),
 		Fields: map[string]interface{}{
-			"rtt": rtt.Milliseconds(),
+			"rtt": float64(rtt.Nanoseconds()),
 		},
 	}, nil
 }

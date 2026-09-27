@@ -51,7 +51,7 @@ func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 			Message: fmt.Sprintf("tcp connection to %s failed: %v", target, err),
 			Fields: map[string]interface{}{
 				"port": port,
-				"rtt":  rtt.Milliseconds(),
+				"rtt":  float64(rtt.Nanoseconds()),
 			},
 		}, nil
 	}
@@ -71,7 +71,7 @@ func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 				Message: fmt.Sprintf("banner mismatch: got '%s', expected '%s'", banner, pe.Filter),
 				Fields: map[string]interface{}{
 					"port":   port,
-					"rtt":    rtt.Milliseconds(),
+					"rtt":    float64(rtt.Nanoseconds()),
 					"banner": banner,
 				},
 			}, nil
@@ -84,7 +84,7 @@ func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		Message: fmt.Sprintf("tcp port %d open, rtt=%v", port, rtt),
 		Fields: map[string]interface{}{
 			"port":   port,
-			"rtt":    rtt.Milliseconds(),
+			"rtt":    float64(rtt.Nanoseconds()),
 			"banner": banner,
 		},
 	}, nil

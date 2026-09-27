@@ -154,7 +154,7 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 	p.LastTime = now
 	resMap := map[string]interface{}{
 		"state":   res.State,
-		"rtt":     res.RTT.Milliseconds(),
+		"rtt":     float64(res.RTT.Nanoseconds()),
 		"message": res.Message,
 	}
 	for k, v := range res.Fields {

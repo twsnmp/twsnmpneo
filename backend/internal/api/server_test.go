@@ -158,6 +158,53 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("get networks failed: code %d", rec.Code)
 	}
 
+	// 5.5 DrawItems: POST, GET, COPY, DELETE
+	itemPayload := `{"id":"di-test-1","type":11,"text":"KPI Metric","x":150,"y":220,"w":220,"h":84,"color":"#00d2ffff"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/drawitems", strings.NewReader(itemPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("post drawitem returned %d", rec.Code)
+	}
+
+	// Test Copy: POST /api/drawitems/di-test-1/copy
+	req = httptest.NewRequest(http.MethodPost, "/api/drawitems/di-test-1/copy", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("copy drawitem returned %d: %s", rec.Code, rec.Body.String())
+	}
+	var copiedItem datastore.DrawItemEnt
+	if err := json.Unmarshal(rec.Body.Bytes(), &copiedItem); err != nil {
+		t.Fatalf("unmarshal copied item failed: %v", err)
+	}
+	if copiedItem.ID == "di-test-1" || copiedItem.ID == "" {
+		t.Errorf("expected new ID for copied item, got %s", copiedItem.ID)
+	}
+	if copiedItem.X != 250 || copiedItem.Y != 220 {
+		t.Errorf("expected copied coords (250, 220), got (%d, %d)", copiedItem.X, copiedItem.Y)
+	}
+	if copiedItem.Text != "KPI Metric" || copiedItem.Type != 11 {
+		t.Errorf("expected preserved text and type, got text=%s type=%d", copiedItem.Text, copiedItem.Type)
+	}
+
+	// Verify both items present in GET /api/drawitems
+	req = httptest.NewRequest(http.MethodGet, "/api/drawitems", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), copiedItem.ID) {
+		t.Errorf("expected copied item in list, got %s", rec.Body.String())
+	}
+
+	// Delete copied item
+	req = httptest.NewRequest(http.MethodDelete, "/api/drawitems/"+copiedItem.ID, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("delete drawitem returned %d", rec.Code)
+	}
+
 	// 6. Map Conf: GET, POST
 	confPayload := `{"MapName":"Test Network Map","LLMProvider":"local","LLMModel":"tensai-1"}`
 	req = httptest.NewRequest(http.MethodPost, "/api/map/conf", strings.NewReader(confPayload))
@@ -761,6 +808,124 @@ func TestAPIServer_MapAndLayoutEndpoints(t *testing.T) {
 		t.Errorf("POST /api/map/import failed: %s", rec.Body.String())
 	}
 }
+
+func TestAPIServer_PollingDrawItems(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	// Add test polling with rtt in nanoseconds (e.g. 5,230,000 ns = 5.23 ms)
+	p := &datastore.PollingEnt{
+		ID:     "poll-kpi-1",
+		NodeID: "node-1",
+		Name:   "Ping Gateway",
+		Type:   "ping",
+		State:  "normal",
+		Result: map[string]interface{}{
+			"rtt": float64(5230000), // nanoseconds
+			"ttl": float64(64),
+		},
+	}
+	if err := bStore.SavePolling(ctx, p); err != nil {
+		t.Fatalf("save polling: %v", err)
+	}
+
+	srv, err := api.NewServer(api.Config{
+		Port:      19099,
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+	})
+	if err != nil {
+		t.Fatalf("create api server: %v", err)
+	}
+	e := srv.GetEcho()
+
+	// 1. Create KPI Card (Type 11) for this polling
+	kpiPayload := `{
+		"Type": 11,
+		"X": 100,
+		"Y": 100,
+		"PollingID": "poll-kpi-1",
+		"VarName": "rtt",
+		"Scale": 0.000001,
+		"Format": "%.2f ms"
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/drawitems", strings.NewReader(kpiPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST KPI drawitem failed: %d %s", rec.Code, rec.Body.String())
+	}
+	var createdKPI datastore.DrawItemEnt
+	if err := json.Unmarshal(rec.Body.Bytes(), &createdKPI); err != nil {
+		t.Fatalf("unmarshal created KPI: %v", err)
+	}
+	if createdKPI.Value < 5.0 || createdKPI.Value > 6.0 {
+		t.Errorf("expected KPI Value ~5.23, got %f", createdKPI.Value)
+	}
+	if !strings.Contains(createdKPI.FormattedText, "5.23 ms") {
+		t.Errorf("expected FormattedText '5.23 ms', got '%s'", createdKPI.FormattedText)
+	}
+
+	// 2. Create Polling Text (Type 4) with empty text
+	ptPayload := `{
+		"Type": 4,
+		"X": 150,
+		"Y": 150,
+		"PollingID": "poll-kpi-1",
+		"VarName": "rtt"
+	}`
+	req = httptest.NewRequest(http.MethodPost, "/api/drawitems", strings.NewReader(ptPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST PollingText drawitem failed: %d %s", rec.Code, rec.Body.String())
+	}
+	var createdPT datastore.DrawItemEnt
+	if err := json.Unmarshal(rec.Body.Bytes(), &createdPT); err != nil {
+		t.Fatalf("unmarshal created PT: %v", err)
+	}
+	if createdPT.Text == "" {
+		t.Errorf("expected non-empty Text for PollingText, got empty")
+	}
+	if !strings.Contains(createdPT.FormattedText, "5.23 ms") {
+		t.Errorf("expected FormattedText '5.23 ms', got '%s'", createdPT.FormattedText)
+	}
+
+	// 3. Verify GET /api/drawitems returns both items properly formatted
+	req = httptest.NewRequest(http.MethodGet, "/api/drawitems", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/drawitems failed: %d", rec.Code)
+	}
+	var list []*datastore.DrawItemEnt
+	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
+		t.Fatalf("unmarshal draw items list: %v", err)
+	}
+	if len(list) < 2 {
+		t.Fatalf("expected at least 2 draw items, got %d", len(list))
+	}
+	for _, it := range list {
+		if it.Type == datastore.DrawItemTypePollingKPI {
+			if it.Value == 0.0 {
+				t.Errorf("KPI card value should not be 0.0")
+			}
+			if it.FormattedText == "" || it.FormattedText == "0.0" {
+				t.Errorf("KPI card formattedText should not be empty or 0.0, got '%s'", it.FormattedText)
+			}
+		}
+		if it.Type == datastore.DrawItemTypePollingText {
+			if it.Text == "" {
+				t.Errorf("PollingText Text should not be empty")
+			}
+		}
+	}
+}
+
 
 
 

@@ -141,9 +141,13 @@ export interface DrawItemEnt {
   node_id?: string;
   polling_id?: string;
   path?: string;
+  var_name?: string;
+  format?: string;
   value?: number;
+  scale?: number;
   values?: number[];
   cond?: number;
+  formatted_text?: string;
 
   ID?: string;
   Type?: number;
@@ -153,6 +157,17 @@ export interface DrawItemEnt {
   H?: number;
   Text?: string;
   Color?: string;
+  Size?: number;
+  NodeID?: string;
+  PollingID?: string;
+  Path?: string;
+  VarName?: string;
+  Format?: string;
+  Value?: number;
+  Scale?: number;
+  Values?: number[];
+  Cond?: number;
+  FormattedText?: string;
 }
 
 export interface EventLogEnt {
@@ -358,8 +373,19 @@ export function normalizeDrawItem(raw: any): DrawItemEnt {
   const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 200);
   const w = typeof raw.w === 'number' ? raw.w : (typeof raw.W === 'number' ? raw.W : 120);
   const h = typeof raw.h === 'number' ? raw.h : (typeof raw.H === 'number' ? raw.H : 40);
-  const text = raw.text || raw.Text || '';
-  const color = raw.color || raw.Color || '#38bdf8';
+  const text = raw.text ?? raw.Text ?? '';
+  const color = raw.color ?? raw.Color ?? '#38bdf8';
+  const size = typeof raw.size === 'number' ? raw.size : (typeof raw.Size === 'number' ? raw.Size : 14);
+  const path = raw.path ?? raw.Path ?? '';
+  const node_id = raw.node_id ?? raw.NodeID ?? '';
+  const polling_id = raw.polling_id ?? raw.PollingID ?? '';
+  const var_name = raw.var_name ?? raw.VarName ?? '';
+  const format = raw.format ?? raw.Format ?? '';
+  const value = typeof raw.value === 'number' ? raw.value : (typeof raw.Value === 'number' ? raw.Value : 0);
+  const scale = typeof raw.scale === 'number' ? raw.scale : (typeof raw.Scale === 'number' ? raw.Scale : 1.0);
+  const cond = typeof raw.cond === 'number' ? raw.cond : (typeof raw.Cond === 'number' ? raw.Cond : 0);
+  const values = raw.values ?? raw.Values ?? [];
+  const formatted_text = raw.formatted_text ?? raw.FormattedText ?? '';
 
   return {
     ...raw,
@@ -371,6 +397,17 @@ export function normalizeDrawItem(raw: any): DrawItemEnt {
     h, H: h,
     text, Text: text,
     color, Color: color,
+    size, Size: size,
+    path, Path: path,
+    node_id, NodeID: node_id,
+    polling_id, PollingID: polling_id,
+    var_name, VarName: var_name,
+    format, Format: format,
+    value, Value: value,
+    scale, Scale: scale,
+    cond, Cond: cond,
+    values, Values: values,
+    formatted_text, FormattedText: formatted_text,
   };
 }
 
@@ -381,6 +418,28 @@ export function normalizePolling(raw: any): PollingEnt {
   const name = raw.name || raw.Name || '';
   const type = raw.type || raw.Type || 'ping';
   const state = raw.state || raw.State || 'normal';
+  const target = raw.target || raw.Target || '';
+  const last_time = raw.last_time || raw.LastTime || 0;
+
+  let last_val = raw.last_val !== undefined ? raw.last_val : (raw.LastVal !== undefined ? raw.LastVal : undefined);
+  const result = raw.Result || raw.result;
+  if (last_val === undefined && result && typeof result === 'object') {
+    if (result.rtt !== undefined) {
+      const num = Number(result.rtt);
+      if (!isNaN(num)) {
+        last_val = num > 1000 ? num / 1000000 : num;
+      }
+    } else if (result.bps !== undefined) {
+      const num = Number(result.bps);
+      if (!isNaN(num)) last_val = num;
+    } else if (result.cpu !== undefined) {
+      const num = Number(result.cpu);
+      if (!isNaN(num)) last_val = num;
+    } else if (result.val !== undefined) {
+      const num = Number(result.val);
+      if (!isNaN(num)) last_val = num;
+    }
+  }
 
   return {
     ...raw,
@@ -389,6 +448,11 @@ export function normalizePolling(raw: any): PollingEnt {
     name, Name: name,
     type, Type: type,
     state, State: state,
+    target, Target: target,
+    last_time, LastTime: last_time,
+    last_val, LastVal: last_val,
+    Result: result,
+    result: result,
   };
 }
 
@@ -661,6 +725,13 @@ export async function fetchDrawItems(): Promise<DrawItemEnt[]> {
   return (Array.isArray(list) ? list : []).map(normalizeDrawItem);
 }
 
+export async function fetchDrawItem(id: string): Promise<DrawItemEnt> {
+  const res = await fetch(`${API_BASE}/drawitems/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Fetch draw item failed: ${res.statusText}`);
+  const item = await res.json();
+  return normalizeDrawItem(item);
+}
+
 export async function saveDrawItem(item: Partial<DrawItemEnt>): Promise<DrawItemEnt> {
   const payload = {
     ID: item.id || item.ID || '',
@@ -669,8 +740,18 @@ export async function saveDrawItem(item: Partial<DrawItemEnt>): Promise<DrawItem
     Y: typeof item.y === 'number' ? item.y : (typeof item.Y === 'number' ? item.Y : 200),
     W: typeof item.w === 'number' ? item.w : (typeof item.W === 'number' ? item.W : 120),
     H: typeof item.h === 'number' ? item.h : (typeof item.H === 'number' ? item.H : 40),
-    Text: item.text || item.Text || '',
-    Color: item.color || item.Color || '#38bdf8',
+    Text: item.text ?? item.Text ?? '',
+    Color: item.color ?? item.Color ?? '#38bdf8',
+    Size: typeof item.size === 'number' ? item.size : (typeof item.Size === 'number' ? item.Size : 14),
+    Path: item.path ?? item.Path ?? '',
+    PollingID: item.polling_id ?? item.PollingID ?? '',
+    VarName: item.var_name ?? item.VarName ?? '',
+    Format: item.format ?? item.Format ?? '',
+    Value: typeof item.value === 'number' ? item.value : (typeof item.Value === 'number' ? item.Value : 0),
+    Scale: typeof item.scale === 'number' ? item.scale : (typeof item.Scale === 'number' ? item.Scale : 1.0),
+    Cond: typeof item.cond === 'number' ? item.cond : (typeof item.Cond === 'number' ? item.Cond : 0),
+    Values: item.values ?? item.Values ?? [],
+    FormattedText: item.formatted_text ?? item.FormattedText ?? '',
   };
   const res = await fetch(`${API_BASE}/drawitems`, {
     method: 'POST',
@@ -680,6 +761,35 @@ export async function saveDrawItem(item: Partial<DrawItemEnt>): Promise<DrawItem
   if (!res.ok) throw new Error(`Save draw item failed: ${res.statusText}`);
   const saved = await res.json();
   return normalizeDrawItem(saved);
+}
+
+export async function copyDrawItem(id: string): Promise<DrawItemEnt> {
+  try {
+    const res = await fetch(`${API_BASE}/drawitems/${encodeURIComponent(id)}/copy`, { method: 'POST' });
+    if (res.ok) {
+      const item = await res.json();
+      return normalizeDrawItem(item);
+    }
+  } catch (err) {
+    console.warn('POST /drawitems/:id/copy failed, attempting client-side clone:', err);
+  }
+
+  // Fallback: fetch existing items, find target, and save as new item with X + 100
+  const allItems = await fetchDrawItems();
+  const target = allItems.find((it) => (it.id || (it as any).ID) === id);
+  if (!target) {
+    throw new Error(`DrawItem not found: ${id}`);
+  }
+  const copyPayload: DrawItemEnt = {
+    ...target,
+    id: '',
+    ID: '',
+    x: (typeof target.x === 'number' ? target.x : (typeof (target as any).X === 'number' ? (target as any).X : 200)) + 100,
+    X: (typeof target.x === 'number' ? target.x : (typeof (target as any).X === 'number' ? (target as any).X : 200)) + 100,
+    y: typeof target.y === 'number' ? target.y : (typeof (target as any).Y === 'number' ? (target as any).Y : 200),
+    Y: typeof target.y === 'number' ? target.y : (typeof (target as any).Y === 'number' ? (target as any).Y : 200),
+  };
+  return await saveDrawItem(copyPayload);
 }
 
 export async function deleteDrawItem(id: string): Promise<void> {
@@ -750,13 +860,27 @@ export async function fetchPollings(): Promise<PollingEnt[]> {
 }
 
 export async function savePolling(poll: Partial<PollingEnt>): Promise<PollingEnt> {
-  const payload = {
+  const payload: any = {
     ID: poll.id || poll.ID || '',
     NodeID: poll.node_id || poll.NodeID || '',
     Name: poll.name || poll.Name || '',
     Type: poll.type || poll.Type || 'ping',
     State: poll.state || poll.State || 'normal',
+    Target: poll.target || (poll as any).Target || '',
+    PollInt: (poll as any).poll_int || (poll as any).PollInt || 60,
+    Timeout: (poll as any).timeout || (poll as any).Timeout || 1,
+    Retry: (poll as any).retry || (poll as any).Retry || 1,
+    Params: (poll as any).params || (poll as any).Params || '',
+    Filter: (poll as any).filter || (poll as any).Filter || '',
+    Extractor: (poll as any).extractor || (poll as any).Extractor || '',
+    Script: (poll as any).script || (poll as any).Script || '',
   };
+  if ((poll as any).Result || (poll as any).result) {
+    payload.Result = (poll as any).Result || (poll as any).result;
+  }
+  if ((poll as any).LastTime || (poll as any).last_time) {
+    payload.LastTime = (poll as any).LastTime || (poll as any).last_time;
+  }
   const res = await fetch(`${API_BASE}/pollings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
