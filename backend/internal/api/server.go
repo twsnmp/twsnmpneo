@@ -1440,9 +1440,10 @@ func NewServer(cfg Config) (*Server, error) {
 		res := ping.DoPing(req.IP, 2, 0, req.Size, req.TTL)
 
 		stat := 2 // Timeout or error
-		if res.Stat == ping.PingOK {
+		switch res.Stat {
+		case ping.PingOK:
 			stat = 1 // Normal
-		} else if res.Stat == ping.PingTimeExceeded {
+		case ping.PingTimeExceeded:
 			stat = 3
 		}
 
