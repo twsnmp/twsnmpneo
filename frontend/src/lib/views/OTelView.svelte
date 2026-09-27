@@ -119,8 +119,8 @@
   let metricTimeChartInstance: any = null;
   let logLevelChartInstance: any = null;
 
-  onMount(async () => {
-    await refresh(true);
+  onMount(() => {
+    void refresh(true);
     const handleResize = () => {
       metricTypeChartInstance?.resize();
       metricServiceChartInstance?.resize();
@@ -1167,7 +1167,7 @@
                 <span class="text-xs text-slate-500 dark:text-slate-400">{$_("otel.limitLabel")}</span>
                 <select
                   bind:value={traceLimit}
-                  onchange={refresh}
+                  onchange={() => refresh()}
                   class="h-7 text-xs bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-200 px-2 focus:outline-none focus:border-cyan-500"
                 >
                   <option value={1000}>{$_("otel.limitCount", { values: { count: "1,000" } })}</option>

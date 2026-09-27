@@ -47,7 +47,6 @@
     TrendingUp,
     CreditCard,
     CheckCircle2,
-    Activity,
   } from "@lucide/svelte";
 
   type ListCategory = "nodes" | "pollings" | "networks" | "lines" | "drawitems";
@@ -704,7 +703,7 @@
                   <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
                     ({net.x}, {net.y})
                   </td>
-                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 font-sans truncate max-w-xs">{net.descr || "-"}</td>
+                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 font-sans truncate max-w-xs">{"descr" in net ? net.descr || "-" : "-"}</td>
                   <td class="py-2 px-3.5 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button

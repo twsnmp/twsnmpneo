@@ -37,7 +37,6 @@
     Eye,
     X,
     AlertTriangle,
-    CheckCircle2,
     BarChart3,
     RotateCcw,
     Activity,

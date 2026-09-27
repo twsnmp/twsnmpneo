@@ -27,18 +27,14 @@
     ShieldCheck,
     Thermometer,
     Sparkles,
-    Server,
     Search,
     RefreshCw,
     Download,
     CheckCircle2,
     AlertTriangle,
-    Clock,
-    Cpu,
     Layers,
     FileText,
     BarChart3,
-    Check,
     Trash2,
     ChevronLeft,
     ChevronRight,
@@ -49,9 +45,7 @@
     ArrowUpDown,
     CornerUpLeft,
     FolderTree,
-    Grid,
-    Info,
-    ExternalLink
+    Grid
   } from "@lucide/svelte";
 
   type ReportCategory = "device" | "ipam" | "polling" | "flow" | "event" | "cert" | "sensor" | "ai";

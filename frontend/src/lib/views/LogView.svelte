@@ -622,12 +622,12 @@
     const tabName = activeTab === "sflow" && sflowCounter ? "sflow_counter" : activeTab;
     const filename = `twsnmp_${tabName}_logs_${Date.now()}.csv`;
     const cols = visibleColumns;
-    let csv = "\uFEFF" + cols.map((c) => `"${c.label}"`).join(",") + "\n";
+    let csv = "\uFEFF" + cols.map((c: (typeof cols)[number]) => `"${c.label}"`).join(",") + "\n";
 
     csv += sortedLogs
       .map((row: any) =>
         cols
-          .map((c) => {
+          .map((c: (typeof cols)[number]) => {
             let val = row[c.key];
             if (c.key === "time") val = (activeTab === "syslog" || activeTab === "netflow" || activeTab === "sflow") ? renderTimeMili(val) : formatTimeStr(val);
             if (c.key === "bytes" && typeof val === "number") val = renderBytes(val);

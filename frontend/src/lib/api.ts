@@ -293,11 +293,12 @@ export function normalizeNetwork(raw: any): NetworkEnt {
   const x = typeof raw.x === 'number' ? raw.x : (typeof raw.X === 'number' ? raw.X : 300);
   const y = typeof raw.y === 'number' ? raw.y : (typeof raw.Y === 'number' ? raw.Y : 150);
   const rawPorts = raw.ports || raw.Ports || [];
+  const hPorts = typeof raw.h_ports === 'number' && raw.h_ports > 0 ? raw.h_ports : 8;
   const ports: PortEnt[] = rawPorts.map((p: any, idx: number) => {
     const pid = p.id || p.ID || `p${idx + 1}`;
     const pname = p.name || p.Name || `Port ${idx + 1}`;
-    const px = typeof p.x === 'number' ? p.x : (typeof p.X === 'number' ? p.X : idx % h_ports);
-    const py = typeof p.y === 'number' ? p.y : (typeof p.Y === 'number' ? p.Y : Math.floor(idx / h_ports));
+    const px = typeof p.x === 'number' ? p.x : (typeof p.X === 'number' ? p.X : idx % hPorts);
+    const py = typeof p.y === 'number' ? p.y : (typeof p.Y === 'number' ? p.Y : Math.floor(idx / hPorts));
     const pstate = p.state || p.State || 'none';
     return {
       id: pid, ID: pid,
@@ -684,16 +685,16 @@ export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt>
     Y: typeof net.y === 'number' ? net.y : (typeof (net as any).Y === 'number' ? (net as any).Y : 150),
     W: typeof net.w === 'number' ? net.w : (typeof (net as any).W === 'number' ? (net as any).W : 420),
     H: typeof net.h === 'number' ? net.h : (typeof (net as any).H === 'number' ? (net as any).H : 90),
-    SnmpMode: net.snmp_mode || (net as any).SnmpMode || '',
-    Community: net.community || (net as any).Community || '',
-    User: net.user || (net as any).User || '',
-    Password: net.password || (net as any).Password || '',
-    SnmpPort: net.snmp_port || (net as any).SnmpPort || 0,
-    Unmanaged: net.unmanaged ?? (net as any).Unmanaged ?? false,
-    SystemID: net.system_id || (net as any).SystemID || '',
-    Descr: net.descr || (net as any).Descr || '',
-    HPorts: net.hports || (net as any).HPorts || 24,
-    LLDP: net.lldp ?? (net as any).LLDP ?? false,
+    SnmpMode: (net as any).snmp_mode || (net as any).SnmpMode || '',
+    Community: (net as any).community || (net as any).Community || '',
+    User: (net as any).user || (net as any).User || '',
+    Password: (net as any).password || (net as any).Password || '',
+    SnmpPort: (net as any).snmp_port || (net as any).SnmpPort || 0,
+    Unmanaged: (net as any).unmanaged ?? (net as any).Unmanaged ?? false,
+    SystemID: (net as any).system_id || (net as any).SystemID || '',
+    Descr: (net as any).descr || (net as any).Descr || '',
+    HPorts: net.h_ports || (net as any).HPorts || 24,
+    LLDP: (net as any).lldp ?? (net as any).LLDP ?? false,
     Ports: ports,
   };
   const res = await fetch(`${API_BASE}/networks`, {
