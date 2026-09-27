@@ -684,16 +684,15 @@
       </div>
     </div>
 
-    <!-- twnoaa style table container -->
     <div class="flex-1 overflow-y-auto overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/70 shadow-sm dark:shadow-lg min-h-0 transition-colors">
       <table class="w-full text-left text-xs">
         <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
           <tr>
-            <th class="py-2 px-3 w-28">{$_('map.level')}</th>
-            <th class="py-2 px-3 w-44">{$_('map.time')}</th>
-            <th class="py-2 px-3 w-28">{$_('map.type')}</th>
-            <th class="py-2 px-3 w-48">{$_('map.node')}</th>
-            <th class="py-2 px-3">{$_('map.event')}</th>
+            <th class="py-1 px-2 w-28">{$_('map.level')}</th>
+            <th class="py-1 px-2 w-44  w-44 min-w-[175px] whitespace-nowrap">{$_('map.time')}</th>
+            <th class="py-1 px-2 w-28">{$_('map.type')}</th>
+            <th class="py-1 px-2 w-48">{$_('map.node')}</th>
+            <th class="py-1 px-2">{$_('map.event')}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
