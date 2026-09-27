@@ -765,7 +765,7 @@
           <table class="w-full border-collapse text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 text-[10px] font-semibold uppercase tracking-wider select-none">
               <tr>
-                <th onclick={() => handleSort("Time")} class="px-4 py-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
+                <th onclick={() => handleSort("Time")} class="px-1 py-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center gap-1">
                     <span>{$_('system.time')}</span>
                     {#if sortColumn === "Time"}
@@ -775,7 +775,7 @@
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("CPU")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
+                <th onclick={() => handleSort("CPU")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>CPU</span>
                     {#if sortColumn === "CPU"}
@@ -783,7 +783,7 @@
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("Mem")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
+                <th onclick={() => handleSort("Mem")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>{$_('system.memory')}</span>
                     {#if sortColumn === "Mem"}
@@ -791,7 +791,7 @@
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("MyCPU")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
+                <th onclick={() => handleSort("MyCPU")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>My CPU</span>
                     {#if sortColumn === "MyCPU"}
@@ -799,7 +799,7 @@
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("MyMem")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
+                <th onclick={() => handleSort("MyMem")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
                   <div class="flex items-center justify-end gap-1">
                     <span>{$_('system.myMemory')}</span>
                     {#if sortColumn === "MyMem"}
@@ -807,16 +807,16 @@
                     {/if}
                   </div>
                 </th>
-                <th onclick={() => handleSort("Swap")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Swap</th>
-                <th onclick={() => handleSort("Disk")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Disk</th>
-                <th onclick={() => handleSort("Load")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Load</th>
-                <th onclick={() => handleSort("Net")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">{$_('system.netSpeed')}</th>
-                <th onclick={() => handleSort("Conn")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Conn</th>
-                <th onclick={() => handleSort("Proc")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Proc</th>
-                <th onclick={() => handleSort("NumGoroutine")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Goroutine</th>
-                <th onclick={() => handleSort("HeapAlloc")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Heap</th>
-                <th onclick={() => handleSort("Sys")} class="px-3 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Sys</th>
-                <th onclick={() => handleSort("DBSize")} class="px-4 py-2.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">DB Size</th>
+                <th onclick={() => handleSort("Swap")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Swap</th>
+                <th onclick={() => handleSort("Disk")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Disk</th>
+                <th onclick={() => handleSort("Load")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Load</th>
+                <th onclick={() => handleSort("Net")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">{$_('system.netSpeed')}</th>
+                <th onclick={() => handleSort("Conn")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Conn</th>
+                <th onclick={() => handleSort("Proc")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Proc</th>
+                <th onclick={() => handleSort("NumGoroutine")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Goroutine</th>
+                <th onclick={() => handleSort("HeapAlloc")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Heap</th>
+                <th onclick={() => handleSort("Sys")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">Sys</th>
+                <th onclick={() => handleSort("DBSize")} class="px-2 py-1 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">DB Size</th>
               </tr>
             </thead>
             <tbody class="font-mono text-[11px]">
@@ -832,20 +832,20 @@
                     <td class="px-4 py-2 text-slate-800 dark:text-slate-200 whitespace-nowrap">
                       {formatTimeStr(Math.floor(row.Time / 1e6))}
                     </td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.CPU, 80, 90)}">{renderPercent(row.CPU)}</td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.Mem, 85, 95)}">{renderPercent(row.Mem)}</td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.MyCPU, 50, 80)}">{renderPercent(row.MyCPU)}</td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.MyMem, 50, 80)}">{renderPercent(row.MyMem)}</td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.Swap, 60, 80)}">{renderPercent(row.Swap)}</td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.Disk, 85, 95)}">{renderPercent(row.Disk)}</td>
-                    <td class="px-3 py-2 text-right {getLoadClass(row.Load, 4.0, 8.0)}">{row.Load?.toFixed(2) ?? "0.00"}</td>
-                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{renderSpeed(row.Net || 0)}</td>
-                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{row.Conn ?? 0}</td>
-                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{row.Proc ?? 0}</td>
-                    <td class="px-3 py-2 text-right {getPercentClass(row.NumGoroutine, 500, 2000)}">{row.NumGoroutine ?? 0}</td>
-                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.HeapAlloc || 0)}</td>
-                    <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.Sys || 0)}</td>
-                    <td class="px-4 py-2 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.DBSize || 0)}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.CPU, 80, 90)}">{renderPercent(row.CPU)}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.Mem, 85, 95)}">{renderPercent(row.Mem)}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.MyCPU, 50, 80)}">{renderPercent(row.MyCPU)}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.MyMem, 50, 80)}">{renderPercent(row.MyMem)}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.Swap, 60, 80)}">{renderPercent(row.Swap)}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.Disk, 85, 95)}">{renderPercent(row.Disk)}</td>
+                    <td class="px-2 py-1 text-right {getLoadClass(row.Load, 4.0, 8.0)}">{row.Load?.toFixed(2) ?? "0.00"}</td>
+                    <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300">{renderSpeed(row.Net || 0)}</td>
+                    <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300">{row.Conn ?? 0}</td>
+                    <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300">{row.Proc ?? 0}</td>
+                    <td class="px-2 py-1 text-right {getPercentClass(row.NumGoroutine, 500, 2000)}">{row.NumGoroutine ?? 0}</td>
+                    <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.HeapAlloc || 0)}</td>
+                    <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.Sys || 0)}</td>
+                    <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300">{renderBytes(row.DBSize || 0)}</td>
                   </tr>
                 {/each}
               {/if}

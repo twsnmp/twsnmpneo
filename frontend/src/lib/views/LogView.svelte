@@ -939,7 +939,7 @@
             <tr>
               {#each visibleColumns as col}
                 <th
-                  class="py-1 px-2.5 {col.width || ''} {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} {col.sortable ? 'cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200' : ''}"
+                  class="py-1 px-2 {col.width || ''} {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'} {col.sortable ? 'cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200' : ''}"
                   onclick={() => col.sortable && handleSort(col.key)}
                 >
                   <div class="inline-flex items-center gap-1">
@@ -965,7 +965,7 @@
             {#each paginatedLogs as item}
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 {#each visibleColumns as col}
-                  <td class="py-1 px-2.5 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
+                  <td class="py-1 px-2 {col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}">
                     {#if col.key === "time"}
                       <span class="text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap leading-tight">{activeTab === "syslog" || activeTab === "netflow" || activeTab === "sflow" ? renderTimeMili(item.time) : formatTimeStr(item.time)}</span>
                     {:else if col.key === "level" || col.key === "state"}

@@ -40,10 +40,10 @@
       return $_('map.context.discover') || "自動発見 (全体)";
     }
     if (isNode) {
-      const n = nodes.find((item) => (item.id || (item as any).ID) === cleanID);
+      const n = nodes.find((item: NodeEnt) => (item.id || (item as any).ID) === cleanID);
       return n ? `${n.name || (n as any).Name || cleanID} (${n.ip || (n as any).IP || ""})` : cleanID;
     } else {
-      const net = networks.find((item) => (item.id || (item as any).ID) === cleanID);
+      const net = networks.find((item: NetworkEnt) => (item.id || (item as any).ID) === cleanID);
       return net ? `${net.name || (net as any).Name || cleanID}` : cleanID;
     }
   });
@@ -52,16 +52,16 @@
     if (!id) return { name: "-", port: "" };
     if (id.startsWith("NET:")) {
       const nid = id.replace("NET:", "");
-      const net = networks.find((n) => (n.id || (n as any).ID) === nid);
+      const net = networks.find((n: NetworkEnt) => (n.id || (n as any).ID) === nid);
       const name = net ? net.name || (net as any).Name || nid : nid;
       let port = "";
       if (net && net.ports && pollingOrPortId) {
-        const p = net.ports.find((port) => (port.id || (port as any).ID) === pollingOrPortId);
+        const p = net.ports.find((port: any) => (port.id || port.ID) === pollingOrPortId);
         if (p) port = p.name || (p as any).Name || pollingOrPortId;
       }
       return { name, port: port ? `Port ${port}` : "", isNet: true };
     } else {
-      const n = nodes.find((node) => (node.id || (node as any).ID) === id);
+      const n = nodes.find((node: NodeEnt) => (node.id || (node as any).ID) === id);
       const name = n ? `${n.name || (n as any).Name || id}` : id;
       return { name, port: "", isNet: false };
     }
@@ -217,11 +217,11 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300">
               <thead class="bg-slate-100/80 dark:bg-slate-950/80 uppercase font-mono text-[11px] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th class="py-2.5 px-3 w-10 text-center">{$_('neighbor.colSelect')}</th>
-                  <th class="py-2.5 px-3">{$_('neighbor.colSrc')}</th>
-                  <th class="py-2.5 px-3">{$_('neighbor.colDst')}</th>
-                  <th class="py-2.5 px-3">{$_('neighbor.colReason')}</th>
-                  <th class="py-2.5 px-3 text-center">{$_('neighbor.colConfidence')}</th>
+                  <th class="py-1 px-2 w-10 text-center">{$_('neighbor.colSelect')}</th>
+                  <th class="py-1 px-2">{$_('neighbor.colSrc')}</th>
+                  <th class="py-1 px-2">{$_('neighbor.colDst')}</th>
+                  <th class="py-1 px-2">{$_('neighbor.colReason')}</th>
+                  <th class="py-1 px-2 text-center">{$_('neighbor.colConfidence')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60">
@@ -233,7 +233,7 @@
                     onclick={() => toggleSelectIndex(idx)}
                     class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-50 dark:bg-cyan-950/20 text-cyan-900 dark:text-cyan-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}"
                   >
-                    <td class="py-2.5 px-3 text-center" onclick={(e) => e.stopPropagation()}>
+                    <td class="py-1 px-2 text-center" onclick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -241,7 +241,7 @@
                         class="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-600 focus:ring-cyan-500/30 cursor-pointer"
                       />
                     </td>
-                    <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-100">
+                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100">
                       <div class="flex items-center gap-1.5">
                         {#if e1.isNet}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
@@ -254,7 +254,7 @@
                         {/if}
                       </div>
                     </td>
-                    <td class="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-100">
+                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100">
                       <div class="flex items-center gap-1.5">
                         {#if e2.isNet}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
@@ -267,10 +267,10 @@
                         {/if}
                       </div>
                     </td>
-                    <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                    <td class="py-1 px-2 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                       {l.Reason || l.Info || "Heuristic"}
                     </td>
-                    <td class="py-2.5 px-3 text-center">
+                    <td class="py-1 px-2 text-center">
                       <span
                         class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {l.Confidence === 'strict' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}"
                       >

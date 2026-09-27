@@ -694,22 +694,22 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
           {#each eventLogs as log}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-1 px-3">
+              <td class="py-1 px-2">
                 <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getLevelBadgeClass(log.level || (log as any).Level)}">
                   <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(log.level || (log as any).Level)}"></span>
                   {log.level || (log as any).Level || 'info'}
                 </span>
               </td>
-              <td class="py-1 px-3 text-slate-500 dark:text-slate-400 text-[11px]">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
                 {formatLogTime(log.time || (log as any).Time)}
               </td>
-              <td class="py-1 px-3 text-slate-500 dark:text-slate-400 text-[11px] font-sans">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] font-sans">
                 {log.type || (log as any).Type || 'system'}
               </td>
-              <td class="py-1 px-3 font-semibold text-slate-800 dark:text-slate-200 font-sans truncate">
+              <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200 font-sans truncate">
                 {log.node_name || (log as any).NodeName || '-'}
               </td>
-              <td class="py-1 px-3 text-slate-800 dark:text-slate-100 font-sans truncate" title={log.event || (log as any).Event}>
+              <td class="py-1 px-2 text-slate-800 dark:text-slate-100 font-sans truncate" title={log.event || (log as any).Event}>
                 {log.event || (log as any).Event || '-'}
               </td>
             </tr>

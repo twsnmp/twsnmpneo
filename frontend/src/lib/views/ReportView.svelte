@@ -780,22 +780,22 @@
               {:else}
                 {#each paginatedDevices as n}
                   <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 flex items-center gap-1.5 text-[11px]">
+                    <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 flex items-center gap-1.5 text-[11px]">
                       <div class="h-2 w-2 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></div>
                       <span class="truncate">{n.name}</span>
                       {#if !n.isManaged}
                         <span class="rounded bg-cyan-100 dark:bg-cyan-950 border border-cyan-300 dark:border-cyan-800 px-1 py-0 text-[9px] text-cyan-800 dark:text-cyan-400 font-mono leading-none">ARP</span>
                       {/if}
                     </td>
-                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{n.mac || "-"}</td>
-                    <td class="py-1 px-2.5">
+                    <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{n.mac || "-"}</td>
+                    <td class="py-1 px-2">
                       <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-sans leading-none">
                         {n.vendor || getVendor(n.mac || '')}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 text-[10px] text-slate-600 dark:text-slate-400 font-sans uppercase">{n.addr_mode || "IP"}</td>
-                    <td class="py-1 px-2.5">
+                    <td class="py-1 px-2 text-[10px] text-slate-600 dark:text-slate-400 font-sans uppercase">{n.addr_mode || "IP"}</td>
+                    <td class="py-1 px-2">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(n.state)}20; border-color: {getStateColor(n.state)}50; color: {getStateColor(n.state)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></span>
                         {getStateName(n.state)}
@@ -1005,10 +1005,10 @@
                 <th class="py-2 px-3">{$_("report.colSelect")}</th>
                 <th class="py-2 px-3">{$_("report.colRange")}</th>
                 <th class="py-2 px-3">{$_("report.colStartIp")}</th>
-                <th class="py-2 px-3">{$_("report.colEndIp")}</th>
-                <th class="py-2 px-3 text-right">{$_("report.colSize")}</th>
-                <th class="py-2 px-3 text-right">{$_("report.colUsed")}</th>
-                <th class="py-2 px-3 w-48">{$_("report.colUsage")}</th>
+                <th class="py-1 px-2">{$_("report.colEndIp")}</th>
+                <th class="py-1 px-2 text-right">{$_("report.colSize")}</th>
+                <th class="py-1 px-2 text-right">{$_("report.colUsed")}</th>
+                <th class="py-1 px-2 w-48">{$_("report.colUsage")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -1025,14 +1025,14 @@
                     onclick={() => { selectedRangeIndex = idx; selectedSubnetBlock = null; }}
                     class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-950/40 text-white font-semibold' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}"
                   >
-                    <td class="py-2 px-3 text-center w-10">
+                    <td class="py-1 px-2 text-center w-10">
                       {#if isSelected}
                         <span class="h-2 w-2 rounded-full bg-cyan-400 inline-block animate-pulse"></span>
                       {:else}
                         <span class="h-1.5 w-1.5 rounded-full bg-slate-700 inline-block"></span>
                       {/if}
                     </td>
-                    <td class="py-2 px-3 text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
+                    <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
                       <span>{r.Range}</span>
                       {#if r.Size > 256}
                         <span class="rounded bg-indigo-100 dark:bg-indigo-950 border border-indigo-300 dark:border-indigo-800/70 px-1 text-[9px] text-indigo-700 dark:text-indigo-300 leading-none">
@@ -1040,11 +1040,11 @@
                         </span>
                       {/if}
                     </td>
-                    <td class="py-2 px-3 text-slate-700 dark:text-slate-400">{r.StartIP}</td>
-                    <td class="py-2 px-3 text-slate-700 dark:text-slate-400">{r.EndIP}</td>
-                    <td class="py-2 px-3 text-right text-slate-800 dark:text-slate-200">{r.Size.toLocaleString()}</td>
-                    <td class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">{r.Used.toLocaleString()}</td>
-                    <td class="py-2 px-3">
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-400">{r.StartIP}</td>
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-400">{r.EndIP}</td>
+                    <td class="py-1 px-2 text-right text-slate-800 dark:text-slate-200">{r.Size.toLocaleString()}</td>
+                    <td class="py-1 px-2 text-right text-emerald-600 dark:text-emerald-400 font-bold">{r.Used.toLocaleString()}</td>
+                    <td class="py-1 px-2">
                       <div class="flex items-center gap-2.5">
                         <div class="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                           <div
@@ -1257,11 +1257,11 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">{$_("report.colPollingName")}</th>
-                <th class="py-1 px-2.5">{$_("report.colType")}</th>
-                <th class="py-1 px-2.5">{$_("report.colTarget")}</th>
-                <th class="py-1 px-2.5">{$_("report.colResponseStatus")}</th>
-                <th class="py-1 px-2.5">{$_("report.colLatestValue")}</th>
+                <th class="py-1 px-2">{$_("report.colPollingName")}</th>
+                <th class="py-1 px-2">{$_("report.colType")}</th>
+                <th class="py-1 px-2">{$_("report.colTarget")}</th>
+                <th class="py-1 px-2">{$_("report.colResponseStatus")}</th>
+                <th class="py-1 px-2">{$_("report.colLatestValue")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -1274,20 +1274,20 @@
               {:else}
                 {#each pollings as p}
                   <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{p.name}</td>
-                    <td class="py-1 px-2.5">
+                    <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{p.name}</td>
+                    <td class="py-1 px-2">
                       <span class="rounded bg-cyan-100 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none">
                         {p.type}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{p.target || "-"}</td>
-                    <td class="py-1 px-2.5">
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px]">{p.target || "-"}</td>
+                    <td class="py-1 px-2">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(p.state)}20; border-color: {getStateColor(p.state)}50; color: {getStateColor(p.state)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(p.state)}"></span>
                         {getStateName(p.state)}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">{p.last_val ?? "-"}</td>
+                    <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">{p.last_val ?? "-"}</td>
                   </tr>
                 {/each}
               {/if}
@@ -1338,25 +1338,25 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">{$_("report.colSource")}</th>
-                <th class="py-1 px-2.5">{$_("report.colDest")}</th>
-                <th class="py-1 px-2.5">{$_("report.colProtoPort")}</th>
-                <th class="py-1 px-2.5">{$_("report.colPackets")}</th>
-                <th class="py-1 px-2.5">{$_("report.colBytes")}</th>
-                <th class="py-1 px-2.5">{$_("report.colDuration")}</th>
-                <th class="py-1 px-2.5">{$_("report.colStatus")}</th>
+                <th class="py-1 px-2">{$_("report.colSource")}</th>
+                <th class="py-1 px-2">{$_("report.colDest")}</th>
+                <th class="py-1 px-2">{$_("report.colProtoPort")}</th>
+                <th class="py-1 px-2">{$_("report.colPackets")}</th>
+                <th class="py-1 px-2">{$_("report.colBytes")}</th>
+                <th class="py-1 px-2">{$_("report.colDuration")}</th>
+                <th class="py-1 px-2">{$_("report.colStatus")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#each flowConversations as fl}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{fl.src}</td>
-                  <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{fl.dst}</td>
-                  <td class="py-1 px-2.5"><span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">{fl.proto}</span></td>
-                  <td class="py-1 px-2.5 text-slate-800 dark:text-slate-200 text-[11px]">{fl.packets}</td>
-                  <td class="py-1 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">{fl.bytes}</td>
-                  <td class="py-1 px-2.5 text-slate-600 dark:text-slate-400 text-[11px]">{fl.dur}</td>
-                  <td class="py-1 px-2.5"><span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold leading-none">{fl.status}</span></td>
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{fl.src}</td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px]">{fl.dst}</td>
+                  <td class="py-1 px-2"><span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">{fl.proto}</span></td>
+                  <td class="py-1 px-2 text-slate-800 dark:text-slate-200 text-[11px]">{fl.packets}</td>
+                  <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">{fl.bytes}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{fl.dur}</td>
+                  <td class="py-1 px-2"><span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold leading-none">{fl.status}</span></td>
                 </tr>
               {/each}
             </tbody>
@@ -1419,16 +1419,16 @@
               {:else}
                 {#each logs as l}
                   <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 whitespace-nowrap text-[11px]">{formatTimeStr(l.time)}</td>
-                    <td class="py-1 px-2.5">
+                    <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 whitespace-nowrap text-[11px]">{formatTimeStr(l.time)}</td>
+                    <td class="py-1 px-2">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(l.level)}20; border-color: {getStateColor(l.level)}50; color: {getStateColor(l.level)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(l.level)}"></span>
                         {l.level}
                       </span>
                     </td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 text-[11px]">{l.type}</td>
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-800 dark:text-slate-200 text-[11px]">{l.node_name || l.node_id || "-"}</td>
-                    <td class="py-1 px-2.5 font-sans text-slate-900 dark:text-slate-100 text-[11px]">{l.event}</td>
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-400 text-[11px]">{l.type}</td>
+                    <td class="py-1 px-2 font-bold font-sans text-slate-800 dark:text-slate-200 text-[11px]">{l.node_name || l.node_id || "-"}</td>
+                    <td class="py-1 px-2 font-sans text-slate-900 dark:text-slate-100 text-[11px]">{l.event}</td>
                   </tr>
                 {/each}
               {/if}
@@ -1470,25 +1470,25 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">{$_("report.colMonitoredService")}</th>
-                <th class="py-1 px-2.5">{$_("report.colIssuer")}</th>
-                <th class="py-1 px-2.5">{$_("report.colSubject")}</th>
-                <th class="py-1 px-2.5">{$_("report.colKeyStrength")}</th>
-                <th class="py-1 px-2.5">{$_("report.colValidUntil")}</th>
-                <th class="py-1 px-2.5">{$_("report.colRemainingDays")}</th>
-                <th class="py-1 px-2.5">{$_("report.colStatus")}</th>
+                <th class="py-1 px-2">{$_("report.colMonitoredService")}</th>
+                <th class="py-1 px-2">{$_("report.colIssuer")}</th>
+                <th class="py-1 px-2">{$_("report.colSubject")}</th>
+                <th class="py-1 px-2">{$_("report.colKeyStrength")}</th>
+                <th class="py-1 px-2">{$_("report.colValidUntil")}</th>
+                <th class="py-1 px-2">{$_("report.colRemainingDays")}</th>
+                <th class="py-1 px-2">{$_("report.colStatus")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
               {#each certItems as c}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{c.host}:{c.port}</td>
-                  <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{c.issuer}</td>
-                  <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{c.subject}</td>
-                  <td class="py-1 px-2.5 text-slate-800 dark:text-slate-200 text-[11px]">{c.key}</td>
-                  <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{c.validUntil}</td>
-                  <td class="py-1 px-2.5 font-bold text-[11px] {c.days < 30 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">{$_("report.remainingDaysUnit", { values: { days: c.days } })}</td>
-                  <td class="py-1 px-2.5">
+                  <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{c.host}:{c.port}</td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{c.issuer}</td>
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{c.subject}</td>
+                  <td class="py-1 px-2 text-slate-800 dark:text-slate-200 text-[11px]">{c.key}</td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px]">{c.validUntil}</td>
+                  <td class="py-1 px-2 font-bold text-[11px] {c.days < 30 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}">{$_("report.remainingDaysUnit", { values: { days: c.days } })}</td>
+                  <td class="py-1 px-2">
                     <span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {c.status === 'valid' ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30' : 'bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30'}">
                       {c.status}
                     </span>
@@ -1573,11 +1573,11 @@
           <table class="w-full text-left text-xs border-collapse font-mono">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th class="py-1 px-2.5">{$_("report.colTargetNode")}</th>
-                <th class="py-1 px-2.5">{$_("report.colIp")}</th>
-                <th class="py-1 px-2.5">{$_("report.colAnomalyScore")}</th>
-                <th class="py-1 px-2.5">{$_("report.colEvaluationFactors")}</th>
-                <th class="py-1 px-2.5">{$_("report.colAiVerdict")}</th>
+                <th class="py-1 px-2">{$_("report.colTargetNode")}</th>
+                <th class="py-1 px-2">{$_("report.colIp")}</th>
+                <th class="py-1 px-2">{$_("report.colAnomalyScore")}</th>
+                <th class="py-1 px-2">{$_("report.colEvaluationFactors")}</th>
+                <th class="py-1 px-2">{$_("report.colAiVerdict")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -1591,11 +1591,11 @@
                 {#each nodes as n, i}
                   {@const score = (2.5 + (i * 1.8) % 8).toFixed(1)}
                   <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{n.name}</td>
-                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
-                    <td class="py-1 px-2.5 font-bold font-mono text-emerald-600 dark:text-emerald-400 text-[11px]">{score}</td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{$_("report.normalRttJitter")}</td>
-                    <td class="py-1 px-2.5">
+                    <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{n.name}</td>
+                    <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{n.ip}</td>
+                    <td class="py-1 px-2 font-bold font-mono text-emerald-600 dark:text-emerald-400 text-[11px]">{score}</td>
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{$_("report.normalRttJitter")}</td>
+                    <td class="py-1 px-2">
                       <span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 font-sans leading-none">
                         {$_("report.stableVerdict")}
                       </span>

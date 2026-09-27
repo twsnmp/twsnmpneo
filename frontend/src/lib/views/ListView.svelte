@@ -47,11 +47,24 @@
     TrendingUp,
     CreditCard,
     CheckCircle2,
+    ArrowUp,
+    ArrowDown,
+    ArrowUpDown,
   } from "@lucide/svelte";
 
   type ListCategory = "nodes" | "pollings" | "networks" | "lines" | "drawitems";
 
   let activeCategory = $state<ListCategory>("nodes");
+  type SortDirection = "asc" | "desc";
+  let sortStates = $state<
+    Record<ListCategory, { column: string; direction: SortDirection } | null>
+  >({
+    nodes: null,
+    pollings: null,
+    networks: null,
+    lines: null,
+    drawitems: null,
+  });
   let searchQuery = $state("");
   let statusFilter = $state("all");
   let typeFilter = $state("all");
@@ -224,6 +237,114 @@
     })
   );
 
+  const getSortValue = (category: ListCategory, item: any, column: string): unknown => {
+    switch (category) {
+      case "nodes":
+        switch (column) {
+          case "status": return item.state || item.State || "";
+          case "name": return item.name || item.Name || "";
+          case "ip": return item.ip || item.IP || "";
+          case "mac": return item.mac || item.MAC || "";
+          case "coords": return [item.x ?? item.X ?? 0, item.y ?? item.Y ?? 0];
+          case "descr": return item.descr || item.Descr || "";
+        }
+        break;
+      case "pollings":
+        switch (column) {
+          case "status": return item.state || item.State || "";
+          case "name": return item.name || item.Name || "";
+          case "type": return item.type || item.Type || "";
+          case "target": return item.target || item.Target || "";
+          case "targetNode": return getNodeName(item.node_id || item.NodeID);
+          case "lastVal": return item.last_val ?? "";
+          case "lastTime": return item.last_time ?? "";
+        }
+        break;
+      case "networks":
+        switch (column) {
+          case "name": return item.name || item.Name || "";
+          case "ip": return item.ip || item.IP || "";
+          case "portsCount": return (item.ports || item.Ports || []).length;
+          case "size": return [item.w ?? item.W ?? 0, item.h ?? item.H ?? 0];
+          case "coords": return [item.x ?? item.X ?? 0, item.y ?? item.Y ?? 0];
+          case "descr": return item.descr || item.Descr || "";
+        }
+        break;
+      case "lines":
+        switch (column) {
+          case "status": return item.state || item.State || "";
+          case "source1": return getTargetLabel(item.node_id1 || item.NodeID1);
+          case "target2": return getTargetLabel(item.node_id2 || item.NodeID2);
+          case "width": return item.width ?? item.Width ?? 0;
+          case "infoPort": return item.info || item.Info || item.port || "";
+          case "health": return isLineOrphaned(item) ? 0 : 1;
+        }
+        break;
+      case "drawitems":
+        switch (column) {
+          case "itemType": return getDrawItemTypeName(item.type ?? item.Type ?? 2);
+          case "itemText": return item.text || item.Text || "";
+          case "bindInfo": return getNodeName(item.node_id || item.NodeID);
+          case "coords": return [item.x ?? item.X ?? 0, item.y ?? item.Y ?? 0];
+          case "size": return [item.w ?? item.W ?? 0, item.h ?? item.H ?? 0];
+          case "color": return item.color || item.Color || "";
+        }
+        break;
+    }
+    return "";
+  };
+
+  const compareSortValues = (a: unknown, b: unknown): number => {
+    if (Array.isArray(a) && Array.isArray(b)) {
+      for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+        const comparison = compareSortValues(a[index] ?? 0, b[index] ?? 0);
+        if (comparison !== 0) return comparison;
+      }
+      return 0;
+    }
+    if (typeof a === "number" && typeof b === "number") return a - b;
+    return String(a ?? "").localeCompare(String(b ?? ""), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  };
+
+  const sortList = <T,>(items: T[], category: ListCategory): T[] => {
+    const sort = sortStates[category];
+    if (!sort) return items;
+    const direction = sort.direction === "asc" ? 1 : -1;
+    return [...items].sort(
+      (a, b) => direction * compareSortValues(
+        getSortValue(category, a, sort.column),
+        getSortValue(category, b, sort.column)
+      )
+    );
+  };
+
+  const handleSort = (category: ListCategory, column: string) => {
+    const current = sortStates[category];
+    sortStates[category] = {
+      column,
+      direction: current?.column === column
+        ? current.direction === "asc" ? "desc" : "asc"
+        : "desc",
+    };
+  };
+
+  const getSortAriaLabel = (category: ListCategory, column: string, label: string) => {
+    const sort = sortStates[category];
+    const state = sort?.column === column
+      ? sort.direction === "asc" ? "ascending" : "descending"
+      : "not sorted";
+    return `${label}, ${state}`;
+  };
+
+  const sortedNodes = $derived(sortList(filteredNodes, "nodes"));
+  const sortedPollings = $derived(sortList(filteredPollings, "pollings"));
+  const sortedNetworks = $derived(sortList(filteredNetworks, "networks"));
+  const sortedLines = $derived(sortList(filteredLines, "lines"));
+  const sortedDrawItems = $derived(sortList(filteredDrawItems, "drawitems"));
+
   // Status badge styling helper
   const getStatusBadge = (state: string) => {
     switch (state?.toLowerCase()) {
@@ -358,6 +479,34 @@
     }
   };
 </script>
+
+{#snippet sortableHeader(category: ListCategory, column: string, label: string, classes = "")}
+  {@const sort = sortStates[category]}
+  <th
+    class="py-2.5 px-3.5 {classes}"
+    aria-sort={sort?.column === column
+      ? sort.direction === "asc" ? "ascending" : "descending"
+      : "none"}
+  >
+    <button
+      type="button"
+      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+      aria-label={getSortAriaLabel(category, column, label)}
+      onclick={() => handleSort(category, column)}
+    >
+      <span>{label}</span>
+      {#if sort?.column === column}
+        {#if sort.direction === "asc"}
+          <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+        {:else}
+          <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+        {/if}
+      {:else}
+        <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+      {/if}
+    </button>
+  </th>
+{/snippet}
 
 <div class="flex h-[calc(100vh-4.25rem)] overflow-hidden bg-slate-100 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 font-sans transition-colors">
   <!-- Left Sidebar (Reports suite layout) -->
@@ -533,35 +682,35 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-28">{$_('list.table.status')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.nodeName')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.ip')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.mac')}</th>
-                <th class="py-2.5 px-3.5 w-32">{$_('list.table.coords')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.descr')}</th>
-                <th class="py-2.5 px-3.5 text-right w-28">{$_('list.table.action')}</th>
+                {@render sortableHeader("nodes", "status", $_('list.table.status'), "w-28")}
+                {@render sortableHeader("nodes", "name", $_('list.table.nodeName'))}
+                {@render sortableHeader("nodes", "ip", $_('list.table.ip'))}
+                {@render sortableHeader("nodes", "mac", $_('list.table.mac'))}
+                {@render sortableHeader("nodes", "coords", $_('list.table.coords'), "w-32")}
+                {@render sortableHeader("nodes", "descr", $_('list.table.descr'))}
+                <th class="py-1 px-2 text-right w-28">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each filteredNodes as n}
+              {#each sortedNodes as n}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td class="py-2 px-3.5">
+                  <td class="py-1 px-2">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(n.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(n.state)}"></span>
                       {getStateName(n.state, $_)}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
+                  <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
                     <Laptop class="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span>{n.name}</span>
                   </td>
-                  <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-semibold">{n.ip}</td>
-                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{n.mac || "-"}</td>
-                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-semibold">{n.ip}</td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{n.mac || "-"}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
                     ({n.x ?? 0}, {n.y ?? 0})
                   </td>
-                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300 font-sans truncate max-w-xs">{n.descr || "-"}</td>
-                  <td class="py-2 px-3.5 text-right font-sans">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-sans truncate max-w-xs">{n.descr || "-"}</td>
+                  <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleDetailNode(n)}
@@ -603,44 +752,44 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-28">{$_('list.table.status')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.pollingName')}</th>
-                <th class="py-2.5 px-3.5 w-28">{$_('list.table.type')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.target')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.targetNode')}</th>
-                <th class="py-2.5 px-3.5 w-32">{$_('list.table.lastVal')}</th>
-                <th class="py-2.5 px-3.5 w-40">{$_('list.table.lastTime')}</th>
-                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
+                {@render sortableHeader("pollings", "status", $_('list.table.status'), "w-28")}
+                {@render sortableHeader("pollings", "name", $_('list.table.pollingName'))}
+                {@render sortableHeader("pollings", "type", $_('list.table.type'), "w-28")}
+                {@render sortableHeader("pollings", "target", $_('list.table.target'))}
+                {@render sortableHeader("pollings", "targetNode", $_('list.table.targetNode'))}
+                {@render sortableHeader("pollings", "lastVal", $_('list.table.lastVal'), "w-32")}
+                {@render sortableHeader("pollings", "lastTime", $_('list.table.lastTime'), "w-40")}
+                <th class="py-1 px-2 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each filteredPollings as p}
+              {#each sortedPollings as p}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td class="py-2 px-3.5">
+                  <td class="py-1 px-2">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(p.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(p.state)}"></span>
                       {getStateName(p.state, $_)}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans">{p.name}</td>
-                  <td class="py-2 px-3.5">
+                  <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans">{p.name}</td>
+                  <td class="py-1 px-2">
                     <span class="rounded px-2 py-0.5 font-mono text-[10px] uppercase font-bold bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
                       {p.type}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{p.target || "-"}</td>
-                  <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-sans font-medium">{getNodeName(p.node_id || (p as any).NodeID)}</td>
-                  <td class="py-2 px-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{p.target || "-"}</td>
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-sans font-medium">{getNodeName(p.node_id || (p as any).NodeID)}</td>
+                  <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-semibold">
                     {#if p.last_val !== undefined}
                       {['ping', 'tcp', 'http', 'https', 'dns', 'ntp'].includes((p.type || '').toLowerCase()) ? p.last_val.toFixed(2) + " ms" : p.last_val.toFixed(2)}
                     {:else}
                       -
                     {/if}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
                     {formatTimeStr(p.last_time)}
                   </td>
-                  <td class="py-2 px-3.5 text-right font-sans">
+                  <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditPolling(p)}
@@ -675,36 +824,36 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5">{$_('list.table.netName')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.ip')}</th>
-                <th class="py-2.5 px-3.5 w-28">{$_('list.table.portsCount')}</th>
-                <th class="py-2.5 px-3.5 w-32">{$_('list.table.size')}</th>
-                <th class="py-2.5 px-3.5 w-32">{$_('list.table.coords')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.descr')}</th>
-                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
+                {@render sortableHeader("networks", "name", $_('list.table.netName'))}
+                {@render sortableHeader("networks", "ip", $_('list.table.ip'))}
+                {@render sortableHeader("networks", "portsCount", $_('list.table.portsCount'), "w-28")}
+                {@render sortableHeader("networks", "size", $_('list.table.size'), "w-32")}
+                {@render sortableHeader("networks", "coords", $_('list.table.coords'), "w-32")}
+                {@render sortableHeader("networks", "descr", $_('list.table.descr'))}
+                <th class="py-1 px-2 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each filteredNetworks as net}
+              {#each sortedNetworks as net}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td class="py-2 px-3.5 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
+                  <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
                     <Network class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                     <span>{net.name}</span>
                   </td>
-                  <td class="py-2 px-3.5 text-cyan-600 dark:text-cyan-400 font-semibold">{net.ip || "-"}</td>
-                  <td class="py-2 px-3.5">
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-semibold">{net.ip || "-"}</td>
+                  <td class="py-1 px-2">
                     <span class="rounded px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                       {(net.ports || []).length} {$_('network.portsUnit')}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
                     {net.w} × {net.h}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
                     ({net.x}, {net.y})
                   </td>
-                  <td class="py-2 px-3.5 text-slate-600 dark:text-slate-400 font-sans truncate max-w-xs">{"descr" in net ? net.descr || "-" : "-"}</td>
-                  <td class="py-2 px-3.5 text-right font-sans">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-sans truncate max-w-xs">{"descr" in net ? net.descr || "-" : "-"}</td>
+                  <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditNetwork(net)}
@@ -739,36 +888,36 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-28">{$_('list.table.status')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.source1')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.target2')}</th>
-                <th class="py-2.5 px-3.5 w-24">{$_('list.table.width')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.infoPort')}</th>
-                <th class="py-2.5 px-3.5 w-48">{$_('list.table.health')}</th>
-                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
+                {@render sortableHeader("lines", "status", $_('list.table.status'), "w-28")}
+                {@render sortableHeader("lines", "source1", $_('list.table.source1'))}
+                {@render sortableHeader("lines", "target2", $_('list.table.target2'))}
+                {@render sortableHeader("lines", "width", $_('list.table.width'), "w-24")}
+                {@render sortableHeader("lines", "infoPort", $_('list.table.infoPort'))}
+                {@render sortableHeader("lines", "health", $_('list.table.health'), "w-48")}
+                <th class="py-1 px-2 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each filteredLines as l}
+              {#each sortedLines as l}
                 {@const orphaned = isLineOrphaned(l)}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {orphaned ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
-                  <td class="py-2 px-3.5">
+                  <td class="py-1 px-2">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(l.state)}">
                       <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(l.state)}"></span>
                       {getStateName(l.state, $_)}
                     </span>
                   </td>
-                  <td class="py-2 px-3.5 font-sans font-medium text-slate-800 dark:text-slate-200">
+                  <td class="py-1 px-2 font-sans font-medium text-slate-800 dark:text-slate-200">
                     {getTargetLabel(l.node_id1 || (l as any).NodeID1)}
                   </td>
-                  <td class="py-2 px-3.5 font-sans font-medium text-slate-800 dark:text-slate-200">
+                  <td class="py-1 px-2 font-sans font-medium text-slate-800 dark:text-slate-200">
                     {getTargetLabel(l.node_id2 || (l as any).NodeID2)}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{l.width} px</td>
-                  <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300 font-sans">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{l.width} px</td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-sans">
                     {l.info || l.port || "-"}
                   </td>
-                  <td class="py-2 px-3.5 font-sans">
+                  <td class="py-1 px-2 font-sans">
                     {#if orphaned}
                       <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
                         <AlertTriangle class="h-3 w-3" />
@@ -781,7 +930,7 @@
                       </span>
                     {/if}
                   </td>
-                  <td class="py-2 px-3.5 text-right font-sans">
+                  <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditLine(l)}
@@ -816,36 +965,36 @@
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
               <tr>
-                <th class="py-2.5 px-3.5 w-44">{$_('list.table.itemType')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.itemText')}</th>
-                <th class="py-2.5 px-3.5">{$_('list.table.bindInfo')}</th>
-                <th class="py-2.5 px-3.5 w-32">{$_('list.table.coords')}</th>
-                <th class="py-2.5 px-3.5 w-32">{$_('list.table.size')}</th>
-                <th class="py-2.5 px-3.5 w-28">{$_('list.table.color')}</th>
-                <th class="py-2.5 px-3.5 text-right w-24">{$_('list.table.action')}</th>
+                {@render sortableHeader("drawitems", "itemType", $_('list.table.itemType'), "w-44")}
+                {@render sortableHeader("drawitems", "itemText", $_('list.table.itemText'))}
+                {@render sortableHeader("drawitems", "bindInfo", $_('list.table.bindInfo'))}
+                {@render sortableHeader("drawitems", "coords", $_('list.table.coords'), "w-32")}
+                {@render sortableHeader("drawitems", "size", $_('list.table.size'), "w-32")}
+                {@render sortableHeader("drawitems", "color", $_('list.table.color'), "w-28")}
+                <th class="py-1 px-2 text-right w-24">{$_('list.table.action')}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each filteredDrawItems as d}
+              {#each sortedDrawItems as d}
                 {@const type = d.type ?? (d as any).Type ?? 2}
                 {@const IconComp = getDrawItemIcon(type)}
                 {@const offscreen = isDrawItemOffscreen(d)}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {offscreen ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
-                  <td class="py-2 px-3.5 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <td class="py-1 px-2 font-sans font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <IconComp class="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                     <span>{getDrawItemTypeName(type)}</span>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-900 dark:text-slate-100 font-sans font-medium">
+                  <td class="py-1 px-2 text-slate-900 dark:text-slate-100 font-sans font-medium">
                     {d.text || (d as any).Text || "-"}
                   </td>
-                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 font-sans text-[11px]">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 font-sans text-[11px]">
                     {#if d.node_id}
                       <span>{$_('list.categories.nodes')}: {getNodeName(d.node_id)}</span>
                     {:else}
                       <span>-</span>
                     {/if}
                   </td>
-                  <td class="py-2 px-3.5 text-[11px]">
+                  <td class="py-1 px-2 text-[11px]">
                     <div class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                       <span>({d.x ?? 0}, {d.y ?? 0})</span>
                       {#if offscreen}
@@ -855,16 +1004,16 @@
                       {/if}
                     </div>
                   </td>
-                  <td class="py-2 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
                     {d.w ?? 0} × {d.h ?? 0}
                   </td>
-                  <td class="py-2 px-3.5">
+                  <td class="py-1 px-2">
                     <div class="flex items-center gap-1.5">
                       <span class="h-3 w-3 rounded-full border border-slate-300 dark:border-slate-700" style="background-color: {d.color || '#06b6d4'}"></span>
                       <span class="text-[10px] text-slate-500 dark:text-slate-400">{d.color || "#06b6d4"}</span>
                     </div>
                   </td>
-                  <td class="py-2 px-3.5 text-right font-sans">
+                  <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditDrawItem(d)}

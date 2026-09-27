@@ -274,25 +274,25 @@
                 <table class="w-full text-left text-xs">
                   <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase text-slate-600 dark:text-slate-400">
                     <tr>
-                      <th class="py-2.5 px-3.5">{$_('logReport.thNode')}</th>
-                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thSla')}</th>
-                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thCount')}</th>
-                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thTotalDown')}</th>
-                      <th class="py-2.5 px-3.5 text-right">{$_('logReport.thMaxDown')}</th>
-                      <th class="py-2.5 px-3.5 text-center">{$_('logReport.thStatus')}</th>
+                      <th class="py-1 px-2">{$_('logReport.thNode')}</th>
+                      <th class="py-1 px-2 text-right">{$_('logReport.thSla')}</th>
+                      <th class="py-1 px-2 text-right">{$_('logReport.thCount')}</th>
+                      <th class="py-1 px-2 text-right">{$_('logReport.thTotalDown')}</th>
+                      <th class="py-1 px-2 text-right">{$_('logReport.thMaxDown')}</th>
+                      <th class="py-1 px-2 text-center">{$_('logReport.thStatus')}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
                     {#each downtimeStats.nodeStats as node}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-850/50">
-                        <td class="py-2 px-3.5 font-sans font-semibold text-slate-800 dark:text-slate-200">{node.nodeName}</td>
-                        <td class="py-2 px-3.5 text-right {node.sla < 99 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-emerald-600 dark:text-emerald-400'}">
+                        <td class="py-1 px-2 font-sans font-semibold text-slate-800 dark:text-slate-200">{node.nodeName}</td>
+                        <td class="py-1 px-2 text-right {node.sla < 99 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-emerald-600 dark:text-emerald-400'}">
                           {renderSLA(node.sla)}
                         </td>
-                        <td class="py-2 px-3.5 text-right">{node.count}</td>
-                        <td class="py-2 px-3.5 text-right font-sans">{renderDuration(node.totalDowntimeSec)}</td>
-                        <td class="py-2 px-3.5 text-right font-sans">{renderDuration(node.maxDowntimeSec)}</td>
-                        <td class="py-2 px-3.5 text-center font-sans">
+                        <td class="py-1 px-2 text-right">{node.count}</td>
+                        <td class="py-1 px-2 text-right font-sans">{renderDuration(node.totalDowntimeSec)}</td>
+                        <td class="py-1 px-2 text-right font-sans">{renderDuration(node.maxDowntimeSec)}</td>
+                        <td class="py-1 px-2 text-center font-sans">
                           {#if node.ongoing}
                             <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30">
                               {$_('logReport.ongoing')}

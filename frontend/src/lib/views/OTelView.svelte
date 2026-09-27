@@ -902,7 +902,7 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
               <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800 z-10">
                 <tr>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Host")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Host")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colHost")}</span>
                       {#if metricSortKey === "Host"}
@@ -912,7 +912,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Service")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Service")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colService")}</span>
                       {#if metricSortKey === "Service"}
@@ -922,7 +922,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Scope")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Scope")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colScope")}</span>
                       {#if metricSortKey === "Scope"}
@@ -932,7 +932,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Name")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Name")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colMetricName")}</span>
                       {#if metricSortKey === "Name"}
@@ -942,7 +942,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 text-center cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Type")}>
+                  <th class="py-1 px-2 text-center cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Type")}>
                     <div class="flex items-center justify-center gap-1">
                       <span>{$_("otel.colType")}</span>
                       {#if metricSortKey === "Type"}
@@ -952,7 +952,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Count")}>
+                  <th class="py-1 px-2 text-right cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Count")}>
                     <div class="flex items-center justify-end gap-1">
                       <span>{$_("otel.colCount")}</span>
                       {#if metricSortKey === "Count"}
@@ -962,7 +962,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("First")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("First")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colFirstTime")}</span>
                       {#if metricSortKey === "First"}
@@ -972,7 +972,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Last")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleMetricSort("Last")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colLastTime")}</span>
                       {#if metricSortKey === "Last"}
@@ -997,18 +997,18 @@
                       onclick={() => (selectedMetric = m)}
                       class="cursor-pointer transition-colors {selectedMetric === m ? 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-900 dark:text-cyan-200 font-medium' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'}"
                     >
-                      <td class="py-2 px-3 font-mono text-slate-700 dark:text-slate-300">{m.Host}</td>
-                      <td class="py-2 px-3 text-slate-800 dark:text-slate-200">{m.Service}</td>
-                      <td class="py-2 px-3 text-slate-600 dark:text-slate-400 max-w-[200px] truncate" title={m.Scope}>{m.Scope}</td>
-                      <td class="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">{m.Name}</td>
-                      <td class="py-2 px-3 text-center">
+                      <td class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300">{m.Host}</td>
+                      <td class="py-1 px-2 text-slate-800 dark:text-slate-200">{m.Service}</td>
+                      <td class="py-1 px-2 text-slate-600 dark:text-slate-400 max-w-[200px] truncate" title={m.Scope}>{m.Scope}</td>
+                      <td class="py-1 px-2 font-medium text-slate-900 dark:text-slate-100">{m.Name}</td>
+                      <td class="py-1 px-2 text-center">
                         <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                           {m.Type}
                         </span>
                       </td>
-                      <td class="py-2 px-3 text-right font-mono text-slate-700 dark:text-slate-300">{m.Count}</td>
-                      <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400">{formatTimeStr(m.First)}</td>
-                      <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400">{formatTimeStr(m.Last)}</td>
+                      <td class="py-1 px-2 text-right font-mono text-slate-700 dark:text-slate-300">{m.Count}</td>
+                      <td class="py-1 px-2 font-mono text-slate-600 dark:text-slate-400">{formatTimeStr(m.First)}</td>
+                      <td class="py-1 px-2 font-mono text-slate-600 dark:text-slate-400">{formatTimeStr(m.Last)}</td>
                     </tr>
                   {/each}
                 {/if}
@@ -1204,7 +1204,7 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
               <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800 z-10 select-none">
                 <tr>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Start")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Start")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colStartTime")}</span>
                       {#if traceSortKey === "Start"}
@@ -1214,7 +1214,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("End")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("End")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colEndTime")}</span>
                       {#if traceSortKey === "End"}
@@ -1224,7 +1224,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 text-right cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Dur")}>
+                  <th class="py-1 px-2 text-right cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Dur")}>
                     <div class="flex items-center justify-end gap-1">
                       <span>{$_("otel.colDuration")}</span>
                       {#if traceSortKey === "Dur"}
@@ -1234,7 +1234,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("TraceID")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("TraceID")}>
                     <div class="flex items-center gap-1">
                       <span>TraceID</span>
                       {#if traceSortKey === "TraceID"}
@@ -1244,7 +1244,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Hosts")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Hosts")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colHost")}</span>
                       {#if traceSortKey === "Hosts"}
@@ -1254,7 +1254,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Services")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Services")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colService")}</span>
                       {#if traceSortKey === "Services"}
@@ -1264,7 +1264,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 text-center cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("NumSpan")}>
+                  <th class="py-1 px-2 text-center cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("NumSpan")}>
                     <div class="flex items-center justify-center gap-1">
                       <span>Span</span>
                       {#if traceSortKey === "NumSpan"}
@@ -1274,7 +1274,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Scopes")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-200 transition-colors" onclick={() => handleTraceSort("Scopes")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colScope")}</span>
                       {#if traceSortKey === "Scopes"}
@@ -1299,20 +1299,20 @@
                       onclick={() => (selectedTrace = t)}
                       class="cursor-pointer transition-colors {selectedTrace === t ? 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-900 dark:text-cyan-200 font-medium' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'}"
                     >
-                      <td class="py-2 px-3 font-mono text-slate-700 dark:text-slate-300">{renderTimeMili(t.Start)}</td>
-                      <td class="py-2 px-3 font-mono text-slate-700 dark:text-slate-300">{renderTimeMili(t.End)}</td>
-                      <td class="py-2 px-3 text-right font-mono {getTraceDurationClass(t.Dur)}">
+                      <td class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300">{renderTimeMili(t.Start)}</td>
+                      <td class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300">{renderTimeMili(t.End)}</td>
+                      <td class="py-1 px-2 text-right font-mono {getTraceDurationClass(t.Dur)}">
                         {(t.Dur * 1000).toFixed(3)}
                       </td>
-                      <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400 truncate max-w-[140px]" title={t.TraceID}>{t.TraceID}</td>
-                      <td class="py-2 px-3 font-mono text-slate-700 dark:text-slate-300">{t.Hosts}</td>
-                      <td class="py-2 px-3 font-semibold text-slate-900 dark:text-slate-100">{t.Services}</td>
-                      <td class="py-2 px-3 text-center">
+                      <td class="py-1 px-2 font-mono text-slate-600 dark:text-slate-400 truncate max-w-[140px]" title={t.TraceID}>{t.TraceID}</td>
+                      <td class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300">{t.Hosts}</td>
+                      <td class="py-1 px-2 font-semibold text-slate-900 dark:text-slate-100">{t.Services}</td>
+                      <td class="py-1 px-2 text-center">
                         <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30">
                           {t.NumSpan}
                         </span>
                       </td>
-                      <td class="py-2 px-3 text-slate-600 dark:text-slate-400 max-w-[180px] truncate" title={t.Scopes}>{t.Scopes}</td>
+                      <td class="py-1 px-2 text-slate-600 dark:text-slate-400 max-w-[180px] truncate" title={t.Scopes}>{t.Scopes}</td>
                     </tr>
                   {/each}
                 {/if}
@@ -1488,7 +1488,7 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
               <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800 z-10">
                 <tr>
-                  <th class="py-2.5 px-3 text-center cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("level")}>
+                  <th class="py-1 px-2 text-center cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("level")}>
                     <div class="flex items-center justify-center gap-1">
                       <span>{$_("otel.colLevel")}</span>
                       {#if logSortKey === "level"}
@@ -1498,7 +1498,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("time")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("time")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colTime")}</span>
                       {#if logSortKey === "time"}
@@ -1508,7 +1508,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("host")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("host")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colHost")}</span>
                       {#if logSortKey === "host"}
@@ -1518,7 +1518,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("service")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("service")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colServiceScope")}</span>
                       {#if logSortKey === "service"}
@@ -1528,7 +1528,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("message")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("message")}>
                     <div class="flex items-center gap-1">
                       <span>{$_("otel.colMessage")}</span>
                       {#if logSortKey === "message"}
@@ -1538,7 +1538,7 @@
                       {/if}
                     </div>
                   </th>
-                  <th class="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("traceId")}>
+                  <th class="py-1 px-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("traceId")}>
                     <div class="flex items-center gap-1">
                       <span>TraceID</span>
                       {#if logSortKey === "traceId"}
@@ -1563,7 +1563,7 @@
                       onclick={() => { selectedLog = l; showLogModal = true; }}
                       class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
                     >
-                      <td class="py-2 px-3 text-center">
+                      <td class="py-1 px-2 text-center">
                         <span class="px-2 py-0.5 rounded text-[10px] font-bold font-sans {
                           l.level === 'ERROR'
                             ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40'
@@ -1576,13 +1576,13 @@
                           {l.severityText}
                         </span>
                       </td>
-                      <td class="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatTimeStr(l.time)}</td>
-                      <td class="py-2 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{l.host}</td>
-                      <td class="py-2 px-3 text-slate-700 dark:text-slate-300 font-sans whitespace-nowrap">
+                      <td class="py-1 px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatTimeStr(l.time)}</td>
+                      <td class="py-1 px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">{l.host}</td>
+                      <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-sans whitespace-nowrap">
                         {l.service} <span class="text-slate-400 dark:text-slate-500">/</span> {l.scope}
                       </td>
-                      <td class="py-2 px-3 text-slate-900 dark:text-slate-100 font-sans break-all max-w-[400px]">{l.message}</td>
-                      <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[120px]" title={l.traceId}>{l.traceId}</td>
+                      <td class="py-1 px-2 text-slate-900 dark:text-slate-100 font-sans break-all max-w-[400px]">{l.message}</td>
+                      <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[120px]" title={l.traceId}>{l.traceId}</td>
                     </tr>
                   {/each}
                 {/if}
@@ -1846,16 +1846,16 @@
                       }}
                       class="cursor-pointer hover:bg-slate-800/50 transition-colors {selectedDataPoint === dp ? 'bg-cyan-950/50 text-cyan-200 font-medium' : ''}"
                     >
-                      <td class="py-1.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatTimeStr(dp.Time)}</td>
-                      <td class="py-1.5 px-3 text-slate-400 font-sans truncate max-w-[320px]" title={dp.Attributes?.join(" ")}>
+                      <td class="py-1 px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatTimeStr(dp.Time)}</td>
+                      <td class="py-1 px-2 text-slate-400 font-sans truncate max-w-[320px]" title={dp.Attributes?.join(" ")}>
                         {dp.Attributes?.join(" ") || "-"}
                       </td>
-                      <td class="py-1.5 px-3 text-right text-cyan-400 font-semibold">
+                      <td class="py-1 px-2 text-right text-cyan-400 font-semibold">
                         {dp.Sum ?? dp.Gauge ?? "-"}
                       </td>
                       {#if metricDetail.Type === "Histogram" || metricDetail.Type === "ExponentialHistogram"}
-                        <td class="py-1.5 px-3 text-right text-emerald-400">{dp.Count ?? "-"}</td>
-                        <td class="py-1.5 px-3 text-right text-slate-400">
+                        <td class="py-1 px-2 text-right text-emerald-400">{dp.Count ?? "-"}</td>
+                        <td class="py-1 px-2 text-right text-slate-400">
                           {dp.Min !== undefined && dp.Max !== undefined ? `${dp.Min} / ${dp.Max}` : "-"}
                         </td>
                       {/if}
@@ -1944,25 +1944,25 @@
           <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th class="py-2 px-3">{$_("otel.colSpanName")}</th>
-                <th class="py-2 px-3">{$_("otel.colService")}</th>
-                <th class="py-2 px-3">{$_("otel.colStartTime")}</th>
-                <th class="py-2 px-3">{$_("otel.colEndTime")}</th>
-                <th class="py-2 px-3 text-right">{$_("otel.colDuration")}</th>
-                <th class="py-2 px-3">Span ID</th>
-                <th class="py-2 px-3">{$_("otel.colParentSpan")}</th>
+                <th class="py-1 px-2">{$_("otel.colSpanName")}</th>
+                <th class="py-1 px-2">{$_("otel.colService")}</th>
+                <th class="py-1 px-2">{$_("otel.colStartTime")}</th>
+                <th class="py-1 px-2">{$_("otel.colEndTime")}</th>
+                <th class="py-1 px-2 text-right">{$_("otel.colDuration")}</th>
+                <th class="py-1 px-2">Span ID</th>
+                <th class="py-1 px-2">{$_("otel.colParentSpan")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-mono">
               {#each (traceDetail.Spans || []) as sp}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td class="py-1.5 px-3 font-sans font-medium text-slate-800 dark:text-slate-100">{sp.Name}</td>
-                  <td class="py-1.5 px-3 font-sans text-cyan-600 dark:text-cyan-300">{sp.Service}</td>
-                  <td class="py-1.5 px-3 text-slate-500 dark:text-slate-400">{renderTimeMili(sp.Start)}</td>
-                  <td class="py-1.5 px-3 text-slate-500 dark:text-slate-400">{renderTimeMili(sp.End)}</td>
-                  <td class="py-1.5 px-3 text-right text-emerald-600 dark:text-emerald-400 font-semibold">{(sp.Dur * 1000).toFixed(3)}</td>
-                  <td class="py-1.5 px-3 text-slate-500 text-[10px]">{sp.SpanID}</td>
-                  <td class="py-1.5 px-3 text-slate-500 text-[10px]">{sp.ParentSpanID || "-"}</td>
+                  <td class="py-1 px-2 font-sans font-medium text-slate-800 dark:text-slate-100">{sp.Name}</td>
+                  <td class="py-1 px-2 font-sans text-cyan-600 dark:text-cyan-300">{sp.Service}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400">{renderTimeMili(sp.Start)}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400">{renderTimeMili(sp.End)}</td>
+                  <td class="py-1 px-2 text-right text-emerald-600 dark:text-emerald-400 font-semibold">{(sp.Dur * 1000).toFixed(3)}</td>
+                  <td class="py-1 px-2 text-slate-500 text-[10px]">{sp.SpanID}</td>
+                  <td class="py-1 px-2 text-slate-500 text-[10px]">{sp.ParentSpanID || "-"}</td>
                 </tr>
               {/each}
             </tbody>

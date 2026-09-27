@@ -21,7 +21,7 @@
   let nodeId = $state("");
   let type = $state("ping");
   let target = $state("");
-  let state = $state("normal");
+  let pollingState = $state("normal");
   let saveError = $state("");
   let isSubmitting = $state(false);
 
@@ -44,14 +44,14 @@
           nodeId = polling.node_id || polling.NodeID || (nodes.length > 0 ? (nodes[0].id || nodes[0].ID || "") : "");
           type = polling.type || polling.Type || "ping";
           target = polling.target || (polling as any).Target || "";
-          state = polling.state || polling.State || "normal";
+          pollingState = polling.state || polling.State || "normal";
         } else {
           id = "";
           name = $_('polling.defaultName');
           nodeId = nodes.length > 0 ? (nodes[0].id || nodes[0].ID || "") : "";
           type = "ping";
           target = "";
-          state = "normal";
+          pollingState = "normal";
         }
       });
     }
@@ -60,7 +60,7 @@
   // When node changes and target is empty, fill target with node's IP
   const handleNodeChange = (selectedId: string) => {
     nodeId = selectedId;
-    const n = nodes.find((item) => (item.id || item.ID) === selectedId);
+    const n = nodes.find((item: NodeEnt) => (item.id || item.ID) === selectedId);
     if (n && (!target || target === "")) {
       target = n.ip || n.IP || "";
     }
@@ -86,7 +86,7 @@
         node_id: nodeId,
         type,
         target,
-        state,
+        state: pollingState,
       });
       onSave(saved);
       show = false;
@@ -220,7 +220,7 @@
           </label>
           <select
             id="poll-state"
-            bind:value={state}
+            bind:value={pollingState}
             class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
           >
             <option value="normal">{$_('status.normal')}</option>

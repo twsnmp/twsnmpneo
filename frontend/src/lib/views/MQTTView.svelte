@@ -854,7 +854,7 @@
                         </td>
 
                         <!-- Expand Row Toggle -->
-                        <td class="py-1 px-1 text-center">
+                        <td class="py-1 px-2 text-center">
                           <button
                             onclick={() => toggleExpand(s.ID)}
                             title={$_('mqtt.expandPayload')}
@@ -869,7 +869,7 @@
                         </td>
 
                         <!-- State Badge matching LogView/OTelView level display -->
-                        <td class="py-1 px-2.5 font-sans">
+                        <td class="py-1 px-2 font-sans">
                           <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getStateBadge(s.State)}">
                             <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(s.State)}"></span>
                             {s.State || 'normal'}
@@ -877,17 +877,17 @@
                         </td>
 
                         <!-- Client ID -->
-                        <td class="py-1 px-2.5 text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-[180px] leading-tight" title={s.ClientID}>
+                        <td class="py-1 px-2 text-[11px] text-slate-700 dark:text-slate-300 truncate max-w-[180px] leading-tight" title={s.ClientID}>
                           {s.ClientID || "-"}
                         </td>
 
                         <!-- Remote IP -->
-                        <td class="py-1 px-2.5 text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
+                        <td class="py-1 px-2 text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
                           {s.Remote || "-"}
                         </td>
 
                         <!-- Topic with Copy Button -->
-                        <td class="py-1 px-2.5 font-medium text-[11px] leading-tight">
+                        <td class="py-1 px-2 font-medium text-[11px] leading-tight">
                           <div class="flex items-center gap-1.5 group">
                             <span class="text-cyan-600 dark:text-cyan-300 break-all select-all font-mono">{s.Topic}</span>
                             <button
@@ -906,22 +906,22 @@
                         </td>
 
                         <!-- Count -->
-                        <td class="py-1 px-2.5 text-right text-slate-800 dark:text-slate-200 text-[11px] leading-tight">
+                        <td class="py-1 px-2 text-right text-slate-800 dark:text-slate-200 text-[11px] leading-tight">
                           {(s.Count || 0).toLocaleString()}
                         </td>
 
                         <!-- Bytes -->
-                        <td class="py-1 px-2.5 text-right font-sans text-slate-600 dark:text-slate-300 text-[11px] leading-tight">
+                        <td class="py-1 px-2 text-right font-sans text-slate-600 dark:text-slate-300 text-[11px] leading-tight">
                           {renderBytes(s.Bytes)}
                         </td>
 
                         <!-- First Time -->
-                        <td class="py-1 px-2.5 text-[11px] text-slate-500 dark:text-slate-400 leading-tight whitespace-nowrap">
+                        <td class="py-1 px-2 text-[11px] text-slate-500 dark:text-slate-400 leading-tight whitespace-nowrap">
                           {renderTime(s.First)}
                         </td>
 
                         <!-- Last time -->
-                        <td class="py-1 px-2.5 text-[11px] text-slate-700 dark:text-slate-300 leading-tight whitespace-nowrap">
+                        <td class="py-1 px-2 text-[11px] text-slate-700 dark:text-slate-300 leading-tight whitespace-nowrap">
                           {renderTime(s.Last)}
                         </td>
                       </tr>
@@ -1182,19 +1182,19 @@
                         onclick={() => (selectedLog = l)}
                         class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
                       >
-                        <td class="py-1 px-2.5 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                        <td class="py-1 px-2 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                           {renderTime(l.time)}
                         </td>
-                        <td class="py-1 px-2.5 text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
+                        <td class="py-1 px-2 text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
                           {l.src}
                         </td>
-                        <td class="py-1 px-2.5 text-[11px] truncate max-w-[160px] leading-tight text-slate-700 dark:text-slate-300" title={l.clientID}>
+                        <td class="py-1 px-2 text-[11px] truncate max-w-[160px] leading-tight text-slate-700 dark:text-slate-300" title={l.clientID}>
                           {l.clientID}
                         </td>
-                        <td class="py-1 px-2.5 text-[11px] text-cyan-600 dark:text-cyan-300 truncate max-w-[240px] leading-tight font-medium" title={l.topic}>
+                        <td class="py-1 px-2 text-[11px] text-cyan-600 dark:text-cyan-300 truncate max-w-[240px] leading-tight font-medium" title={l.topic}>
                           {l.topic || "-"}
                         </td>
-                        <td class="py-1 px-2.5 text-[11px] truncate max-w-[400px] leading-tight text-slate-700 dark:text-slate-300">
+                        <td class="py-1 px-2 text-[11px] truncate max-w-[400px] leading-tight text-slate-700 dark:text-slate-300">
                           {l.payload}
                         </td>
                         <td class="py-1 px-2 text-center">

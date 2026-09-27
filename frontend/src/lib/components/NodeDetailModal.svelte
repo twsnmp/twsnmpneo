@@ -95,7 +95,7 @@
   const targetNodeIp = $derived(node?.ip || (node as any)?.IP || "");
 
   const nodePollings = $derived(
-    effectivePollings.filter((p) => {
+    effectivePollings.filter((p: PollingEnt) => {
       const pNodeId = p.node_id || (p as any).NodeID;
       const pName = (p as any).node_name || (p as any).NodeName;
       const pTarget = p.target || (p as any).Target;
@@ -108,7 +108,7 @@
   );
 
   const nodeLogs = $derived(
-    effectiveLogs.filter((l) => {
+    effectiveLogs.filter((l: EventLogEnt) => {
       const lNodeId = l.node_id || (l as any).NodeID;
       const lNodeName = l.node_name || (l as any).NodeName;
       return (
@@ -192,7 +192,7 @@
   );
 
   // Host Resource current list
-  const currentHrList = $derived.by(() => {
+  const currentHrList = $derived.by((): any[] => {
     if (!hostResource) return [];
     switch (hrSubTab) {
       case "system":
@@ -210,7 +210,7 @@
     }
   });
 
-  const sortedHrList = $derived(sortItems(currentHrList, hrSortCol, hrSortDir));
+  const sortedHrList = $derived(sortItems([...currentHrList], hrSortCol, hrSortDir));
   const paginatedHrList = $derived(
     hrPageSize === -1
       ? sortedHrList
@@ -313,7 +313,7 @@
         // Auto-fetch logs if not passed
         if (logs.length === 0 && !isLoadingLogs) {
           isLoadingLogs = true;
-          fetchEventLogs(200)
+          fetchEventLogs({ limit: 200 })
             .then((res) => (internalLogs = res))
             .catch(() => {})
             .finally(() => (isLoadingLogs = false));
@@ -526,24 +526,24 @@
                 class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 uppercase text-[11px] font-bold border-b border-slate-200 dark:border-slate-800"
               >
                 <tr>
-                  <th class="py-3 px-5 w-1/4">{$_('nodeDetail.colItem')}</th>
-                  <th class="py-3 px-5 w-3/4">{$_('nodeDetail.colContent')}</th>
+                  <th class="py-1 px-2 w-1/4">{$_('nodeDetail.colItem')}</th>
+                  <th class="py-1 px-2 w-3/4">{$_('nodeDetail.colContent')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60 font-medium">
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td class="py-3 px-5 text-slate-600 dark:text-slate-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-semibold">
                     {$_('nodeDetail.name')}
                   </td>
-                  <td class="py-3 px-5 text-slate-900 dark:text-slate-100 text-sm font-bold">
+                  <td class="py-1 px-2 text-slate-900 dark:text-slate-100 text-sm font-bold">
                     {node.name}
                   </td>
                 </tr>
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td class="py-3 px-5 text-slate-600 dark:text-slate-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-semibold">
                     {$_('nodeDetail.status')}
                   </td>
-                  <td class="py-3 px-5">
+                  <td class="py-1 px-2">
                     <div class="inline-flex items-center gap-2">
                       <span
                         class="h-3 w-3 rounded-full shadow-sm"
@@ -559,10 +559,10 @@
                   </td>
                 </tr>
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td class="py-3 px-5 text-slate-600 dark:text-slate-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-semibold">
                     {$_('nodeDetail.ip')}
                   </td>
-                  <td class="py-3 px-5">
+                  <td class="py-1 px-2">
                     <div class="inline-flex items-center gap-3">
                       <span class="font-mono text-sm text-slate-900 dark:text-slate-100 font-semibold">
                         {node.ip || "-"}
@@ -586,10 +586,10 @@
                   </td>
                 </tr>
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td class="py-3 px-5 text-slate-600 dark:text-slate-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-semibold">
                     {$_('nodeDetail.mac')}
                   </td>
-                  <td class="py-3 px-5">
+                  <td class="py-1 px-2">
                     <div class="inline-flex items-center gap-3">
                       <span class="font-mono text-xs text-slate-900 dark:text-slate-100 font-semibold">
                         {node.mac || "-"}
@@ -613,18 +613,18 @@
                   </td>
                 </tr>
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td class="py-3 px-5 text-slate-600 dark:text-slate-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-semibold">
                     {$_('nodeDetail.vendor')}
                   </td>
-                  <td class="py-3 px-5 text-slate-800 dark:text-slate-200 font-medium">
+                  <td class="py-1 px-2 text-slate-800 dark:text-slate-200 font-medium">
                     {node.vendor || (node as any).Vendor || "-"}
                   </td>
                 </tr>
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td class="py-3 px-5 text-slate-600 dark:text-slate-400 font-semibold">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-semibold">
                     {$_('nodeDetail.descr')}
                   </td>
-                  <td class="py-3 px-5 text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
                     {node.descr || (node as any).Descr || "-"}
                   </td>
                 </tr>
@@ -881,7 +881,7 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="py-1.5 px-3 w-40 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("last_time")}>
+                      <th class="py-1 px-2 w-40 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("last_time")}>
                         <div class="inline-flex items-center gap-1">
                           <span>{$_('nodeDetail.colLastTime')}</span>
                           {#if pollSortCol === "last_time"}
@@ -896,24 +896,24 @@
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
                     {#each paginatedPollings as p}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td class="py-1 px-3 whitespace-nowrap">
+                        <td class="py-1 px-2 whitespace-nowrap">
                           <span
                             class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold border"
-                            style="background-color: {getStateColor(p.state)}18; border-color: {getStateColor(p.state)}50; color: {getStateColor(p.state)}"
+                            style="background-color: {getStateColor((p as PollingEnt).state)}18; border-color: {getStateColor((p as PollingEnt).state)}50; color: {getStateColor((p as PollingEnt).state)}"
                           >
-                            <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(p.state)}"></span>
-                            {getStateName(p.state, $_)}
+                            <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor((p as PollingEnt).state)}"></span>
+                            {getStateName((p as PollingEnt).state, $_)}
                           </span>
                         </td>
-                        <td class="py-1 px-3 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{p.name}</td>
-                        <td class="py-1 px-3 whitespace-nowrap">
+                        <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{(p as PollingEnt).name}</td>
+                        <td class="py-1 px-2 whitespace-nowrap">
                           <span class="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase bg-blue-50 dark:bg-cyan-500/10 text-blue-700 dark:text-cyan-300 border border-blue-200 dark:border-cyan-500/30">
-                            {p.type}
+                            {(p as PollingEnt).type}
                           </span>
                         </td>
-                        <td class="py-1 px-3 text-slate-600 dark:text-slate-400 truncate max-w-xs text-[11px]">{p.target || "-"}</td>
-                        <td class="py-1 px-3 text-blue-600 dark:text-cyan-400 font-semibold whitespace-nowrap text-[11px]">{p.last_val ?? "-"}</td>
-                        <td class="py-1 px-3 text-slate-500 text-[11px] whitespace-nowrap">{p.last_time ? formatTimeStr(p.last_time) : "-"}</td>
+                        <td class="py-1 px-2 text-slate-600 dark:text-slate-400 truncate max-w-xs text-[11px]">{(p as PollingEnt).target || "-"}</td>
+                        <td class="py-1 px-2 text-blue-600 dark:text-cyan-400 font-semibold whitespace-nowrap text-[11px]">{(p as PollingEnt).last_val ?? "-"}</td>
+                        <td class="py-1 px-2 text-slate-500 text-[11px] whitespace-nowrap">{(p as PollingEnt).last_time ? formatTimeStr((p as PollingEnt).last_time) : "-"}</td>
                       </tr>
                     {/each}
                   </tbody>
@@ -1009,21 +1009,21 @@
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
                     {#each paginatedLogs as l}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td class="py-1 px-3 whitespace-nowrap">
+                        <td class="py-1 px-2 whitespace-nowrap">
                           <span
                             class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase border"
-                            style="background-color: {getStateColor(l.level)}18; border-color: {getStateColor(l.level)}50; color: {getStateColor(l.level)}"
+                            style="background-color: {getStateColor((l as EventLogEnt).level)}18; border-color: {getStateColor((l as EventLogEnt).level)}50; color: {getStateColor((l as EventLogEnt).level)}"
                           >
-                            {l.level}
+                            {(l as EventLogEnt).level}
                           </span>
                         </td>
-                        <td class="py-1 px-3 text-blue-600 dark:text-cyan-400 font-semibold text-[11px] whitespace-nowrap">{formatTimeStr(l.time)}</td>
-                        <td class="py-1 px-3 whitespace-nowrap">
+                        <td class="py-1 px-2 text-blue-600 dark:text-cyan-400 font-semibold text-[11px] whitespace-nowrap">{formatTimeStr((l as EventLogEnt).time)}</td>
+                        <td class="py-1 px-2 whitespace-nowrap">
                           <span class="font-semibold uppercase text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-950 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-800 text-[10px]">
-                            {l.type}
+                            {(l as EventLogEnt).type}
                           </span>
                         </td>
-                        <td class="py-1 px-3 font-sans text-xs text-slate-800 dark:text-slate-100">{l.event}</td>
+                        <td class="py-1 px-2 font-sans text-xs text-slate-800 dark:text-slate-100">{(l as EventLogEnt).event}</td>
                       </tr>
                     {/each}
                   </tbody>
@@ -1132,16 +1132,16 @@
                     {#if hrSubTab === "system"}
                       <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3.5 w-16 cursor-pointer select-none" onclick={() => handleHrSort("Index")}>
+                          <th class="py-1 px-2 w-16 cursor-pointer select-none" onclick={() => handleHrSort("Index")}>
                             No
                           </th>
-                          <th class="py-2.5 px-3.5 w-1/3 cursor-pointer select-none" onclick={() => handleHrSort("Key")}>
+                          <th class="py-1 px-2 w-1/3 cursor-pointer select-none" onclick={() => handleHrSort("Key")}>
                             <div class="inline-flex items-center gap-1">
                               <span>{$_('nodeDetail.colKey')}</span>
                               {#if hrSortCol === "Key"}{#if hrSortDir === "asc"}<ArrowUp class="h-3 w-3" />{:else}<ArrowDown class="h-3 w-3" />{/if}{/if}
                             </div>
                           </th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Value")}>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Value")}>
                             <div class="inline-flex items-center gap-1">
                               <span>{$_('nodeDetail.colValue')}</span>
                               {#if hrSortCol === "Value"}{#if hrSortDir === "asc"}<ArrowUp class="h-3 w-3" />{:else}<ArrowDown class="h-3 w-3" />{/if}{/if}
@@ -1152,9 +1152,9 @@
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                         {#each paginatedHrList as sys}
                           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td class="py-2 px-3.5 text-slate-400">{sys.Index}</td>
-                            <td class="py-2 px-3.5 font-bold font-sans text-slate-800 dark:text-slate-200">{sys.Key}</td>
-                            <td class="py-2 px-3.5 text-blue-600 dark:text-cyan-400">{sys.Value}</td>
+                            <td class="py-1 px-2 text-slate-400">{"Index" in sys ? sys.Index : ""}</td>
+                            <td class="py-1 px-2 font-bold font-sans text-slate-800 dark:text-slate-200">{"Key" in sys ? sys.Key : ""}</td>
+                            <td class="py-1 px-2 text-blue-600 dark:text-cyan-400">{"Value" in sys ? sys.Value : ""}</td>
                           </tr>
                         {/each}
                       </tbody>
@@ -1162,21 +1162,21 @@
                     {:else if hrSubTab === "storage"}
                       <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Descr")}>{$_('nodeDetail.descr')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Size")}>{$_('nodeDetail.colSize')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Used")}>{$_('nodeDetail.colUsed')}</th>
-                          <th class="py-2.5 px-3.5 w-36 cursor-pointer select-none" onclick={() => handleHrSort("Rate")}>{$_('nodeDetail.colRate')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Descr")}>{$_('nodeDetail.descr')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Size")}>{$_('nodeDetail.colSize')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Used")}>{$_('nodeDetail.colUsed')}</th>
+                          <th class="py-1 px-2 w-36 cursor-pointer select-none" onclick={() => handleHrSort("Rate")}>{$_('nodeDetail.colRate')}</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                         {#each paginatedHrList as s}
                           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td class="py-2 px-3.5 font-sans font-semibold text-slate-800 dark:text-slate-200">{s.Descr}</td>
-                            <td class="py-2 px-3.5 text-slate-500">{s.Type}</td>
-                            <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{(s.Size / 1024 / 1024).toFixed(1)} MB</td>
-                            <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{(s.Used / 1024 / 1024).toFixed(1)} MB</td>
-                            <td class="py-2 px-3.5">
+                            <td class="py-1 px-2 font-sans font-semibold text-slate-800 dark:text-slate-200">{s.Descr}</td>
+                            <td class="py-1 px-2 text-slate-500">{s.Type}</td>
+                            <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{(s.Size / 1024 / 1024).toFixed(1)} MB</td>
+                            <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{(s.Used / 1024 / 1024).toFixed(1)} MB</td>
+                            <td class="py-1 px-2">
                               <div class="flex items-center gap-2">
                                 <div class="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                                   <div class="h-full rounded-full {s.Rate >= 90 ? 'bg-rose-500' : s.Rate >= 75 ? 'bg-amber-500' : 'bg-blue-600 dark:bg-cyan-500'}" style="width: {Math.min(100, Math.max(0, s.Rate))}%"></div>
@@ -1191,23 +1191,23 @@
                     {:else if hrSubTab === "device"}
                       <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Descr")}>{$_('nodeDetail.descr')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Status")}>{$_('nodeDetail.status')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Errors")}>Errors</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Descr")}>{$_('nodeDetail.descr')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Status")}>{$_('nodeDetail.status')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Errors")}>Errors</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                         {#each paginatedHrList as d}
                           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td class="py-2 px-3.5 font-sans font-semibold text-slate-800 dark:text-slate-200">{d.Descr}</td>
-                            <td class="py-2 px-3.5 text-slate-500">{d.Type}</td>
-                            <td class="py-2 px-3.5">
+                            <td class="py-1 px-2 font-sans font-semibold text-slate-800 dark:text-slate-200">{d.Descr}</td>
+                            <td class="py-1 px-2 text-slate-500">{d.Type}</td>
+                            <td class="py-1 px-2">
                               <span class="rounded px-2 py-0.5 text-[10px] font-semibold uppercase {d.Status === 'running' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">
                                 {d.Status}
                               </span>
                             </td>
-                            <td class="py-2 px-3.5 text-slate-400">{d.Errors || "-"}</td>
+                            <td class="py-1 px-2 text-slate-400">{d.Errors || "-"}</td>
                           </tr>
                         {/each}
                       </tbody>
@@ -1215,17 +1215,17 @@
                     {:else if hrSubTab === "filesystem"}
                       <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Mount")}>{$_('nodeDetail.colMount')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Remote")}>{$_('nodeDetail.colRemote')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Mount")}>{$_('nodeDetail.colMount')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Remote")}>{$_('nodeDetail.colRemote')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                         {#each paginatedHrList as f}
                           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td class="py-2 px-3.5 font-sans font-bold text-slate-800 dark:text-slate-200">{f.Mount}</td>
-                            <td class="py-2 px-3.5 text-slate-500">{f.Remote || "-"}</td>
-                            <td class="py-2 px-3.5 text-blue-600 dark:text-cyan-400">{f.Type}</td>
+                            <td class="py-1 px-2 font-sans font-bold text-slate-800 dark:text-slate-200">{f.Mount}</td>
+                            <td class="py-1 px-2 text-slate-500">{f.Remote || "-"}</td>
+                            <td class="py-1 px-2 text-blue-600 dark:text-cyan-400">{f.Type}</td>
                           </tr>
                         {/each}
                       </tbody>
@@ -1233,25 +1233,25 @@
                     {:else if hrSubTab === "process"}
                       <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3.5 w-20 cursor-pointer select-none" onclick={() => handleHrSort("PID")}>{$_('nodeDetail.colPID')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Name")}>{$_('nodeDetail.name')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Status")}>{$_('nodeDetail.status')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("CPU")}>{$_('nodeDetail.colCPU')}</th>
-                          <th class="py-2.5 px-3.5 cursor-pointer select-none" onclick={() => handleHrSort("Mem")}>{$_('nodeDetail.colMem')}</th>
+                          <th class="py-1 px-2 w-20 cursor-pointer select-none" onclick={() => handleHrSort("PID")}>{$_('nodeDetail.colPID')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Name")}>{$_('nodeDetail.name')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Status")}>{$_('nodeDetail.status')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("CPU")}>{$_('nodeDetail.colCPU')}</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Mem")}>{$_('nodeDetail.colMem')}</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                         {#each paginatedHrList as pr}
                           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td class="py-2 px-3.5 text-slate-400">{pr.PID}</td>
-                            <td class="py-2 px-3.5 font-bold font-sans text-slate-900 dark:text-slate-100">{pr.Name}</td>
-                            <td class="py-2 px-3.5">
+                            <td class="py-1 px-2 text-slate-400">{pr.PID}</td>
+                            <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100">{pr.Name}</td>
+                            <td class="py-1 px-2">
                               <span class="rounded px-2 py-0.5 text-[10px] font-semibold uppercase {pr.Status === 'running' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">
                                 {pr.Status}
                               </span>
                             </td>
-                            <td class="py-2 px-3.5 text-blue-600 dark:text-cyan-400">{pr.CPU}</td>
-                            <td class="py-2 px-3.5 text-slate-700 dark:text-slate-300">{(pr.Mem / 1024).toFixed(1)} MB</td>
+                            <td class="py-1 px-2 text-blue-600 dark:text-cyan-400">{pr.CPU}</td>
+                            <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{(pr.Mem / 1024).toFixed(1)} MB</td>
                           </tr>
                         {/each}
                       </tbody>

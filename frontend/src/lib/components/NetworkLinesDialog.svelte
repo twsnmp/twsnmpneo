@@ -30,7 +30,7 @@
   // Filter lines connected to this network
   let hubLines = $derived.by(() => {
     if (!netId) return [];
-    return lines.filter((l) => {
+    return lines.filter((l: LineEnt) => {
       const n1 = l.node_id1 || (l as any).NodeID1 || "";
       const n2 = l.node_id2 || (l as any).NodeID2 || "";
       return n1 === netPrefix || n2 === netPrefix;
@@ -48,7 +48,7 @@
     // Local port name
     let localPortName = "-";
     if (network && network.ports) {
-      const p = network.ports.find((port) => (port.id || (port as any).ID) === localPortId);
+      const p = network.ports.find((port: any) => (port.id || port.ID) === localPortId);
       if (p) localPortName = p.name || (p as any).Name || localPortId;
     }
 
@@ -57,17 +57,17 @@
     let remoteType = "node";
     if (remoteId.startsWith("NET:")) {
       remoteType = "net";
-      const rn = networks.find((net) => (net.id || (net as any).ID) === remoteId.replace("NET:", ""));
+      const rn = networks.find((net: NetworkEnt) => (net.id || (net as any).ID) === remoteId.replace("NET:", ""));
       if (rn) remoteName = rn.name || (rn as any).Name || remoteId;
     } else {
-      const rn = nodes.find((node) => (node.id || (node as any).ID) === remoteId);
+      const rn = nodes.find((node: NodeEnt) => (node.id || (node as any).ID) === remoteId);
       if (rn) remoteName = `${rn.name || (rn as any).Name || remoteId} (${rn.ip || (rn as any).IP || ""})`;
     }
 
     // Remote port/polling
     let remotePollingName = "-";
     if (remotePollingId) {
-      const poll = pollings.find((p) => (p.id || (p as any).ID) === remotePollingId);
+      const poll = pollings.find((p: PollingEnt) => (p.id || (p as any).ID) === remotePollingId);
       if (poll) remotePollingName = poll.name || (poll as any).Name || remotePollingId;
       else remotePollingName = remotePollingId;
     }
@@ -144,21 +144,21 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300">
               <thead class="bg-slate-100/80 dark:bg-slate-950/80 uppercase font-mono text-[11px] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th class="py-2.5 px-3">{$_('networkLines.colLocalPort')}</th>
-                  <th class="py-2.5 px-3">{$_('networkLines.colRemoteDevice')}</th>
-                  <th class="py-2.5 px-3">{$_('networkLines.colRemotePolling')}</th>
-                  <th class="py-2.5 px-3">{$_('networkLines.colState')}</th>
-                  <th class="py-2.5 px-3 text-right">{$_('networkLines.colAction')}</th>
+                  <th class="py-1 px-2">{$_('networkLines.colLocalPort')}</th>
+                  <th class="py-1 px-2">{$_('networkLines.colRemoteDevice')}</th>
+                  <th class="py-1 px-2">{$_('networkLines.colRemotePolling')}</th>
+                  <th class="py-1 px-2">{$_('networkLines.colState')}</th>
+                  <th class="py-1 px-2 text-right">{$_('networkLines.colAction')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60">
                 {#each hubLines as l}
                   {@const info = getTargetInfo(l)}
                   <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-2 px-3 font-semibold text-cyan-700 dark:text-cyan-300">
+                    <td class="py-1 px-2 font-semibold text-cyan-700 dark:text-cyan-300">
                       {info.localPortName}
                     </td>
-                    <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-100">
+                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100">
                       <div class="flex items-center gap-2">
                         {#if info.remoteType === 'net'}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
@@ -168,16 +168,16 @@
                         <span class="truncate">{info.remoteName}</span>
                       </div>
                     </td>
-                    <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate">
+                    <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate">
                       {info.remotePollingName}
                     </td>
-                    <td class="py-2 px-3">
+                    <td class="py-1 px-2">
                       <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border border-slate-200 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300">
                         <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(l.state || (l as any).State || 'normal')}"></span>
                         {l.state || (l as any).State || 'normal'}
                       </span>
                     </td>
-                    <td class="py-2 px-3 text-right">
+                    <td class="py-1 px-2 text-right">
                       <div class="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
