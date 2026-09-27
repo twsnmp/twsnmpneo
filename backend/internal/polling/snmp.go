@@ -15,6 +15,10 @@ import (
 // SNMPPoller queries SNMP agents for MIB values.
 type SNMPPoller struct{}
 
+func NewSNMPPoller() *SNMPPoller {
+	return &SNMPPoller{}
+}
+
 func (p *SNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	if node == nil || node.IP == "" {
 		return &Result{

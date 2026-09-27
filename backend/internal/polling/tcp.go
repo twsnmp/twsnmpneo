@@ -15,6 +15,10 @@ import (
 // TCPPoller checks TCP port reachability and optionally verifies banner text.
 type TCPPoller struct{}
 
+func NewTCPPoller() *TCPPoller {
+	return &TCPPoller{}
+}
+
 func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	if node == nil || node.IP == "" {
 		return &Result{

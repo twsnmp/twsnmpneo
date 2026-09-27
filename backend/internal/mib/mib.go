@@ -1038,7 +1038,8 @@ func DecodeTrap(packet *gosnmp.SnmpPacket, srcIP string, nodeName string) (trapT
 			if sb.Len() > 0 {
 				sb.WriteString(" ")
 			}
-			sb.WriteString("Enterprise=" + ent)
+			sb.WriteString("Enterprise=")
+			sb.WriteString(ent)
 		}
 	} else {
 		// SNMPv2c / SNMPv3

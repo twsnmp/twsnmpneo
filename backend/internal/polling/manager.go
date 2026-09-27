@@ -50,13 +50,13 @@ func NewManager(cfg Config) *Manager {
 	}
 
 	// Register core pollers
-	m.RegisterPoller("ping", &PingPoller{})
+	m.RegisterPoller("ping", NewPingPoller())
 	m.RegisterPoller("http", NewHTTPPoller())
 	m.RegisterPoller("https", NewHTTPPoller())
-	m.RegisterPoller("tcp", &TCPPoller{})
-	m.RegisterPoller("dns", &DNSPoller{})
-	m.RegisterPoller("ntp", &NTPPoller{})
-	m.RegisterPoller("snmp", &SNMPPoller{})
+	m.RegisterPoller("tcp", NewTCPPoller())
+	m.RegisterPoller("dns", NewDNSPoller())
+	m.RegisterPoller("ntp", NewNTPPoller())
+	m.RegisterPoller("snmp", NewSNMPPoller())
 
 	return m
 }

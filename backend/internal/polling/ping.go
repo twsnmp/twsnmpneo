@@ -13,6 +13,10 @@ import (
 // PingPoller performs connectivity check via ICMP.
 type PingPoller struct{}
 
+func NewPingPoller() *PingPoller {
+	return &PingPoller{}
+}
+
 func (p *PingPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	target := ""
 	if pe != nil && pe.Params != "" && !strings.Contains(pe.Params, "=") {
