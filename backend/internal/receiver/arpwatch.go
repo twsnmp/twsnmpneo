@@ -17,6 +17,7 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 )
@@ -67,7 +68,7 @@ func (s *ArpWatchServer) Start(ctx context.Context) error {
 			Time:  time.Now().UnixNano(),
 			Type:  "arpwatch",
 			Level: "info",
-			Event: "ARP監視を開始しました",
+			Event: i18n.Trans("Starting ARP Watch Engine..."),
 		})
 
 		// Restore existing table from store
@@ -105,7 +106,7 @@ func (s *ArpWatchServer) Start(ctx context.Context) error {
 					Time:  time.Now().UnixNano(),
 					Type:  "arpwatch",
 					Level: "info",
-					Event: "ARP監視を停止しました",
+					Event: i18n.Trans("Stopping ARP Watch Engine..."),
 				})
 			}
 			return nil
@@ -269,7 +270,7 @@ func (s *ArpWatchServer) makeLocalCheckAddrs(ctx context.Context) {
 						Time:  time.Now().UnixNano(),
 						Type:  "arpwatch",
 						Level: "info",
-						Event: fmt.Sprintf("ARP監視範囲 %s 利用率: %d/%d (%.2f%%)", r, localHitCount, localIPCount, lau),
+						Event: fmt.Sprintf(i18n.Trans("ARP monitoring range %s utilization: %d/%d (%.2f%%)"), r, localHitCount, localIPCount, lau),
 					})
 				}
 			}
@@ -446,6 +447,9 @@ func (s *ArpWatchServer) getArpOutputUnix() []string {
 					res = append(res, fmt.Sprintf("? (%s) at %s on %s", fields[0], fields[3], fields[5]))
 				}
 			}
+			if err := scanner.Err(); err != nil {
+				slog.Debug("failed to read /proc/net/arp", "error", err)
+			}
 			return res
 		}
 	}
@@ -537,7 +541,7 @@ func (s *ArpWatchServer) updateArpTable(ctx context.Context, ip, mac string) {
 				Type:     "arpwatch",
 				Level:    "info",
 				NodeName: nodeName,
-				Event:    fmt.Sprintf("新規MACアドレス検知 %s (%s - %s)", ip, mac, vendor),
+				Event:    fmt.Sprintf(i18n.Trans("New MAC address detected %s (%s - %s)"), ip, mac, vendor),
 			})
 		}
 		slog.Info("ARP Watch: New device detected", "ip", ip, "mac", mac, "vendor", vendor)
@@ -571,7 +575,7 @@ func (s *ArpWatchServer) updateArpTable(ctx context.Context, ip, mac string) {
 				Type:     "arpwatch",
 				Level:    "warn",
 				NodeName: nodeName,
-				Event:    fmt.Sprintf("MACアドレス変更検知 %s (%s -> %s)", ip, oldMAC, mac),
+				Event:    fmt.Sprintf(i18n.Trans("MAC address change detected %s (%s -> %s)"), ip, oldMAC, mac),
 			})
 		}
 		slog.Warn("ARP Watch: MAC address change detected", "ip", ip, "oldMAC", oldMAC, "newMAC", mac)
@@ -626,7 +630,7 @@ func (s *ArpWatchServer) checkNodeMAC(ctx context.Context) {
 					Level:    "info",
 					NodeID:   n.ID,
 					NodeName: n.Name,
-					Event:    fmt.Sprintf("ノード %s のMACアドレスを自動登録しました: %s (%s)", n.Name, mac, n.Vendor),
+					Event:    fmt.Sprintf(i18n.Trans("Node %s add MAC address %s (%s)"), n.Name, mac, n.Vendor),
 				})
 			} else if normMACAddr(n.MAC) != mac {
 				oldMAC := n.MAC
@@ -639,7 +643,7 @@ func (s *ArpWatchServer) checkNodeMAC(ctx context.Context) {
 					Level:    "warn",
 					NodeID:   n.ID,
 					NodeName: n.Name,
-					Event:    fmt.Sprintf("ノード %s のMACアドレス変更を検知・更新しました: %s -> %s", n.Name, oldMAC, mac),
+					Event:    fmt.Sprintf(i18n.Trans("Node %s change MAC address: %s -> %s"), n.Name, oldMAC, mac),
 				})
 			}
 		}

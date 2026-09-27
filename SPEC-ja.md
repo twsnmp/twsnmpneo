@@ -79,6 +79,8 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
   * トポロジー自動探索: ARPテーブル・FDB・LLDP情報を走査し、ノード/SW-HUB間の近傍接続を探索・自動接続。
 * **通知機能**:
   * Email (SMTP / OAuth2), Slack, LINE, Microsoft Teams, Discord, Mattermost, Chatwork, Webhooks
+* **国際化 (i18n)**:
+  * `github.com/jeandeaual/go-locale` および内部パッケージ `backend/internal/i18n` によるイベントログ、システムリソース警告、デーモン通知の多言語化対応（日本語・英語）。
 
 ### 2.2 フロントエンド (SPA)
 * **言語/フレームワーク**: Svelte 5 (Runesベース: `$state`, `$derived`, `$props`) + Vite + TypeScript
@@ -286,6 +288,46 @@ TWSNMP NEO のすべての画面・コンポーネント開発において、統
 * **上部サマリーダッシュボード (`h-64`)**:
   - メインテーブルの上部に高さ `h-64` 前後のサマリーダッシュボードを配置する。
   - 左端に4つのKPIカードを縦一列にコンパクト配置し、右側の広大なエリアを活用して状態分布円グラフやTop N横棒グラフ、散布図などを並列表示する。
+
+#### 4.10.5 多言語対応・国際化 (i18n) 標準規約
+* **バックエンド国際化アーキテクチャ (`backend/internal/i18n`)**:
+  - **CLI設定 & ロケール自動判定**:
+    - `-lang` コマンドライン引数（`en` または `ja`）による言語指定をサポート。
+    - `github.com/jeandeaual/go-locale` を利用した OS ロケールの自動検出および英語（`en`）フォールバック機構を具備。
+  - **翻訳エンジン & マスターキー管理**:
+    - マスターキーを英語文字列として管理（`Trans(key)`）。設定言語が `ja` の場合は対応する日本語訳を返却し、未登録キーや非対応言語の場合は英語キーをそのままフォールバック。
+    - `sync.RWMutex` によるスレッドセーフな言語設定・取得（`SetLang(l)`, `GetLang()`）。
+  - **ローカライズ対象イベントログ & システム通知**:
+    - トポロジー変更、ノード・ポーリング・ライン・ネットワーク・描画アイテム等の CRUD イベントログ、ARP監視イベント、ストレージ/メモリ/CPU高負荷等のリソース警告、各種レシーバーの起動・停止メッセージを動的に多言語化。
+* **フロントエンド国際化基盤 (`svelte-i18n`)**:
+  - `svelte-i18n` による多言語管理。サポート対象は日本語（`ja`、デフォルト）および英語（`en`）。
+  - 選択中のロケールは `localStorage` の `twsnmp_locale` に永続化し、上部ナビゲーションバーの言語切替ボタンから即座に変更可能。
+* **100% 翻訳キー同期規約 (Key Parity)**:
+  - `frontend/src/locales/ja.json` と `frontend/src/locales/en.json` は厳格に 1:1 のキー同期を維持し、片方に存在するキーは必ずもう片方にも定義する。
+  - Svelte テンプレート内への非英語・非日本語文字列のハードコードを禁止し、すべて `$_('...')` または動的ガード（`(get(locale) || 'ja').startsWith('ja') ? ... : ...`）経由で表示する。
+* **共通ユーティリティ & フォーマット標準 (`common.ts`)**:
+  - **状態名解決 (`getStateName(state, t)`)**: 現在のロケールに応じて状態名称（`重度障害` / `High Severity`、`軽度障害` / `Low Severity`、`注意` / `Warning`、`正常` / `Normal`、`復旧` / `Repaired`、`不明` / `Unknown`）を動的解決。
+  - **所要時間フォーマット (`renderDuration(sec)`)**: 日本語表示時は「X日 Y時間 Z分 W秒」、英語表示時は「Xd Yh Zm Ws」を動的に生成。
+  - **メタデータコレクション (`stateList`, `iconList`, `addrModeList`)**: 英語メタデータフィールド（`textEn`, `nameEn`）およびアクセサ（`getIconName(val)`, `getAddrModeName(val)`）を完備。
+* **Canvas およびテレメトリチャートの国際化 (`map.ts`, `vpanel.ts`, `echarts`)**:
+  - p5.js Canvas 描画エンジンおよび ECharts のツールチップ・軸ラベルは、`(get(locale) || 'ja').startsWith('ja')` によりアクティブ言語を動的判定して描画。
+
+#### 4.10.6 AI Cat アシスタント仕様
+* **キャラクター & ペルソナ規約**:
+  - AI アシスタントの正式名称は **AI Cat アシスタント / AI Cat Assistant**。
+  - キャラクターアバター画像（`frontend/src/assets/images/aicat_thumb.jpg`）を `CatAvatar.svelte` 経由で表示。
+* **ゼロレイテンシ スライドインドロワー**:
+  - `App.svelte` にグローバル配置されたオフキャンバスドロワー（`fixed inset-0 z-50 flex justify-end`、CSS transform `translate-x-full` -> `translate-x-0`）。
+  - コンポーネント初期化ラグやネットワーク遅延を排除するため、DOMに事前マウント（プリマウント）。
+* **コンテキスト認識型アシスタンス**:
+  - クイッククエリ用の提案チップ（ネットワーク診断、高負荷検知、ログ異常スキャンなど）をプリロード。
+  - バックエンド LLM オーケストレーションおよび MCP 診断ツール群との直接連携。
+
+#### 4.10.7 GeoIP データベース管理標準
+* **データベース形式**: MaxMind GeoLite2 / GeoIP2 City & ASN バイナリデータベース（`.mmdb`）。
+* **UI & 自動検出**:
+  - ドラッグ＆ドロップ対応のアップロード UI。
+  - ファイル種別（City / ASN）およびバージョン・ビルド日時の自動パースと表示。
 
 ---
 

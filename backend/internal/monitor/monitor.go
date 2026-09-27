@@ -20,6 +20,7 @@ import (
 	gopsnet "github.com/shirou/gopsutil/v3/net"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 )
 
 const (
@@ -55,11 +56,11 @@ type Config struct {
 
 // Monitor manages system resource tracking.
 type Monitor struct {
-	dataDir  string
-	store    datastore.DataStore
-	interval time.Duration
-	mu       sync.RWMutex
-	data     []*MonitorDataEnt
+	dataDir   string
+	store     datastore.DataStore
+	interval  time.Duration
+	mu        sync.RWMutex
+	data      []*MonitorDataEnt
 	startTime time.Time
 }
 
@@ -282,7 +283,7 @@ func (m *Monitor) checkResourceAlert(ctx context.Context) {
 			Time:  time.Now().UnixNano(),
 			Type:  "system",
 			Level: level,
-			Event: fmt.Sprintf("メモリ使用量警告 (Host: %.1f%%, Process: %.1f%%)", memMean, myMemMean),
+			Event: fmt.Sprintf(i18n.Trans("Memory usage warning (Host: %.1f%%, Process: %.1f%%)"), memMean, myMemMean),
 		})
 	}
 
@@ -298,7 +299,7 @@ func (m *Monitor) checkResourceAlert(ctx context.Context) {
 			Time:  time.Now().UnixNano(),
 			Type:  "system",
 			Level: level,
-			Event: fmt.Sprintf("ストレージ容量逼迫警告 (Disk: %.1f%%)", latestDisk),
+			Event: fmt.Sprintf(i18n.Trans("Storage usage warning (Disk: %.1f%%)"), latestDisk),
 		})
 	}
 
@@ -308,7 +309,7 @@ func (m *Monitor) checkResourceAlert(ctx context.Context) {
 			Time:  time.Now().UnixNano(),
 			Type:  "system",
 			Level: "high",
-			Event: fmt.Sprintf("CPU高負荷警告 (Load Avg: %.2f / CPU数: %d)", loadMean, runtime.NumCPU()),
+			Event: fmt.Sprintf(i18n.Trans("CPU high load warning (Load Avg: %.2f / CPU count: %d)"), loadMean, runtime.NumCPU()),
 		})
 	}
 }

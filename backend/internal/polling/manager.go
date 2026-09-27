@@ -10,6 +10,7 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 )
 
 // Config defines options for the Polling Manager.
@@ -180,11 +181,12 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 				nodeName = node.Name
 			}
 			level := "info"
-			if res.State == StateWarn {
+			switch res.State {
+			case StateWarn:
 				level = "warn"
-			} else if res.State == StateHigh {
+			case StateHigh:
 				level = "high"
-			} else if res.State == StateNormal {
+			case StateNormal:
 				if oldState == StateWarn || oldState == StateHigh {
 					level = "repair"
 				} else {
@@ -201,7 +203,7 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 				Level:     level,
 				NodeName:  nodeName,
 				NodeID:    p.NodeID,
-				Event:     fmt.Sprintf("ポーリング %s: %s -> %s (%s)", p.Name, dispOld, res.State, res.Message),
+				Event:     fmt.Sprintf(i18n.Trans("Polling %s: %s -> %s (%s)"), p.Name, dispOld, res.State, res.Message),
 				LastLevel: oldState,
 			})
 		}

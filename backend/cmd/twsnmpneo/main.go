@@ -19,6 +19,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
@@ -63,6 +64,7 @@ func main() {
 	commit = resolveCommit()
 	var (
 		dataDir     = flag.String("datadir", "./data", "Directory to store database and log files")
+		lang        = flag.String("lang", "en", "Language (en or ja)")
 		port        = flag.Int("port", 8080, "Web interface port")
 		syslogUDP   = flag.Int("syslog-udp", 0, "Syslog UDP port (0 to disable or default)")
 		syslogTCP   = flag.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
@@ -75,11 +77,13 @@ func main() {
 		verFlag     = flag.Bool("version", false, "Show version and exit")
 	)
 	flag.Parse()
-
 	explicitFlags := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {
 		explicitFlags[f.Name] = true
 	})
+	if explicitFlags["lang"] {
+		i18n.SetLang(*lang)
+	}
 
 	if *verFlag {
 		fmt.Printf("twsnmpneo %s (commit: %s, date: %s)\n", version, commit, date)
@@ -161,7 +165,7 @@ func main() {
 		Time:  time.Now().UnixNano(),
 		Type:  "system",
 		Level: "info",
-		Event: fmt.Sprintf("TWSNMP NEO %s サービスを起動しました (Webポート: %d)", version, *port),
+		Event: fmt.Sprintf(i18n.Trans("TWSNMP NEO %s started (Web port: %d)"), version, *port),
 	})
 
 	// Ensure default Ping polling exists for all nodes with IP
@@ -192,7 +196,7 @@ func main() {
 				Level:    "info",
 				NodeName: n.Name,
 				NodeID:   n.ID,
-				Event:    fmt.Sprintf("ノード %s (%s) の Ping ポーリングを開始しました", n.Name, n.IP),
+				Event:    fmt.Sprintf(i18n.Trans("Start polling node %s (%s)"), n.Name, n.IP),
 			})
 		}
 	}
@@ -313,14 +317,14 @@ func main() {
 
 	// Receiver info map for UI
 	receiversInfo := map[string]any{
-		"syslog": map[string]any{"port": fmt.Sprintf("UDP :%d / TCP :%d", sUDP, sTCP), "status": "running"},
-		"trap":   map[string]any{"port": fmt.Sprintf("UDP :%d (v1/v2c/v3)", tPort), "status": "running"},
+		"syslog":  map[string]any{"port": fmt.Sprintf("UDP :%d / TCP :%d", sUDP, sTCP), "status": "running"},
+		"trap":    map[string]any{"port": fmt.Sprintf("UDP :%d (v1/v2c/v3)", tPort), "status": "running"},
 		"netflow": map[string]any{"port": fmt.Sprintf("UDP :%d", nfPort), "status": "running"},
-		"sflow":  map[string]any{"port": fmt.Sprintf("UDP :%d", sfPort), "status": "running"},
-		"otel":   map[string]any{"port": fmt.Sprintf("HTTP :%d (OTLP)", oPort), "status": "running"},
-		"mqtt":   map[string]any{"port": fmt.Sprintf("TCP :%d", mPort), "status": "running"},
-		"mcp":    map[string]any{"port": "SSE /api/mcp/sse", "status": "running"},
-		"arp":    map[string]any{"status": "running", "range": arpWatchRange},
+		"sflow":   map[string]any{"port": fmt.Sprintf("UDP :%d", sfPort), "status": "running"},
+		"otel":    map[string]any{"port": fmt.Sprintf("HTTP :%d (OTLP)", oPort), "status": "running"},
+		"mqtt":    map[string]any{"port": fmt.Sprintf("TCP :%d", mPort), "status": "running"},
+		"mcp":     map[string]any{"port": "SSE /api/mcp/sse", "status": "running"},
+		"arp":     map[string]any{"status": "running", "range": arpWatchRange},
 	}
 
 	// Initialize Web/API server

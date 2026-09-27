@@ -21,6 +21,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/discover"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"github.com/twsnmp/twsnmpneo/backend/internal/layout"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
@@ -203,9 +204,9 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := cfg.Store.SaveNode(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			action := "更新"
+			var eventMsg string
 			if isNew {
-				action = "追加"
+				eventMsg = fmt.Sprintf(i18n.Trans("Added node %s (%s)"), n.Name, n.IP)
 				// Auto-create default Ping polling if node has IP
 				if n.IP != "" {
 					pID := datastore.GenerateID()
@@ -222,6 +223,8 @@ func NewServer(cfg Config) (*Server, error) {
 						NextTime: time.Now().UnixNano(),
 					})
 				}
+			} else {
+				eventMsg = fmt.Sprintf(i18n.Trans("Updated node %s (%s)"), n.Name, n.IP)
 			}
 			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
 				Time:     time.Now().UnixNano(),
@@ -229,7 +232,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Level:    "info",
 				NodeName: n.Name,
 				NodeID:   n.ID,
-				Event:    fmt.Sprintf("ノード %s (%s) を%sしました", n.Name, n.IP, action),
+				Event:    eventMsg,
 			})
 			return c.JSON(http.StatusOK, &n)
 		})
@@ -256,7 +259,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Level:    "warn",
 				NodeName: name,
 				NodeID:   id,
-				Event:    fmt.Sprintf("ノード %s を削除しました", name),
+				Event:    fmt.Sprintf(i18n.Trans("Delete node %s"), name),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -326,7 +329,7 @@ func NewServer(cfg Config) (*Server, error) {
 			} else {
 				existing, err := cfg.Store.GetPolling(c.Request().Context(), p.ID)
 				if err == nil && existing != nil {
-					if p.Result == nil || len(p.Result) == 0 {
+					if len(p.Result) == 0 {
 						p.Result = existing.Result
 					}
 					if p.LastTime == 0 {
@@ -358,11 +361,11 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
-				Time:     time.Now().UnixNano(),
-				Type:     "user",
-				Level:    "info",
-				NodeID:   p.NodeID,
-				Event:    fmt.Sprintf("ポーリング %s を保存しました", p.Name),
+				Time:   time.Now().UnixNano(),
+				Type:   "user",
+				Level:  "info",
+				NodeID: p.NodeID,
+				Event:  fmt.Sprintf(i18n.Trans("Saved polling %s"), p.Name),
 			})
 			return c.JSON(http.StatusOK, &p)
 		})
@@ -380,7 +383,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "warn",
-				Event: fmt.Sprintf("ポーリング %s を削除しました", name),
+				Event: fmt.Sprintf(i18n.Trans("Delete polling %s"), name),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -419,7 +422,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("ラインを結線/更新しました (%s - %s)", l.NodeID1, l.NodeID2),
+				Event: fmt.Sprintf(i18n.Trans("Update line %s - %s"), l.NodeID1, l.NodeID2),
 			})
 			return c.JSON(http.StatusOK, &l)
 		})
@@ -437,7 +440,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("ラインを切断/削除しました (%s)", info),
+				Event: fmt.Sprintf(i18n.Trans("Delete line %s"), info),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -533,7 +536,7 @@ func NewServer(cfg Config) (*Server, error) {
 					Time:  time.Now().UnixNano(),
 					Type:  "system",
 					Level: "info",
-					Event: fmt.Sprintf("自動トポロジー探索により %d 本のラインを結線しました", count),
+					Event: fmt.Sprintf(i18n.Trans("Connected %d lines automatically"), count),
 				})
 			}
 			return c.JSON(http.StatusOK, map[string]int{"connected": count})
@@ -654,15 +657,17 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := cfg.Store.SaveNetwork(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			action := "更新"
+			var eventMsg string
 			if isNew {
-				action = "追加"
+				eventMsg = fmt.Sprintf(i18n.Trans("Added network %s (%s)"), n.Name, n.IP)
+			} else {
+				eventMsg = fmt.Sprintf(i18n.Trans("Updated network %s (%s)"), n.Name, n.IP)
 			}
 			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("ネットワーク %s を%sしました", n.Name, action),
+				Event: eventMsg,
 			})
 			return c.JSON(http.StatusOK, &n)
 		})
@@ -697,7 +702,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "warn",
-				Event: fmt.Sprintf("ネットワーク %s を削除しました", name),
+				Event: fmt.Sprintf(i18n.Trans("Delete network %s"), name),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -737,15 +742,17 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := cfg.Store.SaveDrawItem(c.Request().Context(), &item); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			action := "更新"
+			var eventMsg string
 			if isNew {
-				action = "追加"
+				eventMsg = fmt.Sprintf(i18n.Trans("Added drawitem %s"), item.Text)
+			} else {
+				eventMsg = fmt.Sprintf(i18n.Trans("Updated drawitem %s"), item.Text)
 			}
 			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("描画アイテム %s を%sしました", item.Text, action),
+				Event: eventMsg,
 			})
 			checkDrawItem(c.Request().Context(), cfg.Store, &item)
 			return c.JSON(http.StatusOK, &item)
@@ -765,14 +772,11 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			name := di.Text
-			if name == "" {
-				name = "新規アイテム"
-			}
 			_ = cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("描画アイテム %s をコピーしました", name),
+				Event: fmt.Sprintf(i18n.Trans("Copy DrawItem %s"), name),
 			})
 			checkDrawItem(ctx, cfg.Store, &di)
 			return c.JSON(http.StatusOK, &di)
@@ -786,7 +790,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: "描画アイテムを削除しました",
+				Event: i18n.Trans("Delete drawitem"),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -992,7 +996,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: "IP位置情報DBを更新しました",
+				Event: i18n.Trans("Updated GeoIP database"),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"resp": "ok", "version": datastore.GetGeoIPInfo()})
 		}
@@ -1009,7 +1013,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: "IP位置情報DBを削除しました",
+				Event: i18n.Trans("Delete geoip database"),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"resp": "ok"})
 		}
@@ -1078,7 +1082,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "warn",
-				Event: "すべてのイベントログを消去しました",
+				Event: i18n.Trans("Delete all event logs"),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -1132,7 +1136,7 @@ func NewServer(cfg Config) (*Server, error) {
 					Time:  time.Now().UnixNano(),
 					Type:  "user",
 					Level: "warn",
-					Event: fmt.Sprintf("%s ログを消去しました", typeStr),
+					Event: fmt.Sprintf(i18n.Trans("Delete logs %s"), typeStr),
 				})
 			}
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
@@ -1200,7 +1204,7 @@ func NewServer(cfg Config) (*Server, error) {
 						Time:  time.Now().UnixNano(),
 						Type:  "user",
 						Level: "warn",
-						Event: "ARP監視テーブルを全消去しました",
+						Event: i18n.Trans("Reset ARP table"),
 					})
 				}
 				return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})
@@ -1227,7 +1231,7 @@ func NewServer(cfg Config) (*Server, error) {
 					Time:  time.Now().UnixNano(),
 					Type:  "user",
 					Level: "info",
-					Event: fmt.Sprintf("ARP監視エントリーを削除しました (IP: %s)", strings.Join(targetIPs, ", ")),
+					Event: fmt.Sprintf(i18n.Trans("Delete arp entry (IP: %s)"), strings.Join(targetIPs, ", ")),
 				})
 			}
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
@@ -1273,7 +1277,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf("MQTT統計を削除しました (%d件)", len(targetIDs)),
+				Event: fmt.Sprintf(i18n.Trans("Delete mqtt stats (%d items)"), len(targetIDs)),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -1285,7 +1289,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "warn",
-				Event: "すべてのMQTT統計を削除しました",
+				Event: i18n.Trans("Delete all mqtt stats"),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})
 		})
@@ -1409,7 +1413,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "warn",
-				Event: "全OpenTelemetryデータを消去しました",
+				Event: i18n.Trans("Delete all OpenTelemetry data"),
 			})
 			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 		})
@@ -1818,4 +1822,3 @@ func checkDrawItem(ctx context.Context, store datastore.DataStore, di *datastore
 		}
 	}
 }
-

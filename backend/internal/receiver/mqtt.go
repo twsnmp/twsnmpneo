@@ -240,7 +240,8 @@ func (s *MQTTServer) handleClient(ctx context.Context, conn net.Conn) {
 
 func (s *MQTTServer) updateStat(clientID, remote, topic string, payload []byte) {
 	// #nosec G401
-	k := fmt.Sprintf("%x", sha1.Sum([]byte(fmt.Sprintf("%s\t%s", clientID, topic))))
+	id := fmt.Appendf(nil, "%s\t%s", clientID, topic)
+	k := fmt.Sprintf("%x", sha1.Sum(id))
 	now := time.Now().UnixNano()
 
 	s.statMu.Lock()

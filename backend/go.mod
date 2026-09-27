@@ -6,6 +6,7 @@ require (
 	github.com/Cistern/sflow v0.0.0-20240622235316-ed105e3cf9fb
 	github.com/google/gopacket v1.1.19
 	github.com/gosnmp/gosnmp v1.45.0
+	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/montanaflynn/stats v0.7.1

@@ -76,6 +76,8 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
   * Private PKI (Certificate Authority, SCEP, ACME, OCSP)
 * **Notifications**:
   * Email (SMTP / OAuth2), Slack, LINE, Microsoft Teams, Discord, Mattermost, Chatwork, and Webhooks.
+* **Internationalization (i18n)**:
+  * Backend localization package (`backend/internal/i18n`) powered by `github.com/jeandeaual/go-locale` for event logs, system resource alerts, and daemon lifecycle notifications.
 
 ### 2.2 Frontend (SPA)
 * **Language / Framework**: Svelte 5 (Runes-based: `$state`, `$derived`, `$props`) + Vite + TypeScript
@@ -451,7 +453,16 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - Layout: 4 compact vertical KPI cards on the left edge, and broad breakdown charts (status donut charts, top N horizontal bar charts, scatter plots) on the right.
 
 #### 4.10.5 Multi-Language & Internationalization (i18n) Standards
-* **Framework & Storage**:
+* **Backend Internationalization Architecture (`backend/internal/i18n`)**:
+  - **CLI Configuration & Detection**:
+    - Supported via `-lang` command-line flag (`en` or `ja`).
+    - Uses `github.com/jeandeaual/go-locale` in `init()` for automated OS locale detection with an `en` fallback.
+  - **Translation Engine & Key Management**:
+    - Master keys are maintained in English (`Trans(key)`), returning localized Japanese text when active language is `ja` and falling back to the English key when unregistered or unsupported.
+    - Thread-safe runtime configuration via `sync.RWMutex` (`SetLang(l)`, `GetLang()`).
+  - **Localized Event Logs & Notifications**:
+    - All backend-generated event logs (topology mutations, node/polling/line/network/draw-item CRUD, ARP watch events, storage/memory/CPU resource alerts, receiver lifecycles) are dynamically localized through `i18n.Trans()`.
+* **Frontend Framework & Storage (`svelte-i18n`)**:
   - Internationalization is managed via `svelte-i18n`. Supported locales are Japanese (`ja`, default) and English (`en`).
   - Active locale preference is stored in `localStorage` under `twsnmp_locale` and toggled directly via the top navbar language switch button.
 * **100% Translation Key Parity**:
