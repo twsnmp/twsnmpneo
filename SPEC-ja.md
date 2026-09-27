@@ -185,6 +185,7 @@ twsnmpneo/
    - MapLibre / OpenStreetMap を使用し、ノードの緯度経度（`Loc` プロパティ）をプロットしたGIS地図ビュー。
 3. **リスト画面 (`ListView.svelte`)**:
    - 左側サイドバー切り替えにより **Nodes**, **Pollings**, **Networks**, **Lines**, **Draw Items** の5大リソースを一元管理。
+   - 各カテゴリのテーブルはソートに対応し、表示件数を選択できるページネーションを提供する。
    - 接続先を喪失した孤立ラインや画面外の描画アイテムのリアルタイム検知と安全な一括救済・削除機能。
    - 各種編集ダイアログ（`NodeDialog`, `NodeDetailModal`, `PollingDialog`, `NetworkDialog`, `LineDialog`, `DrawItemDialog`）とシームレスに連携。
 4. **自動発見画面 (`DiscoverView.svelte`)**:

@@ -177,6 +177,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 3. **List View (`ListView.svelte`)**:
    - Integrated inventory management view featuring a left sidebar category switcher matching `ReportView.svelte`.
    - Supports 5 resource categories: **Nodes**, **Pollings**, **Networks**, **Lines**, and **Draw Items**.
+   - Every category table supports sorting and pagination with selectable page sizes.
    - Includes real-time detection and safe deletion of orphaned lines (missing endpoints) and off-screen / non-interactable map items.
    - Integrates `NodeDialog`, `NodeDetailModal`, `PollingDialog`, `NetworkDialog`, `LineDialog`, and `DrawItemDialog`.
 4. **Discovery View (`DiscoverView.svelte`)**:

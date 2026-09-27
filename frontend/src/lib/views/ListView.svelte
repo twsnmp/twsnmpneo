@@ -50,6 +50,10 @@
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    ChevronsLeft,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsRight,
   } from "@lucide/svelte";
 
   type ListCategory = "nodes" | "pollings" | "networks" | "lines" | "drawitems";
@@ -64,6 +68,20 @@
     networks: null,
     lines: null,
     drawitems: null,
+  });
+  let currentPages = $state<Record<ListCategory, number>>({
+    nodes: 1,
+    pollings: 1,
+    networks: 1,
+    lines: 1,
+    drawitems: 1,
+  });
+  let pageSizes = $state<Record<ListCategory, number>>({
+    nodes: 25,
+    pollings: 25,
+    networks: 25,
+    lines: 25,
+    drawitems: 25,
   });
   let searchQuery = $state("");
   let statusFilter = $state("all");
@@ -345,6 +363,33 @@
   const sortedLines = $derived(sortList(filteredLines, "lines"));
   const sortedDrawItems = $derived(sortList(filteredDrawItems, "drawitems"));
 
+  const paginateList = <T,>(items: T[], category: ListCategory): T[] => {
+    const pageSize = pageSizes[category];
+    if (pageSize === -1) return items;
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    const page = Math.min(currentPages[category], totalPages);
+    const start = (page - 1) * pageSize;
+    return items.slice(start, start + pageSize);
+  };
+
+  const paginatedNodes = $derived(paginateList(sortedNodes, "nodes"));
+  const paginatedPollings = $derived(paginateList(sortedPollings, "pollings"));
+  const paginatedNetworks = $derived(paginateList(sortedNetworks, "networks"));
+  const paginatedLines = $derived(paginateList(sortedLines, "lines"));
+  const paginatedDrawItems = $derived(paginateList(sortedDrawItems, "drawitems"));
+  const activeItemCount = $derived(
+    activeCategory === "nodes" ? filteredNodes.length :
+    activeCategory === "pollings" ? filteredPollings.length :
+    activeCategory === "networks" ? filteredNetworks.length :
+    activeCategory === "lines" ? filteredLines.length :
+    filteredDrawItems.length
+  );
+  const activePageSize = $derived(pageSizes[activeCategory]);
+  const activeTotalPages = $derived(
+    activePageSize === -1 ? 1 : Math.max(1, Math.ceil(activeItemCount / activePageSize))
+  );
+  const activePage = $derived(Math.min(currentPages[activeCategory], activeTotalPages));
+
   // Status badge styling helper
   const getStatusBadge = (state: string) => {
     switch (state?.toLowerCase()) {
@@ -527,6 +572,7 @@
           type="button"
           onclick={() => {
             activeCategory = cat.id;
+            currentPages[cat.id] = 1;
             searchQuery = "";
             statusFilter = "all";
             typeFilter = "all";
@@ -592,6 +638,7 @@
               $_('list.search.drawitems')
             }
             bind:value={searchQuery}
+            oninput={() => (currentPages[activeCategory] = 1)}
             class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
           />
         </div>
@@ -600,6 +647,7 @@
         {#if activeCategory === "nodes"}
           <select
             bind:value={statusFilter}
+            onchange={() => (currentPages[activeCategory] = 1)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">{$_('list.filter.allStatus')} ({nodes.length})</option>
@@ -611,6 +659,7 @@
         {:else if activeCategory === "pollings"}
           <select
             bind:value={typeFilter}
+            onchange={() => (currentPages[activeCategory] = 1)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">{$_('list.filter.allProtocols')} ({pollings.length})</option>
@@ -624,6 +673,7 @@
         {:else if activeCategory === "lines"}
           <select
             bind:value={statusFilter}
+            onchange={() => (currentPages[activeCategory] = 1)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">{$_('list.filter.allLines')} ({lines.length})</option>
@@ -634,6 +684,7 @@
         {:else if activeCategory === "drawitems"}
           <select
             bind:value={typeFilter}
+            onchange={() => (currentPages[activeCategory] = 1)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
             <option value="all">{$_('list.filter.allItemTypes')} ({drawItems.length})</option>
@@ -675,7 +726,7 @@
 
     <!-- Table Container (twnoaa style) -->
     <div class="flex-1 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm dark:shadow-lg flex flex-col min-h-0 transition-colors">
-      <div class="h-full overflow-y-auto overflow-x-auto">
+      <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
 
         <!-- 1. NODES TABLE -->
         {#if activeCategory === "nodes"}
@@ -692,7 +743,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each sortedNodes as n}
+              {#each paginatedNodes as n}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td class="py-1 px-2">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(n.state)}">
@@ -763,7 +814,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each sortedPollings as p}
+              {#each paginatedPollings as p}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td class="py-1 px-2">
                     <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(p.state)}">
@@ -834,7 +885,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each sortedNetworks as net}
+              {#each paginatedNetworks as net}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                   <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
                     <Network class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
@@ -898,7 +949,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each sortedLines as l}
+              {#each paginatedLines as l}
                 {@const orphaned = isLineOrphaned(l)}
                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {orphaned ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
                   <td class="py-1 px-2">
@@ -975,7 +1026,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
-              {#each sortedDrawItems as d}
+              {#each paginatedDrawItems as d}
                 {@const type = d.type ?? (d as any).Type ?? 2}
                 {@const IconComp = getDrawItemIcon(type)}
                 {@const offscreen = isDrawItemOffscreen(d)}
@@ -1051,6 +1102,76 @@
           </table>
         {/if}
 
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+        <div class="flex items-center gap-3">
+          <label for="list-page-size">{$_('log.itemsPerPage')}:</label>
+          <select
+            id="list-page-size"
+            bind:value={pageSizes[activeCategory]}
+            onchange={() => (currentPages[activeCategory] = 1)}
+            class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value={10}>10 / {$_('log.page')}</option>
+            <option value={25}>25 / {$_('log.page')}</option>
+            <option value={50}>50 / {$_('log.page')}</option>
+            <option value={100}>100 / {$_('log.page')}</option>
+            <option value={250}>250 / {$_('log.page')}</option>
+            <option value={-1}>{$_('system.all')}</option>
+          </select>
+          <span class="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+            {$_('report.paginationRange', {
+              values: {
+                total: activeItemCount.toLocaleString(),
+                from: activeItemCount === 0 ? 0 : activePageSize === -1 ? 1 : (activePage - 1) * activePageSize + 1,
+                to: activePageSize === -1 ? activeItemCount : Math.min(activePage * activePageSize, activeItemCount),
+              },
+            })}
+          </span>
+        </div>
+        {#if activePageSize !== -1 && activeTotalPages > 1}
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={activePage <= 1}
+              onclick={() => (currentPages[activeCategory] = 1)}
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              title={$_('log.firstPage')}
+            >
+              <ChevronsLeft class="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              disabled={activePage <= 1}
+              onclick={() => (currentPages[activeCategory] = activePage - 1)}
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              title={$_('log.prevPage')}
+            >
+              <ChevronLeft class="h-4 w-4" />
+            </button>
+            <span class="px-2 font-mono text-xs text-slate-700 dark:text-slate-300">
+              {activePage} / {activeTotalPages}
+            </span>
+            <button
+              type="button"
+              disabled={activePage >= activeTotalPages}
+              onclick={() => (currentPages[activeCategory] = activePage + 1)}
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              title={$_('log.nextPage')}
+            >
+              <ChevronRight class="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              disabled={activePage >= activeTotalPages}
+              onclick={() => (currentPages[activeCategory] = activeTotalPages)}
+              class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+              title={$_('log.lastPage')}
+            >
+              <ChevronsRight class="h-4 w-4" />
+            </button>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
