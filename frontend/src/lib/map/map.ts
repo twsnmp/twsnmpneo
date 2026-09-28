@@ -831,7 +831,7 @@ const mapMain = (p5: P5) => {
     mapRedraw = false;
 
     p5.clear();
-    p5.background(dark ? p5.color(11, 19, 41) : 252);
+    p5.background(dark ? p5.color(11, 19, 41) : p5.color(252));
 
     p5.push();
     if (scale !== 1.0) {

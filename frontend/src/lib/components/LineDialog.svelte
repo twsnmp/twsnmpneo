@@ -30,7 +30,7 @@
   let info = $state("");
   let port = $state("");
   let width = $state(2);
-  let state = $state("normal");
+  let lineState = $state("normal");
   let saveError = $state("");
 
   // Target object helpers
@@ -39,14 +39,14 @@
 
   let target1 = $derived(
     isNet1
-      ? networks.find((n) => (n.id || (n as any).ID) === nodeId1.replace("NET:", ""))
-      : nodes.find((n) => (n.id || (n as any).ID) === nodeId1)
+      ? networks.find((n: NetworkEnt) => (n.id || (n as any).ID) === nodeId1.replace("NET:", ""))
+      : nodes.find((n: NodeEnt) => (n.id || (n as any).ID) === nodeId1)
   );
 
   let target2 = $derived(
     isNet2
-      ? networks.find((n) => (n.id || (n as any).ID) === nodeId2.replace("NET:", ""))
-      : nodes.find((n) => (n.id || (n as any).ID) === nodeId2)
+      ? networks.find((n: NetworkEnt) => (n.id || (n as any).ID) === nodeId2.replace("NET:", ""))
+      : nodes.find((n: NodeEnt) => (n.id || (n as any).ID) === nodeId2)
   );
 
   // Available ports or pollings for target 1
@@ -59,8 +59,8 @@
       }));
     }
     return pollings
-      .filter((p) => (p.node_id || (p as any).NodeID) === nodeId1)
-      .map((p) => ({
+      .filter((p: PollingEnt) => (p.node_id || (p as any).NodeID) === nodeId1)
+      .map((p: PollingEnt) => ({
         id: p.id || (p as any).ID,
         label: `${p.name || (p as any).Name} (${p.type || (p as any).Type})`,
       }));
@@ -76,8 +76,8 @@
       }));
     }
     return pollings
-      .filter((p) => (p.node_id || (p as any).NodeID) === nodeId2)
-      .map((p) => ({
+      .filter((p: PollingEnt) => (p.node_id || (p as any).NodeID) === nodeId2)
+      .map((p: PollingEnt) => ({
         id: p.id || (p as any).ID,
         label: `${p.name || (p as any).Name} (${p.type || (p as any).Type})`,
       }));
@@ -86,11 +86,11 @@
   // Pollings available for general Info Polling
   let infoPollingOptions = $derived.by(() => {
     return pollings
-      .filter((p) => {
+      .filter((p: PollingEnt) => {
         const nid = p.node_id || (p as any).NodeID;
         return nid === nodeId1 || nid === nodeId2;
       })
-      .map((p) => ({
+      .map((p: PollingEnt) => ({
         id: p.id || (p as any).ID,
         label: `${p.name || (p as any).Name} (${p.type || (p as any).Type})`,
       }));
@@ -109,7 +109,7 @@
           info = line.info || (line as any).Info || "";
           port = line.port || (line as any).Port || "";
           width = line.width || (line as any).Width || 2;
-          state = line.state || (line as any).State || "normal";
+          lineState = line.state || (line as any).State || "normal";
         } else {
           nodeId1 = nodes[0]?.id || "";
           nodeId2 = nodes[1]?.id || "";
@@ -119,7 +119,7 @@
           info = "";
           port = "";
           width = 2;
-          state = "normal";
+          lineState = "normal";
         }
       });
     }
@@ -145,7 +145,7 @@
       info,
       port,
       width: Number(width) || 2,
-      state,
+      state: lineState,
     };
 
     try {
@@ -333,7 +333,7 @@
               <label for="line-state" class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('common.status')}</label>
               <select
                 id="line-state"
-                bind:value={state}
+                bind:value={lineState}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               >
                 <option value="normal">{$_('status.normal')}</option>

@@ -138,7 +138,7 @@
   const isExisting = $derived(Boolean(drawItem.ID));
 
   const nodeList = $derived(
-    nodes.map((n) => ({
+    nodes.map((n: NodeEnt) => ({
       name: n.name || (n as any).Name || (n.id || (n as any).ID),
       value: n.id || (n as any).ID || "",
     }))
@@ -146,8 +146,8 @@
 
   const pollingList = $derived(
     pollings
-      .filter((p) => !nodeID || (p.node_id || (p as any).NodeID) === nodeID)
-      .map((p) => {
+      .filter((p: any) => !nodeID || (p.node_id || p.NodeID) === nodeID)
+      .map((p: any) => {
         const id = p.id || (p as any).ID || "";
         const name = p.name || (p as any).Name || id;
         return {
@@ -159,7 +159,7 @@
   );
 
   const selectedPolling = $derived(
-    pollings.find((p) => (p.id || (p as any).ID) === drawItem.PollingID)
+    pollings.find((p: any) => (p.id || (p as any).ID) === drawItem.PollingID)
   );
 
   const availableVars = $derived.by(() => {
@@ -369,7 +369,7 @@
         const pollingID = raw?.polling_id || (raw as any)?.PollingID || "";
         nodeID = "";
         if (pollingID) {
-          const matched = pollings.find((p) => (p.id || (p as any).ID) === pollingID);
+          const matched = pollings.find((p: PollingEnt | any) => (p.id || (p as any).ID) === pollingID);
           if (matched) {
             nodeID = matched.node_id || (matched as any).NodeID || "";
           }
