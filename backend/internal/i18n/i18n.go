@@ -131,6 +131,117 @@ var transMap = map[string]map[string]string{
 	"Node %s change MAC address: %s -> %s": {
 		"ja": "ノード %s のMACアドレス変更を検知・更新しました: %s -> %s",
 	},
+	"Send notify mail %s": {
+		"ja": "通知メール送信 %s",
+	},
+	"Send repair mail %s": {
+		"ja": "復帰通知メール送信 %s",
+	},
+	"(test mail)": {
+		"ja": "(試験メール）",
+	},
+	"(Failure)": {
+		"ja": "(障害)",
+	},
+	"(Repair)": {
+		"ja": "(復帰)",
+	},
+	"High": {
+		"ja": "重度",
+	},
+	"Low": {
+		"ja": "軽度",
+	},
+	"Warning": {
+		"ja": "注意",
+	},
+	"Normal": {
+		"ja": "正常",
+	},
+	"Repair": {
+		"ja": "復帰",
+	},
+	"Unknown": {
+		"ja": "不明",
+	},
+	"High=%d,Low=%d,Warn=%d,Normal=%d,Other=%d": {
+		"ja": "重度=%d,軽度=%d,注意=%d,正常=%d,その他=%d",
+	},
+	"High=%d,Low=%d,Warn=%d,Normal=%d,Repair=%d,Other=%d": {
+		"ja": "重度=%d,軽度=%d,注意=%d,正常=%d,復帰=%d,その他=%d",
+	},
+	"MAP Name": {
+		"ja": "マップ名",
+	},
+	"MAP State": {
+		"ja": "マップの状態",
+	},
+	"Node count by state": {
+		"ja": "状態別のノード数",
+	},
+	"CPU Usage": {
+		"ja": "CPU使用率",
+	},
+	"Memory Usage": {
+		"ja": "メモリ使用率",
+	},
+	"Disk Usage": {
+		"ja": "ディスク使用率",
+	},
+	"System Load": {
+		"ja": "システム負荷",
+	},
+	"Log count by level": {
+		"ja": "状態別のログ数",
+	},
+	"%s(report) at %s": {
+		"ja": "%s(定期レポート) at %s",
+	},
+	"Failed to send report mail err=%v": {
+		"ja": "定期レポートメール送信失敗 err=%v",
+	},
+	"Send report mail": {
+		"ja": "定期レポートメール送信",
+	},
+	"Min:%s%% Avg:%s%% Max:%s%%": {
+		"ja": "最小:%s%% 平均:%s%% 最大:%s%%",
+	},
+	"Min:%s Avg:%s Max:%s": {
+		"ja": "最小:%s 平均:%s 最大:%s",
+	},
+	"DB Size": {
+		"ja": "DBサイズ",
+	},
+	"LLM error err=%v": {
+		"ja": "LLMエラー err=%v",
+	},
+	"Attached below is the event log with more than a warning": {
+		"ja": "以下に警告以上のイベントログを添付します",
+	},
+	"Time,Level,Type,Node,Event": {
+		"ja": "日時,レベル,種別,ノード名,イベント",
+	},
+	"An error occurred when contacting AI. err=%v": {
+		"ja": "AIの問い合わせでエラーが発生しました。 err=%v",
+	},
+	"No answer from AI.": {
+		"ja": "AIから応答がありません。",
+	},
+	"Root Cause": {
+		"ja": "主原因",
+	},
+	"Impacted by": {
+		"ja": "影響元",
+	},
+	"other %d impacted": {
+		"ja": "他%d台影響",
+	},
+	"Cause": {
+		"ja": "原因",
+	},
+	"Impacted": {
+		"ja": "影響",
+	},
 }
 
 func init() {

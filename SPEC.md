@@ -219,6 +219,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
    - System settings button is located as an icon-only button on the top-right header utility bar.
    - Comprehensive multi-tab configuration modal: Map options, Notification credentials (Email, Slack, LINE, Teams, Webhook), AI credentials, Custom Icons, MIB Module manager, Grok pattern editor, and Datastore backup/restore/FC migration.
+   - OAuth2 mail-provider redirect URIs use `https://<public-host>/api/notify/oauth2/callback` (HTTP is allowed only for localhost) and must be registered with the provider. SMTP and webhook tests may connect to local/private servers; link-local and metadata service addresses are rejected.
 
 ---
 

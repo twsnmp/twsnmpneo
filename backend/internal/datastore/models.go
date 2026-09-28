@@ -1,5 +1,7 @@
 package datastore
 
+import "encoding/json"
+
 // DrawItemType represents the shape/type of a draw item on the map.
 type DrawItemType int
 
@@ -297,19 +299,61 @@ type LocConfEnt struct {
 // NotifyConfEnt holds alert notification configuration.
 type NotifyConfEnt struct {
 	Provider           string `json:"Provider"`
-	Subject            string `json:"Subject"`
-	Level              string `json:"Level"`
-	Interval           int    `json:"Interval"`
-	InsecureSkipVerify bool   `json:"InsecureSkipVerify"`
 	MailServer         string `json:"MailServer"`
-	MailUser           string `json:"MailUser"`
-	MailPassword       string `json:"MailPassword"`
+	InsecureSkipVerify bool   `json:"InsecureSkipVerify"`
+	User               string `json:"User"`
+	Password           string `json:"Password"`
 	MailTo             string `json:"MailTo"`
 	MailFrom           string `json:"MailFrom"`
-	WebhookURL         string `json:"WebhookURL"`
-	ChatWebhookURL     string `json:"ChatWebhookURL"`
-	LineToken          string `json:"LineToken"`
-	SlackWebhookURL    string `json:"SlackWebhookURL"`
+	Subject            string `json:"Subject"`
+	Interval           int    `json:"Interval"`
+	Level              string `json:"Level"`
+	Report             bool   `json:"Report"`
+	LLMSummary         bool   `json:"LLMSummary"`
+	NotifyRepair       bool   `json:"NotifyRepair"`
+	CheckDependency    bool   `json:"CheckDependency"`
+	ExecCmd            string `json:"ExecCmd"`
+	WebHookNotify      string `json:"WebHookNotify"`
+	WebHookReport      string `json:"WebHookReport"`
+	ClientID           string `json:"ClientID"`
+	ClientSecret       string `json:"ClientSecret"`
+	MSTenant           string `json:"MSTenant"`
+}
+
+func (n *NotifyConfEnt) UnmarshalJSON(data []byte) error {
+	type notifyConfAlias NotifyConfEnt
+	var current notifyConfAlias
+	if err := json.Unmarshal(data, &current); err != nil {
+		return err
+	}
+	var legacy struct {
+		MailUser        string `json:"MailUser"`
+		MailPassword    string `json:"MailPassword"`
+		WebhookURL      string `json:"WebhookURL"`
+		ChatWebhookURL  string `json:"ChatWebhookURL"`
+		SlackWebhookURL string `json:"SlackWebhookURL"`
+	}
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return err
+	}
+	*n = NotifyConfEnt(current)
+	if n.User == "" {
+		n.User = legacy.MailUser
+	}
+	if n.Password == "" {
+		n.Password = legacy.MailPassword
+	}
+	if n.WebHookNotify == "" {
+		switch {
+		case legacy.WebhookURL != "":
+			n.WebHookNotify = legacy.WebhookURL
+		case legacy.SlackWebhookURL != "":
+			n.WebHookNotify = legacy.SlackWebhookURL
+		case legacy.ChatWebhookURL != "":
+			n.WebHookNotify = legacy.ChatWebhookURL
+		}
+	}
+	return nil
 }
 
 // AutoLine constants for discovery and topology connection

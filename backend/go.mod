@@ -4,6 +4,7 @@ go 1.27
 
 require (
 	github.com/Cistern/sflow v0.0.0-20240622235316-ed105e3cf9fb
+	github.com/dustin/go-humanize v1.1.0
 	github.com/google/gopacket v1.1.19
 	github.com/gosnmp/gosnmp v1.45.0
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
@@ -16,15 +17,18 @@ require (
 	github.com/sleepinggenius2/gosmi v0.4.4
 	github.com/tehmaze/netflow v0.0.0-20240303214733-8c13bb004068
 	github.com/twsnmp/go-mibdb v0.0.0-20210104220414-91387072cee7
+	github.com/wneessen/go-mail v0.8.1
 	go.etcd.io/bbolt v1.5.0
 	go.opentelemetry.io/proto/otlp v1.11.0
 	golang.org/x/net v0.59.0
+	golang.org/x/oauth2 v0.37.0
 	golang.org/x/text v0.42.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/mcuadros/go-syslog.v2 v2.3.0
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/alecthomas/participle v0.7.1 // indirect
 	github.com/andybalholm/brotli v1.2.5 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -52,7 +56,6 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect

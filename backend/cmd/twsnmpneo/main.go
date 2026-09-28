@@ -22,6 +22,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
+	"github.com/twsnmp/twsnmpneo/backend/internal/notify"
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
@@ -314,6 +315,9 @@ func main() {
 		Interval: 1 * time.Minute,
 	})
 	sysMon.Start(ctx)
+
+	// Start Notify Manager
+	notify.Start(ctx, store, sysMon)
 
 	// Receiver info map for UI
 	receiversInfo := map[string]any{

@@ -815,19 +815,93 @@ export async function saveMapConf(conf: any): Promise<any> {
   return res.json();
 }
 
-export async function fetchNotifyConf(): Promise<any> {
+export interface NotifyConfEnt {
+  Provider?: string;
+  MailServer?: string;
+  InsecureSkipVerify?: boolean;
+  User?: string;
+  Password?: string;
+  MailTo?: string;
+  MailFrom?: string;
+  Subject?: string;
+  Interval?: number;
+  Level?: string;
+  Report?: boolean;
+  LLMSummary?: boolean;
+  NotifyRepair?: boolean;
+  CheckDependency?: boolean;
+  ExecCmd?: string;
+  WebHookNotify?: string;
+  WebHookReport?: string;
+  ClientID?: string;
+  ClientSecret?: string;
+  MSTenant?: string;
+}
+
+export async function fetchNotifyConf(): Promise<NotifyConfEnt> {
   const res = await fetch(`${API_BASE}/notify/conf`);
   if (!res.ok) throw new Error(`Fetch notify conf failed: ${res.statusText}`);
   return res.json();
 }
 
-export async function saveNotifyConf(conf: any): Promise<any> {
+export async function saveNotifyConf(conf: NotifyConfEnt): Promise<NotifyConfEnt> {
   const res = await fetch(`${API_BASE}/notify/conf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(conf),
   });
   if (!res.ok) throw new Error(`Save notify conf failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function testNotifyMail(conf: NotifyConfEnt): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/notify/test/mail`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(conf),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Test mail failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function testNotifyWebhook(conf: NotifyConfEnt): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/notify/test/webhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(conf),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Test webhook failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function startNotifyOAuth2(): Promise<{ url: string }> {
+  const res = await fetch(`${API_BASE}/notify/oauth2/start`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Start OAuth2 failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteNotifyOAuth2Token(): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/notify/oauth2/token`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Delete OAuth2 token failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchNotifyOAuth2Status(): Promise<{ hasToken: boolean }> {
+  const res = await fetch(`${API_BASE}/notify/oauth2/status`);
+  if (!res.ok) throw new Error(`Fetch OAuth2 status failed: ${res.statusText}`);
   return res.json();
 }
 
@@ -1650,7 +1724,6 @@ export async function getDiscoverAddressRange(): Promise<string[]> {
   const res = await fetch(`${API_BASE}/discover/ranges`);
   return await res.json();
 }
-
 
 
 

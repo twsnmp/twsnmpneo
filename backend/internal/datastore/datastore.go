@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -70,12 +72,33 @@ type DataStore interface {
 	GetDiscoverConf(ctx context.Context) (*DiscoverConfEnt, error)
 	SaveDiscoverConf(ctx context.Context, conf *DiscoverConfEnt) error
 
+	// Notify OAuth2 Token
+	GetNotifyOAuth2Token() *oauth2.Token
+	SaveNotifyOAuth2Token(token *oauth2.Token)
+	DeleteNotifyOAuth2Token()
+	HasValidNotifyOAuth2Token(n *NotifyConfEnt) bool
+
+	// Mail Templates
+	LoadMailTemplate(t string) string
+
 	// Event Logs
 	AddEventLog(ctx context.Context, event *EventLogEnt) error
 	ListEventLogs(ctx context.Context, limit int) ([]*EventLogEnt, error)
 	QueryEventLogs(ctx context.Context, filter EventLogFilter) ([]*EventLogEnt, error)
 	DeleteEventLogs(ctx context.Context) error
 	CountEventLogs(ctx context.Context) (int64, error)
+
+	// ForEach iterators (in-memory cache, no error return, callback returns false to stop)
+	ForEachNodes(fn func(*NodeEnt) bool)
+	ForEachNetworks(fn func(*NetworkEnt) bool)
+	ForEachLines(fn func(*LineEnt) bool)
+	ForEachPollings(fn func(*PollingEnt) bool)
+	// ForEachLastEventLog iterates event logs in reverse chronological order
+	ForEachLastEventLog(fn func(*EventLogEnt) bool)
+
+	// AI Results
+	GetAIResult(pollingID string) (*AIResultEnt, error)
+	GetDBSize() int64
 
 	// ARP Table
 	SaveArpTable(ctx context.Context, entries []*ArpEnt) error
@@ -104,3 +127,11 @@ type DataStore interface {
 	DeleteAllMqttStats(ctx context.Context) error
 	CleanOldMqttStats(ctx context.Context, days int) error
 }
+
+// AIResultEnt holds AI anomaly detection results for a polling.
+type AIResultEnt struct {
+	PollingID string      `json:"PollingID"`
+	ScoreData [][2]float64 `json:"ScoreData"`
+	LastTime  int64       `json:"LastTime"`
+}
+

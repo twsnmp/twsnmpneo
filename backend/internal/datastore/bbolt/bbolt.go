@@ -19,7 +19,9 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"go.etcd.io/bbolt"
+	"golang.org/x/oauth2"
 )
+
 
 var (
 	bucketNodes      = []byte("nodes")
@@ -34,11 +36,12 @@ var (
 	bucketOTelTrace  = []byte("otelTrace")
 	bucketMqttStat   = []byte("mqttStat")
 
-	keyMapConf      = []byte("mapConf")
-	keyNotifyConf   = []byte("notifyConf")
-	keyLocConf      = []byte("locConf")
-	keyBackImage    = []byte("backImage")
-	keyDiscoverConf = []byte("discoverConf")
+	keyMapConf              = []byte("mapConf")
+	keyNotifyConf           = []byte("notifyConf")
+	keyLocConf              = []byte("locConf")
+	keyBackImage            = []byte("backImage")
+	keyDiscoverConf         = []byte("discoverConf")
+	keyNotifyOAuth2Token    = []byte("notifyOAuth2Token")
 )
 
 // Store implements datastore.DataStore using bbolt.
@@ -63,6 +66,14 @@ type Store struct {
 	backImage    datastore.BackImageEnt
 	discoverConf datastore.DiscoverConfEnt
 	confMu       sync.RWMutex
+
+	// Notify OAuth2 token (in-memory cache)
+	notifyOAuth2Token *oauth2.Token
+	tokenMu           sync.RWMutex
+
+	// Mail templates (in-memory cache loaded from disk or embedded defaults)
+	mailTemplates map[string]string
+	templateMu    sync.RWMutex
 }
 
 // New opens or creates a bbolt database file and initializes buckets and caches.
@@ -207,6 +218,13 @@ func (s *Store) loadCache() error {
 					SnmpConfigs: []datastore.SnmpConfEnt{},
 				}
 			}
+			// Load OAuth2 token
+			if v := b.Get(keyNotifyOAuth2Token); v != nil {
+				var t oauth2.Token
+				if err := json.Unmarshal(v, &t); err == nil {
+					s.notifyOAuth2Token = &t
+				}
+			}
 		}
 		// Load OTel metrics
 		if b := tx.Bucket(bucketOTelMetric); b != nil {
@@ -234,10 +252,14 @@ func (s *Store) loadCache() error {
 		return err
 	}
 
+	// Initialize mail templates map
+	s.mailTemplates = make(map[string]string)
+
 	// Clean up any orphaned pollings or lines left from previously deleted nodes
 	s.cleanupOrphans()
 	return nil
 }
+
 
 // cleanupOrphans purges pollings and lines whose referencing nodes or networks no longer exist (matches twsnmpfk spec).
 func (s *Store) cleanupOrphans() {

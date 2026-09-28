@@ -25,6 +25,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/layout"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
+	"github.com/twsnmp/twsnmpneo/backend/internal/notify"
 	"github.com/twsnmp/twsnmpneo/backend/internal/ping"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
@@ -1041,6 +1042,61 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			return c.JSON(http.StatusOK, &conf)
 		})
+		apiGroup.POST("/notify/test/mail", func(c echo.Context) error {
+			var conf datastore.NotifyConfEnt
+			if err := c.Bind(&conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := notify.SendTestMail(cfg.Store, &conf); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+		apiGroup.POST("/notify/test/webhook", func(c echo.Context) error {
+			var conf datastore.NotifyConfEnt
+			if err := c.Bind(&conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := notify.WebHookTest(cfg.Store, &conf); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+		apiGroup.POST("/notify/oauth2/start", func(c echo.Context) error {
+			redirectURL, err := notifyOAuth2RedirectURL(c)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			url, err := notify.GetNotifyOAuth2TokenStep1(cfg.Store, redirectURL)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"url": url})
+		})
+		apiGroup.GET("/notify/oauth2/callback", func(c echo.Context) error {
+			if c.QueryParam("error") != "" {
+				return c.String(http.StatusBadRequest, "OAuth2 authorization was denied. You can close this window.")
+			}
+			if err := notify.CompleteNotifyOAuth2Callback(cfg.Store, c.QueryParam("code"), c.QueryParam("state")); err != nil {
+				return c.String(http.StatusBadRequest, "OAuth2 authorization failed. You can close this window.")
+			}
+			return c.HTML(http.StatusOK, `<!doctype html><html><body><p>OAuth2 authorization complete. This window will close.</p><script>
+				window.opener?.postMessage({ type: "twsnmpneo-notify-oauth2-complete" }, window.location.origin);
+				window.close();
+			</script></body></html>`)
+		})
+		apiGroup.DELETE("/notify/oauth2/token", func(c echo.Context) error {
+			notify.DeleteNotifyOAuth2Token(cfg.Store)
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+		apiGroup.GET("/notify/oauth2/status", func(c echo.Context) error {
+			conf, _ := cfg.Store.GetNotifyConf(c.Request().Context())
+			hasToken := false
+			if conf != nil {
+				hasToken = cfg.Store.HasValidNotifyOAuth2Token(conf)
+			}
+			return c.JSON(http.StatusOK, map[string]bool{"hasToken": hasToken})
+		})
 
 		// Event Logs
 		apiGroup.GET("/logs/events", func(c echo.Context) error {
@@ -1518,6 +1574,40 @@ func NewServer(cfg Config) (*Server, error) {
 		port:  cfg.Port,
 		store: cfg.Store,
 	}, nil
+}
+
+func notifyOAuth2RedirectURL(c echo.Context) (string, error) {
+	req := c.Request()
+	origin := req.Header.Get("Origin")
+	if origin == "" {
+		return "", fmt.Errorf("OAuth2 origin header is required")
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" || u.User != nil ||
+		(u.Scheme != "http" && u.Scheme != "https") ||
+		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("OAuth2 origin must match the API host")
+	}
+	reqHost := (&url.URL{Host: req.Host}).Hostname()
+	sameHost := strings.EqualFold(u.Host, req.Host)
+	originIP := net.ParseIP(u.Hostname())
+	requestIP := net.ParseIP(reqHost)
+	originLocal := strings.EqualFold(u.Hostname(), "localhost") || originIP != nil && originIP.IsLoopback()
+	requestLocal := strings.EqualFold(reqHost, "localhost") || requestIP != nil && requestIP.IsLoopback()
+	if !sameHost && !(originLocal && requestLocal) {
+		return "", fmt.Errorf("OAuth2 origin must match the API host")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("invalid OAuth2 redirect scheme")
+	}
+	hostname := u.Hostname()
+	ip := net.ParseIP(hostname)
+	if u.Scheme == "http" && !strings.EqualFold(hostname, "localhost") && (ip == nil || !ip.IsLoopback()) {
+		return "", fmt.Errorf("OAuth2 redirect requires HTTPS except on localhost")
+	}
+	u.Path = "/api/notify/oauth2/callback"
+	u.RawPath = ""
+	return u.String(), nil
 }
 
 func (s *Server) Start(ctx context.Context) error {
