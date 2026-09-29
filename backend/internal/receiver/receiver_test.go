@@ -431,18 +431,27 @@ func TestMQTT_Ingestion(t *testing.T) {
 		t.Fatalf("unexpected CONNACK response: %v", connack)
 	}
 
-	// Send PUBLISH packet (topic: "home/temp", payload: "22.5")
+	// Send a QoS 1 PUBLISH packet and wait for PUBACK to confirm processing.
 	publishPacket := []byte{
-		0x30, 0x0f, // remaining length 15
+		0x32, 0x11, // QoS 1, remaining length 17
 		0x00, 0x09, // topic len 9
 		'h', 'o', 'm', 'e', '/', 't', 'e', 'm', 'p',
+		0x00, 0x01, // packet identifier
 		'2', '2', '.', '5',
 	}
 	if _, err := conn.Write(publishPacket); err != nil {
 		t.Fatalf("failed to write PUBLISH packet: %v", err)
 	}
-	time.Sleep(50 * time.Millisecond)
-	_ = logStore.Flush()
+	puback := make([]byte, 4)
+	if _, err := io.ReadFull(conn, puback); err != nil {
+		t.Fatalf("failed to read PUBACK: %v", err)
+	}
+	if puback[0] != 0x40 || puback[1] != 0x02 || puback[2] != 0x00 || puback[3] != 0x01 {
+		t.Fatalf("unexpected PUBACK response: %v", puback)
+	}
+	if err := logStore.Flush(); err != nil {
+		t.Fatalf("failed to flush MQTT logs: %v", err)
+	}
 
 	// Verify stat was saved in bStore
 	stats, err := bStore.ListMqttStats(ctx)
@@ -462,4 +471,3 @@ func TestMQTT_Ingestion(t *testing.T) {
 		t.Errorf("unexpected log content: %s", logs[0].Log)
 	}
 }
-
