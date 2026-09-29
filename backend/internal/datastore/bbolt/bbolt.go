@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"go.etcd.io/bbolt"
 	"golang.org/x/oauth2"
 )
-
 
 var (
 	bucketNodes      = []byte("nodes")
@@ -35,13 +35,14 @@ var (
 	bucketOTelMetric = []byte("otelMetric")
 	bucketOTelTrace  = []byte("otelTrace")
 	bucketMqttStat   = []byte("mqttStat")
+	bucketPKICerts   = []byte("pkiCertificates")
 
-	keyMapConf              = []byte("mapConf")
-	keyNotifyConf           = []byte("notifyConf")
-	keyLocConf              = []byte("locConf")
-	keyBackImage            = []byte("backImage")
-	keyDiscoverConf         = []byte("discoverConf")
-	keyNotifyOAuth2Token    = []byte("notifyOAuth2Token")
+	keyMapConf           = []byte("mapConf")
+	keyNotifyConf        = []byte("notifyConf")
+	keyLocConf           = []byte("locConf")
+	keyBackImage         = []byte("backImage")
+	keyDiscoverConf      = []byte("discoverConf")
+	keyNotifyOAuth2Token = []byte("notifyOAuth2Token")
 )
 
 // Store implements datastore.DataStore using bbolt.
@@ -108,6 +109,7 @@ func New(dbPath string) (*Store, error) {
 			bucketOTelMetric,
 			bucketOTelTrace,
 			bucketMqttStat,
+			bucketPKICerts,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
@@ -259,7 +261,6 @@ func (s *Store) loadCache() error {
 	s.cleanupOrphans()
 	return nil
 }
-
 
 // cleanupOrphans purges pollings and lines whose referencing nodes or networks no longer exist (matches twsnmpfk spec).
 func (s *Store) cleanupOrphans() {
@@ -1823,5 +1824,66 @@ func (s *Store) CleanOldMqttStats(_ context.Context, days int) error {
 			_ = b.Delete([]byte(id))
 		}
 		return nil
+	})
+}
+
+func (s *Store) ListPKICertificates() ([]*pki.Certificate, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	certificates := make([]*pki.Certificate, 0)
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(bucketPKICerts)
+		if bucket == nil {
+			return fmt.Errorf("PKI certificate bucket not found")
+		}
+		return bucket.ForEach(func(_, value []byte) error {
+			var cert pki.Certificate
+			if err := json.Unmarshal(value, &cert); err != nil {
+				return fmt.Errorf("decode PKI certificate: %w", err)
+			}
+			certificates = append(certificates, &cert)
+			return nil
+		})
+	})
+	return certificates, err
+}
+
+func (s *Store) SavePKICertificate(cert *pki.Certificate) error {
+	if cert == nil || cert.Serial == "" {
+		return datastore.ErrInvalidParams
+	}
+	value, err := json.Marshal(cert)
+	if err != nil {
+		return fmt.Errorf("encode PKI certificate: %w", err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(bucketPKICerts)
+		if bucket == nil {
+			return fmt.Errorf("PKI certificate bucket not found")
+		}
+		return bucket.Put([]byte(strings.ToLower(cert.Serial)), value)
+	})
+}
+
+func (s *Store) DeleteAllPKICertificates() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		if err := tx.DeleteBucket(bucketPKICerts); err != nil && err != bbolt.ErrBucketNotFound {
+			return err
+		}
+		_, err := tx.CreateBucket(bucketPKICerts)
+		return err
 	})
 }

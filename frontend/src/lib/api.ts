@@ -286,6 +286,142 @@ export interface SystemInfo {
 
 const API_BASE = '/api';
 
+export interface PKIStatus {
+  ready: boolean;
+  commonName?: string;
+  expiresAt?: number;
+  certificate?: string;
+}
+
+export interface PKICAOptions {
+  commonName: string;
+  organization: string;
+  sans: string[];
+  keyType: string;
+  validYears: number;
+  acmeBaseURL: string;
+  httpBaseURL: string;
+  crlIntervalHours: number;
+  certValidityHours: number;
+  httpPort: number;
+  acmePort: number;
+}
+
+export interface PKISettings extends PKICAOptions {
+  enableHTTP: boolean;
+  enableACME: boolean;
+}
+
+export interface PKICertificate {
+  serial: string;
+  subject: string;
+  type: string;
+  certPEM: string;
+  createdAt: number;
+  expiresAt: number;
+  revokedAt?: number;
+}
+
+export interface PKICAOptions {
+  commonName: string;
+  organization: string;
+  keyType: string;
+  validYears: number;
+}
+
+async function pkiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const endpoint = `${API_BASE}/pki${path}`;
+  const response = await fetch(endpoint, init);
+  if (!response.ok) {
+    let message = response.statusText;
+    try {
+      const body = await response.json();
+      if (typeof body.error === 'string') message = body.error;
+    } catch {
+      // Keep the HTTP status text when the server does not return JSON.
+    }
+    throw new Error(`${endpoint}: ${message || `request failed with HTTP ${response.status}`}`);
+  }
+  if (response.status === 204) return undefined as T;
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`${endpoint} returned a non-JSON response (HTTP ${response.status}); the server may need to be updated and restarted.`);
+  }
+  try {
+    return await response.json();
+  } catch (cause) {
+    throw new Error(`${endpoint} returned invalid JSON (HTTP ${response.status}).`, { cause });
+  }
+}
+
+export function fetchPKIStatus(): Promise<PKIStatus> {
+  return pkiRequest<PKIStatus>('/status');
+}
+
+export function fetchPKISettings(): Promise<PKISettings> {
+  return pkiRequest<PKISettings>('/settings');
+}
+
+export function fetchPKICertificates(): Promise<PKICertificate[]> {
+  return pkiRequest<PKICertificate[]>('/certificates');
+}
+
+export function initializePKICA(options: PKICAOptions): Promise<PKIStatus> {
+  return pkiRequest<PKIStatus>('/ca', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+}
+
+export function updatePKISettings(settings: PKISettings): Promise<PKISettings> {
+  return pkiRequest<PKISettings>('/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+}
+
+export function resetPKICA(): Promise<void> {
+  return pkiRequest<void>('/ca', { method: 'DELETE' });
+}
+
+export function issuePKICertificateFromCSR(csrPEM: string): Promise<PKICertificate> {
+  return pkiRequest<PKICertificate>('/certificates/csr', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csrPEM }),
+  });
+}
+
+export function createPKICertificate(request: {
+  commonName: string;
+  dnsNames: string[];
+  ipAddresses: string[];
+  validDays: number;
+}): Promise<PKICertificate> {
+  return pkiRequest<PKICertificate>('/certificates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+}
+
+export function revokePKICertificate(serial: string): Promise<void> {
+  return pkiRequest<void>(`/certificates/${encodeURIComponent(serial)}`, { method: 'DELETE' });
+}
+
+export async function downloadPKICertificate(serial: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/pki/certificates/${encodeURIComponent(serial)}/download`);
+  if (!response.ok) throw new Error(`Certificate download failed: ${response.statusText}`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${serial}.pem`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export function normalizeNode(raw: any): NodeEnt {
   if (!raw) return { id: '', name: '', ip: '', state: 'unknown', x: 300, y: 250 };
   const id = raw.id || raw.ID || '';

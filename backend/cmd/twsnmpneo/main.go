@@ -67,6 +67,7 @@ func main() {
 		dataDir     = flag.String("datadir", "./data", "Directory to store database and log files")
 		lang        = flag.String("lang", "en", "Language (en or ja)")
 		port        = flag.Int("port", 8080, "Web interface port")
+		acmeURL     = flag.String("acme-url", "", "Override the PKI ACME HTTPS base URL and enable the listener")
 		syslogUDP   = flag.Int("syslog-udp", 0, "Syslog UDP port (0 to disable or default)")
 		syslogTCP   = flag.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
 		trapPort    = flag.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable or default 162)")
@@ -149,13 +150,13 @@ func main() {
 	// Initialize Private PKI
 	pkiDir := filepath.Join(*dataDir, "pki")
 	pkiMgr, err := pki.New(pki.Config{
-		DataDir: pkiDir,
+		DataDir:   pkiDir,
+		CertStore: store,
 	})
 	if err != nil {
 		slog.Error("Failed to initialize Private PKI", "error", err)
 		os.Exit(1)
 	}
-	_ = pkiMgr
 
 	// Setup context with graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -341,6 +342,8 @@ func main() {
 		Store:          store,
 		LogStore:       pqStore,
 		MCPServer:      mcpServer,
+		PKI:            pkiMgr,
+		ACMEBaseURL:    *acmeURL,
 		ArpManager:     recvMgr,
 		Monitor:        sysMon,
 		PollingManager: pollMgr,

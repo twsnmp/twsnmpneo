@@ -372,6 +372,13 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("unexpected status for SPA path: %d", rec.Code)
 	}
 
+	req = httptest.NewRequest(http.MethodGet, "/api/pki/not-registered", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound || strings.Contains(rec.Header().Get("Content-Type"), "text/html") {
+		t.Errorf("unexpected response for unknown API path: status=%d content-type=%q", rec.Code, rec.Header().Get("Content-Type"))
+	}
+
 	// 10. Test GeoIP endpoints
 	req = httptest.NewRequest(http.MethodDelete, "/api/conf/geoip", nil)
 	rec = httptest.NewRecorder()

@@ -397,7 +397,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 * **ARP Watch Engine**: Promiscuous ARP packet snooper detecting newly connected devices, IP address changes, and ARP spoofing / conflicts.
 * **OpenTelemetry Receiver**: Ingest OTel metrics and traces via OTLP.
 * **MQTT Broker & Client**: Embedded MQTT message broker for IoT sensor ingestion and rule evaluation.
-* **Private PKI Engine**: Automated local Root CA, issuing server/client TLS certificates, with SCEP, ACME, and OCSP support.
+* **PKI Engine**: Place Reports, PKI, and Logs consecutively in that order in the top navigation. A left-side menu splits PKI into CA setup and CSR creation before initialization, and Certificate Management, Server Control, and CSR Creation afterward. Certificate Management includes CA certificate download, direct or CSR-based issuance, issued certificate inventory, and CRL download. The Root CA is not created at first startup; the PKI UI provides an explicit CA setup form, SAN and endpoint configuration, and an explicit reset action. Reset removes the CA and issued-certificate inventory after confirmation. Issued certificates and revocation state persist in bbolt, settings persist in the protected PKI data directory, and CA private keys are stored separately with owner-only file permissions. The UI supports CSR/key generation in the browser and certificate issuance from a verified CSR. OCSP/SCEP/CRL and ACME listeners can be enabled, disabled, and reconfigured immediately from the UI. SCEP enrollment must validate the CSR identity and challenge against a managed node. ACME challenges must never be marked valid unless identifier control is verified.
 
 ---
 

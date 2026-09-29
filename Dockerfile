@@ -46,10 +46,13 @@ COPY --from=backend-builder /twsnmpneo /usr/local/bin/twsnmpneo
 
 # Exposed ports:
 # 8080: Web UI & REST API & MCP Server
+# 8082/tcp: Optional PKI OCSP/SCEP/CRL HTTP services (enable in PKI settings)
+# 8083/tcp: Optional ACME HTTPS service (enable in PKI settings)
+# 8443/tcp: Optional ACME HTTPS service when configured with --acme-url
 # 514/udp, 514/tcp: Syslog
 # 162/udp: SNMP Trap
 # 2055/udp: NetFlow
-EXPOSE 8080/tcp 514/udp 514/tcp 162/udp 2055/udp
+EXPOSE 8080/tcp 8082/tcp 8083/tcp 8443/tcp 514/udp 514/tcp 162/udp 2055/udp
 
 ENTRYPOINT [ "/usr/local/bin/twsnmpneo" ]
 CMD [ "--datadir", "/data" ]

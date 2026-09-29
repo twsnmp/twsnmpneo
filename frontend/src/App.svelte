@@ -7,6 +7,7 @@
   import MQTTView from "./lib/views/MQTTView.svelte";
   import ReportView from "./lib/views/ReportView.svelte";
   import SystemView from "./lib/views/SystemView.svelte";
+  import PKIView from "./lib/views/PKIView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import AIAssistant from "./lib/mcp/AIAssistant.svelte";
   import CatAvatar from "./lib/components/CatAvatar.svelte";
@@ -27,9 +28,10 @@
     Activity,
     Radio,
     Languages,
+    ShieldCheck,
   } from "@lucide/svelte";
 
-  type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "system";
+  type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "system" | "pki";
 
   let currentPage = $state<PageType>("map");
   let currentLocale = $state<SupportedLocale>(getSavedLocale());
@@ -86,10 +88,11 @@
   const navItems = [
     { id: "map", icon: Network },
     { id: "list", icon: Layers },
+    { id: "reports", icon: BarChart3 },
+    { id: "pki", icon: ShieldCheck, label: "pki.title" },
     { id: "logs", icon: Calendar },
     { id: "otel", icon: Activity, mdi: "mdi-telescope" },
     { id: "mqtt", icon: Radio, mdi: "mdi-access-point-network" },
-    { id: "reports", icon: BarChart3 },
     { id: "system", icon: Info },
   ];
 </script>
@@ -123,7 +126,7 @@
           {:else}
             <item.icon class="h-4 w-4 mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-500 dark:text-slate-400'}" />
           {/if}
-          <span>{$_('nav.' + item.id)}</span>
+          <span>{$_(item.label ?? 'nav.' + item.id)}</span>
         </button>
       {/each}
     </nav>
@@ -198,6 +201,8 @@
       <ReportView />
     {:else if currentPage === "system"}
       <SystemView />
+    {:else if currentPage === "pki"}
+      <PKIView />
     {/if}
   </main>
 

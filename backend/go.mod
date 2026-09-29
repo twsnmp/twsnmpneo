@@ -19,12 +19,14 @@ require (
 	github.com/robertkrimen/otto v0.5.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sleepinggenius2/gosmi v0.4.4
+	github.com/smallstep/scep v0.0.0-20260331191114-261f960a40d1
 	github.com/tehmaze/netflow v0.0.0-20240303214733-8c13bb004068
 	github.com/twsnmp/go-mibdb v0.0.0-20210104220414-91387072cee7
 	github.com/vjeantet/grok v1.0.1
 	github.com/wneessen/go-mail v0.8.1
 	go.etcd.io/bbolt v1.5.0
 	go.opentelemetry.io/proto/otlp v1.11.0
+	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.59.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/text v0.42.0
@@ -55,6 +57,7 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/shoenig/go-m1cpu v0.2.2 // indirect
+	github.com/smallstep/pkcs7 v0.2.1 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/twpayne/go-geom v1.7.0 // indirect
@@ -62,7 +65,6 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
