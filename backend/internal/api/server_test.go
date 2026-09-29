@@ -108,7 +108,7 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	}
 
 	// 3. Pollings CRUD: POST, GET, DELETE/:id
-	pollPayload := `{"id":"p-api-1","node_id":"n-api-1","name":"Ping Check","type":"ping","state":"normal"}`
+	pollPayload := `{"ID":"p-api-1","NodeID":"n-api-1","Name":"Ping Check","Type":"ping","Mode":"smoke","Params":"count=5,size=128","Filter":"filter","Extractor":"extractor","Script":"loss < 100","Level":"warn","PollInt":45,"Timeout":2,"Retry":3,"LogMode":2,"FailAction":"failure action","RepairAction":"repair action","AIMode":"zscore","VectorCols":"rtt,loss","MqttURL":"tcp://localhost:1883","MqttTopic":"polling","MqttCols":"state,rtt","State":"normal"}`
 	req = httptest.NewRequest(http.MethodPost, "/api/pollings", strings.NewReader(pollPayload))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
@@ -120,7 +120,24 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	req = httptest.NewRequest(http.MethodGet, "/api/pollings", nil)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Ping Check") {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Ping Check") ||
+		!strings.Contains(rec.Body.String(), `"Mode":"smoke"`) ||
+		!strings.Contains(rec.Body.String(), `"Params":"count=5,size=128"`) ||
+		!strings.Contains(rec.Body.String(), `"Filter":"filter"`) ||
+		!strings.Contains(rec.Body.String(), `"Extractor":"extractor"`) ||
+		!strings.Contains(rec.Body.String(), `"Script":"loss \u003c 100"`) ||
+		!strings.Contains(rec.Body.String(), `"Level":"warn"`) ||
+		!strings.Contains(rec.Body.String(), `"PollInt":45`) ||
+		!strings.Contains(rec.Body.String(), `"Timeout":2`) ||
+		!strings.Contains(rec.Body.String(), `"Retry":3`) ||
+		!strings.Contains(rec.Body.String(), `"LogMode":2`) ||
+		!strings.Contains(rec.Body.String(), `"FailAction":"failure action"`) ||
+		!strings.Contains(rec.Body.String(), `"RepairAction":"repair action"`) ||
+		!strings.Contains(rec.Body.String(), `"AIMode":"zscore"`) ||
+		!strings.Contains(rec.Body.String(), `"VectorCols":"rtt,loss"`) ||
+		!strings.Contains(rec.Body.String(), `"MqttURL":"tcp://localhost:1883"`) ||
+		!strings.Contains(rec.Body.String(), `"MqttTopic":"polling"`) ||
+		!strings.Contains(rec.Body.String(), `"MqttCols":"state,rtt"`) {
 		t.Errorf("get pollings failed: code %d", rec.Code)
 	}
 
@@ -925,7 +942,3 @@ func TestAPIServer_PollingDrawItems(t *testing.T) {
 		}
 	}
 }
-
-
-
-

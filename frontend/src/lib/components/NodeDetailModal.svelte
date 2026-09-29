@@ -98,7 +98,7 @@
     effectivePollings.filter((p: PollingEnt) => {
       const pNodeId = p.node_id || (p as any).NodeID;
       const pName = (p as any).node_name || (p as any).NodeName;
-      const pTarget = p.target || (p as any).Target;
+      const pTarget = p.params || p.target || p.Params || (p as any).Target;
       return (
         (targetNodeId && pNodeId === targetNodeId) ||
         (targetNodeName && pName === targetNodeName) ||
@@ -911,7 +911,7 @@
                             {(p as PollingEnt).type}
                           </span>
                         </td>
-                        <td class="py-1 px-2 text-slate-600 dark:text-slate-400 truncate max-w-xs text-[11px]">{(p as PollingEnt).target || "-"}</td>
+                        <td class="py-1 px-2 text-slate-600 dark:text-slate-400 truncate max-w-xs text-[11px]">{(p as PollingEnt).params || (p as PollingEnt).target || "-"}</td>
                         <td class="py-1 px-2 text-blue-600 dark:text-cyan-400 font-semibold whitespace-nowrap text-[11px]">{(p as PollingEnt).last_val ?? "-"}</td>
                         <td class="py-1 px-2 text-slate-500 text-[11px] whitespace-nowrap">{(p as PollingEnt).last_time ? formatTimeStr((p as PollingEnt).last_time) : "-"}</td>
                       </tr>

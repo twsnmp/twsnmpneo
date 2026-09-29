@@ -166,8 +166,8 @@ func TestPingPoller(t *testing.T) {
 
 	// Missing IP
 	res, _ := poller.Poll(ctx, &datastore.PollingEnt{}, nil)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on missing IP, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on missing IP, got %s", res.State)
 	}
 
 	// Localhost echo UDP

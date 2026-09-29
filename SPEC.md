@@ -295,6 +295,12 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - Polling bindings: Associate polling metrics from both endpoints for bidirectional traffic line width and animation speed.
   - Custom color, width, and style (solid, dashed).
 
+* **Polling Definition & PING Compatibility**:
+  - Persist the shared `PollingEnt` configuration used by TWSNMP FK: `Mode`, `Params`, `Filter`, `Extractor`, `Script`, `Level`, `PollInt`, `Timeout`, `Retry`, `LogMode`, `FailAction`, `RepairAction`, `AIMode`, `VectorCols`, `MqttURL`, `MqttTopic`, and `MqttCols`.
+  - The polling editor exposes these shared fields and retains FK field names in the API/data model. Polling scheduling, execution orchestration, and the `Poller` interface remain NEO-owned.
+  - PING uses the selected node's IP and supports FK's default mode, `line`, and `smoke` modes. `Params` supports legacy numeric payload size and `size`, `ttl`, and (for `smoke`) `count` options.
+  - PING result field names, nanosecond RTT values, failure level selection, smoke statistics, and smoke-mode JavaScript boolean state evaluation are compatible with FK. Other polling types will adopt the shared editor contract separately; their execution behavior is not changed by this requirement.
+
 ---
 
 ### 4.5 Node Detail & Telemetry Modal (`NodeDetailModal.svelte`)

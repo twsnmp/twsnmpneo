@@ -78,16 +78,58 @@ export interface PollingEnt {
   name: string;
   type: string; // ping, http, tcp, dns, ntp, snmp
   target?: string;
+  mode?: string;
+  params?: string;
+  filter?: string;
+  extractor?: string;
+  script?: string;
+  level?: string;
+  poll_int?: number;
+  timeout?: number;
+  retry?: number;
+  log_mode?: number;
+  fail_action?: string;
+  repair_action?: string;
+  ai_mode?: string;
+  vector_cols?: string;
+  mqtt_url?: string;
+  mqtt_topic?: string;
+  mqtt_cols?: string;
   state: string;
+  next_time?: number;
   last_time?: number;
+  fail_time?: number;
   last_val?: number;
+  result?: Record<string, unknown>;
 
   // Compatibility aliases
   ID?: string;
   NodeID?: string;
   Name?: string;
   Type?: string;
+  Target?: string;
+  Mode?: string;
+  Params?: string;
+  Filter?: string;
+  Extractor?: string;
+  Script?: string;
+  Level?: string;
+  PollInt?: number;
+  Timeout?: number;
+  Retry?: number;
+  LogMode?: number;
   State?: string;
+  NextTime?: number;
+  LastTime?: number;
+  FailTime?: number;
+  Result?: Record<string, unknown>;
+  FailAction?: string;
+  RepairAction?: string;
+  AIMode?: string;
+  VectorCols?: string;
+  MqttURL?: string;
+  MqttTopic?: string;
+  MqttCols?: string;
 }
 
 export interface PortEnt {
@@ -419,8 +461,26 @@ export function normalizePolling(raw: any): PollingEnt {
   const name = raw.name || raw.Name || '';
   const type = raw.type || raw.Type || 'ping';
   const state = raw.state || raw.State || 'normal';
-  const target = raw.target || raw.Target || '';
+  const mode = raw.mode ?? raw.Mode ?? '';
+  const params = raw.params ?? raw.Params ?? '';
+  const filter = raw.filter ?? raw.Filter ?? '';
+  const extractor = raw.extractor ?? raw.Extractor ?? '';
+  const script = raw.script ?? raw.Script ?? '';
+  const level = raw.level ?? raw.Level ?? '';
+  const poll_int = raw.poll_int ?? raw.PollInt ?? 60;
+  const timeout = raw.timeout ?? raw.Timeout ?? 1;
+  const retry = raw.retry ?? raw.Retry ?? 1;
+  const log_mode = raw.log_mode ?? raw.LogMode ?? 0;
+  const fail_action = raw.fail_action ?? raw.FailAction ?? '';
+  const repair_action = raw.repair_action ?? raw.RepairAction ?? '';
+  const ai_mode = raw.ai_mode ?? raw.AIMode ?? '';
+  const vector_cols = raw.vector_cols ?? raw.VectorCols ?? '';
+  const mqtt_url = raw.mqtt_url ?? raw.MqttURL ?? '';
+  const mqtt_topic = raw.mqtt_topic ?? raw.MqttTopic ?? '';
+  const mqtt_cols = raw.mqtt_cols ?? raw.MqttCols ?? '';
+  const next_time = raw.next_time ?? raw.NextTime ?? 0;
   const last_time = raw.last_time || raw.LastTime || 0;
+  const fail_time = raw.fail_time ?? raw.FailTime ?? 0;
 
   let last_val = raw.last_val !== undefined ? raw.last_val : (raw.LastVal !== undefined ? raw.LastVal : undefined);
   const result = raw.Result || raw.result;
@@ -448,9 +508,27 @@ export function normalizePolling(raw: any): PollingEnt {
     node_id, NodeID: node_id,
     name, Name: name,
     type, Type: type,
+    mode, Mode: mode,
+    params, Params: params,
+    filter, Filter: filter,
+    extractor, Extractor: extractor,
+    script, Script: script,
+    level, Level: level,
+    poll_int, PollInt: poll_int,
+    timeout, Timeout: timeout,
+    retry, Retry: retry,
+    log_mode, LogMode: log_mode,
+    fail_action, FailAction: fail_action,
+    repair_action, RepairAction: repair_action,
+    ai_mode, AIMode: ai_mode,
+    vector_cols, VectorCols: vector_cols,
+    mqtt_url, MqttURL: mqtt_url,
+    mqtt_topic, MqttTopic: mqtt_topic,
+    mqtt_cols, MqttCols: mqtt_cols,
     state, State: state,
-    target, Target: target,
+    next_time, NextTime: next_time,
     last_time, LastTime: last_time,
+    fail_time, FailTime: fail_time,
     last_val, LastVal: last_val,
     Result: result,
     result: result,
@@ -940,21 +1018,30 @@ export async function savePolling(poll: Partial<PollingEnt>): Promise<PollingEnt
     NodeID: poll.node_id || poll.NodeID || '',
     Name: poll.name || poll.Name || '',
     Type: poll.type || poll.Type || 'ping',
-    State: poll.state || poll.State || 'normal',
-    Target: poll.target || (poll as any).Target || '',
-    PollInt: (poll as any).poll_int || (poll as any).PollInt || 60,
-    Timeout: (poll as any).timeout || (poll as any).Timeout || 1,
-    Retry: (poll as any).retry || (poll as any).Retry || 1,
-    Params: (poll as any).params || (poll as any).Params || '',
-    Filter: (poll as any).filter || (poll as any).Filter || '',
-    Extractor: (poll as any).extractor || (poll as any).Extractor || '',
-    Script: (poll as any).script || (poll as any).Script || '',
+    State: poll.state ?? poll.State ?? '',
+    Mode: poll.mode ?? poll.Mode ?? '',
+    Params: poll.params ?? poll.Params ?? '',
+    Filter: poll.filter ?? poll.Filter ?? '',
+    Extractor: poll.extractor ?? poll.Extractor ?? '',
+    Script: poll.script ?? poll.Script ?? '',
+    Level: poll.level ?? poll.Level ?? '',
+    PollInt: poll.poll_int ?? poll.PollInt ?? 60,
+    Timeout: poll.timeout ?? poll.Timeout ?? 1,
+    Retry: poll.retry ?? poll.Retry ?? 1,
+    LogMode: poll.log_mode ?? poll.LogMode ?? 0,
+    FailAction: poll.fail_action ?? poll.FailAction ?? '',
+    RepairAction: poll.repair_action ?? poll.RepairAction ?? '',
+    AIMode: poll.ai_mode ?? poll.AIMode ?? '',
+    VectorCols: poll.vector_cols ?? poll.VectorCols ?? '',
+    MqttURL: poll.mqtt_url ?? poll.MqttURL ?? '',
+    MqttTopic: poll.mqtt_topic ?? poll.MqttTopic ?? '',
+    MqttCols: poll.mqtt_cols ?? poll.MqttCols ?? '',
   };
-  if ((poll as any).Result || (poll as any).result) {
-    payload.Result = (poll as any).Result || (poll as any).result;
+  if (poll.Result || poll.result) {
+    payload.Result = poll.Result ?? poll.result;
   }
-  if ((poll as any).LastTime || (poll as any).last_time) {
-    payload.LastTime = (poll as any).LastTime || (poll as any).last_time;
+  if (poll.LastTime !== undefined || poll.last_time !== undefined) {
+    payload.LastTime = poll.LastTime ?? poll.last_time;
   }
   const res = await fetch(`${API_BASE}/pollings`, {
     method: 'POST',
@@ -1724,6 +1811,3 @@ export async function getDiscoverAddressRange(): Promise<string[]> {
   const res = await fetch(`${API_BASE}/discover/ranges`);
   return await res.json();
 }
-
-
-

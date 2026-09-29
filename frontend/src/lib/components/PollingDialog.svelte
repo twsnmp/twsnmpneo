@@ -3,6 +3,31 @@
   import { _ } from "svelte-i18n";
   import { savePolling, type PollingEnt, type NodeEnt } from "../api";
   import { X, Save, CheckSquare } from "@lucide/svelte";
+  import CodeJar from "./CodeJar.svelte";
+  import Prism from "prismjs";
+  import "prismjs/components/prism-regex";
+  import "prismjs/components/prism-javascript";
+
+  // Grok pattern syntax
+  Prism.languages["grok"] = {
+    number: /%\{.+?\}/,
+    string: /\.\+/,
+    regex: /\\s\+/,
+  };
+
+  // TWSNMP action syntax (wol, mail, webhook, wait, cmd)
+  Prism.languages["twaction"] = {
+    regex: /[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}/,
+    keyword: /(wol|mail|webhook|wait|cmd)/,
+    number: /-?\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/i,
+    string: /\b(?:false|true|up|down)\b/,
+    url: /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&/=]*)/,
+  };
+
+  const highlight = (code: string, syntax: string | undefined): string => {
+    if (!syntax || !Prism.languages[syntax]) return code;
+    return Prism.highlight(code, Prism.languages[syntax], syntax);
+  };
 
   let {
     show = $bindable(false),
@@ -20,10 +45,36 @@
   let name = $state("");
   let nodeId = $state("");
   let type = $state("ping");
-  let target = $state("");
-  let pollingState = $state("normal");
+  let mode = $state("");
+  let params = $state("");
+  let filter = $state("");
+  let extractor = $state("");
+  let script = $state("");
+  let level = $state("off");
+  let pollInt = $state(60);
+  let timeout = $state(1);
+  let retry = $state(1);
+  let logMode = $state(0);
+  let failAction = $state("");
+  let repairAction = $state("");
+  let aiMode = $state("default");
+  let vectorCols = $state("");
+  let mqttURL = $state("");
+  let mqttTopic = $state("");
+  let mqttCols = $state("");
   let saveError = $state("");
   let isSubmitting = $state(false);
+
+  // True when editing an existing polling (id is set)
+  const isEditing = $derived(id !== "");
+
+  // Node display name for read-only mode when editing
+  const selectedNodeName = $derived(() => {
+    if (!isEditing) return "";
+    const n = nodes.find((node: NodeEnt) => (node.id || node.ID) === nodeId);
+    if (!n) return nodeId;
+    return `${n.name || n.Name} (${n.ip || n.IP})`;
+  });
 
   const pollingTypes = [
     { value: "ping", label: "PING (ICMP Echo)" },
@@ -34,46 +85,47 @@
     { value: "ntp", label: "NTP Time Sync" },
   ];
 
-  $effect(() => {
-    if (show) {
-      untrack(() => {
-        saveError = "";
-        if (polling) {
-          id = polling.id || polling.ID || "";
-          name = polling.name || polling.Name || "";
-          nodeId = polling.node_id || polling.NodeID || (nodes.length > 0 ? (nodes[0].id || nodes[0].ID || "") : "");
-          type = polling.type || polling.Type || "ping";
-          target = polling.target || (polling as any).Target || "";
-          pollingState = polling.state || polling.State || "normal";
-        } else {
-          id = "";
-          name = $_('polling.defaultName');
-          nodeId = nodes.length > 0 ? (nodes[0].id || nodes[0].ID || "") : "";
-          type = "ping";
-          target = "";
-          pollingState = "normal";
-        }
-      });
-    }
-  });
+  const controlClass =
+    "w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none";
+  const labelClass = "block font-semibold text-slate-700 dark:text-slate-300";
+  const levels = ["high", "low", "warn", "info", "off"];
 
-  // When node changes and target is empty, fill target with node's IP
-  const handleNodeChange = (selectedId: string) => {
-    nodeId = selectedId;
-    const n = nodes.find((item: NodeEnt) => (item.id || item.ID) === selectedId);
-    if (n && (!target || target === "")) {
-      target = n.ip || n.IP || "";
-    }
-  };
+  $effect(() => {
+    if (!show) return;
+    untrack(() => {
+      saveError = "";
+      id = polling?.id ?? polling?.ID ?? "";
+      name = polling?.name ?? polling?.Name ?? $_("polling.defaultName");
+      nodeId = polling?.node_id ?? polling?.NodeID ?? (nodes[0]?.id || nodes[0]?.ID || "");
+      type = polling?.type ?? polling?.Type ?? "ping";
+      mode = polling?.mode ?? polling?.Mode ?? "";
+      params = polling?.params ?? polling?.Params ?? "";
+      filter = polling?.filter ?? polling?.Filter ?? "";
+      extractor = polling?.extractor ?? polling?.Extractor ?? "";
+      script = polling?.script ?? polling?.Script ?? "";
+      level = polling?.level ?? polling?.Level ?? "off";
+      pollInt = polling?.poll_int ?? polling?.PollInt ?? 60;
+      timeout = polling?.timeout ?? polling?.Timeout ?? 1;
+      retry = polling?.retry ?? polling?.Retry ?? 1;
+      logMode = polling?.log_mode ?? polling?.LogMode ?? 0;
+      failAction = polling?.fail_action ?? polling?.FailAction ?? "";
+      repairAction = polling?.repair_action ?? polling?.RepairAction ?? "";
+      aiMode = polling?.ai_mode ?? polling?.AIMode ?? "default";
+      vectorCols = polling?.vector_cols ?? polling?.VectorCols ?? "";
+      mqttURL = polling?.mqtt_url ?? polling?.MqttURL ?? "";
+      mqttTopic = polling?.mqtt_topic ?? polling?.MqttTopic ?? "";
+      mqttCols = polling?.mqtt_cols ?? polling?.MqttCols ?? "";
+    });
+  });
 
   const handleSave = async (e: Event) => {
     e.preventDefault();
     if (!name.trim()) {
-      saveError = $_('polling.errNameRequired');
+      saveError = $_("polling.errNameRequired");
       return;
     }
     if (!nodeId) {
-      saveError = $_('polling.errNodeRequired');
+      saveError = $_("polling.errNodeRequired");
       return;
     }
 
@@ -85,13 +137,28 @@
         name,
         node_id: nodeId,
         type,
-        target,
-        state: pollingState,
+        mode,
+        params,
+        filter,
+        extractor,
+        script,
+        level,
+        poll_int: pollInt,
+        timeout,
+        retry,
+        log_mode: logMode,
+        fail_action: failAction,
+        repair_action: repairAction,
+        ai_mode: aiMode,
+        vector_cols: vectorCols,
+        mqtt_url: mqttURL,
+        mqtt_topic: mqttTopic,
+        mqtt_cols: mqttCols,
       });
       onSave(saved);
       show = false;
-    } catch (err: any) {
-      saveError = err?.message || $_('polling.errSaveFailed');
+    } catch (err: unknown) {
+      saveError = err instanceof Error ? err.message : $_("polling.errSaveFailed");
     } finally {
       isSubmitting = false;
     }
@@ -107,7 +174,7 @@
     onkeydown={(e) => e.key === "Escape" && (show = false)}
   >
     <div
-      class="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-slate-100 font-sans"
+      class="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-slate-100 font-sans"
     >
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-3.5 bg-slate-50 dark:bg-slate-950/80">
@@ -117,22 +184,21 @@
           </div>
           <div>
             <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">
-              {id ? $_('polling.editTitle') : $_('polling.createTitle')}
+              {isEditing ? $_("polling.editTitle") : $_("polling.createTitle")}
             </h3>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">{$_('polling.subtitle')}</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">{$_("polling.subtitle")}</p>
           </div>
         </div>
         <button
           type="button"
           onclick={() => (show = false)}
           class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-          title={$_('common.close')}
+          title={$_("common.close")}
         >
           <X class="h-4 w-4" />
         </button>
       </div>
 
-      <!-- Form Body -->
       <form onsubmit={handleSave} class="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
         {#if saveError}
           <div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-600 dark:text-rose-300 font-medium">
@@ -140,105 +206,187 @@
           </div>
         {/if}
 
-        <!-- Name -->
-        <div class="space-y-1.5">
-          <label for="poll-name" class="block font-semibold text-slate-700 dark:text-slate-300">
-            {$_('polling.name')} <span class="text-rose-500 dark:text-rose-400">*</span>
-          </label>
-          <input
-            id="poll-name"
-            type="text"
-            bind:value={name}
-            placeholder={$_('polling.namePlaceholder')}
-            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
-            required
-          />
-        </div>
-
-        <!-- Target Node -->
-        <div class="space-y-1.5">
-          <label for="poll-node" class="block font-semibold text-slate-700 dark:text-slate-300">
-            {$_('polling.targetNode')} <span class="text-rose-500 dark:text-rose-400">*</span>
-          </label>
-          <select
-            id="poll-node"
-            value={nodeId}
-            onchange={(e) => handleNodeChange((e.target as HTMLSelectElement).value)}
-            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
-          >
-            {#if nodes.length === 0}
-              <option value="">{$_('polling.noNodes')}</option>
-            {/if}
-            {#each nodes as n}
-              <option value={n.id || n.ID}>
-                {n.name || n.Name} ({n.ip || n.IP})
-              </option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Polling Type -->
-        <div class="space-y-1.5">
-          <label for="poll-type" class="block font-semibold text-slate-700 dark:text-slate-300">
-            {$_('polling.type')}
-          </label>
-          <div class="grid grid-cols-2 gap-2">
-            {#each pollingTypes as pt}
-              <button
-                type="button"
-                onclick={() => (type = pt.value)}
-                class="flex items-center gap-2 rounded-xl border px-3 py-2 text-left font-medium transition-all {type === pt.value ? 'border-cyan-500 bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 font-bold' : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-slate-200'}"
+        <!-- Name + Node -->
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="space-y-1.5">
+            <label for="poll-name" class={labelClass}>
+              {$_("polling.name")} <span class="text-rose-500">*</span>
+            </label>
+            <input id="poll-name" class={controlClass} bind:value={name} required />
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-node" class={labelClass}>
+              {$_("polling.targetNode")} <span class="text-rose-500">*</span>
+            </label>
+            {#if isEditing}
+              <!-- 編集時はノード変更不可 -->
+              <div
+                class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                title={$_("polling.nodeLockedHint")}
               >
-                <span class="h-2 w-2 rounded-full {type === pt.value ? 'bg-cyan-500 dark:bg-cyan-400' : 'bg-slate-400 dark:bg-slate-600'}"></span>
-                <span class="truncate">{pt.label}</span>
-              </button>
-            {/each}
+                {selectedNodeName()}
+              </div>
+            {:else}
+              <select
+                id="poll-node"
+                bind:value={nodeId}
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
+              >
+                {#if nodes.length === 0}
+                  <option value="">{$_("polling.noNodes")}</option>
+                {/if}
+                {#each nodes as n}
+                  <option value={n.id || n.ID}>{n.name || n.Name} ({n.ip || n.IP})</option>
+                {/each}
+              </select>
+            {/if}
           </div>
         </div>
 
-        <!-- Target Destination (IP / Host / URL / Port / OID) -->
+        <!-- Type / Mode / Level / LogMode -->
+        <div class="grid gap-3 sm:grid-cols-4">
+          <div class="space-y-1.5">
+            <label for="poll-type" class={labelClass}>{$_("polling.type")}</label>
+            <select id="poll-type" bind:value={type} class={controlClass} disabled={isEditing}>
+              {#if !pollingTypes.some((pt) => pt.value === type)}
+                <option value={type}>{type.toUpperCase()}</option>
+              {/if}
+              {#each pollingTypes as pt}
+                <option value={pt.value}>{pt.label}</option>
+              {/each}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-mode" class={labelClass}>{$_("polling.mode")}</label>
+            {#if type === "ping"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">{$_("polling.modeDefault")}</option>
+                <option value="line">{$_("polling.modeLine")}</option>
+                <option value="smoke">{$_("polling.modeSmoke")}</option>
+              </select>
+            {:else}
+              <input id="poll-mode" class={controlClass} bind:value={mode} />
+            {/if}
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-level" class={labelClass}>{$_("polling.level")}</label>
+            <select id="poll-level" bind:value={level} class={controlClass}>
+              {#each levels as value}
+                <option {value}>{$_(`polling.levels.${value}`)}</option>
+              {/each}
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-log-mode" class={labelClass}>{$_("polling.logMode")}</label>
+            <select
+              id="poll-log-mode"
+              value={logMode}
+              onchange={(e) => (logMode = Number((e.currentTarget as HTMLSelectElement).value))}
+              class={controlClass}
+            >
+              <option value={0}>{$_("polling.logModes.none")}</option>
+              <option value={1}>{$_("polling.logModes.always")}</option>
+              <option value={2}>{$_("polling.logModes.onChange")}</option>
+              <option value={3}>{$_("polling.logModes.ai")}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Params -->
         <div class="space-y-1.5">
-          <label for="poll-target" class="block font-semibold text-slate-700 dark:text-slate-300">
-            {$_('polling.target')}
-          </label>
-          <input
-            id="poll-target"
-            type="text"
-            bind:value={target}
-            placeholder={$_('polling.targetPlaceholder')}
-            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-mono"
-          />
+          <label for="poll-params" class={labelClass}>{$_("polling.params")}</label>
+          <input id="poll-params" class={`${controlClass} font-mono`} bind:value={params} />
           <p class="text-[11px] text-slate-500 dark:text-slate-400">
-            {$_('polling.targetHelp')}
+            {type === "ping" ? $_("polling.pingParamsHelp") : $_("polling.paramsHelp")}
           </p>
         </div>
 
-        <!-- Initial Status (if editing) -->
-        <div class="space-y-1.5">
-          <label for="poll-state" class="block font-semibold text-slate-700 dark:text-slate-300">
-            {$_('polling.status')}
-          </label>
-          <select
-            id="poll-state"
-            bind:value={pollingState}
-            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
-          >
-            <option value="normal">{$_('status.normal')}</option>
-            <option value="warn">{$_('status.warn')}</option>
-            <option value="low">{$_('status.low')}</option>
-            <option value="high">{$_('status.high')}</option>
-            <option value="error">{$_('common.error')}</option>
-          </select>
+        <!-- Interval / Timeout / Retry -->
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div class="space-y-1.5">
+            <label for="poll-interval" class={labelClass}>{$_("polling.pollInterval")}</label>
+            <input id="poll-interval" class={controlClass} type="number" min="1" max="86400" bind:value={pollInt} />
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-timeout" class={labelClass}>{$_("polling.timeout")}</label>
+            <input id="poll-timeout" class={controlClass} type="number" min="0" max="3600" bind:value={timeout} />
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-retry" class={labelClass}>{$_("polling.retry")}</label>
+            <input id="poll-retry" class={controlClass} type="number" min="0" max="50" bind:value={retry} />
+          </div>
         </div>
 
-        <!-- Footer Actions -->
+        <!-- Filter (regex) + Extractor (grok) -->
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="space-y-1.5">
+            <label for="poll-filter" class={labelClass}>{$_("polling.filter")}</label>
+            <CodeJar id="poll-filter" syntax="regex" {highlight} bind:value={filter} />
+          </div>
+          <div class="space-y-1.5">
+            <label for="poll-extractor" class={labelClass}>{$_("polling.extractor")}</label>
+            <CodeJar id="poll-extractor" syntax="grok" {highlight} bind:value={extractor} />
+          </div>
+        </div>
+
+        <!-- Script (JavaScript) -->
+        <div class="space-y-1.5">
+          <label for="poll-script" class={labelClass}>{$_("polling.script")}</label>
+          <CodeJar id="poll-script" syntax="javascript" {highlight} catchTab={true} bind:value={script} />
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">{$_("polling.scriptHelp")}</p>
+        </div>
+
+        <!-- AI options (logMode === 3) -->
+        {#if logMode === 3}
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="space-y-1.5">
+              <label for="poll-ai-mode" class={labelClass}>{$_("polling.aiMode")}</label>
+              <input id="poll-ai-mode" class={controlClass} bind:value={aiMode} />
+            </div>
+            <div class="space-y-1.5">
+              <label for="poll-vector-cols" class={labelClass}>{$_("polling.vectorCols")}</label>
+              <input id="poll-vector-cols" class={controlClass} bind:value={vectorCols} />
+            </div>
+          </div>
+        {/if}
+
+        <!-- FailAction + RepairAction (twaction) -->
+        <div class="space-y-1.5">
+          <label for="poll-fail-action" class={labelClass}>{$_("polling.failAction")}</label>
+          <CodeJar id="poll-fail-action" syntax="twaction" {highlight} catchTab={true} bind:value={failAction} />
+        </div>
+        <div class="space-y-1.5">
+          <label for="poll-repair-action" class={labelClass}>{$_("polling.repairAction")}</label>
+          <CodeJar id="poll-repair-action" syntax="twaction" {highlight} catchTab={true} bind:value={repairAction} />
+        </div>
+
+        <!-- MQTT -->
+        <fieldset class="space-y-3 rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+          <legend class="px-1 font-semibold">{$_("polling.mqtt")}</legend>
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="space-y-1.5">
+              <label for="poll-mqtt-url" class={labelClass}>{$_("polling.mqttURL")}</label>
+              <input id="poll-mqtt-url" class={controlClass} bind:value={mqttURL} />
+            </div>
+            <div class="space-y-1.5">
+              <label for="poll-mqtt-topic" class={labelClass}>{$_("polling.mqttTopic")}</label>
+              <input id="poll-mqtt-topic" class={controlClass} bind:value={mqttTopic} />
+            </div>
+            <div class="space-y-1.5">
+              <label for="poll-mqtt-cols" class={labelClass}>{$_("polling.mqttCols")}</label>
+              <input id="poll-mqtt-cols" class={controlClass} bind:value={mqttCols} />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Footer -->
         <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onclick={() => (show = false)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-2 font-semibold text-slate-700 dark:text-slate-300 transition-colors"
           >
-            {$_('common.cancel')}
+            {$_("common.cancel")}
           </button>
           <button
             type="submit"
@@ -246,7 +394,7 @@
             class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-5 py-2 font-bold text-white shadow-md shadow-cyan-600/30 transition-all disabled:opacity-50"
           >
             <Save class="h-3.5 w-3.5" />
-            <span>{isSubmitting ? $_('common.saving') : $_('common.save')}</span>
+            <span>{isSubmitting ? $_("common.saving") : $_("common.save")}</span>
           </button>
         </div>
       </form>

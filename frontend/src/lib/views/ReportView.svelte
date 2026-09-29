@@ -1280,7 +1280,7 @@
                         {p.type}
                       </span>
                     </td>
-                    <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px]">{p.target || "-"}</td>
+                    <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px]">{p.params || p.target || "-"}</td>
                     <td class="py-1 px-2">
                       <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none" style="background-color: {getStateColor(p.state)}20; border-color: {getStateColor(p.state)}50; color: {getStateColor(p.state)}">
                         <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(p.state)}"></span>

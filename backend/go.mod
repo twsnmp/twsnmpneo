@@ -13,6 +13,7 @@ require (
 	github.com/montanaflynn/stats v0.12.7
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/parquet-go/parquet-go v0.32.0
+	github.com/robertkrimen/otto v0.5.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sleepinggenius2/gosmi v0.4.4
 	github.com/tehmaze/netflow v0.0.0-20240303214733-8c13bb004068
@@ -62,4 +63,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260921155816-b14227669459 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 // indirect
 	google.golang.org/grpc v1.84.0 // indirect
+	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )

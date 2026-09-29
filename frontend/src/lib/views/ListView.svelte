@@ -211,7 +211,7 @@
     pollings.filter((p) => {
       const q = searchQuery.toLowerCase();
       const name = (p.name || (p as any).Name || "").toLowerCase();
-      const target = (p.target || (p as any).Target || "").toLowerCase();
+      const target = (p.params || p.target || p.Params || (p as any).Target || "").toLowerCase();
       const nodeName = getNodeName(p.node_id || (p as any).NodeID).toLowerCase();
       const matchSearch = !q || name.includes(q) || target.includes(q) || nodeName.includes(q);
       const matchType = typeFilter === "all" || p.type === typeFilter;
@@ -272,7 +272,7 @@
           case "status": return item.state || item.State || "";
           case "name": return item.name || item.Name || "";
           case "type": return item.type || item.Type || "";
-          case "target": return item.target || item.Target || "";
+          case "target": return item.params || item.target || item.Params || item.Target || "";
           case "targetNode": return getNodeName(item.node_id || item.NodeID);
           case "lastVal": return item.last_val ?? "";
           case "lastTime": return item.last_time ?? "";
@@ -828,7 +828,7 @@
                       {p.type}
                     </span>
                   </td>
-                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{p.target || "-"}</td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{p.params || p.Params || p.target || "-"}</td>
                   <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-sans font-medium">{getNodeName(p.node_id || (p as any).NodeID)}</td>
                   <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-semibold">
                     {#if p.last_val !== undefined}
