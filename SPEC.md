@@ -295,11 +295,31 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - Polling bindings: Associate polling metrics from both endpoints for bidirectional traffic line width and animation speed.
   - Custom color, width, and style (solid, dashed).
 
-* **Polling Definition & PING Compatibility**:
+* **Polling Definition & PING / Multi-Protocol Compatibility**:
   - Persist the shared `PollingEnt` configuration used by TWSNMP FK: `Mode`, `Params`, `Filter`, `Extractor`, `Script`, `Level`, `PollInt`, `Timeout`, `Retry`, `LogMode`, `FailAction`, `RepairAction`, `AIMode`, `VectorCols`, `MqttURL`, `MqttTopic`, and `MqttCols`.
   - The polling editor exposes these shared fields and retains FK field names in the API/data model. Polling scheduling, execution orchestration, and the `Poller` interface remain NEO-owned.
   - PING uses the selected node's IP and supports FK's default mode, `line`, and `smoke` modes. `Params` supports legacy numeric payload size and `size`, `ttl`, and (for `smoke`) `count` options.
-  - PING result field names, nanosecond RTT values, failure level selection, smoke statistics, and smoke-mode JavaScript boolean state evaluation are compatible with FK. Other polling types will adopt the shared editor contract separately; their execution behavior is not changed by this requirement.
+  - PING result field names, nanosecond RTT values, failure level selection, smoke statistics, and smoke-mode JavaScript boolean state evaluation are compatible with FK.
+  - **SNMP**: Full parity with TWSNMP FK across all 9 modes and SNMPv3 security parameters (`v1`, `v2c`, `v3auth`, `v3authpriv`, `v3authprivex`, `v3sha256aes128`, `v3sha512aes256`):
+    - `get` / `(default)`: Multi-OID GET queries with `delta` and `ps` (per-second rate) computation, string filter matching, and Otto JavaScript scripting.
+    - `sysUpTime`: System uptime polling with wrap/reboot detection and `deltaSysUpTime` calculation.
+    - `ifOperStatus`: Interface operational status check (`ifOperStatus.<idx>` / `ifAdminStatus.<idx>`).
+    - `traffic`: Ingress/egress bandwidth calculation (`bps`, `obps`, `pps`, `opps`, `bytes`, `outBytes`, `errors`) using 32-bit and 64-bit HC counters from `ifXTable`.
+    - `count`: Table Walk with regex filter count and Otto boolean evaluation.
+    - `process`: Host resource process polling (`hrSWRunName`) with PID summation to detect process restarts/changes.
+    - `stats`: Numeric MIB table Walk computing `count`, `sum`, and `avg`.
+    - `hrSystemDate`: RFC 2579 DateAndTime parsing with clock drift calculation (`diff` in seconds) and Otto scripting.
+    - `script`: Free-form Otto JavaScript polling injecting a callable `snmpGet(oidName)` function.
+  - **TCP / TLS**: Supports plain TCP connection check with optional banner regex matching, as well as TLS modes (`verify`, `version` with version restriction in `Script`, and `expire` with remaining days threshold). Populates FK-compatible fields (`rtt`, `version`, `cipherSuite`, `valid`, `issuer`, `subject`, `notAfter`).
+  - **DNS**: Supports record resolution types (`ipaddr`, `addr`, `host`, `mx`, `ns`, `txt`, `cname`). In `ipaddr` mode, automatically detects IP address changes across polling runs. Evaluates JavaScript boolean expressions via Otto VM in other modes.
+  - **NTP**: Uses `beevik/ntp` to query target servers and populates `rtt`, `stratum`, `refid`, and clock `offset` in nanoseconds, matching FK fields.
+  - **STUN**: Discovers mapped public IP, external port, and local socket via `internal/stun` (UDP4/UDP6). Tracks external IP changes and supports Otto VM evaluation.
+  - **TWSNMP**: Queries remote TWSNMP instances via `/mobile/api/mapstatus`, handles Basic Auth, and maps overall status and counts (`high`, `warn`, `low`, `normal`, `repair`, `dbsize`).
+  - **Monitor**: Gathers local host resource telemetry (CPU, Memory, Disk, Load, Network, Goroutines, Heap) via `monitor.Monitor` and supports Otto JavaScript threshold scripting.
+  - **HTTP / HTTPS**: Web service polling with support for `hash` mode (SHA256 response body change detection), `metrics` mode (Apache, Nginx, Fiber JSON metrics parsing), and Otto JavaScript scripting with full HTTP context (`status`, `code`, `rtt`, `interval`).
+  - **Command (`cmd`)**: Executes local OS shell commands with `$IP` and `$NODE` template variable substitution, timeout bounds, and Otto evaluation of `exitCode`, `lastTime`, and extracted variables.
+  - **SSH (`ssh`)**: Remote execution over SSH with user/password or public key authentication, host key handling, timeout enforcement, and Otto script evaluation.
+  - **Extractor Pattern**: Shared extraction engine (`internal/extractor`) supporting `getBody` (raw body access in JS), `jsonpath` (JSONPath queries), `goquery` (HTML CSS selector queries), and named regex capture patterns via Grok. Reusable across HTTP, SSH, and Command pollers.
 
 ---
 

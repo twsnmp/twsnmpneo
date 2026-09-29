@@ -4,6 +4,9 @@ go 1.27
 
 require (
 	github.com/Cistern/sflow v0.0.0-20240622235316-ed105e3cf9fb
+	github.com/PaesslerAG/jsonpath v0.1.1
+	github.com/PuerkitoBio/goquery v1.13.0
+	github.com/beevik/ntp v1.6.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/google/gopacket v1.1.19
 	github.com/gosnmp/gosnmp v1.45.0
@@ -18,6 +21,7 @@ require (
 	github.com/sleepinggenius2/gosmi v0.4.4
 	github.com/tehmaze/netflow v0.0.0-20240303214733-8c13bb004068
 	github.com/twsnmp/go-mibdb v0.0.0-20210104220414-91387072cee7
+	github.com/vjeantet/grok v1.0.1
 	github.com/wneessen/go-mail v0.8.1
 	go.etcd.io/bbolt v1.5.0
 	go.opentelemetry.io/proto/otlp v1.11.0
@@ -30,8 +34,10 @@ require (
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/alecthomas/participle v0.7.1 // indirect
 	github.com/andybalholm/brotli v1.2.5 // indirect
+	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect

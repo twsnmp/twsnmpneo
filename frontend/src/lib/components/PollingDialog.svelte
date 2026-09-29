@@ -81,8 +81,14 @@
     { value: "snmp", label: "SNMP (sysUpTime / OID)" },
     { value: "http", label: "HTTP / HTTPS (Web)" },
     { value: "tcp", label: "TCP Port (Socket)" },
+    { value: "tls", label: "TLS (SSL Certificate)" },
     { value: "dns", label: "DNS Lookup" },
     { value: "ntp", label: "NTP Time Sync" },
+    { value: "stun", label: "STUN (Public IP / NAT)" },
+    { value: "twsnmp", label: "TWSNMP (Remote Node)" },
+    { value: "monitor", label: "Monitor (Host Resource)" },
+    { value: "cmd", label: "Command (Local Shell / Script)" },
+    { value: "ssh", label: "SSH (Remote Command)" },
   ];
 
   const controlClass =
@@ -263,6 +269,48 @@
                 <option value="">{$_("polling.modeDefault")}</option>
                 <option value="line">{$_("polling.modeLine")}</option>
                 <option value="smoke">{$_("polling.modeSmoke")}</option>
+              </select>
+            {:else if type === "snmp"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">get (OID GET / 値取得)</option>
+                <option value="delta">delta (前回値との差分)</option>
+                <option value="ps">ps (1秒あたりの増分 rate)</option>
+                <option value="sysUpTime">sysUpTime (稼働時間・再起動検知)</option>
+                <option value="ifOperStatus">ifOperStatus (ポート稼働状態)</option>
+                <option value="traffic">traffic (トラフィック bps/pps)</option>
+                <option value="count">count (Walk マッチ行数カウント)</option>
+                <option value="process">process (プロセス一覧・変化検知)</option>
+                <option value="stats">stats (テーブル数値集計 sum/avg)</option>
+                <option value="hrSystemDate">hrSystemDate (システム時刻差分)</option>
+                <option value="script">script (snmpGet スクリプト)</option>
+              </select>
+            {:else if type === "http" || type === "https"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">{$_("polling.modeDefault")}</option>
+                <option value="hash">hash (コンテンツSHA256変化検知)</option>
+                <option value="metrics">metrics (サーバーメトリクス解析)</option>
+              </select>
+            {:else if type === "tcp" || type === "tls"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">{type === "tls" ? "verify" : $_("polling.modeDefault")}</option>
+                <option value="verify">verify (証明書検証)</option>
+                <option value="version">version (バージョン確認)</option>
+                <option value="expire">expire (有効期限確認)</option>
+              </select>
+            {:else if type === "dns"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="ipaddr">ipaddr (A/AAAA・IP変化検知)</option>
+                <option value="addr">addr (正引き)</option>
+                <option value="host">host (逆引き)</option>
+                <option value="mx">mx (メールサーバー)</option>
+                <option value="ns">ns (ネームサーバー)</option>
+                <option value="txt">txt (テキストレコード)</option>
+                <option value="cname">cname (エイリアス)</option>
+              </select>
+            {:else if type === "stun"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">udp4 (IPv4)</option>
+                <option value="ipv6">ipv6 / udp6 (IPv6)</option>
               </select>
             {:else}
               <input id="poll-mode" class={controlClass} bind:value={mode} />

@@ -55,9 +55,16 @@ func NewManager(cfg Config) *Manager {
 	m.RegisterPoller("http", NewHTTPPoller())
 	m.RegisterPoller("https", NewHTTPPoller())
 	m.RegisterPoller("tcp", NewTCPPoller())
+	m.RegisterPoller("tls", NewTCPPoller())
 	m.RegisterPoller("dns", NewDNSPoller())
 	m.RegisterPoller("ntp", NewNTPPoller())
 	m.RegisterPoller("snmp", NewSNMPPoller())
+	m.RegisterPoller("stun", NewSTUNPoller())
+	m.RegisterPoller("twsnmp", NewTWSNMPPoller())
+	m.RegisterPoller("monitor", NewMonitorPoller(nil))
+	m.RegisterPoller("cmd", NewCmdPoller())
+	m.RegisterPoller("command", NewCmdPoller())
+	m.RegisterPoller("ssh", NewSSHPoller())
 
 	return m
 }
