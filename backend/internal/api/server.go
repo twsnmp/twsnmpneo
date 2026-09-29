@@ -29,6 +29,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/ping"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
+	"github.com/twsnmp/twsnmpneo/backend/internal/wol"
 	"github.com/twsnmp/twsnmpneo/backend/web"
 )
 
@@ -1475,7 +1476,6 @@ func NewServer(cfg Config) (*Server, error) {
 		})
 	}
 
-	// Diagnostic Tools APIs (Ping, WOL)
 	toolsGroup := apiGroup.Group("/tools")
 	toolsGroup.POST("/ping", func(c echo.Context) error {
 		var req struct {
@@ -1522,32 +1522,15 @@ func NewServer(cfg Config) (*Server, error) {
 	toolsGroup.POST("/wol", func(c echo.Context) error {
 		var req struct {
 			MAC string `json:"mac"`
-			IP  string `json:"ip"`
 		}
 		if err := c.Bind(&req); err != nil || req.MAC == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid mac"})
 		}
-		hw, err := net.ParseMAC(req.MAC)
+
+		err := wol.SendWakeOnLanPacket(req.MAC)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid mac format"})
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		packet := make([]byte, 102)
-		for i := 0; i < 6; i++ {
-			packet[i] = 0xFF
-		}
-		for i := 1; i <= 16; i++ {
-			copy(packet[i*6:], hw)
-		}
-		bcast := "255.255.255.255:9"
-		if req.IP != "" {
-			bcast = net.JoinHostPort(req.IP, "9")
-		}
-		conn, err := net.Dial("udp", bcast)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		defer conn.Close()
-		_, _ = conn.Write(packet)
 		return c.JSON(http.StatusOK, map[string]string{"status": "sent"})
 	})
 
