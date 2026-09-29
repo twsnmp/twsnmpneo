@@ -117,7 +117,7 @@ func (s *Store) WriteLog(record *ParquetLogRecord) error {
 		record.Timestamp = record.Time
 	}
 	if record.Src == "" {
-		record.Src = extractSrc(record.Type, record.Log)
+		record.Src = extractSrc(record.Log)
 	}
 
 	s.mu.Lock()
@@ -469,7 +469,7 @@ func (s *Store) Close() error {
 	return s.Flush()
 }
 
-func extractSrc(logType, logStr string) string {
+func extractSrc(logStr string) string {
 	if logStr == "" {
 		return ""
 	}
