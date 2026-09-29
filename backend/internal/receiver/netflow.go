@@ -137,7 +137,7 @@ func (s *NetFlowServer) handleNetFlow5(p *netflow5.Packet, fromIP string, now in
 			Bytes:    int(r.Bytes),
 			Packets:  int(r.Packets),
 			TCPFlags: read.TCPFlags(r.TCPFlags),
-			Protocol: read.Protocol(r.Protocol),
+			Protocol: formatProtocol(r.Protocol),
 			ToS:      int(r.ToS),
 			Dur:      float64(r.Last-r.First) / 100.0,
 		}
