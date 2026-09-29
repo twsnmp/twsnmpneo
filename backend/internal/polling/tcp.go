@@ -28,7 +28,7 @@ func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 	mode := pe.Mode
 	switch mode {
 	case "verify", "version", "expire":
-		return p.pollTLS(ctx, pe, node)
+		return p.pollTLS(pe, node)
 	}
 	return p.pollTCP(ctx, pe, node)
 }
@@ -116,7 +116,7 @@ func (p *TCPPoller) pollTCP(ctx context.Context, pe *datastore.PollingEnt, node 
 }
 
 // pollTLS performs a TLS handshake and optionally verifies certificate validity.
-func (p *TCPPoller) pollTLS(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	mode := pe.Mode
 	if mode == "" {
 		mode = "verify"
