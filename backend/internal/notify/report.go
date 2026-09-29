@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"log"
+	"log/slog"
 	"runtime"
 	"sort"
 	"strings"
@@ -335,7 +335,7 @@ func (m *Manager) sendReport(ctx context.Context) {
 	}
 	t, err := template.New("report").Funcs(f).Parse(m.store.LoadMailTemplate("report"))
 	if err != nil {
-		log.Printf("send report mail err=%v", err)
+		slog.Error("send report mail error", "error", err)
 		return
 	}
 	body := new(bytes.Buffer)
@@ -345,12 +345,12 @@ func (m *Manager) sendReport(ctx context.Context) {
 		"AIList":     aiList,
 		"LLMSummary": m.getLLMSummary(ctx, &info),
 	}); err != nil {
-		log.Printf("send report mail err=%v", err)
+		slog.Error("send report mail error", "error", err)
 		m.addEventLog("low", fmt.Sprintf(i18n.Trans("Failed to send report mail err=%v"), err))
 		return
 	}
 	if err := m.SendMail(title, body.String()); err != nil {
-		log.Printf("send report mail err=%v", err)
+		slog.Error("send report mail error", "error", err)
 		m.addEventLog("low", fmt.Sprintf(i18n.Trans("Failed to send report mail err=%v"), err))
 	} else {
 		m.addEventLog("info", i18n.Trans("Send report mail"))
@@ -429,7 +429,7 @@ Do not include symbols such as # at the beginning of your answer.
 	userPrompt := strings.Join(prompts, "\n")
 	resp, err := llmClient.GenerateAnswer(timeoutCtx, system, userPrompt)
 	if err != nil {
-		log.Printf("llmAsk err=%v", err)
+		slog.Error("llmAsk error", "error", err)
 		return fmt.Sprintf(i18n.Trans("An error occurred when contacting AI. err=%v"), err)
 	}
 	return strings.TrimSpace(resp)

@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"html/template"
-	"log"
+	"log/slog"
 	"net"
 	"strconv"
 	"strings"
@@ -52,7 +52,7 @@ func (m *Manager) sendNotifyMail(list []*datastore.EventLogEnt) {
 		r := ""
 		level := "info"
 		if err != nil {
-			log.Printf("send mail err=%v", err)
+			slog.Error("send mail error", "error", err)
 			r = fmt.Sprintf("err=%v", err)
 			level = "low"
 		}
@@ -63,7 +63,7 @@ func (m *Manager) sendNotifyMail(list []*datastore.EventLogEnt) {
 		r := ""
 		level := "info"
 		if err != nil {
-			log.Printf("send mail err=%v", err)
+			slog.Error("send mail error", "error", err)
 			r = fmt.Sprintf("err=%v", err)
 			level = "low"
 		}
@@ -135,13 +135,13 @@ func (m *Manager) sendMailSMTP(subject, body string) error {
 
 	client, err := mail.NewClient(host, options...)
 	if err != nil {
-		log.Printf("send mail err=%v", err)
+		slog.Error("send mail error", "error", err)
 		return err
 	}
 
 	message := mail.NewMsg()
 	if err := message.From(conf.MailFrom); err != nil {
-		log.Printf("send mail err=%v", err)
+		slog.Error("send mail error", "error", err)
 		return err
 	}
 	for _, rcpt := range strings.Split(conf.MailTo, ",") {
@@ -149,7 +149,7 @@ func (m *Manager) sendMailSMTP(subject, body string) error {
 			continue
 		}
 		if err := message.AddTo(rcpt); err != nil {
-			log.Printf("send mail err=%v", err)
+			slog.Error("send mail error", "error", err)
 			return err
 		}
 	}
@@ -158,11 +158,11 @@ func (m *Manager) sendMailSMTP(subject, body string) error {
 	message.SetBodyString(mail.TypeTextHTML, body)
 
 	if err := client.DialAndSend(message); err != nil {
-		log.Printf("send mail err=%v", err)
+		slog.Error("send mail error", "error", err)
 		return err
 	}
 
-	log.Printf("send mail to %s", conf.MailTo)
+	slog.Info("send mail completed", "to", conf.MailTo)
 	return nil
 }
 
@@ -226,13 +226,13 @@ func (m *Manager) sendTestMailSMTP(testConf *datastore.NotifyConfEnt) error {
 
 	client, err := mail.NewClient(host, options...)
 	if err != nil {
-		log.Printf("send test mail err=%v", err)
+		slog.Error("send test mail error", "error", err)
 		return err
 	}
 
 	message := mail.NewMsg()
 	if err := message.From(testConf.MailFrom); err != nil {
-		log.Printf("send test mail err=%v", err)
+		slog.Error("send test mail error", "error", err)
 		return err
 	}
 	for _, rcpt := range strings.Split(testConf.MailTo, ",") {
@@ -240,14 +240,14 @@ func (m *Manager) sendTestMailSMTP(testConf *datastore.NotifyConfEnt) error {
 			continue
 		}
 		if err := message.AddTo(rcpt); err != nil {
-			log.Printf("send test mail err=%v", err)
+			slog.Error("send test mail error", "error", err)
 			return err
 		}
 	}
 
 	t, err := template.New("test").Parse(m.store.LoadMailTemplate("test"))
 	if err != nil {
-		log.Printf("send test mail err=%s", err)
+		slog.Error("send test mail error", "error", err)
 		return err
 	}
 	buffer := new(bytes.Buffer)
@@ -262,7 +262,7 @@ func (m *Manager) sendTestMailSMTP(testConf *datastore.NotifyConfEnt) error {
 	message.SetBodyString(mail.TypeTextHTML, body)
 
 	if err := client.DialAndSend(message); err != nil {
-		log.Printf("send test mail err=%v", err)
+		slog.Error("send test mail error", "error", err)
 		return err
 	}
 
@@ -357,7 +357,7 @@ func (m *Manager) sendTestMailOAuth2(server string, testConf *datastore.NotifyCo
 	}
 	t, err := template.New("test").Parse(m.store.LoadMailTemplate("test"))
 	if err != nil {
-		log.Printf("send test mail err=%s", err)
+		slog.Error("send test mail error", "error", err)
 		return err
 	}
 	buffer := new(bytes.Buffer)

@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -130,10 +130,10 @@ func refreshOAuth2Token(store datastore.DataStore) *oauth2.Token {
 	tokenSource := config.TokenSource(context.Background(), oldToken)
 	newToken, err := tokenSource.Token()
 	if err != nil {
-		log.Printf("Fail to refresh token err=%v", err)
+		slog.Error("Fail to refresh token", "error", err)
 		return nil
 	}
-	log.Printf("oauth2 token updated old=%v new=%v", oldToken.Expiry, newToken.Expiry)
+	slog.Info("oauth2 token updated", "old", oldToken.Expiry, "new", newToken.Expiry)
 	store.SaveNotifyOAuth2Token(newToken)
 	return newToken
 }

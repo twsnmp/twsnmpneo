@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"log"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +37,7 @@ func Start(ctx context.Context, store datastore.DataStore, mon *monitor.Monitor)
 }
 
 func (m *Manager) notifyBackend(ctx context.Context) {
-	log.Println("start notify")
+	slog.Info("start notify")
 	conf := m.getNotifyConf()
 	lastSendReport := time.Now().Add(time.Hour * time.Duration(-24))
 	lastLog := time.Now().Add(time.Hour * time.Duration(-1)).UnixNano()
@@ -47,7 +47,7 @@ func (m *Manager) notifyBackend(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("stop notify")
+			slog.Info("stop notify")
 			timer.Stop()
 			return
 		case <-timer.C:
@@ -111,7 +111,7 @@ func (m *Manager) checkNotify(last int64) int64 {
 		list = append(list, l)
 		return true
 	})
-	log.Printf("check notify last=%v next=%v len=%d", time.Unix(0, last), time.Unix(0, lastLogTime), len(list))
+	slog.Info("check notify", "last", time.Unix(0, last), "next", time.Unix(0, lastLogTime), "len", len(list))
 	if len(list) > 0 {
 		m.sendNotifyMail(list)
 		m.webhookNotify(list)

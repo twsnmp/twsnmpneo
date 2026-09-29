@@ -4,7 +4,7 @@ package notify
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -33,7 +33,7 @@ func (m *Manager) checkExecCmd() {
 	if execLevel != lastExecLevel {
 		err := ExecNotifyCmd(conf.ExecCmd, execLevel)
 		if err != nil {
-			log.Printf("execNotifyCmd err=%v", err)
+			slog.Error("exec notify command error", "error", err)
 			m.addEventLog("low", fmt.Sprintf(i18n.Trans("Exec notify command err=%v"), err))
 		}
 		lastExecLevel = execLevel

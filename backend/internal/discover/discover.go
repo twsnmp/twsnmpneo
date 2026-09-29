@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -810,7 +810,7 @@ func (e *Engine) addFoundNode(ctx context.Context, dent *discoverInfoEnt, conf *
 	}
 
 	if err := e.store.SaveNode(ctx, &node); err != nil {
-		log.Printf("save node error: %v", err)
+		slog.Error("save node error", "error", err)
 		return
 	}
 

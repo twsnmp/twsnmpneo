@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -180,7 +179,7 @@ func (s *Store) Flush() error {
 			}
 		}
 	}
-	log.Printf("syslog=%d,netflow=%d,trap=%d,arplog=%d,sflow=%d,other=%d,dur=%v", sc, nfc, tc, ac, sf, oc, time.Since(st))
+	slog.Info("Flush completed", "syslog", sc, "netflow", nfc, "trap", tc, "arplog", ac, "sflow", sf, "other", oc, "duration", time.Since(st))
 	return firstErr
 }
 

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -125,12 +125,12 @@ func (m *Manager) webhookNotify(list []*datastore.EventLogEnt) {
 	}
 	j, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("webhookNotify err=%v", err)
+		slog.Error("webhookNotify error", "error", err)
 		return
 	}
 	err = PostWebhook(conf.WebHookNotify, j)
 	if err != nil {
-		log.Printf("webhookNotify err=%v", err)
+		slog.Error("webhookNotify error", "error", err)
 	}
 }
 
@@ -179,12 +179,12 @@ func (m *Manager) webhookReport(title string, info []reportInfoEnt, ai []aiResul
 	}
 	j, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("webhookNotify err=%v", err)
+		slog.Error("webhookReport error", "error", err)
 		return
 	}
 	err = PostWebhook(conf.WebHookReport, j)
 	if err != nil {
-		log.Printf("webhookReport err=%v", err)
+		slog.Error("webhookReport error", "error", err)
 	}
 }
 
