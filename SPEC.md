@@ -218,7 +218,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Internal daemon services health, receiver packet/message counters, and runtime version details.
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
    - System settings button is located as an icon-only button on the top-right header utility bar.
-   - Comprehensive multi-tab configuration modal: Map options, Notification credentials (Email, Slack, LINE, Teams, Webhook), AI credentials, Custom Icons, MIB Module manager, Grok pattern editor, and Datastore backup/restore/FC migration.
+   - The sidebar separates Map Settings, Polling Settings, and Database settings, alongside receivers, notifications, AI / LLM, and MIB management. Map options (name, size, icons, background image, and import), polling/SNMP parameters, and GeoIP, event-log retention, and datastore settings each have dedicated panels. Notification credentials, AI API keys, custom icons, and Grok patterns remain configurable.
    - OAuth2 mail-provider redirect URIs use `https://<public-host>/api/notify/oauth2/callback` (HTTP is allowed only for localhost) and must be registered with the provider. SMTP and webhook tests may connect to local/private servers; link-local and metadata service addresses are rejected.
 
 ---
@@ -528,6 +528,7 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 * **Configuration Modal Integration (`ConfigModal.svelte`)**:
   - Dedicated **MIB管理 / MIB Management** sidebar tab aligned with `twsnmpfk` settings.
   - Comprehensive tabular overview of loaded standard built-in MIBs (`int`) and user-extended MIBs (`ext` from `extmibs`).
+  - The modal is wide enough to keep MIB table columns on one line; narrow viewports may scroll the table horizontally.
   - Search and filter bar for instant module name, file path, type, and error filtering.
   - Visual status indicators: Green OK badge for valid MIB modules, soft rose warning badge with tooltip for syntax or parent-resolution errors.
 * **Lifecycle & Operations**:

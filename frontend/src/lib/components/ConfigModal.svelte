@@ -61,7 +61,7 @@
 
   let { show = $bindable(false), onSaved }: { show: boolean; onSaved?: () => void } = $props();
 
-  let activeTab = $state<"map" | "receivers" | "notify" | "ai" | "datastore" | "mib">("map");
+  let activeTab = $state<"map" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib">("map");
   let saveMsg = $state("");
   let saveError = $state("");
 
@@ -710,7 +710,7 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
+    <div class="flex h-[88vh] w-full max-w-7xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header -->
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4">
         <div class="flex items-center gap-3">
@@ -746,6 +746,14 @@
           </button>
           <button
             type="button"
+            onclick={() => (activeTab = "polling")}
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'polling' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
+          >
+            <Network class="h-4 w-4" />
+            {$_('config.tabPolling')}
+          </button>
+          <button
+            type="button"
             onclick={() => (activeTab = "receivers")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'receivers' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -770,11 +778,11 @@
           </button>
           <button
             type="button"
-            onclick={() => (activeTab = "datastore")}
-            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'datastore' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
+            onclick={() => (activeTab = "database")}
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all {activeTab === 'database' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Database class="h-4 w-4" />
-            {$_('config.tabDatastore')}
+            {$_('config.tabDatabase')}
           </button>
           <button
             type="button"
@@ -801,7 +809,7 @@
             </div>
           {/if}
 
-          <!-- TAB 1: Map & Polling -->
+          <!-- Map settings -->
           {#if activeTab === "map"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
@@ -833,7 +841,7 @@
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                <div class="grid grid-cols-1 gap-4 pt-1">
                   <div>
                     <label for="icon-size" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
                       {$_('config.iconSize')}: <span class="font-mono text-cyan-600 dark:text-cyan-400">{iconSize}</span> ({$_('config.iconSizeDesc')})
@@ -847,20 +855,14 @@
                       class="w-full accent-cyan-500 cursor-pointer"
                     />
                   </div>
-                  <div>
-                    <label for="log-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.logDays')}</label>
-                    <input
-                      id="log-days"
-                      type="number"
-                      min={1}
-                      max={365}
-                      bind:value={logDays}
-                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
-                    />
-                  </div>
                 </div>
               </div>
+            </div>
+          {/if}
 
+          <!-- Polling settings -->
+          {#if activeTab === "polling"}
+            <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
                 <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
                   <Network class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
@@ -946,8 +948,12 @@
                   </div>
                 {/if}
               </div>
+            </div>
+          {/if}
 
-              <!-- GeoIP Database Section (TWSNMP FC / FK Compatible) -->
+          <!-- GeoIP Database Section (TWSNMP FC / FK Compatible) -->
+          {#if activeTab === "database"}
+            <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                   <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -1011,6 +1017,28 @@
                 </div>
               </div>
 
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <Database class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                  {$_('config.logRetentionTitle')}
+                </h3>
+                <div class="max-w-sm">
+                  <label for="log-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.logDays')}</label>
+                  <input
+                    id="log-days"
+                    type="number"
+                    min={1}
+                    max={365}
+                    bind:value={logDays}
+                    class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          {#if activeTab === "map"}
+            <div class="mt-6 space-y-6 max-w-2xl">
               <!-- Background Image Section -->
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1234,9 +1262,10 @@
                 </div>
               </div>
             </div>
+          {/if}
 
-          <!-- TAB 2: Receivers & Daemons -->
-          {:else if activeTab === "receivers"}
+          <!-- Receivers & Daemons -->
+          {#if activeTab === "receivers"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
                 <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1317,7 +1346,9 @@
             </div>
 
           <!-- TAB 3: Notifications -->
-          {:else if activeTab === "notify"}
+          {/if}
+
+          {#if activeTab === "notify"}
             <div class="space-y-6 max-w-2xl">
               <!-- Message & Error Alerts for Notify Actions -->
               {#if notifyTestMsg}
@@ -1654,7 +1685,9 @@
 
 
           <!-- TAB 4: AI & LLM Settings -->
-          {:else if activeTab === "ai"}
+          {/if}
+
+          {#if activeTab === "ai"}
             <div class="space-y-6 max-w-2xl">
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
                 <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1742,8 +1775,10 @@
             </div>
 
           <!-- TAB 5: Datastore & System -->
-          {:else if activeTab === "datastore"}
-            <div class="space-y-6 max-w-2xl">
+          {/if}
+
+          {#if activeTab === "database"}
+            <div class="mt-6 space-y-6 max-w-2xl">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- BBolt Status Card -->
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 p-5 shadow-sm dark:shadow-lg space-y-3">
@@ -1814,7 +1849,7 @@
             </div>
           {/if}
 
-          <!-- TAB 6: MIB Management -->
+          <!-- MIB Management -->
           {#if activeTab === "mib"}
             <div class="space-y-6">
               <!-- Header info card -->
@@ -1892,8 +1927,8 @@
               </div>
 
               <!-- MIB Modules Table -->
-              <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-sm dark:shadow-lg">
-                <table class="w-full text-left text-xs">
+              <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-sm dark:shadow-lg">
+                <table class="w-full min-w-[900px] whitespace-nowrap text-left text-xs">
                   <thead class="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th class="p-3 w-10 text-center">#</th>
@@ -1908,6 +1943,7 @@
                     {#each filteredMibModules as mod, idx}
                       {@const isExt = mod.type === "ext" || mod.Type === "ext"}
                       {@const hasErr = Boolean(mod.error || mod.Error)}
+                      {@const fileName = mod.file || mod.File}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         <td class="p-3 text-center text-slate-400 text-[11px]">{idx + 1}</td>
                         <td class="p-3">
@@ -1921,10 +1957,10 @@
                             </span>
                           {/if}
                         </td>
-                        <td class="p-3 font-semibold text-slate-900 dark:text-slate-100 break-all">
+                        <td class="p-3 font-semibold text-slate-900 dark:text-slate-100">
                           {mod.name || mod.Name || "Unknown"}
                         </td>
-                        <td class="p-3 text-slate-600 dark:text-slate-400 break-all text-[11px]">
+                        <td class="p-3 text-slate-600 dark:text-slate-400 text-[11px]">
                           {mod.file || mod.File}
                         </td>
                         <td class="p-3">
@@ -1941,10 +1977,10 @@
                           {/if}
                         </td>
                         <td class="p-3 text-center">
-                          {#if isExt}
+                          {#if isExt && fileName}
                             <button
                               type="button"
-                              onclick={() => handleDeleteMIB(mod.file || mod.File)}
+                              onclick={() => handleDeleteMIB(fileName)}
                               class="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors"
                               title={$_('common.delete')}
                             >
