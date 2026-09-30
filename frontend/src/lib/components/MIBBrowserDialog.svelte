@@ -176,7 +176,10 @@
   const displayedResults = $derived.by(() => {
     let list = results;
     if (scalarOnly) {
-      list = list.filter((r) => r.oid.endsWith(".0") || (Boolean(r.name) && r.name.endsWith(".0")));
+      list = list.filter((r) => {
+        const name = r.name ?? "";
+        return r.oid.endsWith(".0") || name.endsWith(".0");
+      });
     }
     return list;
   });
