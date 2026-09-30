@@ -54,6 +54,20 @@
   const canShowMtr = $derived(mtrHops.length > 0);
   const canShowStats = $derived(!isRunning && results.length > 0);
 
+  const pingChartLabels = () => ({
+    responseTime: $_("Ping.responseTimeSeconds"),
+    sendTtl: $_("Ping.sendTtl"),
+    recvTtl: $_("Ping.recvTtl"),
+  });
+
+  const mtrChartLabels = () => ({
+    averageRtt: $_("Ping.averageRtt"),
+    rttRange: $_("Ping.rttRange"),
+    lossRate: $_("Ping.lossRate"),
+    rtt: $_("Ping.rtt"),
+    minimumRtt: $_("Ping.minimumRtt"),
+  });
+
   $effect(() => {
     if (show && (node || network)) {
       untrack(() => {
@@ -114,7 +128,7 @@
     if (!mainChartEl) return;
     if (chartInstance) chartInstance.dispose();
     chartInstance = echarts.init(mainChartEl, "dark");
-    chartOption = getPingChartOption();
+    chartOption = getPingChartOption(pingChartLabels());
     chartInstance.setOption(chartOption);
   };
 
@@ -285,26 +299,29 @@
     if (tab === "ping") {
       chartInstance?.resize();
     } else if (tab === "mtr") {
-      showMtrProfileChart("mtrChartContainer", mtrHops);
+      showMtrProfileChart("mtrChartContainer", mtrHops, mtrChartLabels());
     } else if (tab === "histogram") {
-      showPingHistogram("histogramContainer", results);
+      showPingHistogram("histogramContainer", results, $_("Ping.count"));
     } else if (tab === "smoke") {
-      showPingSmokeChart("smokeContainer", results);
+      showPingSmokeChart("smokeContainer", results, {
+        sequence: $_("Ping.sequence"),
+        responseTime: $_("Ping.responseTimeMs"),
+      });
     }
   };
 
   const renderStatText = (stat: number) => {
     switch (stat) {
       case 1:
-        return { text: "OK", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" };
+        return { text: $_("Ping.statusOk"), color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" };
       case 2:
-        return { text: "Timeout", color: "bg-rose-500/20 text-rose-400 border-rose-500/30" };
+        return { text: $_("Ping.statusTimeout"), color: "bg-rose-500/20 text-rose-400 border-rose-500/30" };
       case 3:
-        return { text: "Warn", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" };
+        return { text: $_("Ping.statusWarn"), color: "bg-amber-500/20 text-amber-400 border-amber-500/30" };
       case 4:
-        return { text: "GW", color: "bg-sky-500/20 text-sky-400 border-sky-500/30" };
+        return { text: $_("Ping.statusGateway"), color: "bg-sky-500/20 text-sky-400 border-sky-500/30" };
       default:
-        return { text: "Unknown", color: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+        return { text: $_("Ping.statusUnknown"), color: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
     }
   };
 </script>
@@ -324,7 +341,7 @@
           <Activity class="h-5 w-5 text-emerald-500" />
           <div>
             <h2 class="text-sm font-bold">PING — {titleName}</h2>
-            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{ip || "No IP"}</p>
+            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{ip || $_("Ping.noIp")}</p>
           </div>
         </div>
         <button
@@ -341,35 +358,35 @@
       <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-1.5">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("Ping.Mode") || "動作モード"}:</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("Ping.Mode")}:</span>
             <div class="flex rounded-lg border border-slate-300 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-950">
               <button
                 type="button"
                 onclick={() => changeMode("normal")}
                 class={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${mode === "normal" ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
               >
-                <Activity class="h-3 w-3" />{$_("Ping.ModeNormal") || "通常"}
+                <Activity class="h-3 w-3" />{$_("Ping.ModeNormal")}
               </button>
               <button
                 type="button"
                 onclick={() => changeMode("smoke")}
                 class={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${mode === "smoke" ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
               >
-                <Cloud class="h-3 w-3" />{$_("Ping.ModeSmoke") || "Smoke"}
+                <Cloud class="h-3 w-3" />{$_("Ping.ModeSmoke")}
               </button>
               <button
                 type="button"
                 onclick={() => changeMode("trace")}
                 class={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${mode === "trace" ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
               >
-                <GitBranch class="h-3 w-3" />{$_("Ping.ModeTrace") || "Trace"}
+                <GitBranch class="h-3 w-3" />{$_("Ping.ModeTrace")}
               </button>
               <button
                 type="button"
                 onclick={() => changeMode("mtr")}
                 class={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${mode === "mtr" ? "bg-cyan-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
               >
-                <Route class="h-3 w-3" />MTR
+                <Route class="h-3 w-3" />{$_("Ping.ModeMtr")}
               </button>
             </div>
           </div>
@@ -381,7 +398,7 @@
                 onclick={handleStop}
                 class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-rose-500"
               >
-                <Square class="h-3.5 w-3.5 fill-current" />{$_("Ping.Stop") || "停止"}
+                <Square class="h-3.5 w-3.5 fill-current" />{$_("Ping.Stop")}
               </button>
             {:else}
               <button
@@ -390,7 +407,7 @@
                 disabled={!ip.trim()}
                 class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-500 disabled:opacity-50"
               >
-                <Play class="h-3.5 w-3.5 fill-current" />{$_("Ping.Start") || "開始"}
+                <Play class="h-3.5 w-3.5 fill-current" />{$_("Ping.Start")}
               </button>
             {/if}
             <button
@@ -398,7 +415,7 @@
               onclick={resetState}
               disabled={isRunning}
               class="rounded-lg border border-slate-300 bg-white p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
-              title="リセット"
+              title={$_("Ping.Reset")}
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </button>
@@ -409,30 +426,30 @@
           <input
             type="text"
             bind:value={ip}
-            placeholder={$_("Ping.IPOrHost") || "IPアドレスまたはホスト名"}
+            placeholder={$_("Ping.IPOrHost")}
             class="min-w-[160px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
 
           {#if mode === "normal"}
             <select bind:value={count} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-              <option value={10}>10 回</option>
-              <option value={1}>1 回</option>
-              <option value={3}>3 回</option>
-              <option value={5}>5 回</option>
-              <option value={20}>20 回</option>
-              <option value={30}>30 回</option>
-              <option value={50}>50 回</option>
-              <option value={100}>100 回</option>
-              <option value={-1}>無制限 (連続)</option>
+              <option value={10}>10 {$_("Ping.times")}</option>
+              <option value={1}>1 {$_("Ping.times")}</option>
+              <option value={3}>3 {$_("Ping.times")}</option>
+              <option value={5}>5 {$_("Ping.times")}</option>
+              <option value={20}>20 {$_("Ping.times")}</option>
+              <option value={30}>30 {$_("Ping.times")}</option>
+              <option value={50}>50 {$_("Ping.times")}</option>
+              <option value={100}>100 {$_("Ping.times")}</option>
+              <option value={-1}>{$_("Ping.unlimited")}</option>
             </select>
             <select bind:value={size} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-              <option value={64}>64 バイト</option>
-              <option value={128}>128 バイト</option>
-              <option value={256}>256 バイト</option>
-              <option value={512}>512 バイト</option>
-              <option value={1024}>1024 バイト</option>
-              <option value={1500}>1500 バイト</option>
-              <option value={-1}>サイズ自動増加</option>
+              <option value={64}>64 {$_("Ping.bytes")}</option>
+              <option value={128}>128 {$_("Ping.bytes")}</option>
+              <option value={256}>256 {$_("Ping.bytes")}</option>
+              <option value={512}>512 {$_("Ping.bytes")}</option>
+              <option value={1024}>1024 {$_("Ping.bytes")}</option>
+              <option value={1500}>1500 {$_("Ping.bytes")}</option>
+              <option value={-1}>{$_("Ping.sizeAuto")}</option>
             </select>
             <select bind:value={ttl} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
               <option value={64}>TTL 64</option>
@@ -447,25 +464,25 @@
             </select>
           {:else if mode === "smoke" || mode === "mtr"}
             <select bind:value={count} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-              <option value={2001}>1 分間</option>
-              <option value={2003}>3 分間</option>
-              <option value={2005}>5 分間</option>
-              <option value={2010}>10 分間</option>
-              <option value={-1}>無制限 (連続)</option>
+              <option value={2001}>1 {$_("Ping.minutes")}</option>
+              <option value={2003}>3 {$_("Ping.minutes")}</option>
+              <option value={2005}>5 {$_("Ping.minutes")}</option>
+              <option value={2010}>10 {$_("Ping.minutes")}</option>
+              <option value={-1}>{$_("Ping.unlimited")}</option>
             </select>
             <select bind:value={size} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-              <option value={64}>64 バイト</option>
-              <option value={128}>128 バイト</option>
-              <option value={256}>256 バイト</option>
-              <option value={512}>512 バイト</option>
-              <option value={1024}>1024 バイト</option>
-              <option value={1500}>1500 バイト</option>
+              <option value={64}>64 {$_("Ping.bytes")}</option>
+              <option value={128}>128 {$_("Ping.bytes")}</option>
+              <option value={256}>256 {$_("Ping.bytes")}</option>
+              <option value={512}>512 {$_("Ping.bytes")}</option>
+              <option value={1024}>1024 {$_("Ping.bytes")}</option>
+              <option value={1500}>1500 {$_("Ping.bytes")}</option>
             </select>
           {:else if mode === "trace"}
             <select bind:value={size} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-              <option value={64}>64 バイト</option>
-              <option value={128}>128 バイト</option>
-              <option value={256}>256 バイト</option>
+              <option value={64}>64 {$_("Ping.bytes")}</option>
+              <option value={128}>128 {$_("Ping.bytes")}</option>
+              <option value={256}>256 {$_("Ping.bytes")}</option>
             </select>
           {/if}
         </div>
@@ -478,7 +495,7 @@
           onclick={() => handleTabSwitch("ping")}
           class={`flex items-center gap-1.5 border-b-2 px-3 py-2 transition-colors ${activeTab === "ping" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`}
         >
-          <Activity class="h-3.5 w-3.5" />PING
+          <Activity class="h-3.5 w-3.5" />{$_("Ping.tabPing")}
         </button>
         {#if canShowMtr}
           <button
@@ -486,7 +503,7 @@
             onclick={() => handleTabSwitch("mtr")}
             class={`flex items-center gap-1.5 border-b-2 px-3 py-2 transition-colors ${activeTab === "mtr" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`}
           >
-            <Route class="h-3.5 w-3.5" />MTR
+            <Route class="h-3.5 w-3.5" />{$_("Ping.ModeMtr")}
           </button>
         {/if}
         {#if canShowStats}
@@ -495,14 +512,14 @@
             onclick={() => handleTabSwitch("smoke")}
             class={`flex items-center gap-1.5 border-b-2 px-3 py-2 transition-colors ${activeTab === "smoke" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`}
           >
-            <Cloud class="h-3.5 w-3.5" />Smoke
+            <Cloud class="h-3.5 w-3.5" />{$_("Ping.tabSmoke")}
           </button>
           <button
             type="button"
             onclick={() => handleTabSwitch("histogram")}
             class={`flex items-center gap-1.5 border-b-2 px-3 py-2 transition-colors ${activeTab === "histogram" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`}
           >
-            <BarChart3 class="h-3.5 w-3.5" />ヒストグラム
+            <BarChart3 class="h-3.5 w-3.5" />{$_("Ping.tabHistogram")}
           </button>
         {/if}
       </div>
@@ -517,14 +534,14 @@
               <table class="w-full text-left text-xs">
                 <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
                   <tr>
-                    <th class="p-2">結果</th>
-                    <th class="p-2">時刻</th>
-                    <th class="p-2 font-mono">応答時間</th>
-                    <th class="p-2">サイズ</th>
-                    <th class="p-2">送信TTL</th>
-                    <th class="p-2">受信TTL</th>
-                    <th class="p-2">応答元</th>
-                    <th class="p-2">位置</th>
+                    <th class="p-2">{$_("Ping.result")}</th>
+                    <th class="p-2">{$_("Ping.time")}</th>
+                    <th class="p-2 font-mono">{$_("Ping.responseTime")}</th>
+                    <th class="p-2">{$_("Ping.size")}</th>
+                    <th class="p-2">{$_("Ping.sendTtl")}</th>
+                    <th class="p-2">{$_("Ping.recvTtl")}</th>
+                    <th class="p-2">{$_("Ping.source")}</th>
+                    <th class="p-2">{$_("Ping.location")}</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -543,7 +560,7 @@
                       <td class="p-2 text-slate-400">{r.Loc || "—"}</td>
                     </tr>
                   {:else}
-                    <tr><td colspan="8" class="p-4 text-center text-slate-500">測定データがありません</td></tr>
+                    <tr><td colspan="8" class="p-4 text-center text-slate-500">{$_("Ping.noData")}</td></tr>
                   {/each}
                 </tbody>
               </table>
@@ -556,15 +573,15 @@
               {#each mtrHops as hop}
                 <div class={`min-w-[140px] rounded-lg border p-2.5 text-xs shadow-sm ${hop.lossRate > 20 ? "border-rose-500/80 bg-rose-950/40 text-rose-200" : hop.lossRate > 0 ? "border-amber-500/80 bg-amber-950/40 text-amber-200" : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"}`}>
                   <div class="flex items-center justify-between font-mono font-bold text-[10px]">
-                    <span class="rounded bg-slate-200 px-1 py-0.5 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Hop {hop.ttl}</span>
-                    {#if hop.isTarget}<span class="rounded bg-cyan-600 px-1 py-0.5 text-white">Target</span>{/if}
+                    <span class="rounded bg-slate-200 px-1 py-0.5 text-slate-700 dark:bg-slate-800 dark:text-slate-300">{$_("Ping.hop")} {hop.ttl}</span>
+                    {#if hop.isTarget}<span class="rounded bg-cyan-600 px-1 py-0.5 text-white">{$_("Ping.target")}</span>{/if}
                   </div>
-                  <div class="mt-1.5 truncate font-mono font-semibold" title={hop.ip || "No Response"}>
-                    {hop.ip || "* No Response *"}
+                  <div class="mt-1.5 truncate font-mono font-semibold" title={hop.ip || $_("Ping.noResponse")}>
+                    {hop.ip || `* ${$_("Ping.noResponse")} *`}
                   </div>
                   <div class="mt-1 flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                    <span>Loss: <strong class={hop.lossRate > 0 ? "text-rose-400" : "text-emerald-400"}>{hop.lossRate.toFixed(1)}%</strong></span>
-                    <span>Avg: {hop.avg >= 0 ? `${hop.avg.toFixed(1)}ms` : "—"}</span>
+                    <span>{$_("Ping.loss")}: <strong class={hop.lossRate > 0 ? "text-rose-400" : "text-emerald-400"}>{hop.lossRate.toFixed(1)}%</strong></span>
+                    <span>{$_("Ping.average")}: {hop.avg >= 0 ? `${hop.avg.toFixed(1)}ms` : "—"}</span>
                   </div>
                 </div>
               {/each}
@@ -575,14 +592,14 @@
               <table class="w-full text-left text-xs">
                 <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
                   <tr>
-                    <th class="p-2">Hop</th>
-                    <th class="p-2">ホスト / IP</th>
-                    <th class="p-2">損失率</th>
-                    <th class="p-2">送信数</th>
-                    <th class="p-2">最新</th>
-                    <th class="p-2">平均</th>
-                    <th class="p-2">最小</th>
-                    <th class="p-2">最大</th>
+                    <th class="p-2">{$_("Ping.hop")}</th>
+                    <th class="p-2">{$_("Ping.hostIp")}</th>
+                    <th class="p-2">{$_("Ping.lossRate")}</th>
+                    <th class="p-2">{$_("Ping.sent")}</th>
+                    <th class="p-2">{$_("Ping.latest")}</th>
+                    <th class="p-2">{$_("Ping.average")}</th>
+                    <th class="p-2">{$_("Ping.minimum")}</th>
+                    <th class="p-2">{$_("Ping.maximum")}</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800">

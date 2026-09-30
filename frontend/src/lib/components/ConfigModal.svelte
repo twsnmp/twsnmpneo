@@ -184,7 +184,7 @@
     mibError = "";
     try {
       mibModules = await reloadMIBModules();
-      mibMsg = "MIBモジュールを再読み込みしました。";
+      mibMsg = $_('config.mibReloadSuccess');
       setTimeout(() => (mibMsg = ""), 3000);
     } catch (e: any) {
       mibError = e?.message || String(e);
@@ -202,7 +202,7 @@
     mibError = "";
     try {
       mibModules = await uploadMIBModule(file);
-      mibMsg = `拡張MIB "${file.name}" を追加・読み込みました。`;
+      mibMsg = $_('config.mibUploadSuccess', { values: { file: file.name } });
       setTimeout(() => (mibMsg = ""), 4000);
     } catch (e: any) {
       mibError = e?.message || String(e);
@@ -219,7 +219,7 @@
     mibError = "";
     try {
       mibModules = await deleteMIBModule(filePath);
-      mibMsg = "拡張MIBを削除しました。";
+      mibMsg = $_('config.mibDeleteSuccess');
       setTimeout(() => (mibMsg = ""), 3000);
     } catch (e: any) {
       mibError = e?.message || String(e);
@@ -646,7 +646,7 @@
     notifyTestError = "";
     const popup = window.open("about:blank", "_blank");
     if (!popup) {
-      notifyTestError = "Allow pop-ups to continue OAuth2 authorization";
+      notifyTestError = $_('config.notifyOAuth2PopupBlocked');
       return;
     }
     try {
@@ -668,10 +668,10 @@
           fetchNotifyOAuth2Status()
             .then((status) => {
               notifyOAuth2HasToken = status.hasToken;
-              notifyTestMsg = "OAuth2 認証が完了しました。";
+              notifyTestMsg = $_('config.notifyOAuth2Success');
             })
             .catch((err) => {
-              notifyTestError = `OAuth2 状態確認エラー: ${err.message || err}`;
+              notifyTestError = $_('config.notifyOAuth2StatusError', { values: { error: String(err.message || err) } });
             });
         };
         window.addEventListener("message", onOAuth2Message);
@@ -687,7 +687,7 @@
       }
     } catch (e: any) {
       popup.close();
-      notifyTestError = `OAuth2 開始エラー: ${e.message || e}`;
+      notifyTestError = $_('config.notifyOAuth2StartError', { values: { error: String(e.message || e) } });
     }
   };
 
@@ -695,9 +695,9 @@
     try {
       await deleteNotifyOAuth2Token();
       notifyOAuth2HasToken = false;
-      notifyTestMsg = "OAuth2 トークンを消去しました。";
+      notifyTestMsg = $_('config.notifyOAuth2TokenDeleted');
     } catch (e: any) {
-      notifyTestError = `トークン消去エラー: ${e.message || e}`;
+      notifyTestError = $_('config.notifyOAuth2TokenDeleteError', { values: { error: String(e.message || e) } });
     }
   };
 </script>
@@ -1174,7 +1174,7 @@
                           {$_('config.placementPreview')}
                         </span>
                         <span class="font-mono text-[10px]">
-                          キャンバス: {curMapW} × {curMapH} px
+                          {$_('config.mapCanvas')} {curMapW} × {curMapH} px
                         </span>
                       </div>
 
@@ -1529,7 +1529,7 @@
                           id="notify-tenant"
                           type="text"
                           bind:value={notifyMSTenant}
-                          placeholder="common または テナントID"
+                          placeholder={$_('config.notifyMSTenantPlaceholder')}
                           class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                         />
                       </div>
@@ -1936,7 +1936,7 @@
                       <th class="p-3 w-48">{$_('config.mibName')}</th>
                       <th class="p-3">{$_('config.mibFile')}</th>
                       <th class="p-3 w-32">{$_('config.mibStatus')}</th>
-                      <th class="p-3 w-16 text-center">操作</th>
+                      <th class="p-3 w-16 text-center">{$_('config.mibAction')}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
@@ -1993,9 +1993,9 @@
                       <tr>
                         <td colspan="6" class="py-8 px-2 text-center text-slate-500">
                           {#if mibLoading}
-                            読み込み中...
+                            {$_("mib.loading")}
                           {:else}
-                            一致するMIBモジュールがありません
+                            {$_("mib.noModules")}
                           {/if}
                         </td>
                       </tr>
@@ -2043,7 +2043,7 @@
     class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
     role="dialog"
     aria-modal="true"
-    aria-label="MIBツリー"
+    aria-label={$_('config.mibTree')}
     tabindex="-1"
     onkeydown={(e) => e.key === "Escape" && (showMIBTreeModal = false)}
   >
@@ -2051,7 +2051,7 @@
       <header class="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-800">
         <div class="flex items-center gap-2">
           <FolderTree class="h-4 w-4 text-teal-500" />
-          <h3 class="text-xs font-bold">MIBツリー構造</h3>
+          <h3 class="text-xs font-bold">{$_('mib.treeStructure')}</h3>
         </div>
         <button
           type="button"
@@ -2067,7 +2067,7 @@
           <input
             type="text"
             bind:value={mibTreeFilter}
-            placeholder="シンボル名またはOIDでフィルター..."
+            placeholder={$_('mib.treeFilter')}
             class="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
         </div>
@@ -2082,7 +2082,7 @@
             <span class="ml-2 text-slate-400">{node.oid}</span>
           </div>
         {:else}
-          <p class="p-4 text-center text-xs text-slate-500">一致するMIB項目がありません</p>
+          <p class="p-4 text-center text-xs text-slate-500">{$_('mib.noTreeMatches')}</p>
         {/each}
       </div>
     </div>

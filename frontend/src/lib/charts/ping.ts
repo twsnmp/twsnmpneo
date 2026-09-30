@@ -2,7 +2,13 @@ import * as echarts from "echarts";
 
 let chart: any;
 
-export const getPingChartOption = () => {
+export interface PingChartLabels {
+  responseTime: string;
+  sendTtl: string;
+  recvTtl: string;
+}
+
+export const getPingChartOption = (labels: PingChartLabels) => {
   return {
     title: { show: false },
     tooltip: {
@@ -17,7 +23,7 @@ export const getPingChartOption = () => {
     },
     legend: {
       top: 10,
-      data: ["応答時間 (秒)", "送信TTL", "受信TTL"],
+      data: [labels.responseTime, labels.sendTtl, labels.recvTtl],
       textStyle: { color: "#94a3b8", fontSize: 11 },
     },
     xAxis: {
@@ -36,7 +42,7 @@ export const getPingChartOption = () => {
     yAxis: [
       {
         type: "value",
-        name: "応答時間 (秒)",
+        name: labels.responseTime,
         nameTextStyle: { color: "#94a3b8", fontSize: 10 },
         axisLabel: { color: "#94a3b8", fontSize: 9 },
         axisLine: { lineStyle: { color: "#475569" } },
@@ -53,7 +59,7 @@ export const getPingChartOption = () => {
     ],
     series: [
       {
-        name: "応答時間 (秒)",
+        name: labels.responseTime,
         color: "#06b6d4",
         type: "line",
         showSymbol: true,
@@ -61,7 +67,7 @@ export const getPingChartOption = () => {
         data: [] as any[],
       },
       {
-        name: "送信TTL",
+        name: labels.sendTtl,
         color: "#eab308",
         type: "line",
         showSymbol: false,
@@ -69,7 +75,7 @@ export const getPingChartOption = () => {
         data: [] as any[],
       },
       {
-        name: "受信TTL",
+        name: labels.recvTtl,
         color: "#f43f5e",
         type: "line",
         showSymbol: false,
@@ -80,7 +86,7 @@ export const getPingChartOption = () => {
   };
 };
 
-export const showPingHistogram = (divId: string, results: any[]) => {
+export const showPingHistogram = (divId: string, results: any[], countLabel: string) => {
   const container = document.getElementById(divId);
   if (!container || !results || results.length === 0) return null;
   chart = echarts.init(container, "dark");
@@ -122,13 +128,13 @@ export const showPingHistogram = (divId: string, results: any[]) => {
     },
     yAxis: {
       type: "value",
-      name: "回数",
+      name: countLabel,
       axisLabel: { color: "#94a3b8", fontSize: 9 },
       splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
     },
     series: [
       {
-        name: "回数",
+        name: countLabel,
         type: "bar",
         color: "#06b6d4",
         barWidth: "60%",
@@ -142,7 +148,11 @@ export const showPingHistogram = (divId: string, results: any[]) => {
   return chart;
 };
 
-export const showPingSmokeChart = (divId: string, results: any[]) => {
+export const showPingSmokeChart = (
+  divId: string,
+  results: any[],
+  labels: { sequence: string; responseTime: string },
+) => {
   const container = document.getElementById(divId);
   if (!container || !results || results.length === 0) return null;
   chart = echarts.init(container, "dark");
@@ -160,14 +170,14 @@ export const showPingSmokeChart = (divId: string, results: any[]) => {
     grid: { left: "8%", right: "8%", top: 30, bottom: 40 },
     xAxis: {
       type: "value",
-      name: "シーケンス",
+      name: labels.sequence,
       axisLabel: { color: "#94a3b8", fontSize: 9 },
       axisLine: { lineStyle: { color: "#475569" } },
       splitLine: { show: false },
     },
     yAxis: {
       type: "value",
-      name: "応答時間 (ms)",
+      name: labels.responseTime,
       axisLabel: { color: "#94a3b8", fontSize: 9 },
       splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
     },

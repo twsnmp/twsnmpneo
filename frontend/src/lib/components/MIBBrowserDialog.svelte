@@ -124,7 +124,7 @@
   const copySelected = async () => {
     const list = selectedIndices.length > 0 ? selectedIndices.map((i) => displayedResults[i]).filter((r) => r !== undefined) : results;
     if (list.length === 0) return;
-    const lines = ["名前\tOID\t型\t値"];
+    const lines = [`${$_("mib.name")}\t${$_("mib.oid")}\t${$_("mib.type")}\t${$_("mib.value")}`];
     list.forEach((r) => {
       lines.push(`${r.name || r.oid}\t${r.oid}\t${r.type}\t${r.value}`);
     });
@@ -135,7 +135,7 @@
 
   const exportCSV = () => {
     if (results.length === 0) return;
-    const lines = ["Name,OID,Type,Value"];
+    const lines = [`${$_("mib.name")},${$_("mib.oid")},${$_("mib.type")},${$_("mib.value")}`];
     results.forEach((r) => {
       const v = `"${r.value.replace(/"/g, '""')}"`;
       lines.push(`"${r.name || r.oid}","${r.oid}",${r.type},${v}`);
@@ -206,7 +206,7 @@
     class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
     role="dialog"
     aria-modal="true"
-    aria-label="MIBブラウザー"
+    aria-label={$_("mib.dialogTitle")}
     tabindex="-1"
     onkeydown={(e) => e.key === "Escape" && (show = false)}
   >
@@ -215,8 +215,8 @@
         <div class="flex items-center gap-3">
           <FolderTree class="h-5 w-5 text-teal-500" />
           <div>
-            <h2 class="text-sm font-bold">MIBブラウザー — {targetName}</h2>
-            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{targetIP || "No IP"}</p>
+            <h2 class="text-sm font-bold">{$_("mib.dialogTitle")} — {targetName}</h2>
+            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{targetIP || $_("mib.noIp")}</p>
           </div>
         </div>
         <button
@@ -236,7 +236,7 @@
             <input
               type="text"
               bind:value={nameOrOid}
-              placeholder="オブジェクト名またはOID (例: .1.3.6.1.2.1.1)"
+              placeholder={$_("mib.objectOrOid")}
               class="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
           </div>
@@ -245,16 +245,16 @@
             type="button"
             onclick={handleOpenMIBTree}
             class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
-            title="MIBツリーから選択"
+            title={$_("mib.selectFromTree")}
           >
-            <FolderTree class="h-3.5 w-3.5 text-teal-500" />ツリー
+            <FolderTree class="h-3.5 w-3.5 text-teal-500" />{$_("mib.tree")}
           </button>
 
           <select
             onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) nameOrOid = v; }}
             class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950"
           >
-            <option value="">履歴</option>
+            <option value="">{$_("mib.history")}</option>
             {#each history as h}
               <option value={h}>{h}</option>
             {/each}
@@ -278,12 +278,12 @@
             {:else}
               <Play class="h-3.5 w-3.5 fill-current" />
             {/if}
-            実行
+            {$_("mib.execute")}
           </button>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 text-xs">
-          <span class="text-slate-500 dark:text-slate-400">よく使う項目:</span>
+          <span class="text-slate-500 dark:text-slate-400">{$_("mib.favorites")}</span>
           {#each [
             { name: "system", oid: "system" },
             { name: "ifTable", oid: "ifTable" },
@@ -310,13 +310,13 @@
                 onchange={() => { currentPage = 1; selectedIndices = []; }}
                 class="rounded text-teal-600 focus:ring-teal-500"
               />
-              スカラーのみ (.0)
+              {$_("mib.scalarOnly")}
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
               <input type="checkbox" bind:checked={rawData} class="rounded text-teal-600 focus:ring-teal-500" />
-              Rawデータ
+              {$_("mib.rawData")}
             </label>
-            <span class="text-slate-400">取得件数: {displayedResults.length}</span>
+            <span class="text-slate-400">{$_("mib.resultCount", { values: { count: displayedResults.length } })}</span>
           </div>
 
           <div class="flex items-center gap-2">
@@ -326,7 +326,7 @@
                 onclick={handleCreatePolling}
                 class="flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500"
               >
-                <Plus class="h-3 w-3" />ポーリング作成
+                <Plus class="h-3 w-3" />{$_("mib.createPolling")}
               </button>
             {/if}
             <button
@@ -336,7 +336,9 @@
               class="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
             >
               {#if copied}<Check class="h-3 w-3 text-emerald-500" />{:else}<Copy class="h-3 w-3" />{/if}
-              {selectedIndices.length > 0 ? `選択(${selectedIndices.length})コピー` : "全てコピー"}
+              {selectedIndices.length > 0
+                ? $_("mib.copySelected", { values: { count: selectedIndices.length } })
+                : $_("mib.copyAll")}
             </button>
             <button
               type="button"
@@ -363,9 +365,9 @@
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
               <tr>
                 <th class="p-2 w-8 text-center">#</th>
-                <th class="p-2 font-mono">オブジェクト名 / OID</th>
-                <th class="p-2">型</th>
-                <th class="p-2">値</th>
+                <th class="p-2 font-mono">{$_("mib.objectNameOid")}</th>
+                <th class="p-2">{$_("mib.type")}</th>
+                <th class="p-2">{$_("mib.value")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -389,7 +391,7 @@
               {:else}
                 <tr>
                   <td colspan="4" class="p-6 text-center text-slate-500">
-                    {#if isLoading}読み込み中...{:else}結果はありません (OIDを入力して「実行」を押してください){/if}
+                    {#if isLoading}{$_("mib.loading")}{:else}{$_("mib.noResults")}{/if}
                   </td>
                 </tr>
               {/each}
@@ -486,7 +488,7 @@
     class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
     role="dialog"
     aria-modal="true"
-    aria-label="MIBツリー"
+    aria-label={$_("mib.treeStructure")}
     tabindex="-1"
     onkeydown={(e) => e.key === "Escape" && (showMIBTreeModal = false)}
   >
@@ -494,7 +496,7 @@
       <header class="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-800">
         <div class="flex items-center gap-2">
           <FolderTree class="h-4 w-4 text-teal-500" />
-          <h3 class="text-xs font-bold">MIBツリーからOIDを選択</h3>
+          <h3 class="text-xs font-bold">{$_("mib.treeTitle")}</h3>
         </div>
         <button
           type="button"
@@ -510,7 +512,7 @@
           <input
             type="text"
             bind:value={mibTreeFilter}
-            placeholder="シンボル名またはOIDでフィルター..."
+            placeholder={$_("mib.treeFilter")}
             class="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
         </div>
@@ -527,7 +529,7 @@
             <span class="ml-2 text-slate-400">{node.oid}</span>
           </button>
         {:else}
-          <p class="p-4 text-center text-xs text-slate-500">一致するMIB項目がありません</p>
+          <p class="p-4 text-center text-xs text-slate-500">{$_("mib.noTreeMatches")}</p>
         {/each}
       </div>
     </div>

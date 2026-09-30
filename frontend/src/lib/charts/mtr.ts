@@ -14,7 +14,17 @@ export interface MTRHopStat {
   isTarget: boolean;
 }
 
-export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
+export const showMtrProfileChart = (
+  divId: string,
+  mtrList: MTRHopStat[],
+  labels: {
+    averageRtt: string;
+    rttRange: string;
+    lossRate: string;
+    rtt: string;
+    minimumRtt: string;
+  },
+) => {
   const container = document.getElementById(divId);
   if (!container || !mtrList || mtrList.length === 0) return null;
 
@@ -62,7 +72,7 @@ export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
     grid: { left: "6%", right: "6%", top: 30, bottom: 40 },
     legend: {
       top: 5,
-      data: ["平均 RTT (ms)", "RTT 範囲 (最小-最大)", "損失率 (%)"],
+      data: [labels.averageRtt, labels.rttRange, `${labels.lossRate} (%)`],
       textStyle: { color: "#94a3b8", fontSize: 10 },
     },
     xAxis: {
@@ -74,14 +84,14 @@ export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
     yAxis: [
       {
         type: "value",
-        name: "RTT (ms)",
+        name: labels.rtt,
         nameTextStyle: { color: "#94a3b8", fontSize: 10 },
         axisLabel: { color: "#94a3b8", fontSize: 9 },
         splitLine: { lineStyle: { color: "rgba(255, 255, 255, 0.08)" } },
       },
       {
         type: "value",
-        name: "損失率 (%)",
+        name: `${labels.lossRate} (%)`,
         min: 0,
         max: 100,
         nameTextStyle: { color: "#94a3b8", fontSize: 10 },
@@ -91,7 +101,7 @@ export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
     ],
     series: [
       {
-        name: "RTT 最小",
+        name: labels.minimumRtt,
         type: "line",
         stack: "rttRange",
         symbol: "none",
@@ -99,7 +109,7 @@ export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
         data: minData,
       },
       {
-        name: "RTT 範囲 (最小-最大)",
+        name: labels.rttRange,
         type: "line",
         stack: "rttRange",
         symbol: "none",
@@ -114,7 +124,7 @@ export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
         data: rangeData,
       },
       {
-        name: "平均 RTT (ms)",
+        name: labels.averageRtt,
         type: "line",
         showSymbol: true,
         symbolSize: 6,
@@ -124,7 +134,7 @@ export const showMtrProfileChart = (divId: string, mtrList: MTRHopStat[]) => {
         data: avgData,
       },
       {
-        name: "損失率 (%)",
+        name: `${labels.lossRate} (%)`,
         type: "bar",
         yAxisIndex: 1,
         barWidth: "30%",

@@ -798,7 +798,7 @@
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
-                    <option value={-1}>All</option>
+                    <option value={-1}>{$_('nodeDetail.showAll')}</option>
                   </select>
                   <span class="font-mono text-[11px] ml-2">
                     {sortedPorts.length} {$_('nodeDetail.recordsUnit')} ({portsPageSize === -1 ? sortedPorts.length : Math.min(portsPage * portsPageSize, sortedPorts.length)} / {sortedPorts.length})
@@ -931,7 +931,7 @@
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
-                    <option value={-1}>All</option>
+                    <option value={-1}>{$_('nodeDetail.showAll')}</option>
                   </select>
                   <span class="font-mono text-[11px] ml-2">
                     {sortedPollings.length} {$_('nodeDetail.recordsUnit')} ({pollPageSize === -1 ? sortedPollings.length : Math.min(pollPage * pollPageSize, sortedPollings.length)} / {sortedPollings.length})
@@ -1041,7 +1041,7 @@
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
-                    <option value={-1}>All</option>
+                    <option value={-1}>{$_('nodeDetail.showAll')}</option>
                   </select>
                   <span class="font-mono text-[11px] ml-2">
                     {sortedLogs.length} {$_('nodeDetail.recordsUnit')} ({logsPageSize === -1 ? sortedLogs.length : Math.min(logsPage * logsPageSize, sortedLogs.length)} / {sortedLogs.length})
@@ -1197,7 +1197,7 @@
                           <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Descr")}>{$_('nodeDetail.descr')}</th>
                           <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Type")}>{$_('nodeDetail.colType')}</th>
                           <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Status")}>{$_('nodeDetail.status')}</th>
-                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Errors")}>Errors</th>
+                          <th class="py-1 px-2 cursor-pointer select-none" onclick={() => handleHrSort("Errors")}>{$_('nodeDetail.errors')}</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
@@ -1270,7 +1270,7 @@
                       <option value={10}>10</option>
                       <option value={25}>25</option>
                       <option value={50}>50</option>
-                      <option value={-1}>All</option>
+                      <option value={-1}>{$_('nodeDetail.showAll')}</option>
                     </select>
                     <span class="font-mono text-[11px] ml-2">
                       {sortedHrList.length} {$_('nodeDetail.recordsUnit')} ({hrPageSize === -1 ? sortedHrList.length : Math.min(hrPage * hrPageSize, sortedHrList.length)} / {sortedHrList.length})

@@ -103,7 +103,7 @@
   const copySelected = async () => {
     const list = selectedIndices.length > 0 ? selectedIndices.map((i) => results[i]) : results;
     if (list.length === 0) return;
-    const lines = ["Path\tIndex\tValue"];
+    const lines = [`${$_("gnmi.path")}\t${$_("gnmi.index")}\t${$_("gnmi.value")}`];
     list.forEach((r) => {
       lines.push(`${r.Path}\t${r.Index || ""}\t${r.Value}`);
     });
@@ -114,7 +114,7 @@
 
   const exportCSV = () => {
     if (results.length === 0) return;
-    const lines = ["Path,Index,Value"];
+    const lines = [`${$_("gnmi.path")},${$_("gnmi.index")},${$_("gnmi.value")}`];
     results.forEach((r) => {
       const v = `"${r.Value.replace(/"/g, '""')}"`;
       lines.push(`"${r.Path}","${r.Index || ""}",${v}`);
@@ -148,7 +148,7 @@
     class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
     role="dialog"
     aria-modal="true"
-    aria-label="gNMIツール"
+    aria-label={$_("gnmi.dialogTitle")}
     tabindex="-1"
     onkeydown={(e) => e.key === "Escape" && (show = false)}
   >
@@ -157,8 +157,8 @@
         <div class="flex items-center gap-3">
           <Radio class="h-5 w-5 text-cyan-500" />
           <div>
-            <h2 class="text-sm font-bold">gNMIツール — {targetName}</h2>
-            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{target || "No Target"}</p>
+            <h2 class="text-sm font-bold">{$_("gnmi.dialogTitle")} — {targetName}</h2>
+            <p class="text-[11px] font-mono text-slate-500 dark:text-slate-400">{target || $_("gnmi.noTarget")}</p>
           </div>
         </div>
         <button
@@ -177,7 +177,7 @@
           <input
             type="text"
             bind:value={path}
-            placeholder="gNMI パス (例: /interfaces, /system)"
+            placeholder={$_("gnmi.pathPlaceholder")}
             class="min-w-[220px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
 
@@ -185,7 +185,7 @@
             onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) path = v; }}
             class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950"
           >
-            <option value="">履歴</option>
+            <option value="">{$_("gnmi.history")}</option>
             {#each history as h}
               <option value={h}>{h}</option>
             {/each}
@@ -208,7 +208,7 @@
             {:else}
               <Play class="h-3.5 w-3.5 fill-current" />
             {/if}
-            Get
+            {$_("gnmi.get")}
           </button>
         </div>
 
@@ -221,10 +221,15 @@
                 class="flex items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-[11px] text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <Layers class="h-3 w-3 text-cyan-500" />
-                Capabilities: {capabilities.version || "v0"} ({capabilities.models?.length || 0} models)
+                {$_("gnmi.capabilities", {
+                  values: {
+                    version: capabilities.version || "v0",
+                    count: capabilities.models?.length || 0,
+                  },
+                })}
               </button>
             {/if}
-            <span class="text-slate-400">取得件数: {results.length}</span>
+            <span class="text-slate-400">{$_("gnmi.resultCount", { values: { count: results.length } })}</span>
           </div>
 
           <div class="flex items-center gap-2">
@@ -234,7 +239,7 @@
                 onclick={handleCreatePolling}
                 class="flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500"
               >
-                <Plus class="h-3 w-3" />ポーリング作成
+                <Plus class="h-3 w-3" />{$_("gnmi.createPolling")}
               </button>
             {/if}
             <button
@@ -244,7 +249,9 @@
               class="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
             >
               {#if copied}<Check class="h-3 w-3 text-emerald-500" />{:else}<Copy class="h-3 w-3" />{/if}
-              {selectedIndices.length > 0 ? `選択(${selectedIndices.length})コピー` : "全てコピー"}
+              {selectedIndices.length > 0
+                ? $_("gnmi.copySelected", { values: { count: selectedIndices.length } })
+                : $_("gnmi.copyAll")}
             </button>
             <button
               type="button"
@@ -259,13 +266,13 @@
 
         {#if showCapDetails && capabilities}
           <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-950">
-            <p class="font-semibold text-slate-700 dark:text-slate-300">エンコーディング: <span class="font-mono text-cyan-600 dark:text-cyan-400">{capabilities.encodings}</span></p>
-            <p class="mt-1 font-semibold text-slate-700 dark:text-slate-300">サポートモデル:</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{$_("gnmi.encoding")} <span class="font-mono text-cyan-600 dark:text-cyan-400">{capabilities.encodings}</span></p>
+            <p class="mt-1 font-semibold text-slate-700 dark:text-slate-300">{$_("gnmi.supportedModels")}</p>
             <div class="mt-1 max-h-32 overflow-auto font-mono text-[11px] text-slate-500 dark:text-slate-400">
               {#each capabilities.models as m}
                 <div>{m.name} ({m.version || "—"}) - {m.organization || ""}</div>
               {:else}
-                <div>モデル情報なし</div>
+                <div>{$_("gnmi.noModelInfo")}</div>
               {/each}
             </div>
           </div>
@@ -285,9 +292,9 @@
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
               <tr>
                 <th class="p-2 w-8 text-center">#</th>
-                <th class="p-2 font-mono">Path</th>
-                <th class="p-2 font-mono w-20">Index</th>
-                <th class="p-2">Value</th>
+                <th class="p-2 font-mono">{$_("gnmi.path")}</th>
+                <th class="p-2 font-mono w-20">{$_("gnmi.index")}</th>
+                <th class="p-2">{$_("gnmi.value")}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -305,7 +312,7 @@
               {:else}
                 <tr>
                   <td colspan="4" class="p-6 text-center text-slate-500">
-                    {#if isLoading}読み込み中...{:else}結果はありません (Pathを入力して「Get」を押してください){/if}
+                    {#if isLoading}{$_("gnmi.loading")}{:else}{$_("gnmi.noResults")}{/if}
                   </td>
                 </tr>
               {/each}
