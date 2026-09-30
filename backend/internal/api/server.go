@@ -1517,7 +1517,8 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 
 			var vars []gosnmp.SnmpPDU
-			if req.Mode == "walk" || req.Mode == "table" {
+			switch req.Mode {
+			case "walk", "table":
 				err = agent.Walk(targetOID, func(pdu gosnmp.SnmpPDU) error {
 					if len(vars) >= 2000 {
 						return fmt.Errorf("SNMP walk exceeded 2000 results")
@@ -1525,13 +1526,13 @@ func NewServer(cfg Config) (*Server, error) {
 					vars = append(vars, pdu)
 					return nil
 				})
-			} else if req.Mode == "getnext" {
+			case "getnext":
 				var packet *gosnmp.SnmpPacket
 				packet, err = agent.GetNext([]string{targetOID})
 				if err == nil {
 					vars = packet.Variables
 				}
-			} else {
+			default:
 				var packet *gosnmp.SnmpPacket
 				packet, err = agent.Get([]string{targetOID})
 				if err == nil {

@@ -14,6 +14,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/montanaflynn/stats v0.12.7
+	github.com/openconfig/gnmic/pkg/api v0.1.9
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/parquet-go/parquet-go v0.32.0
 	github.com/robertkrimen/otto v0.5.1
@@ -54,7 +55,6 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/openconfig/gnmi v0.11.0 // indirect
-	github.com/openconfig/gnmic/pkg/api v0.1.9 // indirect
 	github.com/openconfig/grpctunnel v0.1.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
 	github.com/parquet-go/bitpack v1.1.0 // indirect
