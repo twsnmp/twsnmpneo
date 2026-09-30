@@ -45,11 +45,13 @@
     node = null,
     pollings = [],
     logs = [],
+    initialTab = "basic",
   } = $props<{
     show: boolean;
     node: NodeEnt | null;
     pollings?: PollingEnt[];
     logs?: EventLogEnt[];
+    initialTab?: TabType;
   }>();
 
   type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo";
@@ -262,6 +264,7 @@
     if (show && node) {
       untrack(() => {
         // Reset states
+        activeTab = initialTab;
         realPorts = [];
         hostResource = null;
         hostResourceError = "";

@@ -253,7 +253,10 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 * **Map Operations**:
   - Left-click drag to select and move nodes/items.
   - Mouse wheel zoom in/out, strict boundary clamping, and top-right pinned reload control.
-  - Native and custom right-click context menu (Edit Node, Add Line, Node Detail, MIB Browser, Ping, Delete).
+  - Node right-click operations aligned strictly with `twsnmpfk`: report, PING, MIBブラウザー, gNMIツール, Wake On Lan, 編集, ポーリング, 再確認, 接続先を探す, コピー, 削除, and configured URL open.
+  - Dedicated full-featured dialogs ported from `twsnmpfk`: `PingDialog` (Normal, Smoke, Trace, and MTR modes with realtime response charts, hop flow diagrams, and statistics), `MIBBrowserDialog` (hierarchical MIB tree selector, SNMP Get/GetNext/Walk/Table queries, and polling generation), and `GNMIToolDialog` (gNMI capabilities, path Get queries, and polling generation).
+  - SW-HUB right-click menu aligned with `twsnmpfk`: report, immediate recheck, PING, SNMP MIB Browser, neighbor discovery, network editing, port-line editing, and deletion.
+  - SW-HUB reports summarize configured ports and connected lines; unmanaged networks recheck by PING and managed networks recheck port state via SNMP.
   - Shift-click on nodes/network endpoints for interactive line creation, modification, and disconnection (`LineDialog`).
   - Network (SW-HUB) context menu action for batch port line management (`NetworkLinesDialog`).
   - Network and Node context menu action for topology discovery to detect and auto-connect neighbors (`FindNeighborDialog`, `/api/topology/neighbors/:id`, `/api/topology/connect-lines`).
@@ -520,6 +523,18 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 * **Lifecycle & Operations**:
   - Upload via `/api/conf/geoip` with automatic database version extraction.
   - One-click deletion via `/api/conf/geoip` with confirmation prompt and live status reflection.
+
+#### 4.10.8 MIB Module & Definition Management Standards
+* **Configuration Modal Integration (`ConfigModal.svelte`)**:
+  - Dedicated **MIB管理 / MIB Management** sidebar tab aligned with `twsnmpfk` settings.
+  - Comprehensive tabular overview of loaded standard built-in MIBs (`int`) and user-extended MIBs (`ext` from `extmibs`).
+  - Search and filter bar for instant module name, file path, type, and error filtering.
+  - Visual status indicators: Green OK badge for valid MIB modules, soft rose warning badge with tooltip for syntax or parent-resolution errors.
+* **Lifecycle & Operations**:
+  - **Upload Extended MIB**: Upload SMIv1/SMIv2 MIB definitions (`.txt`, `.mib`, `.asn1`, `.my`) via `POST /api/mib/upload` into `./data/extmibs`, automatically re-parsing and rebuilding the MIB tree.
+  - **Delete Extended MIB**: Delete user-added MIB files via `DELETE /api/mib/modules` with path traversal protection restricted to `extmibs`.
+  - **Reload**: Force re-parsing and cache invalidation via `POST /api/mib/reload`.
+  - **Hierarchical MIB Tree Inspection**: Embedded tree browser modal (`showMIBTreeModal`) allowing search and navigation of all loaded OID nodes and their metadata.
 
 ---
 

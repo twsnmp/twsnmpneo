@@ -203,6 +203,14 @@ func Init(dataPath string) error {
 func ReloadExtMIBs(dataPath string) {
 	mu.Lock()
 	defer mu.Unlock()
+	var intModules []*MIBModuleEnt
+	for _, m := range MIBModules {
+		if m.Type != "ext" {
+			intModules = append(intModules, m)
+		}
+	}
+	MIBModules = intModules
+
 	extDir := filepath.Join(dataPath, "extmibs")
 	loadExtMIBs(extDir)
 	checkMIBInfoMap()
@@ -729,9 +737,25 @@ func rfc2mib(b []byte) []byte {
 	return []byte("")
 }
 
+func ensureMIBDB() {
+	if MIBDB != nil {
+		return
+	}
+	if r, err := conf.Open("conf/mib.txt"); err == nil {
+		loadMIBDBNameOnly(r)
+	}
+}
+
 // OIDToName resolves numeric OID to MIB object name, including index suffix.
 func OIDToName(oid string) string {
 	mu.RLock()
+	if MIBDB == nil {
+		mu.RUnlock()
+		mu.Lock()
+		ensureMIBDB()
+		mu.Unlock()
+		mu.RLock()
+	}
 	defer mu.RUnlock()
 	if MIBDB == nil {
 		return strings.TrimPrefix(oid, ".")
@@ -760,6 +784,13 @@ func OIDToName(oid string) string {
 // NameToOID converts a MIB object name to numeric OID with leading dot.
 func NameToOID(name string) string {
 	mu.RLock()
+	if MIBDB == nil {
+		mu.RUnlock()
+		mu.Lock()
+		ensureMIBDB()
+		mu.Unlock()
+		mu.RLock()
+	}
 	defer mu.RUnlock()
 	if MIBDB == nil {
 		if strings.HasPrefix(name, ".") {

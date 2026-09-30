@@ -291,3 +291,31 @@ func (m *Manager) CheckAll(ctx context.Context) int {
 	}
 	return count
 }
+
+// CheckNode queues all active pollings for a node to execute immediately.
+func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
+	if m.store == nil {
+		return 0, fmt.Errorf("polling manager has no datastore")
+	}
+	if nodeID == "" {
+		return 0, fmt.Errorf("node id is required")
+	}
+	pollings, err := m.store.ListPollings(ctx)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, p := range pollings {
+		if p.NodeID != nodeID || p.Level == "off" {
+			continue
+		}
+		if _, busy := m.inFlight.Load(p.ID); busy {
+			continue
+		}
+		count++
+		go func(task *datastore.PollingEnt) {
+			_, _ = m.ExecuteOne(context.Background(), task)
+		}(p)
+	}
+	return count, nil
+}

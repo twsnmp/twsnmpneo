@@ -36,19 +36,26 @@ require (
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	github.com/AlekSi/pointer v1.2.0 // indirect
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/alecthomas/participle v0.7.1 // indirect
 	github.com/andybalholm/brotli v1.2.5 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect
+	github.com/bufbuild/protocompile v0.13.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0 // indirect
+	github.com/jhump/protoreflect v1.16.0 // indirect
 	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/openconfig/gnmi v0.11.0 // indirect
+	github.com/openconfig/gnmic/pkg/api v0.1.9 // indirect
+	github.com/openconfig/grpctunnel v0.1.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
 	github.com/parquet-go/bitpack v1.1.0 // indirect
 	github.com/parquet-go/jsonlite v1.5.5 // indirect

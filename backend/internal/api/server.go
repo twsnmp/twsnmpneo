@@ -12,10 +12,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gosnmp/gosnmp"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
@@ -105,6 +107,9 @@ func NewServer(cfg Config) (*Server, error) {
 
 	// API Group
 	apiGroup := e.Group("/api")
+	if cfg.Store != nil {
+		registerGNMIToolRoutes(apiGroup, cfg.Store)
+	}
 	if cfg.PKI != nil {
 		registerPKIRoutes(apiGroup, cfg.PKI, cfg.Store, pkiServers.Apply)
 		registerPKIProtocolRoutes(e, cfg.PKI, cfg.Store)
@@ -436,6 +441,21 @@ func NewServer(cfg Config) (*Server, error) {
 				"count":  count,
 			})
 		})
+		apiGroup.POST("/polling/check/:nodeID", func(c echo.Context) error {
+			nodeID := c.Param("nodeID")
+			if _, err := cfg.Store.GetNode(c.Request().Context(), nodeID); err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+			}
+			count := 0
+			if cfg.PollingManager != nil {
+				var err error
+				count, err = cfg.PollingManager.CheckNode(c.Request().Context(), nodeID)
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				}
+			}
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "count": count})
+		})
 
 		// Lines
 		apiGroup.GET("/lines", func(c echo.Context) error {
@@ -722,6 +742,47 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			nw.Ports = ports
 			nw.Error = ""
+			if err := cfg.Store.SaveNetwork(c.Request().Context(), nw); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, nw)
+		})
+		apiGroup.POST("/networks/:id/check", func(c echo.Context) error {
+			id := c.Param("id")
+			nw, err := cfg.Store.GetNetwork(c.Request().Context(), id)
+			if err != nil || nw == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "network not found"})
+			}
+			if nw.Unmanaged {
+				if nw.IP == "" {
+					nw.Error = "network has no IP address"
+					for i := range nw.Ports {
+						nw.Ports[i].State = "unknown"
+					}
+				} else {
+					result := ping.DoPing(nw.IP, 2, 1, 64, 64)
+					if result.Stat == ping.PingOK {
+						nw.Error = ""
+						for i := range nw.Ports {
+							nw.Ports[i].State = "up"
+						}
+					} else {
+						nw.Error = "Ping No Response"
+						for i := range nw.Ports {
+							nw.Ports[i].State = "down"
+						}
+					}
+				}
+			} else {
+				ports, err := topology.FetchNetworkPorts(c.Request().Context(), nw, 3, 1)
+				if err != nil {
+					nw.Error = err.Error()
+					_ = cfg.Store.SaveNetwork(c.Request().Context(), nw)
+					return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
+				}
+				nw.Ports = ports
+				nw.Error = ""
+			}
 			if err := cfg.Store.SaveNetwork(c.Request().Context(), nw); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
@@ -1338,6 +1399,162 @@ func NewServer(cfg Config) (*Server, error) {
 		apiGroup.GET("/mib/modules", func(c echo.Context) error {
 			return c.JSON(http.StatusOK, mib.GetMIBModules())
 		})
+		apiGroup.POST("/mib/upload", func(c echo.Context) error {
+			if cfg.DataDir == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "data directory not configured"})
+			}
+			file, err := c.FormFile("file")
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "file field is required"})
+			}
+			src, err := file.Open()
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			defer src.Close()
+
+			filename := filepath.Base(file.Filename)
+			if filename == "" || filename == "." || filename == ".." {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid file name"})
+			}
+
+			extDir := filepath.Join(cfg.DataDir, "extmibs")
+			if err := os.MkdirAll(extDir, 0755); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+
+			dstPath := filepath.Join(extDir, filename)
+			dst, err := os.Create(dstPath)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			defer dst.Close()
+
+			if _, err := io.Copy(dst, src); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+
+			mib.ReloadExtMIBs(cfg.DataDir)
+			return c.JSON(http.StatusOK, mib.GetMIBModules())
+		})
+		apiGroup.POST("/mib/reload", func(c echo.Context) error {
+			if cfg.DataDir != "" {
+				mib.ReloadExtMIBs(cfg.DataDir)
+			}
+			return c.JSON(http.StatusOK, mib.GetMIBModules())
+		})
+		apiGroup.DELETE("/mib/modules", func(c echo.Context) error {
+			var req struct {
+				File string `json:"file"`
+			}
+			if err := c.Bind(&req); err != nil || req.File == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "file path is required"})
+			}
+			if cfg.DataDir == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "data directory not configured"})
+			}
+			extDir := filepath.Clean(filepath.Join(cfg.DataDir, "extmibs"))
+			targetPath := filepath.Clean(req.File)
+			if !strings.HasPrefix(targetPath, extDir) {
+				targetPath = filepath.Clean(filepath.Join(extDir, filepath.Base(req.File)))
+			}
+			if !strings.HasPrefix(targetPath, extDir) {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "can only delete external MIBs in extmibs"})
+			}
+			if err := os.Remove(targetPath); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			mib.ReloadExtMIBs(cfg.DataDir)
+			return c.JSON(http.StatusOK, mib.GetMIBModules())
+		})
+		apiGroup.POST("/tools/snmp", func(c echo.Context) error {
+			var req struct {
+				NodeID    string `json:"node_id"`
+				NetworkID string `json:"network_id"`
+				OID       string `json:"oid"`
+				Mode      string `json:"mode"`
+				Raw       bool   `json:"raw"`
+			}
+			if err := c.Bind(&req); err != nil || (req.NodeID == "" && req.NetworkID == "") || req.OID == "" || (req.NodeID != "" && req.NetworkID != "") {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "exactly one of node_id or network_id and an OID are required"})
+			}
+			if req.Mode != "" && req.Mode != "get" && req.Mode != "getnext" && req.Mode != "walk" && req.Mode != "table" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "mode must be get, getnext, walk, or table"})
+			}
+			var nw *datastore.NetworkEnt
+			var err error
+			if req.NetworkID != "" {
+				nw, err = cfg.Store.GetNetwork(c.Request().Context(), req.NetworkID)
+				if err != nil || nw == nil {
+					return c.JSON(http.StatusNotFound, map[string]string{"error": "network not found"})
+				}
+			} else {
+				node, err := cfg.Store.GetNode(c.Request().Context(), req.NodeID)
+				if err != nil || node == nil {
+					return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+				}
+				nw = &datastore.NetworkEnt{
+					Name: node.Name, IP: node.IP, SnmpMode: node.SnmpMode,
+					Community: node.Community, User: node.User, Password: node.Password, SnmpPort: node.SnmpPort,
+				}
+			}
+			agent := topology.GetSNMPAgentForNetwork(nw, 2, 1)
+			if agent == nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid SNMP configuration"})
+			}
+			if err := agent.Connect(); err != nil {
+				return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
+			}
+			defer func() {
+				if agent != nil && agent.Conn != nil {
+					_ = agent.Conn.Close()
+				}
+			}()
+
+			targetOID := ResolveNameToOID(req.OID)
+			if targetOID == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("invalid or unknown MIB object identifier: %s", req.OID)})
+			}
+
+			var vars []gosnmp.SnmpPDU
+			if req.Mode == "walk" || req.Mode == "table" {
+				err = agent.Walk(targetOID, func(pdu gosnmp.SnmpPDU) error {
+					if len(vars) >= 2000 {
+						return fmt.Errorf("SNMP walk exceeded 2000 results")
+					}
+					vars = append(vars, pdu)
+					return nil
+				})
+			} else if req.Mode == "getnext" {
+				var packet *gosnmp.SnmpPacket
+				packet, err = agent.GetNext([]string{targetOID})
+				if err == nil {
+					vars = packet.Variables
+				}
+			} else {
+				var packet *gosnmp.SnmpPacket
+				packet, err = agent.Get([]string{targetOID})
+				if err == nil {
+					vars = packet.Variables
+				}
+			}
+			if err != nil {
+				return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
+			}
+			results := make([]map[string]any, 0, len(vars))
+			for _, pdu := range vars {
+				name := mib.OIDToName(pdu.Name)
+				val := mib.GetMIBValueString(name, &pdu, req.Raw)
+				results = append(results, map[string]any{
+					"name":  name,
+					"oid":   pdu.Name,
+					"type":  pdu.Type.String(),
+					"value": val,
+					"mib":   mib.FindMIBInfo(name),
+				})
+			}
+			return c.JSON(http.StatusOK, results)
+		})
 
 		// MQTT Stats
 		mqttGroup := apiGroup.Group("/mqtt")
@@ -1558,15 +1775,36 @@ func NewServer(cfg Config) (*Server, error) {
 	})
 	toolsGroup.POST("/wol", func(c echo.Context) error {
 		var req struct {
-			MAC string `json:"mac"`
+			MAC    string `json:"mac"`
+			NodeID string `json:"node_id"`
 		}
-		if err := c.Bind(&req); err != nil || req.MAC == "" {
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid mac"})
+		}
+		var node *datastore.NodeEnt
+		if req.NodeID != "" && cfg.Store != nil {
+			var err error
+			node, err = cfg.Store.GetNode(c.Request().Context(), req.NodeID)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
+			}
+			req.MAC = node.MAC
+		}
+		req.MAC = strings.TrimSpace(strings.SplitN(req.MAC, "(", 2)[0])
+		if req.MAC == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid mac"})
 		}
 
 		err := wol.SendWakeOnLanPacket(req.MAC)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		if node != nil {
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time: time.Now().UnixNano(), Type: "user", Level: "info",
+				NodeID: node.ID, NodeName: node.Name,
+				Event: fmt.Sprintf(i18n.Trans("Send Wake on LAN Packet to %s"), req.MAC),
+			})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "sent"})
 	})
@@ -1964,4 +2202,37 @@ func checkDrawItem(ctx context.Context, store datastore.DataStore, di *datastore
 			}
 		}
 	}
+}
+
+var numericOIDPattern = regexp.MustCompile(`^\.?[0-9]+(?:\.[0-9]+)*$`)
+
+// ResolveNameToOID converts a symbolic MIB name or numeric OID into a valid numeric OID for SNMP queries.
+// It returns an empty string if the input cannot be resolved to a valid numeric OID.
+func ResolveNameToOID(name string) string {
+	clean := strings.TrimSpace(name)
+	if clean == "" {
+		return ""
+	}
+	oid := mib.NameToOID(clean)
+	if oid == ".1" {
+		oid = ".1.3"
+	}
+	if oid == ".0.0" || oid == "" || oid == "."+clean || oid == clean {
+		if numericOIDPattern.MatchString(clean) {
+			if !strings.HasPrefix(clean, ".") {
+				return "." + clean
+			}
+			return clean
+		}
+		if !numericOIDPattern.MatchString(oid) {
+			return ""
+		}
+	}
+	if !strings.HasPrefix(oid, ".") {
+		oid = "." + oid
+	}
+	if !numericOIDPattern.MatchString(oid) {
+		return ""
+	}
+	return oid
 }

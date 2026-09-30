@@ -18,6 +18,15 @@ export interface NodeEnt {
   user?: string;
   password?: string;
   addr_mode?: string;
+  snmp_port?: number;
+  auto_ack?: boolean;
+  url?: string;
+  ssh_user?: string;
+  public_key?: string;
+  gnmi_port?: string;
+  gnmi_encoding?: string;
+  gnmi_user?: string;
+  gnmi_password?: string;
 
   // Compatibility aliases matching Go backend
   ID?: string;
@@ -31,6 +40,15 @@ export interface NodeEnt {
   X?: number;
   Y?: number;
   Descr?: string;
+  GNMIPort?: string;
+  GNMIEncoding?: string;
+  GNMIUser?: string;
+  GNMIPassword?: string;
+  SnmpPort?: number;
+  AutoAck?: boolean;
+  URL?: string;
+  SSHUser?: string;
+  PublicKey?: string;
 }
 
 export interface LineEnt {
@@ -146,6 +164,7 @@ export interface PortEnt {
   X?: number;
   Y?: number;
   State?: string;
+  Index?: string;
 }
 
 export interface NetworkEnt {
@@ -158,6 +177,14 @@ export interface NetworkEnt {
   h: number;
   h_ports?: number;
   ports: PortEnt[];
+  descr?: string;
+  snmp_mode?: string;
+  community?: string;
+  user?: string;
+  password?: string;
+  snmp_port?: number;
+  unmanaged?: boolean;
+  error?: string;
 
   // Compatibility aliases
   ID?: string;
@@ -168,6 +195,14 @@ export interface NetworkEnt {
   W?: number;
   H?: number;
   Ports?: PortEnt[];
+  Descr?: string;
+  SnmpMode?: string;
+  Community?: string;
+  User?: string;
+  Password?: string;
+  SnmpPort?: number;
+  Unmanaged?: boolean;
+  Error?: string;
 }
 
 export interface DrawItemEnt {
@@ -440,6 +475,15 @@ export function normalizeNode(raw: any): NodeEnt {
   const user = raw.user || raw.User || '';
   const password = raw.password || raw.Password || '';
   const addr_mode = raw.addr_mode || raw.AddrMode || 'ip';
+  const snmp_port = raw.snmp_port ?? raw.SnmpPort ?? 161;
+  const auto_ack = raw.auto_ack ?? raw.AutoAck ?? false;
+  const url = raw.url || raw.URL || '';
+  const ssh_user = raw.ssh_user || raw.SSHUser || '';
+  const public_key = raw.public_key || raw.PublicKey || '';
+  const gnmi_port = raw.gnmi_port || raw.GNMIPort || '';
+  const gnmi_encoding = raw.gnmi_encoding || raw.GNMIEncoding || '';
+  const gnmi_user = raw.gnmi_user || raw.GNMIUser || '';
+  const gnmi_password = raw.gnmi_password || raw.GNMIPassword || '';
 
   return {
     ...raw,
@@ -459,6 +503,15 @@ export function normalizeNode(raw: any): NodeEnt {
     user, User: user,
     password, Password: password,
     addr_mode, AddrMode: addr_mode,
+    snmp_port, SnmpPort: snmp_port,
+    auto_ack, AutoAck: auto_ack,
+    url, URL: url,
+    ssh_user, SSHUser: ssh_user,
+    public_key, PublicKey: public_key,
+    gnmi_port, GNMIPort: gnmi_port,
+    gnmi_encoding, GNMIEncoding: gnmi_encoding,
+    gnmi_user, GNMIUser: gnmi_user,
+    gnmi_password, GNMIPassword: gnmi_password,
   };
 }
 
@@ -508,6 +561,22 @@ export function normalizeNetwork(raw: any): NetworkEnt {
     y, Y: y,
     w, W: w,
     h, H: h,
+    descr: raw.descr || raw.Descr || '',
+    Descr: raw.descr || raw.Descr || '',
+    snmp_mode: raw.snmp_mode || raw.SnmpMode || '',
+    SnmpMode: raw.snmp_mode || raw.SnmpMode || '',
+    community: raw.community || raw.Community || '',
+    Community: raw.community || raw.Community || '',
+    user: raw.user || raw.User || '',
+    User: raw.user || raw.User || '',
+    password: raw.password || raw.Password || '',
+    Password: raw.password || raw.Password || '',
+    snmp_port: raw.snmp_port || raw.SnmpPort || 0,
+    SnmpPort: raw.snmp_port || raw.SnmpPort || 0,
+    unmanaged: raw.unmanaged ?? raw.Unmanaged ?? false,
+    Unmanaged: raw.unmanaged ?? raw.Unmanaged ?? false,
+    error: raw.error || raw.Error || '',
+    Error: raw.error || raw.Error || '',
     ports, Ports: ports,
   };
 }
@@ -780,6 +849,15 @@ export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
     User: node.user || (node as any).User || '',
     Password: node.password || (node as any).Password || '',
     AddrMode: node.addr_mode || (node as any).AddrMode || 'ip',
+    SnmpPort: node.snmp_port || node.SnmpPort || 161,
+    AutoAck: node.auto_ack ?? node.AutoAck ?? false,
+    URL: node.url || node.URL || '',
+    SSHUser: node.ssh_user || node.SSHUser || '',
+    PublicKey: node.public_key || node.PublicKey || '',
+    GNMIPort: node.gnmi_port || node.GNMIPort || '',
+    GNMIEncoding: node.gnmi_encoding || node.GNMIEncoding || '',
+    GNMIUser: node.gnmi_user || node.GNMIUser || '',
+    GNMIPassword: node.gnmi_password || node.GNMIPassword || '',
   };
   const res = await fetch(`${API_BASE}/nodes`, {
     method: 'POST',
@@ -1333,11 +1411,11 @@ export async function execPing(ip: string, size = 64, ttl = 64): Promise<PingRes
   return res.json();
 }
 
-export async function sendWol(mac: string, ip = '255.255.255.255'): Promise<{ status: string }> {
+export async function sendWol(mac: string, ip = '255.255.255.255', nodeId = ''): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/tools/wol`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mac, ip }),
+    body: JSON.stringify({ mac, ip, node_id: nodeId }),
   });
   if (!res.ok) throw new Error(`WOL failed: ${res.statusText}`);
   return res.json();
@@ -1787,7 +1865,163 @@ export interface BackImageEnt {
 
 export async function checkAllPollings(): Promise<{ status: string; count: number }> {
   const res = await fetch(`${API_BASE}/polling/check-all`, { method: "POST" });
+  if (!res.ok) throw new Error(`Check all pollings failed: ${res.statusText}`);
   return await res.json();
+}
+
+export async function checkNodePollings(nodeId: string): Promise<{ status: string; count: number }> {
+  const res = await fetch(`${API_BASE}/polling/check/${encodeURIComponent(nodeId)}`, { method: "POST" });
+  if (!res.ok) throw new Error(`Check node pollings failed: ${res.statusText}`);
+  return res.json();
+}
+
+export interface MIBInfoEnt {
+  oid: string;
+  type: string;
+  description: string;
+  units?: string;
+  enum?: string;
+}
+
+export interface MIBTreeEnt {
+  oid: string;
+  name: string;
+  mibInfo?: MIBInfoEnt;
+  children?: MIBTreeEnt[];
+}
+
+export interface SNMPToolResult {
+  name?: string;
+  oid: string;
+  type: string;
+  value: string;
+  mib?: MIBInfoEnt;
+}
+
+export interface MIBModuleEnt {
+  type: string;
+  file: string;
+  name: string;
+  error?: string;
+  Type?: string;
+  File?: string;
+  Name?: string;
+  Error?: string;
+}
+
+export async function fetchMIBTree(): Promise<MIBTreeEnt[]> {
+  const res = await fetch(`${API_BASE}/mib/tree`);
+  if (!res.ok) throw new Error(`Fetch MIB tree failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchMIBModules(): Promise<MIBModuleEnt[]> {
+  const res = await fetch(`${API_BASE}/mib/modules`);
+  if (!res.ok) throw new Error(`Fetch MIB modules failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function uploadMIBModule(file: File): Promise<MIBModuleEnt[]> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_BASE}/mib/upload`, {
+    method: "POST",
+    body: fd,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `Upload MIB failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteMIBModule(file: string): Promise<MIBModuleEnt[]> {
+  const res = await fetch(`${API_BASE}/mib/modules`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `Delete MIB failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function reloadMIBModules(): Promise<MIBModuleEnt[]> {
+  const res = await fetch(`${API_BASE}/mib/reload`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `Reload MIBs failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function runSNMPTool(
+  target: { nodeId?: string; networkId?: string },
+  oid: string,
+  mode: "get" | "getnext" | "walk" | "table",
+  raw = false
+): Promise<SNMPToolResult[]> {
+  const res = await fetch(`${API_BASE}/tools/snmp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ node_id: target.nodeId, network_id: target.networkId, oid, mode, raw }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `SNMP request failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function checkNetwork(id: string): Promise<NetworkEnt> {
+  const res = await fetch(`${API_BASE}/networks/${encodeURIComponent(id)}/check`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `Network check failed: ${res.statusText}`);
+  }
+  return normalizeNetwork(await res.json());
+}
+
+export interface GNMICapabilitiesEnt {
+  version: string;
+  encodings: string;
+  models: { name: string; organization: string; version: string }[];
+}
+
+export interface GNMIValueEnt {
+  Path: string;
+  Value: string;
+  Index?: string;
+}
+
+export async function fetchGNMICapabilities(nodeId: string): Promise<GNMICapabilitiesEnt> {
+  const res = await fetch(`${API_BASE}/tools/gnmi/capabilities`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ node_id: nodeId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `gNMI capabilities failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function runGNMIGet(nodeId: string, path: string, encoding: string): Promise<GNMIValueEnt[]> {
+  const res = await fetch(`${API_BASE}/tools/gnmi/get`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ node_id: nodeId, path, encoding }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `gNMI Get failed: ${res.statusText}`);
+  }
+  return res.json();
 }
 
 export async function updateNodePositions(positions: { ID: string; X: number; Y: number }[]): Promise<any> {

@@ -32,6 +32,12 @@
   let sshUser = $state("");
   let publicKey = $state("");
 
+  // gNMI
+  let gnmiPort = $state("57400");
+  let gnmiEncoding = $state("json_ietf");
+  let gnmiUser = $state("");
+  let gnmiPassword = $state("");
+
   let saveError = $state("");
 
   $effect(() => {
@@ -56,6 +62,10 @@
 
           sshUser = (node as any).ssh_user || (node as any).SSHUser || "";
           publicKey = (node as any).public_key || (node as any).PublicKey || "";
+          gnmiPort = (node as any).gnmi_port || (node as any).GNMIPort || "57400";
+          gnmiEncoding = (node as any).gnmi_encoding || (node as any).GNMIEncoding || "json_ietf";
+          gnmiUser = (node as any).gnmi_user || (node as any).GNMIUser || "";
+          gnmiPassword = (node as any).gnmi_password || (node as any).GNMIPassword || "";
         } else {
           const rawName = node?.name || (node as any)?.Name || "";
           if (rawName && rawName !== "新規ノード" && rawName !== "New Node") {
@@ -77,6 +87,10 @@
           password = (node as any)?.password || (node as any)?.Password || "";
           sshUser = (node as any)?.ssh_user || (node as any)?.SSHUser || "";
           publicKey = (node as any)?.public_key || (node as any)?.PublicKey || "";
+          gnmiPort = (node as any)?.gnmi_port || (node as any)?.GNMIPort || "57400";
+          gnmiEncoding = (node as any)?.gnmi_encoding || (node as any)?.GNMIEncoding || "json_ietf";
+          gnmiUser = (node as any)?.gnmi_user || (node as any)?.GNMIUser || "";
+          gnmiPassword = (node as any)?.gnmi_password || (node as any)?.GNMIPassword || "";
         }
       });
     }
@@ -104,6 +118,10 @@
       password,
       ssh_user: sshUser,
       public_key: publicKey,
+      gnmi_port: gnmiPort,
+      gnmi_encoding: gnmiEncoding,
+      gnmi_user: gnmiUser,
+      gnmi_password: gnmiPassword,
       x: typeof node?.x === "number" && node.x > 0 ? node.x : 320,
       y: typeof node?.y === "number" && node.y > 0 ? node.y : 200,
     };
@@ -138,6 +156,7 @@
             <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{node?.id ? $_('node.editTitle') : $_('node.createTitle')}</h2>
             <p class="text-[11px] text-slate-400">{$_('app.subtitle')}</p>
           </div>
+
         </div>
         <button
           type="button"
@@ -355,6 +374,35 @@
                 placeholder="id_ed25519"
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+            <h3 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <Network class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+              gNMI
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="gnmi-port" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.gnmiPort')}</label>
+                <input id="gnmi-port" type="text" bind:value={gnmiPort} placeholder="57400" class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div>
+                <label for="gnmi-encoding" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.gnmiEncoding')}</label>
+                <select id="gnmi-encoding" bind:value={gnmiEncoding} class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none">
+                  <option value="json_ietf">JSON_IETF</option>
+                  <option value="json">JSON</option>
+                  <option value="proto">PROTO</option>
+                </select>
+              </div>
+              <div>
+                <label for="gnmi-user" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.gnmiUser')}</label>
+                <input id="gnmi-user" type="text" bind:value={gnmiUser} autocomplete="off" class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div>
+                <label for="gnmi-password" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.gnmiPassword')}</label>
+                <input id="gnmi-password" type="password" bind:value={gnmiPassword} autocomplete="new-password" class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none" />
+              </div>
             </div>
           </div>
         </div>

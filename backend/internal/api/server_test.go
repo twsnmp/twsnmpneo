@@ -741,7 +741,7 @@ func TestAPIServer_MapAndLayoutEndpoints(t *testing.T) {
 	}
 	e := srv.GetEcho()
 
-	// 1. Test POST /api/polling/check-all
+	// 1. Test the all-node and per-node polling triggers.
 	req := httptest.NewRequest(http.MethodPost, "/api/polling/check-all", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -749,13 +749,78 @@ func TestAPIServer_MapAndLayoutEndpoints(t *testing.T) {
 		t.Errorf("POST /api/polling/check-all failed: code %d", rec.Code)
 	}
 
-	// 2. Seed a node and test POST /api/nodes/positions
+	// 2. Seed a node and test node-scoped polling and map position updates.
 	_ = bStore.SaveNode(ctx, &datastore.NodeEnt{
 		ID:   "pos-node-1",
 		Name: "Node Pos",
 		X:    10,
 		Y:    10,
 	})
+	_ = bStore.SaveNode(ctx, &datastore.NodeEnt{ID: "other-node", Name: "Other Node"})
+	_ = bStore.SavePolling(ctx, &datastore.PollingEnt{
+		ID: "node-poll-active", NodeID: "pos-node-1", Type: "unsupported-test", Level: "warn",
+	})
+	_ = bStore.SavePolling(ctx, &datastore.PollingEnt{
+		ID: "node-poll-disabled", NodeID: "pos-node-1", Type: "unsupported-test", Level: "off",
+	})
+	_ = bStore.SavePolling(ctx, &datastore.PollingEnt{
+		ID: "other-poll-active", NodeID: "other-node", Type: "unsupported-test", Level: "warn",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api/polling/check/pos-node-1", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /api/polling/check/pos-node-1 failed: code %d, body=%s", rec.Code, rec.Body.String())
+	} else {
+		var body struct {
+			Count int `json:"count"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode per-node polling response: %v", err)
+		}
+		if body.Count != 1 {
+			t.Errorf("per-node polling count = %d, want 1", body.Count)
+		}
+	}
+	req = httptest.NewRequest(http.MethodPost, "/api/polling/check/unknown-node", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("POST /api/polling/check/unknown-node returned %d, want %d", rec.Code, http.StatusNotFound)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/api/tools/snmp", strings.NewReader(`{"node_id":"pos-node-1","oid":".1.3.6.1.2.1.1","mode":"invalid"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("POST /api/tools/snmp with invalid mode returned %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/api/tools/gnmi/capabilities", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("POST /api/tools/gnmi/capabilities without node_id returned %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if err := bStore.SaveNetwork(ctx, &datastore.NetworkEnt{
+		ID: "unmanaged-check", Name: "Unmanaged check", Unmanaged: true,
+		Ports: []datastore.PortEnt{{ID: "p1", Name: "Port 1", State: "down"}},
+	}); err != nil {
+		t.Fatalf("save unmanaged network: %v", err)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/api/networks/unmanaged-check/check", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/networks/unmanaged-check/check returned %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var checkedNetwork datastore.NetworkEnt
+	if err := json.Unmarshal(rec.Body.Bytes(), &checkedNetwork); err != nil {
+		t.Fatalf("decode checked network: %v", err)
+	}
+	if checkedNetwork.Error == "" || checkedNetwork.Ports[0].State != "unknown" {
+		t.Errorf("no-IP unmanaged network check = error %q, port state %q; want saved error and unknown port", checkedNetwork.Error, checkedNetwork.Ports[0].State)
+	}
 	posReqBody := `[{"ID":"pos-node-1","X":150,"Y":250}]`
 	req = httptest.NewRequest(http.MethodPost, "/api/nodes/positions", strings.NewReader(posReqBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -947,5 +1012,79 @@ func TestAPIServer_PollingDrawItems(t *testing.T) {
 				t.Errorf("PollingText Text should not be empty")
 			}
 		}
+	}
+}
+
+func TestResolveNameToOID(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "system", want: ".1.3.6.1.2.1.1"},
+		{input: "sysDescr", want: ".1.3.6.1.2.1.1.1"},
+		{input: "sysDescr.0", want: ".1.3.6.1.2.1.1.1.0"},
+		{input: "interfaces", want: ".1.3.6.1.2.1.2"},
+		{input: ".1.3.6.1.2.1.1", want: ".1.3.6.1.2.1.1"},
+		{input: "1.3.6.1.2.1.1", want: ".1.3.6.1.2.1.1"},
+		{input: ".1", want: ".1.3"},
+		{input: "unknown_mib_symbol_xyz", want: ""},
+		{input: "", want: ""},
+	}
+	for _, tt := range tests {
+		got := api.ResolveNameToOID(tt.input)
+		if got != tt.want {
+			t.Errorf("ResolveNameToOID(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestAPIServer_MIBModuleEndpoints(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	tempDataDir, err := os.MkdirTemp("", "twsnmpneo-mib-test-*")
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDataDir)
+
+	srv, err := api.NewServer(api.Config{
+		Port:      9101,
+		Debug:     true,
+		Version:   "v0.1.0-test",
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+		DataDir:   tempDataDir,
+	})
+	if err != nil {
+		t.Fatalf("create api server failed: %v", err)
+	}
+	e := srv.GetEcho()
+
+	// 1. GET /api/mib/modules
+	req := httptest.NewRequest(http.MethodGet, "/api/mib/modules", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/mib/modules failed: %d", rec.Code)
+	}
+
+	// 2. POST /api/mib/reload
+	req = httptest.NewRequest(http.MethodPost, "/api/mib/reload", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/mib/reload failed: %d", rec.Code)
+	}
+
+	// 3. DELETE /api/mib/modules without valid file returns error
+	delPayload := `{"file":"invalid.txt"}`
+	req = httptest.NewRequest(http.MethodDelete, "/api/mib/modules", strings.NewReader(delPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code == http.StatusOK {
+		t.Errorf("expected error deleting non-existent file, got 200")
 	}
 }

@@ -24,6 +24,11 @@
   import FindNeighborDialog from "../components/FindNeighborDialog.svelte";
   import DiscoverDialog from "../components/DiscoverDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
+  import PingDialog from "../components/PingDialog.svelte";
+  import MIBBrowserDialog from "../components/MIBBrowserDialog.svelte";
+  import GNMIToolDialog from "../components/GNMIToolDialog.svelte";
+  import NetworkReportDialog from "../components/NetworkReportDialog.svelte";
+  import PollingDialog from "../components/PollingDialog.svelte";
   import GridDialog from "../components/GridDialog.svelte";
   import {
     fetchNodes,
@@ -33,11 +38,16 @@
     fetchEventLogs,
     fetchPollings,
     deleteNode,
+    deletePolling,
+    saveNode,
     deleteNetwork,
+    checkNetwork,
     deleteDrawItem,
     copyDrawItem,
     deleteLine,
     checkAllPollings,
+    checkNodePollings,
+    sendWol,
     applyAutoLayout,
     undoAutoLayout,
     checkUndoAutoLayout,
@@ -78,6 +88,12 @@
     Sparkles,
     Layers,
     X,
+    FileText,
+    Eye,
+    Radio,
+    Power,
+    ListChecks,
+    ExternalLink,
   } from "@lucide/svelte";
 
   let nodes = $state<NodeEnt[]>([]);
@@ -110,6 +126,13 @@
 
   let showNodeDetailModal = $state(false);
   let detailNode = $state<NodeEnt | null>(null);
+  let showNetworkReport = $state(false);
+  let showPingDialog = $state(false);
+  let showMIBBrowserDialog = $state(false);
+  let showGNMIToolDialog = $state(false);
+  let showNodePollingList = $state(false);
+  let showPollingDialog = $state(false);
+  let selectedPolling = $state<PollingEnt | null>(null);
 
   // Context menu state
   let showContextMenu = $state(false);
@@ -175,8 +198,8 @@
     if (canvasDiv) {
       await initMAP(canvasDiv, (ev: any) => {
         if (ev?.type === "contextmenu" || ev?.Cmd === "contextMenu") {
-          contextX = Math.min(ev.x, window.innerWidth - 200);
-          contextY = Math.min(ev.y, window.innerHeight - 300);
+          contextX = Math.max(8, Math.min(ev.x, window.innerWidth - 200));
+          contextY = Math.max(8, Math.min(ev.y, window.innerHeight - 480));
           contextMapX = ev.mapX ?? 300;
           contextMapY = ev.mapY ?? 200;
           contextTargetNode = ev.nodeId || ev.Node || "";
@@ -463,13 +486,137 @@
     showContextMenu = false;
   };
 
-  const handleShowNodeDetail = () => {
+  const handleShowNodeReport = () => {
     const n = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
     if (n) {
       detailNode = n;
       showNodeDetailModal = true;
     }
     showContextMenu = false;
+  };
+
+  const contextNodeUrls = $derived.by(() => {
+    if (!contextTargetNode) return [];
+    const n = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
+    const rawUrl = n?.url || (n as any)?.URL || "";
+    if (!rawUrl) return [];
+    return rawUrl
+      .split(/[,;\n]/)
+      .map((u: string) => u.trim())
+      .filter((u: string) => u.length > 0);
+  });
+
+  const handleOpenNodePing = () => {
+    showPingDialog = true;
+    showContextMenu = false;
+  };
+
+  const handleOpenNodeMIBBrowser = () => {
+    showMIBBrowserDialog = true;
+    showContextMenu = false;
+  };
+
+  const handleOpenNodeGNMITool = () => {
+    showGNMIToolDialog = true;
+    showContextMenu = false;
+  };
+
+  const handleAddPollingFromTool = (poll: Partial<PollingEnt>) => {
+    selectedPolling = {
+      id: "",
+      node_id: contextTargetNode,
+      name: poll.name || "Polling",
+      type: poll.type || "ping",
+      params: poll.params || "",
+      state: "unknown",
+      ...poll,
+    };
+    showPollingDialog = true;
+  };
+
+  const handleOpenNodePolling = () => {
+    showNodePollingList = true;
+    showContextMenu = false;
+  };
+
+  const handleEditNodePolling = (polling: PollingEnt) => {
+    showNodePollingList = false;
+    selectedPolling = { ...polling };
+    showPollingDialog = true;
+  };
+
+  const handleAddNodePolling = () => {
+    showNodePollingList = false;
+    selectedPolling = {
+      id: "",
+      node_id: contextTargetNode,
+      name: "Ping",
+      type: "ping",
+      state: "unknown",
+    };
+    showPollingDialog = true;
+  };
+
+  const handleDeleteNodePolling = async (pollingId: string) => {
+    if (!window.confirm($_("list.confirmDelete.polling"))) return;
+    try {
+      await deletePolling(pollingId);
+      await reloadAllData();
+    } catch (e) {
+      showToastMessage("Error: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleRecheckTargetNode = async () => {
+    showContextMenu = false;
+    try {
+      const result = await checkNodePollings(contextTargetNode);
+      showToastMessage(`${$_("map.context.recheckStarted")}: ${result.count}`);
+      await reloadAllData();
+    } catch (e) {
+      showToastMessage("Error: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleWakeTargetNode = async () => {
+    showContextMenu = false;
+    const node = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
+    const mac = (node?.mac || node?.MAC || "").split("(", 1)[0].trim();
+    if (!mac) {
+      showToastMessage($_("map.tools.noMac"));
+      return;
+    }
+    try {
+      await sendWol(mac, undefined, contextTargetNode);
+      showToastMessage($_("map.tools.wolSent"));
+    } catch (e) {
+      showToastMessage("Error: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleCopyTargetNode = async () => {
+    showContextMenu = false;
+    const node = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
+    if (!node) return;
+    try {
+      const copy = {
+        ...node,
+        id: "",
+        ID: "",
+        name: `${node.name || node.Name}-Copy`,
+        state: "unknown",
+        x: (node.x || node.X || 0) + 100,
+        y: node.y || node.Y || 0,
+      };
+      const { halfW, topH, bottomH } = getNodeBounds();
+      const mapSize = getMapSize();
+      copy.x = Math.max(halfW, Math.min(mapSize.width - halfW, copy.x));
+      copy.y = Math.max(topH, Math.min(mapSize.height - bottomH, copy.y));
+      await saveNode(copy);
+      await reloadAllData();
+    } catch (e) {
+      showToastMessage("Error: " + (e instanceof Error ? e.message : String(e)));
+    }
   };
 
   const handleDeleteTargetNode = async () => {
@@ -486,6 +633,32 @@
       selectedNetwork = { ...net };
       showNetworkDialog = true;
     }
+    showContextMenu = false;
+  };
+
+  const handleShowNetworkReport = () => {
+    showNetworkReport = true;
+    showContextMenu = false;
+  };
+
+  const handleCheckTargetNetwork = async () => {
+    showContextMenu = false;
+    try {
+      await checkNetwork(contextTargetNet);
+      await reloadAllData();
+      showToastMessage($_("map.context.networkRecheckDone"));
+    } catch (e) {
+      showToastMessage("Error: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleOpenNetworkPing = () => {
+    showPingDialog = true;
+    showContextMenu = false;
+  };
+
+  const handleOpenNetworkMIBBrowser = () => {
+    showMIBBrowserDialog = true;
     showContextMenu = false;
   };
 
@@ -732,31 +905,96 @@
     <div
       role="menu"
       tabindex="-1"
-      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md"
+      class="fixed z-50 max-h-[calc(100vh-1rem)] min-w-[180px] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md"
       style="left: {contextX}px; top: {contextY}px;"
       onclick={(e) => e.stopPropagation()}
       oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onkeydown={(e) => e.key === 'Escape' && (showContextMenu = false)}
     >
       {#if contextTargetNode}
-        <button onclick={handleShowNodeDetail} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
-          <Info class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-          {$_('map.context.vpanelDetail')}
+        <button onclick={handleShowNodeReport} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <FileText class="h-3.5 w-3.5 text-sky-500" />
+          {$_('map.context.report')}
         </button>
+        <button onclick={handleOpenNodePing} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Activity class="h-3.5 w-3.5 text-emerald-500" />PING
+        </button>
+        <button onclick={handleOpenNodeMIBBrowser} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Eye class="h-3.5 w-3.5 text-teal-500" />
+          {$_('map.context.mibBrowser')}
+        </button>
+        <button onclick={handleOpenNodeGNMITool} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Radio class="h-3.5 w-3.5 text-cyan-500" />
+          {$_('map.context.gnmiTool')}
+        </button>
+        <button onclick={handleWakeTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Power class="h-3.5 w-3.5 text-amber-500" />
+          {$_('map.context.wakeOnLan')}
+        </button>
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Edit3 class="h-3.5 w-3.5 text-slate-400" />
           {$_('map.context.editNode')}
         </button>
+        <button onclick={handleOpenNodePolling} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <ListChecks class="h-3.5 w-3.5 text-blue-500" />
+          {$_('map.context.polling')}
+        </button>
+        <button onclick={handleRecheckTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <RefreshCw class="h-3.5 w-3.5 text-blue-500" />
+          {$_('map.context.recheck')}
+        </button>
         <button onclick={handleFindNeighborNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
           {$_('map.context.findNeighbor')}
+        </button>
+        <button onclick={handleCopyTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Copy class="h-3.5 w-3.5 text-blue-500" />
+          {$_('map.context.copy')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleDeleteTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
           <Trash2 class="h-3.5 w-3.5" />
           {$_('map.context.deleteNode')}
         </button>
+        {#if contextNodeUrls.length > 0}
+          <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
+          {#each contextNodeUrls as url}
+            <button
+              type="button"
+              onclick={() => {
+                showContextMenu = false;
+                window.open(url, "_blank", "noopener,noreferrer");
+              }}
+              class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={url}
+            >
+              <ExternalLink class="h-3.5 w-3.5 text-sky-500 shrink-0" />
+              <span class="truncate">{url}</span>
+            </button>
+          {/each}
+        {/if}
       {:else if contextTargetNet}
+        <button onclick={handleShowNetworkReport} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+          <FileText class="h-3.5 w-3.5 text-sky-500" />
+          {$_('map.context.report')}
+        </button>
+        <button onclick={handleCheckTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <RefreshCw class="h-3.5 w-3.5 text-emerald-500" />
+          {$_('map.context.recheck')}
+        </button>
+        <button onclick={handleOpenNetworkPing} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Activity class="h-3.5 w-3.5 text-emerald-500" />PING
+        </button>
+        <button onclick={handleOpenNetworkMIBBrowser} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Eye class="h-3.5 w-3.5 text-teal-500" />
+          {$_('map.context.mibBrowser')}
+        </button>
+        <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+          {$_('map.context.findNeighbor')}
+        </button>
+        <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleEditTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Network class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           {$_('map.context.editNetwork')}
@@ -764,10 +1002,6 @@
         <button onclick={handleOpenNetworkLines} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           {$_('map.context.editLines')}
-        </button>
-        <button onclick={handleFindNeighborNet} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
-          {$_('map.context.findNeighbor')}
         </button>
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleDeleteTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10">
@@ -989,7 +1223,71 @@
     posY={contextMapY}
     onComplete={reloadAllData}
   />
-  <NodeDetailModal bind:show={showNodeDetailModal} node={detailNode} {pollings} logs={eventLogs} />
+  <NodeDetailModal
+    bind:show={showNodeDetailModal}
+    node={detailNode}
+    {pollings}
+    logs={eventLogs}
+  />
+  <NetworkReportDialog
+    bind:show={showNetworkReport}
+    network={networks.find((item) => (item.id || item.ID) === contextTargetNet) || null}
+    {lines}
+    {nodes}
+  />
+  <PingDialog
+    bind:show={showPingDialog}
+    node={contextTargetNet ? null : (nodes.find((item) => (item.id || item.ID) === contextTargetNode) || null)}
+    network={contextTargetNet ? (networks.find((item) => (item.id || item.ID) === contextTargetNet) || null) : null}
+  />
+  <MIBBrowserDialog
+    bind:show={showMIBBrowserDialog}
+    node={contextTargetNet ? null : (nodes.find((item) => (item.id || item.ID) === contextTargetNode) || null)}
+    network={contextTargetNet ? (networks.find((item) => (item.id || item.ID) === contextTargetNet) || null) : null}
+    onAddPolling={handleAddPollingFromTool}
+  />
+  <GNMIToolDialog
+    bind:show={showGNMIToolDialog}
+    node={contextTargetNet ? null : (nodes.find((item) => (item.id || item.ID) === contextTargetNode) || null)}
+    onAddPolling={handleAddPollingFromTool}
+  />
+  <PollingDialog bind:show={showPollingDialog} bind:polling={selectedPolling} {nodes} onSave={reloadAllData} />
+  {#if showNodePollingList}
+    <div class="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" tabindex="-1" onkeydown={(e) => e.key === "Escape" && (showNodePollingList = false)}>
+      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-white text-slate-800 shadow-2xl dark:bg-[#0b1329] dark:text-slate-100">
+        <div class="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
+          <div>
+            <h2 class="text-sm font-bold">{$_('map.context.polling')} — {nodes.find((item) => (item.id || item.ID) === contextTargetNode)?.name}</h2>
+            <p class="text-xs text-slate-500">{$_('map.tools.pollingForNode')}</p>
+          </div>
+          <button type="button" aria-label={$_('common.close')} onclick={() => (showNodePollingList = false)} class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X class="h-4 w-4" /></button>
+        </div>
+        <div class="flex-1 overflow-auto p-4">
+          <div class="mb-3 flex justify-end">
+            <button type="button" onclick={handleAddNodePolling} class="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-500">{$_('map.tools.addPolling')}</button>
+          </div>
+          <div class="overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 dark:bg-slate-900"><tr><th class="p-2">{$_('list.table.pollingName')}</th><th class="p-2">{$_('list.table.type')}</th><th class="p-2">{$_('list.table.status')}</th><th class="p-2"></th></tr></thead>
+              <tbody>
+                {#each pollings.filter((poll) => (poll.node_id || poll.NodeID) === contextTargetNode) as poll (poll.id || poll.ID)}
+                  <tr class="border-t border-slate-200 dark:border-slate-800">
+                    <td class="p-2">{poll.name || poll.Name}</td><td class="p-2">{poll.type || poll.Type}</td><td class="p-2">{poll.state || poll.State}</td>
+                    <td class="p-2 text-right">
+                      <button type="button" onclick={() => handleEditNodePolling(poll)} class="rounded-md px-2 py-1 text-cyan-700 hover:bg-cyan-50 dark:text-cyan-300 dark:hover:bg-slate-800">{$_('common.edit')}</button>
+                      <button type="button" onclick={() => handleDeleteNodePolling(poll.id || poll.ID || "")} class="rounded-md px-2 py-1 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40">{$_('common.delete')}</button>
+                    </td>
+                  </tr>
+                {:else}
+                  <tr><td colspan="4" class="p-4 text-center text-slate-500">{$_('map.tools.noPollings')}</td></tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
   <GridDialog bind:show={showGridDialog} onTest={handleGridTest} onExec={handleGridExec} />
 
   <!-- Floating Toast Notification for Auto Layout / Check All -->
