@@ -39,7 +39,7 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
      - **セキュリティ & 証明書監視**: TLS/SSLサーバー証明書有効期限追跡、プライベートPKI認証局管理。
      - **AI 異常検知**: ノードおよびポーリングのAI異常スコアリスト (`AIList`)。
   6. **運用・診断ツール**:
-     - **MIBブラウザ & MIBツリーエクスプローラ**: 標準・Enterprise MIBの階層ナビゲーション、SNMP Get / GetNext / Walk / Table 実行。
+     - **MIBブラウザ & MIBツリーエクスプローラ**: 標準・Enterprise MIBの階層ナビゲーション、SNMP Get / GetNext / Walk / Table 実行、Table結果のページネーション、直近の検索履歴と頻出MIB項目のワンクリック入力。
      - **リアルタイム Ping ツール**: 連続ICMP/UDP ping、レスポンス推移グラフ、ペイロード変更、応答音声再生。
      - **gNMI ツール & Wake-on-LAN (WOL)**。
      - **ネットワーク自動発見エンジン**: IPレンジスキャン、Ping/SNMP/ARP同時スイープ、一括登録。
@@ -215,7 +215,7 @@ twsnmpneo/
      - **セキュリティ & 証明書**: TLS/SSLサーバー証明書有効期限追跡, PKI CA一覧
      - **AI 異常検知**: ノードおよびポーリングのAI異常スコアリスト
 9. **ツール画面 (`ToolView.svelte`)**:
-   - **MIBブラウザ**: MIBツリー階層ナビゲーション、標準・Enterprise MIB解決、SNMP Get/GetNext/Walk/Table実行。
+   - **MIBブラウザ**: MIBツリー階層ナビゲーション、標準・Enterprise MIB解決、SNMP Get/GetNext/Walk/Table実行、Table結果のページネーション。
    - **Ping ツール**: 連続Ping実行、リアルタイム応答時間EChartsグラフ、パケットサイズ指定、応答/パケロス音声再生。
    - **gNMI ツール**: Capabilities, Get, Subscribe エクスプローラ。
    - **WOL (Wake-on-LAN)**: マジックパケット送出。

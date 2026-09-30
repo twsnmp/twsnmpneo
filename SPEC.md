@@ -39,7 +39,7 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
        - **Security & Certificate Monitoring**: TLS/SSL server certificate expiration tracker, PKI certificate authority manager.
        - **AI Anomaly Detection**: AI anomaly scores across nodes, pollings, and log streams (`AIList`).
   6. **Diagnostic & Operational Tooling**:
-     - **MIB Browser & Tree Explorer**: Real-time SNMP Get, GetNext, Walk, Table retrieval, and MIB hierarchy tree navigator.
+     - **MIB Browser & Tree Explorer**: Real-time SNMP Get, GetNext, Walk, and Table retrieval; paginated table results with selectable page sizes; recent-query history and one-click common MIB objects; MIB hierarchy tree navigator.
      - **Real-time Ping Tool**: Continuous ICMP/UDP ping, response time graphs, packet size controls, and audio playback.
      - **gNMI Tool & Wake-on-LAN (WOL)**.
      - **Network Discovery Engine**: IP range scanning, concurrent ping/SNMP/ARP sweep, and bulk node registration.
@@ -383,7 +383,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 
 * **MIB Browser**:
   - Embedded tree viewer for standard MIBs (RFC1213-MIB, HOST-RESOURCES-MIB, IF-MIB, RMON-MIB) and user-uploaded custom enterprise MIB files.
-  - SNMP Get, GetNext, and Walk operations with formatted OID output, ASN.1 syntax translation, and raw hexadecimal decoding.
+  - SNMP Get, GetNext, Walk, and Table operations with formatted OID output, ASN.1 syntax translation, raw hexadecimal decoding, and paginated table results.
 * **Ping Tool**:
   - Interactive continuous ping generator with customizable packet payload sizes, timeout intervals, response time histogram chart, and audible chime on packet loss/recovery.
 * **gNMI Tool**:

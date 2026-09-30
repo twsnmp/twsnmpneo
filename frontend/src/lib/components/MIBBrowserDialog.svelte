@@ -21,6 +21,10 @@
     Plus,
     FileSpreadsheet,
     HelpCircle,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
   } from "@lucide/svelte";
 
   let {
@@ -35,8 +39,8 @@
     onAddPolling?: (p: Partial<PollingEnt>) => void;
   }>();
 
-  let nameOrOid = $state(".1.3.6.1.2.1.1");
-  let history = $state<string[]>([".1.3.6.1.2.1.1", ".1.3.6.1.2.1.2.2", ".1.3.6.1.2.1.25"]);
+  let nameOrOid = $state("");
+  let history = $state<string[]>([]);
   let mode = $state<"get" | "getnext" | "walk" | "table">("walk");
   let scalarOnly = $state(false);
   let rawData = $state(false);
@@ -46,6 +50,8 @@
   let results = $state<SNMPToolResult[]>([]);
   let selectedIndices = $state<number[]>([]);
   let copied = $state(false);
+  let pageSize = $state(25);
+  let currentPage = $state(1);
 
   // MIB Tree Modal State
   let showMIBTreeModal = $state(false);
@@ -63,6 +69,8 @@
         errorMessage = "";
         results = [];
         selectedIndices = [];
+        currentPage = 1;
+        nameOrOid = history[0] ?? "";
       });
     }
   });
@@ -72,17 +80,16 @@
     isLoading = true;
     errorMessage = "";
     selectedIndices = [];
+    currentPage = 1;
     try {
       const q = nameOrOid.trim();
-      if (!history.includes(q)) {
-        history = [q, ...history.slice(0, 9)];
-      }
       results = await runSNMPTool(
         { nodeId: targetNodeId || undefined, networkId: targetNetworkId || undefined },
         q,
         mode,
         rawData
       );
+      history = [q, ...history.filter((item) => item !== q)].slice(0, 10);
     } catch (e) {
       errorMessage = e instanceof Error ? e.message : String(e);
     } finally {
@@ -115,7 +122,7 @@
   };
 
   const copySelected = async () => {
-    const list = selectedIndices.length > 0 ? selectedIndices.map((i) => results[i]) : results;
+    const list = selectedIndices.length > 0 ? selectedIndices.map((i) => displayedResults[i]).filter((r) => r !== undefined) : results;
     if (list.length === 0) return;
     const lines = ["名前\tOID\t型\t値"];
     list.forEach((r) => {
@@ -144,7 +151,7 @@
 
   const handleCreatePolling = () => {
     if (selectedIndices.length !== 1 || !onAddPolling) return;
-    const r = results[selectedIndices[0]];
+    const r = displayedResults[selectedIndices[0]];
     if (!r) return;
     onAddPolling({
       node_id: targetNodeId,
@@ -182,6 +189,15 @@
       });
     }
     return list;
+  });
+
+  const totalPages = $derived(
+    pageSize === -1 ? 1 : Math.max(1, Math.ceil(displayedResults.length / pageSize))
+  );
+  const paginatedResults = $derived.by(() => {
+    if (pageSize === -1) return displayedResults;
+    const start = (currentPage - 1) * pageSize;
+    return displayedResults.slice(start, start + pageSize);
   });
 </script>
 
@@ -266,11 +282,34 @@
           </button>
         </div>
 
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <span class="text-slate-500 dark:text-slate-400">よく使う項目:</span>
+          {#each [
+            { name: "system", oid: "system" },
+            { name: "ifTable", oid: "ifTable" },
+            { name: "ifXTable", oid: "ifXTable" },
+            { name: "hrStorageTable", oid: "hrStorageTable" },
+          ] as item}
+            <button
+              type="button"
+              onclick={() => (nameOrOid = item.oid)}
+              class="rounded-md border border-slate-300 bg-white px-2 py-1 font-mono text-teal-700 hover:border-teal-400 hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-950 dark:text-teal-300 dark:hover:bg-slate-800"
+            >
+              {item.name}
+            </button>
+          {/each}
+        </div>
+
         <!-- Options row -->
         <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
           <div class="flex items-center gap-4">
             <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
-              <input type="checkbox" bind:checked={scalarOnly} class="rounded text-teal-600 focus:ring-teal-500" />
+              <input
+                type="checkbox"
+                bind:checked={scalarOnly}
+                onchange={() => { currentPage = 1; selectedIndices = []; }}
+                class="rounded text-teal-600 focus:ring-teal-500"
+              />
               スカラーのみ (.0)
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
@@ -312,14 +351,14 @@
       </div>
 
       <!-- Result Table Area -->
-      <div class="min-h-0 flex-1 overflow-y-auto p-4">
+      <div class="flex min-h-0 flex-1 flex-col p-4">
         {#if errorMessage}
           <div class="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
             {errorMessage}
           </div>
         {/if}
 
-        <div class="overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
+        <div class="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
           <table class="w-full text-left text-xs">
             <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
               <tr>
@@ -330,21 +369,22 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-              {#each displayedResults as r, idx}
+              {#each paginatedResults as r, pageIndex}
+                {@const idx = (currentPage - 1) * (pageSize === -1 ? displayedResults.length : pageSize) + pageIndex}
                 {@const isSelected = selectedIndices.includes(idx)}
                 <tr
                   onclick={() => toggleSelect(idx, false)}
                   class={`cursor-pointer transition-colors ${isSelected ? "bg-teal-50 dark:bg-teal-950/40" : "hover:bg-slate-50 dark:hover:bg-slate-900/60"}`}
                 >
-                  <td class="p-2 text-center text-slate-400 font-mono text-[10px]">{idx + 1}</td>
-                  <td class="p-2 font-mono text-slate-700 dark:text-slate-300 break-all">
+                  <td class="py-1 px-2 text-center text-slate-400 font-mono text-[10px]">{idx + 1}</td>
+                  <td class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300 break-all">
                     <div class="font-medium text-slate-900 dark:text-slate-100">{r.name || r.oid}</div>
                     {#if r.name && r.name !== r.oid}
                       <div class="text-[10px] text-slate-400 dark:text-slate-500">{r.oid}</div>
                     {/if}
                   </td>
-                  <td class="p-2 text-slate-500 whitespace-nowrap">{r.type}</td>
-                  <td class="p-2 font-mono break-all font-medium">{r.value}</td>
+                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{r.type}</td>
+                  <td class="py-1 px-2 font-mono break-all font-medium">{r.value}</td>
                 </tr>
               {:else}
                 <tr>
@@ -355,6 +395,85 @@
               {/each}
             </tbody>
           </table>
+        </div>
+
+        <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-1 pt-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-400">
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2">
+              <span>{$_("report.pageShowCount")}</span>
+              <select
+                bind:value={pageSize}
+                onchange={() => (currentPage = 1)}
+                class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              >
+                <option value={25}>{$_("report.itemsPerPage", { values: { count: 25 } })}</option>
+                <option value={50}>{$_("report.itemsPerPage", { values: { count: 50 } })}</option>
+                <option value={100}>{$_("report.itemsPerPage", { values: { count: 100 } })}</option>
+                <option value={-1}>{$_("report.showAll")}</option>
+              </select>
+            </label>
+            <span class="font-mono text-[11px] text-slate-400">
+              {#if displayedResults.length > 0}
+                {$_("report.paginationRange", {
+                  values: {
+                    total: displayedResults.length.toLocaleString(),
+                    from: (currentPage - 1) * (pageSize === -1 ? displayedResults.length : pageSize) + 1,
+                    to: pageSize === -1 ? displayedResults.length : Math.min(currentPage * pageSize, displayedResults.length),
+                  },
+                })}
+              {:else}
+                {$_("report.totalZero")}
+              {/if}
+            </span>
+          </div>
+
+          {#if pageSize !== -1 && totalPages > 1}
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onclick={() => (currentPage = 1)}
+                class="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                title={$_("report.firstPage")}
+                aria-label={$_("report.firstPage")}
+              >
+                <ChevronsLeft class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onclick={() => currentPage--}
+                class="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                title={$_("report.prevPage")}
+                aria-label={$_("report.prevPage")}
+              >
+                <ChevronLeft class="h-4 w-4" />
+              </button>
+              <span class="px-2 font-mono text-xs text-slate-600 dark:text-slate-300">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onclick={() => currentPage++}
+                class="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                title={$_("report.nextPage")}
+                aria-label={$_("report.nextPage")}
+              >
+                <ChevronRight class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onclick={() => (currentPage = totalPages)}
+                class="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                title={$_("report.lastPage")}
+                aria-label={$_("report.lastPage")}
+              >
+                <ChevronsRight class="h-4 w-4" />
+              </button>
+            </div>
+          {/if}
         </div>
       </div>
     </div>

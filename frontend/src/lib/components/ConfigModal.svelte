@@ -1945,8 +1945,8 @@
                       {@const hasErr = Boolean(mod.error || mod.Error)}
                       {@const fileName = mod.file || mod.File}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td class="p-3 text-center text-slate-400 text-[11px]">{idx + 1}</td>
-                        <td class="p-3">
+                        <td class="py-1 px-2 text-center text-slate-400 text-[11px]">{idx + 1}</td>
+                        <td class="py-1 px-2">
                           {#if isExt}
                             <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
                               {$_('config.mibExt')}
@@ -1957,13 +1957,13 @@
                             </span>
                           {/if}
                         </td>
-                        <td class="p-3 font-semibold text-slate-900 dark:text-slate-100">
+                        <td class="py-1 px-2 font-semibold text-slate-900 dark:text-slate-100">
                           {mod.name || mod.Name || "Unknown"}
                         </td>
-                        <td class="p-3 text-slate-600 dark:text-slate-400 text-[11px]">
+                        <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
                           {mod.file || mod.File}
                         </td>
-                        <td class="p-3">
+                        <td class="py-1 px-2">
                           {#if hasErr}
                             <span class="inline-flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400" title={mod.error || mod.Error}>
                               <AlertTriangle class="h-3.5 w-3.5 shrink-0" />
@@ -1976,7 +1976,7 @@
                             </span>
                           {/if}
                         </td>
-                        <td class="p-3 text-center">
+                        <td class="py-1 px-2 text-center">
                           {#if isExt && fileName}
                             <button
                               type="button"
@@ -1991,7 +1991,7 @@
                       </tr>
                     {:else}
                       <tr>
-                        <td colspan="6" class="p-8 text-center text-slate-500">
+                        <td colspan="6" class="py-8 px-2 text-center text-slate-500">
                           {#if mibLoading}
                             読み込み中...
                           {:else}
