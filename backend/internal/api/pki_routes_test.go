@@ -53,6 +53,11 @@ func TestPKIRoutesIssueRevokeAndDownload(t *testing.T) {
 			t.Fatalf("uninitialized CA endpoint %s returned %d", path, rec.Code)
 		}
 	}
+	rootRec := httptest.NewRecorder()
+	echo.ServeHTTP(rootRec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if rootRec.Code == http.StatusServiceUnavailable {
+		t.Fatalf("root endpoint unexpectedly returned 503: %s", rootRec.Body.String())
+	}
 	createCAReq := httptest.NewRequest(http.MethodPost, "/api/pki/ca", strings.NewReader(`{"commonName":"API Test Root CA","organization":"TWSNMP NEO Test","keyType":"ecdsa-256","validYears":10}`))
 	createCAReq.Header.Set("Content-Type", "application/json")
 	createCARec := httptest.NewRecorder()

@@ -19,22 +19,22 @@ import (
 const maxSCEPRequestSize = 2 << 20
 
 func registerPKIProtocolRoutes(e *echo.Echo, manager *pki.Manager, store datastore.DataStore) {
-	protocols := e.Group("", func(next echo.HandlerFunc) echo.HandlerFunc {
+	checkEnabled := func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if !manager.Settings().EnableHTTP {
 				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "PKI HTTP services are disabled"})
 			}
 			return next(c)
 		}
-	})
-	protocols.GET("/ca.pem", func(c echo.Context) error {
+	}
+	e.GET("/ca.pem", func(c echo.Context) error {
 		if !manager.Status().Ready {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
 		}
 		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
 		return c.Blob(http.StatusOK, "application/x-pem-file", []byte(manager.GetCACertPEM()))
-	})
-	protocols.GET("/scepca.pem", func(c echo.Context) error {
+	}, checkEnabled)
+	e.GET("/scepca.pem", func(c echo.Context) error {
 		certs, err := manager.SCEPCACertificates()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -42,16 +42,16 @@ func registerPKIProtocolRoutes(e *echo.Echo, manager *pki.Manager, store datasto
 		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
 		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certs[1].Raw})
 		return c.Blob(http.StatusOK, "application/x-pem-file", certPEM)
-	})
-	protocols.GET("/crl", func(c echo.Context) error {
+	}, checkEnabled)
+	e.GET("/crl", func(c echo.Context) error {
 		crl, err := manager.GetCRL()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
 		return c.Blob(http.StatusOK, "application/pkix-crl", crl)
-	})
-	protocols.GET("/crl.pem", func(c echo.Context) error {
+	}, checkEnabled)
+	e.GET("/crl.pem", func(c echo.Context) error {
 		crl, err := manager.GetCRL()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -59,8 +59,8 @@ func registerPKIProtocolRoutes(e *echo.Echo, manager *pki.Manager, store datasto
 		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
 		crlPEM := pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: crl})
 		return c.Blob(http.StatusOK, "application/x-pem-file", crlPEM)
-	})
-	protocols.POST("/ocsp", func(c echo.Context) error {
+	}, checkEnabled)
+	e.POST("/ocsp", func(c echo.Context) error {
 		body, err := io.ReadAll(io.LimitReader(c.Request().Body, maxOCSPRequestSize+1))
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -69,8 +69,8 @@ func registerPKIProtocolRoutes(e *echo.Echo, manager *pki.Manager, store datasto
 			return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "OCSP request exceeds 1 MiB"})
 		}
 		return writeOCSPResponse(c, manager, body)
-	})
-	protocols.GET("/ocsp/:request", func(c echo.Context) error {
+	}, checkEnabled)
+	e.GET("/ocsp/:request", func(c echo.Context) error {
 		if len(c.Param("request")) > base64.RawURLEncoding.EncodedLen(maxOCSPRequestSize)+4 {
 			return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "OCSP request exceeds 1 MiB"})
 		}
@@ -79,13 +79,13 @@ func registerPKIProtocolRoutes(e *echo.Echo, manager *pki.Manager, store datasto
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid base64 OCSP request"})
 		}
 		return writeOCSPResponse(c, manager, request)
-	})
-	protocols.GET("/scep", func(c echo.Context) error {
+	}, checkEnabled)
+	e.GET("/scep", func(c echo.Context) error {
 		return handleSCEP(c, manager, store)
-	})
-	protocols.POST("/scep", func(c echo.Context) error {
+	}, checkEnabled)
+	e.POST("/scep", func(c echo.Context) error {
 		return handleSCEP(c, manager, store)
-	})
+	}, checkEnabled)
 }
 
 func handleSCEP(c echo.Context, manager *pki.Manager, store datastore.DataStore) error {
