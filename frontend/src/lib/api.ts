@@ -27,6 +27,7 @@ export interface NodeEnt {
   gnmi_encoding?: string;
   gnmi_user?: string;
   gnmi_password?: string;
+  loc?: string;
 
   // Compatibility aliases matching Go backend
   ID?: string;
@@ -49,6 +50,7 @@ export interface NodeEnt {
   URL?: string;
   SSHUser?: string;
   PublicKey?: string;
+  Loc?: string;
 }
 
 export interface LineEnt {
@@ -2181,3 +2183,191 @@ export async function getDiscoverAddressRange(): Promise<string[]> {
   const res = await fetch(`${API_BASE}/discover/ranges`);
   return await res.json();
 }
+
+// RMON Statistics
+export interface RmonEtherStatsEnt {
+  Index: number;
+  DataSource: string;
+  DropEvents: number;
+  Octets: number;
+  Pkts: number;
+  BroadcastPkts: number;
+  MulticastPkts: number;
+  CRCAlignErrors: number;
+  UndersizePkts: number;
+  OversizePkts: number;
+  Fragments: number;
+  Jabbers: number;
+  Collisions: number;
+  Pkts64Octets: number;
+  Pkts65to127Octets: number;
+  Pkts128to255Octets: number;
+  Pkts256to511Octets: number;
+  Pkts512to1023Octets: number;
+  Pkts1024to1518Octets: number;
+  Status: string;
+}
+
+export interface NodeRmonResp {
+  supported: boolean;
+  reason?: string;
+  message?: string;
+  error?: string;
+  stats?: RmonEtherStatsEnt[];
+}
+
+export async function fetchNodeRmon(nodeId: string): Promise<NodeRmonResp> {
+  try {
+    const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/rmon`);
+    if (!res.ok) {
+      return { supported: false, error: res.statusText, stats: [] };
+    }
+    return await res.json();
+  } catch (err: any) {
+    return { supported: false, error: err?.message || String(err), stats: [] };
+  }
+}
+
+// Node Diagnostic Health Probes
+export interface PingDiagnoseResult {
+  success: boolean;
+  sent: number;
+  received: number;
+  loss: number;
+  avgRtt: number;
+  error?: string;
+}
+
+export interface SNMPDiagnoseResult {
+  configured: boolean;
+  success: boolean;
+  sysDescr?: string;
+  sysUpTime?: string;
+  rtt: number;
+  error?: string;
+}
+
+export interface WebPortDiagnose {
+  port: number;
+  success: boolean;
+  statusCode: number;
+  rtt: number;
+  certIssuer?: string;
+  remainingDays?: number;
+  error?: string;
+}
+
+export interface NodeDiagnoseResult {
+  nodeId: string;
+  nodeName: string;
+  ip: string;
+  status: "healthy" | "warning" | "critical";
+  ping: PingDiagnoseResult;
+  snmp: SNMPDiagnoseResult;
+  web: {
+    http?: WebPortDiagnose;
+    https?: WebPortDiagnose;
+  };
+  summary: string;
+  time: string;
+}
+
+export async function diagnoseNode(nodeId: string): Promise<NodeDiagnoseResult> {
+  const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/diagnose`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error(`Diagnose failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+// Certificate Monitors (External TLS Endpoints)
+export interface CertMonitorEnt {
+  id: string;
+  state: "normal" | "warn" | "error";
+  target: string;
+  port: number;
+  subject: string;
+  issuer: string;
+  serialNumber: string;
+  verify: boolean;
+  notAfter: number;
+  notBefore: number;
+  error: string;
+  firstTime: number;
+  lastTime: number;
+}
+
+export async function fetchCertMonitors(): Promise<CertMonitorEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/cert_monitors`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveCertMonitor(ent: Partial<CertMonitorEnt>): Promise<CertMonitorEnt> {
+  const res = await fetch(`${API_BASE}/cert_monitors`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(ent),
+  });
+  if (!res.ok) throw new Error(`Save cert monitor failed: ${res.statusText}`);
+  return await res.json();
+}
+
+export async function deleteCertMonitor(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/cert_monitors/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Delete cert monitor failed: ${res.statusText}`);
+}
+
+export async function checkCertMonitors(): Promise<CertMonitorEnt[]> {
+  const res = await fetch(`${API_BASE}/cert_monitors/check`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Check cert monitors failed: ${res.statusText}`);
+  return await res.json();
+}
+
+export interface LocConfEnt {
+  Style: string;
+  Center: string;
+  Zoom: number;
+  IconSize: number;
+  Url?: string;
+}
+
+export async function fetchLocConf(): Promise<LocConfEnt> {
+  try {
+    const res = await fetch(`${API_BASE}/conf/loc`);
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch {
+    return {
+      Style: "osm",
+      Center: "139.6917,35.6895",
+      Zoom: 10,
+      IconSize: 24,
+    };
+  }
+}
+
+export async function saveLocConf(conf: LocConfEnt): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/conf/loc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(conf),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+

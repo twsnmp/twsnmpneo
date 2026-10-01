@@ -36,6 +36,7 @@ var (
 	bucketOTelTrace  = []byte("otelTrace")
 	bucketMqttStat   = []byte("mqttStat")
 	bucketPKICerts   = []byte("pkiCertificates")
+	bucketCertMonitor = []byte("certMonitor")
 
 	keyMapConf           = []byte("mapConf")
 	keyNotifyConf        = []byte("notifyConf")
@@ -110,6 +111,7 @@ func New(dbPath string) (*Store, error) {
 			bucketOTelTrace,
 			bucketMqttStat,
 			bucketPKICerts,
+			bucketCertMonitor,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
@@ -1887,3 +1889,101 @@ func (s *Store) DeleteAllPKICertificates() error {
 		return err
 	})
 }
+
+// CertMonitor methods
+
+func (s *Store) ListCertMonitors(ctx context.Context) ([]*datastore.CertMonitorEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	monitors := make([]*datastore.CertMonitorEnt, 0)
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCertMonitor)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			var ent datastore.CertMonitorEnt
+			if err := json.Unmarshal(v, &ent); err == nil {
+				monitors = append(monitors, &ent)
+			}
+			return nil
+		})
+	})
+	return monitors, err
+}
+
+func (s *Store) GetCertMonitor(ctx context.Context, id string) (*datastore.CertMonitorEnt, error) {
+	if id == "" {
+		return nil, datastore.ErrInvalidID
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	var ent *datastore.CertMonitorEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCertMonitor)
+		if b == nil {
+			return datastore.ErrNotFound
+		}
+		v := b.Get([]byte(id))
+		if v == nil {
+			return datastore.ErrNotFound
+		}
+		ent = &datastore.CertMonitorEnt{}
+		return json.Unmarshal(v, ent)
+	})
+	return ent, err
+}
+
+func (s *Store) SaveCertMonitor(ctx context.Context, c *datastore.CertMonitorEnt) error {
+	if c == nil {
+		return datastore.ErrInvalidParams
+	}
+	if c.ID == "" {
+		c.ID = datastore.GenerateID()
+	}
+	v, err := json.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("encode cert monitor: %w", err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCertMonitor)
+		if b == nil {
+			var bErr error
+			b, bErr = tx.CreateBucketIfNotExists(bucketCertMonitor)
+			if bErr != nil {
+				return bErr
+			}
+		}
+		return b.Put([]byte(c.ID), v)
+	})
+}
+
+func (s *Store) DeleteCertMonitor(ctx context.Context, id string) error {
+	if id == "" {
+		return datastore.ErrInvalidID
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCertMonitor)
+		if b == nil {
+			return nil
+		}
+		return b.Delete([]byte(id))
+	})
+}
+

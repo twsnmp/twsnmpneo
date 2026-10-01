@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import MapView from "./lib/views/MapView.svelte";
+  import LocationView from "./lib/views/LocationView.svelte";
   import ListView from "./lib/views/ListView.svelte";
   import LogView from "./lib/views/LogView.svelte";
   import OTelView from "./lib/views/OTelView.svelte";
   import MQTTView from "./lib/views/MQTTView.svelte";
   import ReportView from "./lib/views/ReportView.svelte";
+  import ToolView from "./lib/views/ToolView.svelte";
   import SystemView from "./lib/views/SystemView.svelte";
   import PKIView from "./lib/views/PKIView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
@@ -16,9 +18,11 @@
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
   import {
     Network,
+    MapPin,
     Layers,
     Calendar,
     BarChart3,
+    Wrench,
     Info,
     Settings,
     Moon,
@@ -31,7 +35,7 @@
     ShieldCheck,
   } from "@lucide/svelte";
 
-  type PageType = "map" | "list" | "logs" | "otel" | "mqtt" | "reports" | "system" | "pki";
+  type PageType = "map" | "location" | "list" | "logs" | "otel" | "mqtt" | "reports" | "tools" | "system" | "pki";
 
   let currentPage = $state<PageType>("map");
   let currentLocale = $state<SupportedLocale>(getSavedLocale());
@@ -87,12 +91,14 @@
 
   const navItems = [
     { id: "map", icon: Network },
+    { id: "location", icon: MapPin, label: "nav.location" },
     { id: "list", icon: Layers },
     { id: "reports", icon: BarChart3 },
     { id: "pki", icon: ShieldCheck, label: "pki.title" },
     { id: "logs", icon: Calendar },
     { id: "otel", icon: Activity, mdi: "mdi-telescope" },
     { id: "mqtt", icon: Radio, mdi: "mdi-access-point-network" },
+    { id: "tools", icon: Wrench, label: "nav.tools" },
     { id: "system", icon: Info },
   ];
 </script>
@@ -189,6 +195,8 @@
   <main class="flex-1 overflow-hidden relative">
     {#if currentPage === "map"}
       <MapView />
+    {:else if currentPage === "location"}
+      <LocationView />
     {:else if currentPage === "list"}
       <ListView />
     {:else if currentPage === "logs"}
@@ -199,6 +207,8 @@
       <MQTTView />
     {:else if currentPage === "reports"}
       <ReportView />
+    {:else if currentPage === "tools"}
+      <ToolView />
     {:else if currentPage === "system"}
       <SystemView />
     {:else if currentPage === "pki"}

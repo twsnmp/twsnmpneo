@@ -126,6 +126,12 @@ type DataStore interface {
 	DeleteMqttStats(ctx context.Context, ids []string) error
 	DeleteAllMqttStats(ctx context.Context) error
 	CleanOldMqttStats(ctx context.Context, days int) error
+
+	// Certificate Monitors (External TLS Monitor)
+	ListCertMonitors(ctx context.Context) ([]*CertMonitorEnt, error)
+	GetCertMonitor(ctx context.Context, id string) (*CertMonitorEnt, error)
+	SaveCertMonitor(ctx context.Context, c *CertMonitorEnt) error
+	DeleteCertMonitor(ctx context.Context, id string) error
 }
 
 // AIResultEnt holds AI anomaly detection results for a polling.

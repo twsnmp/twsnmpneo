@@ -336,8 +336,50 @@ func NewServer(cfg Config) (*Server, error) {
 			})
 		})
 
-		// Node SNMP Details (Host Resource, Ports)
+		// Node SNMP Details (Host Resource, Ports, RMON)
 		registerSNMPDetailEndpoints(apiGroup, cfg.Store)
+		registerNodeDiagnoseEndpoints(apiGroup, cfg.Store)
+
+		// Certificate Monitors (External TLS Monitor)
+		apiGroup.GET("/cert_monitors", func(c echo.Context) error {
+			list, err := cfg.Store.ListCertMonitors(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+		apiGroup.POST("/cert_monitors", func(c echo.Context) error {
+			var ent datastore.CertMonitorEnt
+			if err := c.Bind(&ent); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if ent.Target == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "target host is required"})
+			}
+			if ent.Port <= 0 {
+				ent.Port = 443
+			}
+			monitor.CheckCert(&ent, 10)
+			if err := cfg.Store.SaveCertMonitor(c.Request().Context(), &ent); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, ent)
+		})
+		apiGroup.DELETE("/cert_monitors/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			if err := cfg.Store.DeleteCertMonitor(c.Request().Context(), id); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+		apiGroup.POST("/cert_monitors/check", func(c echo.Context) error {
+			if err := monitor.CheckAllCertMonitors(c.Request().Context(), cfg.Store); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			list, _ := cfg.Store.ListCertMonitors(c.Request().Context())
+			return c.JSON(http.StatusOK, list)
+		})
+
 
 		// Pollings
 		apiGroup.GET("/pollings", func(c echo.Context) error {

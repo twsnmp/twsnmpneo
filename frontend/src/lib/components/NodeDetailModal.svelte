@@ -7,6 +7,8 @@
     fetchEventLogs,
     fetchNodePorts,
     fetchNodeHostResource,
+    fetchNodeRmon,
+    diagnoseNode,
   } from "../api";
   import type {
     NodeEnt,
@@ -14,6 +16,8 @@
     EventLogEnt,
     VPanelPortEnt,
     HostResourceEnt,
+    RmonEtherStatsEnt,
+    NodeDiagnoseResult,
   } from "../api";
   import { _ } from "svelte-i18n";
   import {
@@ -31,6 +35,10 @@
     Check,
     Server,
     ShieldAlert,
+    Gauge,
+    Stethoscope,
+    AlertCircle,
+    CheckCircle2,
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
@@ -54,7 +62,7 @@
     initialTab?: TabType;
   }>();
 
-  type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo";
+  type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo" | "rmon" | "diagnose";
   let activeTab = $state<TabType>("basic");
 
   // Host resource active sub-tab
@@ -77,6 +85,16 @@
   let hostResource = $state<HostResourceEnt | null>(null);
   let isLoadingHostResource = $state(false);
   let hostResourceError = $state<string>("");
+
+  // RMON states
+  let rmonStats = $state<RmonEtherStatsEnt[]>([]);
+  let isLoadingRmon = $state(false);
+  let rmonError = $state<string>("");
+
+  // Diagnose states
+  let diagnoseResult = $state<NodeDiagnoseResult | null>(null);
+  let isDiagnosing = $state(false);
+  let diagnoseError = $state<string>("");
 
   let internalPollings = $state<PollingEnt[]>([]);
   let internalLogs = $state<EventLogEnt[]>([]);
@@ -222,6 +240,62 @@
     hrPageSize === -1 ? 1 : Math.max(1, Math.ceil(sortedHrList.length / hrPageSize))
   );
 
+  // 5. RMON
+  let rmonSortCol = $state<string>("Index");
+  let rmonSortDir = $state<"asc" | "desc">("asc");
+  let rmonPage = $state(1);
+  let rmonPageSize = $state(10);
+
+  const sortedRmon = $derived(sortItems(rmonStats, rmonSortCol, rmonSortDir));
+  const paginatedRmon = $derived(
+    rmonPageSize === -1
+      ? sortedRmon
+      : sortedRmon.slice((rmonPage - 1) * rmonPageSize, rmonPage * rmonPageSize)
+  );
+  const rmonTotalPages = $derived(
+    rmonPageSize === -1 ? 1 : Math.max(1, Math.ceil(sortedRmon.length / rmonPageSize))
+  );
+
+  function handleRmonSort(col: string) {
+    if (rmonSortCol === col) {
+      rmonSortDir = rmonSortDir === "asc" ? "desc" : "asc";
+    } else {
+      rmonSortCol = col;
+      rmonSortDir = "asc";
+    }
+  }
+
+  const loadRmonData = async () => {
+    if (!targetNodeId || !isSnmpConfigured) return;
+    isLoadingRmon = true;
+    rmonError = "";
+    try {
+      const res = await fetchNodeRmon(targetNodeId);
+      if (res.supported && Array.isArray(res.stats)) {
+        rmonStats = res.stats;
+      } else if (res.error) {
+        rmonError = res.error;
+      }
+    } catch (e: any) {
+      rmonError = String(e?.message || e);
+    } finally {
+      isLoadingRmon = false;
+    }
+  };
+
+  const runNodeDiagnose = async () => {
+    if (!targetNodeId) return;
+    isDiagnosing = true;
+    diagnoseError = "";
+    try {
+      diagnoseResult = await diagnoseNode(targetNodeId);
+    } catch (e: any) {
+      diagnoseError = String(e?.message || e);
+    } finally {
+      isDiagnosing = false;
+    }
+  };
+
   // Sorting handlers
   function handlePortsSort(col: string) {
     if (portsSortCol === col) {
@@ -267,9 +341,13 @@
         activeTab = initialTab;
         realPorts = [];
         hostResource = null;
-        hostResourceError = "";
+        // Reset RMON and diagnose states
+        rmonStats = [];
+        rmonError = "";
+        diagnoseResult = null;
+        diagnoseError = "";
 
-        // If SNMP is configured, query ports and host resources from backend
+        // If SNMP is configured, query ports, host resources, and RMON from backend
         if (isSnmpConfigured && targetNodeId) {
           isLoadingPorts = true;
           fetchNodePorts(targetNodeId)
@@ -302,6 +380,8 @@
             .finally(() => {
               isLoadingHostResource = false;
             });
+
+          loadRmonData();
         }
 
         // Auto-fetch pollings if not passed
@@ -328,6 +408,17 @@
         copiedIP = false;
         copiedMAC = false;
       });
+    }
+  });
+
+  // Fetch RMON or diagnose on activeTab change if needed
+  $effect(() => {
+    if (show && node) {
+      if (activeTab === "rmon" && rmonStats.length === 0 && !isLoadingRmon && isSnmpConfigured) {
+        loadRmonData();
+      } else if (activeTab === "diagnose" && !diagnoseResult && !isDiagnosing) {
+        runNodeDiagnose();
+      }
     }
   });
 
@@ -502,6 +593,27 @@
           >
             <Server class="h-3.5 w-3.5" />
             {$_('nodeDetail.tabHostInfo')}
+          </button>
+          <button
+            type="button"
+            onclick={() => (activeTab = "rmon")}
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'rmon' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
+          >
+            <Gauge class="h-3.5 w-3.5" />
+            {$_('nodeDetail.tabRmon')}
+            {#if isSnmpConfigured && rmonStats.length > 0}
+              <span class="ml-1 rounded-full px-1.5 py-0.2 text-[10px] {activeTab === 'rmon' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+                {rmonStats.length}
+              </span>
+            {/if}
+          </button>
+          <button
+            type="button"
+            onclick={() => (activeTab = "diagnose")}
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'diagnose' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
+          >
+            <Stethoscope class="h-3.5 w-3.5" />
+            {$_('nodeDetail.tabDiagnose')}
           </button>
         </div>
 
@@ -1289,6 +1401,293 @@
               </div>
             </div>
           {/if}
+
+        <!-- 7. RMON Tab -->
+        {:else if activeTab === "rmon"}
+          {#if !isSnmpConfigured}
+            <div class="flex h-full flex-col items-center justify-center text-slate-500">
+              <ShieldAlert class="h-10 w-10 text-amber-500 mb-2" />
+              <p class="font-semibold text-sm">{$_('nodeDetail.snmpNotSupported')}</p>
+              <p class="text-xs text-slate-400 mt-1">{$_('nodeDetail.snmpConfigureHint')}</p>
+            </div>
+          {:else if isLoadingRmon}
+            <div class="flex h-full items-center justify-center">
+              <div class="flex flex-col items-center gap-2">
+                <RotateCw class="h-6 w-6 animate-spin text-blue-600 dark:text-cyan-400" />
+                <span class="text-xs text-slate-500">{$_('common.loading')}</span>
+              </div>
+            </div>
+          {:else if rmonError}
+            <div class="flex h-full flex-col items-center justify-center text-slate-500">
+              <AlertCircle class="h-10 w-10 text-rose-500 mb-2" />
+              <p class="font-semibold text-sm text-rose-600 dark:text-rose-400">{rmonError}</p>
+              <button
+                type="button"
+                onclick={loadRmonData}
+                class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer"
+              >
+                <RotateCw class="h-3.5 w-3.5" />
+                {$_('common.retry')}
+              </button>
+            </div>
+          {:else if rmonStats.length === 0}
+            <div class="flex h-full flex-col items-center justify-center text-slate-500">
+              <Gauge class="h-10 w-10 text-slate-400 mb-2" />
+              <p class="font-semibold text-sm">{$_('nodeDetail.noRmonData')}</p>
+              <p class="text-xs text-slate-400 mt-1">{$_('nodeDetail.noRmonDataHint')}</p>
+              <button
+                type="button"
+                onclick={loadRmonData}
+                class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
+              >
+                <RotateCw class="h-3.5 w-3.5" />
+                {$_('common.reload')}
+              </button>
+            </div>
+          {:else}
+            <div class="flex h-full flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden shadow-sm">
+              <div class="flex-1 overflow-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th class="py-2 px-2.5 cursor-pointer select-none" onclick={() => handleRmonSort("Index")}>
+                        <div class="flex items-center gap-1">
+                          <span>Index</span>
+                          {#if rmonSortCol === "Index"}
+                            {#if rmonSortDir === "asc"}<ArrowUp class="h-3 w-3" />{:else}<ArrowDown class="h-3 w-3" />{/if}
+                          {:else}
+                            <ArrowUpDown class="h-3 w-3 opacity-30" />
+                          {/if}
+                        </div>
+                      </th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none" onclick={() => handleRmonSort("DataSource")}>{$_('nodeDetail.rmonDataSource')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("DropEvents")}>{$_('nodeDetail.rmonDropEvents')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("Octets")}>{$_('nodeDetail.rmonOctets')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("Pkts")}>{$_('nodeDetail.rmonPkts')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("BroadcastPkts")}>{$_('nodeDetail.rmonBroadcast')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("MulticastPkts")}>{$_('nodeDetail.rmonMulticast')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("CRCAlignErrors")}>{$_('nodeDetail.rmonCRCErrors')}</th>
+                      <th class="py-2 px-2.5 cursor-pointer select-none text-right" onclick={() => handleRmonSort("Collisions")}>{$_('nodeDetail.rmonCollisions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
+                    {#each paginatedRmon as r}
+                      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td class="py-1.5 px-2.5 font-bold text-slate-900 dark:text-slate-100">{r.Index}</td>
+                        <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 font-sans">{r.DataSource || "-"}</td>
+                        <td class="py-1.5 px-2.5 text-right {r.DropEvents > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">{r.DropEvents.toLocaleString()}</td>
+                        <td class="py-1.5 px-2.5 text-right text-slate-700 dark:text-slate-300">{r.Octets.toLocaleString()}</td>
+                        <td class="py-1.5 px-2.5 text-right font-bold text-blue-600 dark:text-cyan-400">{r.Pkts.toLocaleString()}</td>
+                        <td class="py-1.5 px-2.5 text-right text-slate-600 dark:text-slate-400">{r.BroadcastPkts.toLocaleString()}</td>
+                        <td class="py-1.5 px-2.5 text-right text-slate-600 dark:text-slate-400">{r.MulticastPkts.toLocaleString()}</td>
+                        <td class="py-1.5 px-2.5 text-right {r.CRCAlignErrors > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">{r.CRCAlignErrors.toLocaleString()}</td>
+                        <td class="py-1.5 px-2.5 text-right {r.Collisions > 0 ? 'text-amber-600 font-bold' : 'text-slate-500'}">{r.Collisions.toLocaleString()}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- RMON Pagination -->
+              <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-4 py-2 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                <div class="flex items-center gap-2">
+                  <span>{$_('nodeDetail.itemsPerPage')}:</span>
+                  <select bind:value={rmonPageSize} onchange={() => (rmonPage = 1)} class="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs text-slate-800 dark:text-slate-200">
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={-1}>{$_('nodeDetail.showAll')}</option>
+                  </select>
+                  <span class="font-mono text-[11px] ml-2">
+                    {sortedRmon.length} {$_('nodeDetail.recordsUnit')} ({rmonPageSize === -1 ? sortedRmon.length : Math.min(rmonPage * rmonPageSize, sortedRmon.length)} / {sortedRmon.length})
+                  </span>
+                </div>
+                {#if rmonPageSize !== -1 && rmonTotalPages > 1}
+                  <div class="flex items-center gap-1">
+                    <button type="button" disabled={rmonPage <= 1} onclick={() => (rmonPage = 1)} class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"><ChevronsLeft class="h-4 w-4" /></button>
+                    <button type="button" disabled={rmonPage <= 1} onclick={() => rmonPage--} class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"><ChevronLeft class="h-4 w-4" /></button>
+                    <span class="px-2 font-mono text-[11px]">{rmonPage} / {rmonTotalPages}</span>
+                    <button type="button" disabled={rmonPage >= rmonTotalPages} onclick={() => rmonPage++} class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"><ChevronRight class="h-4 w-4" /></button>
+                    <button type="button" disabled={rmonPage >= rmonTotalPages} onclick={() => (rmonPage = rmonTotalPages)} class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"><ChevronsRight class="h-4 w-4" /></button>
+                  </div>
+                {/if}
+              </div>
+            </div>
+          {/if}
+
+        <!-- 8. Diagnose Tab -->
+        {:else if activeTab === "diagnose"}
+          <div class="flex h-full flex-col gap-4 overflow-y-auto pr-1">
+            <!-- Header Action Card -->
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl {diagnoseResult?.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : diagnoseResult?.status === 'warning' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : diagnoseResult?.status === 'critical' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}">
+                  <Stethoscope class="h-5 w-5" />
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-slate-900 dark:text-slate-100">{$_('nodeDetail.diagnoseTitle')}</span>
+                    {#if diagnoseResult}
+                      <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase {diagnoseResult.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : diagnoseResult.status === 'warning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'}">
+                        {diagnoseResult.status}
+                      </span>
+                    {/if}
+                  </div>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {diagnoseResult?.summary || $_('nodeDetail.diagnoseSubtitle')}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isDiagnosing}
+                onclick={runNodeDiagnose}
+                class="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <RotateCw class="h-3.5 w-3.5 {isDiagnosing ? 'animate-spin' : ''}" />
+                {isDiagnosing ? $_('common.running') : $_('nodeDetail.runDiagnose')}
+              </button>
+            </div>
+
+            {#if isDiagnosing && !diagnoseResult}
+              <div class="flex flex-1 items-center justify-center p-8">
+                <div class="flex flex-col items-center gap-3">
+                  <RotateCw class="h-8 w-8 animate-spin text-blue-600 dark:text-cyan-400" />
+                  <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{$_('nodeDetail.diagnosingProbes')}</span>
+                </div>
+              </div>
+            {:else if diagnoseError}
+              <div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-4 text-rose-600 dark:text-rose-400 text-xs">
+                {diagnoseError}
+              </div>
+            {:else if diagnoseResult}
+              <!-- Probes Result Grid -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- Ping Probe Card -->
+                <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-xs text-slate-800 dark:text-slate-200">ICMP / Ping Probe</span>
+                    {#if diagnoseResult.ping.success}
+                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <CheckCircle2 class="h-3 w-3" />
+                        {$_('nodeDetail.probeSuccess')}
+                      </span>
+                    {:else}
+                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                        <AlertCircle class="h-3 w-3" />
+                        {$_('nodeDetail.probeFailed')}
+                      </span>
+                    {/if}
+                  </div>
+                  <div class="space-y-1.5 text-[11px] font-mono">
+                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>{$_('nodeDetail.pingPackets')}:</span>
+                      <span>{diagnoseResult.ping.received} / {diagnoseResult.ping.sent}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>{$_('nodeDetail.pingLoss')}:</span>
+                      <span class="{diagnoseResult.ping.loss > 0 ? 'text-rose-500 font-bold' : ''}">{diagnoseResult.ping.loss.toFixed(1)}%</span>
+                    </div>
+                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                      <span>{$_('nodeDetail.pingAvgRtt')}:</span>
+                      <span class="font-bold text-blue-600 dark:text-cyan-400">{diagnoseResult.ping.avgRtt.toFixed(2)} ms</span>
+                    </div>
+                    {#if diagnoseResult.ping.error}
+                      <p class="text-[10px] text-rose-500 font-sans mt-1">{diagnoseResult.ping.error}</p>
+                    {/if}
+                  </div>
+                </div>
+
+                <!-- SNMP Probe Card -->
+                <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-xs text-slate-800 dark:text-slate-200">SNMP Probe</span>
+                    {#if !diagnoseResult.snmp.configured}
+                      <span class="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                        {$_('nodeDetail.notConfigured')}
+                      </span>
+                    {:else if diagnoseResult.snmp.success}
+                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <CheckCircle2 class="h-3 w-3" />
+                        {$_('nodeDetail.probeSuccess')}
+                      </span>
+                    {:else}
+                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                        <AlertCircle class="h-3 w-3" />
+                        {$_('nodeDetail.probeFailed')}
+                      </span>
+                    {/if}
+                  </div>
+                  <div class="space-y-1.5 text-[11px] font-mono">
+                    {#if diagnoseResult.snmp.configured}
+                      <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>RTT:</span>
+                        <span class="font-bold text-blue-600 dark:text-cyan-400">{diagnoseResult.snmp.rtt.toFixed(2)} ms</span>
+                      </div>
+                      {#if diagnoseResult.snmp.sysUpTime}
+                        <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                          <span>UpTime:</span>
+                          <span class="truncate ml-2">{diagnoseResult.snmp.sysUpTime}</span>
+                        </div>
+                      {/if}
+                      {#if diagnoseResult.snmp.sysDescr}
+                        <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-1">
+                          {diagnoseResult.snmp.sysDescr}
+                        </div>
+                      {/if}
+                      {#if diagnoseResult.snmp.error}
+                        <p class="text-[10px] text-rose-500 font-sans mt-1">{diagnoseResult.snmp.error}</p>
+                      {/if}
+                    {:else}
+                      <p class="text-xs text-slate-400 font-sans">{$_('nodeDetail.snmpNotSupported')}</p>
+                    {/if}
+                  </div>
+                </div>
+
+                <!-- Web HTTP / HTTPS Probe Card -->
+                <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-xs text-slate-800 dark:text-slate-200">Web Ports (80 / 443)</span>
+                    <span class="text-[10px] text-slate-500">HTTP/HTTPS</span>
+                  </div>
+                  <div class="space-y-2 text-[11px] font-mono">
+                    <!-- HTTP 80 -->
+                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-1.5">
+                      <span class="text-slate-600 dark:text-slate-400">HTTP (80):</span>
+                      {#if diagnoseResult.web.http?.success}
+                        <span class="font-bold text-emerald-600 dark:text-emerald-400">{diagnoseResult.web.http.statusCode} ({diagnoseResult.web.http.rtt.toFixed(1)}ms)</span>
+                      {:else}
+                        <span class="text-slate-400">{$_('nodeDetail.noResponse')}</span>
+                      {/if}
+                    </div>
+
+                    <!-- HTTPS 443 -->
+                    <div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-slate-600 dark:text-slate-400">HTTPS (443):</span>
+                        {#if diagnoseResult.web.https?.success}
+                          <span class="font-bold text-emerald-600 dark:text-emerald-400">{diagnoseResult.web.https.statusCode} ({diagnoseResult.web.https.rtt.toFixed(1)}ms)</span>
+                        {:else}
+                          <span class="text-slate-400">{$_('nodeDetail.noResponse')}</span>
+                        {/if}
+                      </div>
+                      {#if diagnoseResult.web.https?.certIssuer}
+                        <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                          Issuer: {diagnoseResult.web.https.certIssuer}
+                          {#if diagnoseResult.web.https.remainingDays !== undefined}
+                            <span class="ml-1 {diagnoseResult.web.https.remainingDays < 30 ? 'text-amber-500 font-bold' : ''}">
+                              ({diagnoseResult.web.https.remainingDays} days left)
+                            </span>
+                          {/if}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
         {/if}
       </div>
 

@@ -620,4 +620,161 @@ func registerSNMPDetailEndpoints(apiGroup *echo.Group, store datastore.DataStore
 			"ports":     ports,
 		})
 	})
+
+	apiGroup.GET("/nodes/:id/rmon", func(c echo.Context) error {
+		id := c.Param("id")
+		node, err := store.GetNode(c.Request().Context(), id)
+		if err != nil || node == nil {
+			return c.JSON(http.StatusNotFound, map[string]any{
+				"supported": false,
+				"error":     "node not found",
+			})
+		}
+
+		snmpMode := strings.ToLower(node.SnmpMode)
+		if snmpMode == "" || snmpMode == "none" {
+			return c.JSON(http.StatusOK, map[string]any{
+				"supported": false,
+				"reason":    "snmp_not_configured",
+				"message":   "SNMP is not configured for this node",
+				"stats":     []*RmonEtherStatsEnt{},
+			})
+		}
+
+		rmonStats, qErr := queryNodeRmon(node)
+		if qErr != nil {
+			return c.JSON(http.StatusOK, map[string]any{
+				"supported": true,
+				"error":     qErr.Error(),
+				"stats":     []*RmonEtherStatsEnt{},
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"supported": true,
+			"stats":     rmonStats,
+		})
+	})
 }
+
+// RmonEtherStatsEnt represents an entry in the RMON-MIB etherStatsTable.
+type RmonEtherStatsEnt struct {
+	Index             int64  `json:"Index"`
+	DataSource        string `json:"DataSource"`
+	DropEvents        int64  `json:"DropEvents"`
+	Octets            int64  `json:"Octets"`
+	Pkts              int64  `json:"Pkts"`
+	BroadcastPkts     int64  `json:"BroadcastPkts"`
+	MulticastPkts     int64  `json:"MulticastPkts"`
+	CRCAlignErrors    int64  `json:"CRCAlignErrors"`
+	UndersizePkts     int64  `json:"UndersizePkts"`
+	OversizePkts      int64  `json:"OversizePkts"`
+	Fragments         int64  `json:"Fragments"`
+	Jabbers           int64  `json:"Jabbers"`
+	Collisions        int64  `json:"Collisions"`
+	Pkts64Octets      int64  `json:"Pkts64Octets"`
+	Pkts65to127Octets int64  `json:"Pkts65to127Octets"`
+	Pkts128to255Octets int64 `json:"Pkts128to255Octets"`
+	Pkts256to511Octets int64 `json:"Pkts256to511Octets"`
+	Pkts512to1023Octets int64 `json:"Pkts512to1023Octets"`
+	Pkts1024to1518Octets int64 `json:"Pkts1024to1518Octets"`
+	Status            string `json:"Status"`
+}
+
+func queryNodeRmon(n *datastore.NodeEnt) ([]*RmonEtherStatsEnt, error) {
+	agent := getSNMPAgent(n)
+	if agent == nil {
+		return nil, fmt.Errorf("SNMP is not configured or disabled for this node")
+	}
+
+	err := agent.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to SNMP agent: %w", err)
+	}
+	defer agent.Conn.Close()
+
+	rmonMap := make(map[int64]*RmonEtherStatsEnt)
+
+	rmonOID := mib.NameToOID("etherStatsTable")
+	if rmonOID == "" {
+		rmonOID = ".1.3.6.1.2.1.16.1.1.1"
+	}
+
+	walkErr := agent.Walk(rmonOID, func(variable gosnmp.SnmpPDU) error {
+		rawName := mib.OIDToName(variable.Name)
+		a := strings.SplitN(rawName, ".", 2)
+		if len(a) != 2 {
+			return nil
+		}
+		idx, err := strconv.ParseInt(a[1], 10, 64)
+		if err != nil {
+			return nil
+		}
+		e := rmonMap[idx]
+		if e == nil {
+			e = &RmonEtherStatsEnt{Index: idx, Status: "valid"}
+			rmonMap[idx] = e
+		}
+
+		switch a[0] {
+		case "etherStatsDataSource":
+			e.DataSource = mib.OIDToName(fmt.Sprintf("%v", variable.Value))
+		case "etherStatsDropEvents":
+			e.DropEvents = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsOctets":
+			e.Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts":
+			e.Pkts = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsBroadcastPkts":
+			e.BroadcastPkts = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsMulticastPkts":
+			e.MulticastPkts = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsCRCAlignErrors":
+			e.CRCAlignErrors = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsUndersizePkts":
+			e.UndersizePkts = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsOversizePkts":
+			e.OversizePkts = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsFragments":
+			e.Fragments = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsJabbers":
+			e.Jabbers = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsCollisions":
+			e.Collisions = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts64Octets":
+			e.Pkts64Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts65to127Octets":
+			e.Pkts65to127Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts128to255Octets":
+			e.Pkts128to255Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts256to511Octets":
+			e.Pkts256to511Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts512to1023Octets":
+			e.Pkts512to1023Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsPkts1024to1518Octets":
+			e.Pkts1024to1518Octets = gosnmp.ToBigInt(variable.Value).Int64()
+		case "etherStatsStatus":
+			st := gosnmp.ToBigInt(variable.Value).Int64()
+			if st == 1 {
+				e.Status = "valid"
+			} else {
+				e.Status = fmt.Sprintf("code-%d", st)
+			}
+		}
+		return nil
+	})
+
+	if walkErr != nil && len(rmonMap) == 0 {
+		return nil, walkErr
+	}
+
+	stats := make([]*RmonEtherStatsEnt, 0, len(rmonMap))
+	for _, s := range rmonMap {
+		stats = append(stats, s)
+	}
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].Index < stats[j].Index
+	})
+	return stats, nil
+}
+

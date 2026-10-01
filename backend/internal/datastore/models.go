@@ -553,3 +553,21 @@ type MqttLogEnt struct {
 	Remote   string `json:"remote"`
 	Payload  string `json:"payload"`
 }
+
+// CertMonitorEnt represents an external TLS certificate monitor target matching twsnmpfk.
+type CertMonitorEnt struct {
+	ID           string `json:"id"`
+	State        string `json:"state"` // normal, warn, error
+	Target       string `json:"target"`
+	Port         int    `json:"port"`
+	Subject      string `json:"subject"`
+	Issuer       string `json:"issuer"`
+	SerialNumber string `json:"serialNumber"`
+	Verify       bool   `json:"verify"`
+	NotAfter     int64  `json:"notAfter"`   // unix seconds
+	NotBefore    int64  `json:"notBefore"` // unix seconds
+	Error        string `json:"error"`
+	FirstTime    int64  `json:"firstTime"` // unix seconds
+	LastTime     int64  `json:"lastTime"`  // unix seconds
+}
+
