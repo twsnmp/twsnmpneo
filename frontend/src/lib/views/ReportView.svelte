@@ -84,6 +84,26 @@
   let deviceSubFilter = $state<"all" | "vm" | "managed" | "unmanaged" | "problem">("all");
   let pollingSubFilter = $state<"all" | "error" | "warn" | "warn_above">("all");
   let flowSubTab = $state<"conversations" | "services" | "fumble" | "protocols">("conversations");
+  let flowSortColumn = $state("bytes");
+  let flowSortDirection = $state<"asc" | "desc">("desc");
+  let flowPageSize = $state(25);
+  let flowCurrentPage = $state(1);
+
+  const handleSortFlow = (col: string) => {
+    if (flowSortColumn === col) {
+      flowSortDirection = flowSortDirection === "asc" ? "desc" : "asc";
+    } else {
+      flowSortColumn = col;
+      flowSortDirection = (col === "bytes" || col === "packets" || col === "flows" || col === "percent" || col === "dur") ? "desc" : "asc";
+    }
+  };
+
+  const handleSelectFlowSubTab = (tab: "conversations" | "services" | "fumble" | "protocols") => {
+    flowSubTab = tab;
+    flowCurrentPage = 1;
+    flowSortColumn = "bytes";
+    flowSortDirection = "desc";
+  };
   let eventSubTab = $state<"all" | "windows">("all");
 
   // Certificate monitor dialog states
@@ -1123,7 +1143,8 @@
     };
   });
 
-  const flowConversations = $derived.by(() => {
+  // --- FLOW CONVERSATIONS ---
+  const rawFlowConversations = $derived.by(() => {
     const map = new Map<string, { src: string; dst: string; proto: string; packets: number; bytes: number; dur: number }>();
     for (const f of effectiveFlows) {
       const key = `${f.src} <-> ${f.dst}`;
@@ -1144,20 +1165,59 @@
         existing.dur = Math.max(existing.dur, f.dur);
       }
     }
-    return Array.from(map.values())
-      .sort((a, b) => b.bytes - a.bytes)
-      .map((c) => ({
-        src: c.src,
-        dst: c.dst,
-        proto: c.proto,
-        packets: c.packets.toLocaleString(),
-        bytes: renderBytes(c.bytes),
-        dur: c.dur > 0 ? `${Math.round(c.dur)}s` : "<1s",
-        status: "Active",
-      }));
+    return Array.from(map.values()).map((c) => ({
+      src: c.src,
+      dst: c.dst,
+      proto: c.proto,
+      packets: c.packets,
+      bytes: c.bytes,
+      dur: c.dur,
+      status: "Active",
+    }));
   });
 
-  const flowServices = $derived.by(() => {
+  const filteredFlowConversations = $derived(
+    rawFlowConversations.filter((c) => {
+      const q = searchQuery.toLowerCase();
+      return !q || c.src.toLowerCase().includes(q) || c.dst.toLowerCase().includes(q) || c.proto.toLowerCase().includes(q);
+    })
+  );
+
+  const sortedFlowConversations = $derived(
+    [...filteredFlowConversations].sort((a: any, b: any) => {
+      let valA = a[flowSortColumn];
+      let valB = b[flowSortColumn];
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+
+      let comparison = 0;
+      if (flowSortColumn === "src" || flowSortColumn === "dst") {
+        const numA = ipToNum(String(valA));
+        const numB = ipToNum(String(valB));
+        if (numA !== -1 && numB !== -1) {
+          comparison = numA - numB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB));
+        }
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        comparison = valA - valB;
+      } else {
+        comparison = String(valA).localeCompare(String(valB));
+      }
+      return flowSortDirection === "asc" ? comparison : -comparison;
+    })
+  );
+
+  const flowConversations = $derived(sortedFlowConversations);
+
+  const paginatedConversations = $derived.by(() => {
+    if (flowPageSize === -1) return sortedFlowConversations;
+    const start = (flowCurrentPage - 1) * flowPageSize;
+    return sortedFlowConversations.slice(start, start + flowPageSize);
+  });
+
+  // --- FLOW SERVICES ---
+  const rawFlowServices = $derived.by(() => {
     const map = new Map<string, { name: string; bytes: number; packets: number; flows: number }>();
     let totalBytes = 0;
     for (const f of effectiveFlows) {
@@ -1169,18 +1229,48 @@
       cur.flows += 1;
       map.set(svcName, cur);
     }
-    return Array.from(map.values())
-      .sort((a, b) => b.bytes - a.bytes)
-      .map((s) => ({
-        name: s.name,
-        bytes: renderBytes(s.bytes),
-        packets: s.packets.toLocaleString(),
-        flows: s.flows,
-        percent: totalBytes > 0 ? ((s.bytes / totalBytes) * 100).toFixed(1) : "0.0",
-      }));
+    return Array.from(map.values()).map((s) => ({
+      name: s.name,
+      bytes: s.bytes,
+      packets: s.packets,
+      flows: s.flows,
+      percent: totalBytes > 0 ? Number(((s.bytes / totalBytes) * 100).toFixed(1)) : 0,
+    }));
   });
 
-  const flowFumbles = $derived.by(() => {
+  const filteredFlowServices = $derived(
+    rawFlowServices.filter((s) => {
+      const q = searchQuery.toLowerCase();
+      return !q || s.name.toLowerCase().includes(q);
+    })
+  );
+
+  const sortedFlowServices = $derived(
+    [...filteredFlowServices].sort((a: any, b: any) => {
+      let valA = a[flowSortColumn];
+      let valB = b[flowSortColumn];
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+      let comparison = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        comparison = valA - valB;
+      } else {
+        comparison = String(valA).localeCompare(String(valB));
+      }
+      return flowSortDirection === "asc" ? comparison : -comparison;
+    })
+  );
+
+  const flowServices = $derived(sortedFlowServices);
+
+  const paginatedServices = $derived.by(() => {
+    if (flowPageSize === -1) return sortedFlowServices;
+    const start = (flowCurrentPage - 1) * flowPageSize;
+    return sortedFlowServices.slice(start, start + flowPageSize);
+  });
+
+  // --- FLOW FUMBLES ---
+  const rawFlowFumbles = $derived.by(() => {
     const list: any[] = [];
     for (const f of effectiveFlows) {
       let isFumble = false;
@@ -1198,7 +1288,7 @@
           dst: f.dst,
           proto: `${f.proto.toUpperCase()}/${f.dstPort}`,
           packets: f.packets,
-          bytes: renderBytes(f.bytes),
+          bytes: f.bytes,
           reason,
         });
       }
@@ -1206,7 +1296,47 @@
     return list;
   });
 
-  const flowProtocols = $derived.by(() => {
+  const filteredFlowFumbles = $derived(
+    rawFlowFumbles.filter((ff) => {
+      const q = searchQuery.toLowerCase();
+      return !q || ff.src.toLowerCase().includes(q) || ff.dst.toLowerCase().includes(q) || ff.proto.toLowerCase().includes(q) || ff.reason.toLowerCase().includes(q);
+    })
+  );
+
+  const sortedFlowFumbles = $derived(
+    [...filteredFlowFumbles].sort((a: any, b: any) => {
+      let valA = a[flowSortColumn];
+      let valB = b[flowSortColumn];
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+      let comparison = 0;
+      if (flowSortColumn === "src" || flowSortColumn === "dst") {
+        const numA = ipToNum(String(valA));
+        const numB = ipToNum(String(valB));
+        if (numA !== -1 && numB !== -1) {
+          comparison = numA - numB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB));
+        }
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        comparison = valA - valB;
+      } else {
+        comparison = String(valA).localeCompare(String(valB));
+      }
+      return flowSortDirection === "asc" ? comparison : -comparison;
+    })
+  );
+
+  const flowFumbles = $derived(sortedFlowFumbles);
+
+  const paginatedFumbles = $derived.by(() => {
+    if (flowPageSize === -1) return sortedFlowFumbles;
+    const start = (flowCurrentPage - 1) * flowPageSize;
+    return sortedFlowFumbles.slice(start, start + flowPageSize);
+  });
+
+  // --- FLOW PROTOCOLS ---
+  const rawFlowProtocols = $derived.by(() => {
     const map: Record<string, { proto: string; bytes: number; packets: number }> = {};
     let totalBytes = 0;
     for (const f of effectiveFlows) {
@@ -1216,15 +1346,55 @@
       map[p].bytes += f.bytes;
       map[p].packets += f.packets;
     }
-    return Object.values(map)
-      .sort((a, b) => b.bytes - a.bytes)
-      .map((p) => ({
-        proto: p.proto,
-        bytes: renderBytes(p.bytes),
-        packets: p.packets.toLocaleString(),
-        percent: totalBytes > 0 ? ((p.bytes / totalBytes) * 100).toFixed(1) : "0.0",
-      }));
+    return Object.values(map).map((p) => ({
+      proto: p.proto,
+      bytes: p.bytes,
+      packets: p.packets,
+      percent: totalBytes > 0 ? Number(((p.bytes / totalBytes) * 100).toFixed(1)) : 0,
+    }));
   });
+
+  const filteredFlowProtocols = $derived(
+    rawFlowProtocols.filter((pr) => {
+      const q = searchQuery.toLowerCase();
+      return !q || pr.proto.toLowerCase().includes(q);
+    })
+  );
+
+  const sortedFlowProtocols = $derived(
+    [...filteredFlowProtocols].sort((a: any, b: any) => {
+      let valA = a[flowSortColumn];
+      let valB = b[flowSortColumn];
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+      let comparison = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        comparison = valA - valB;
+      } else {
+        comparison = String(valA).localeCompare(String(valB));
+      }
+      return flowSortDirection === "asc" ? comparison : -comparison;
+    })
+  );
+
+  const flowProtocols = $derived(sortedFlowProtocols);
+
+  const paginatedProtocols = $derived.by(() => {
+    if (flowPageSize === -1) return sortedFlowProtocols;
+    const start = (flowCurrentPage - 1) * flowPageSize;
+    return sortedFlowProtocols.slice(start, start + flowPageSize);
+  });
+
+  const currentFlowTotalCount = $derived.by(() => {
+    if (flowSubTab === "conversations") return sortedFlowConversations.length;
+    if (flowSubTab === "services") return sortedFlowServices.length;
+    if (flowSubTab === "fumble") return sortedFlowFumbles.length;
+    return sortedFlowProtocols.length;
+  });
+
+  const totalFlowPages = $derived(
+    flowPageSize === -1 ? 1 : Math.max(1, Math.ceil(currentFlowTotalCount / flowPageSize))
+  );
 
   // --- CERTIFICATE MONITORING ---
   const certItems = $derived.by(() => {
@@ -1493,7 +1663,15 @@
     } else if (activeReport === "polling") {
       csv = "Name,Type,Target,Node,State,LastVal\n" + sortedPollings.map((p) => `"${p.name}","${p.type}","${p.params || p.target || ''}","${nodeMap.get(p.node_id) || p.node_id || ''}","${p.state}","${p.last_val ?? ''}"`).join("\n");
     } else if (activeReport === "flow") {
-      csv = "Source,Destination,Protocol,Packets,Bytes,Duration\n" + flowConversations.map((f) => `"${f.src}","${f.dst}","${f.proto}","${f.packets}","${f.bytes}","${f.dur}"`).join("\n");
+      if (flowSubTab === "services") {
+        csv = "Service,Bytes,Packets,Flows,Percent\n" + sortedFlowServices.map((s) => `"${s.name}",${s.bytes},${s.packets},${s.flows},"${s.percent}%"`).join("\n");
+      } else if (flowSubTab === "fumble") {
+        csv = "Source,Destination,Protocol,Packets,Bytes,Reason\n" + sortedFlowFumbles.map((ff) => `"${ff.src}","${ff.dst}","${ff.proto}",${ff.packets},${ff.bytes},"${ff.reason}"`).join("\n");
+      } else if (flowSubTab === "protocols") {
+        csv = "Protocol,Bytes,Packets,Percent\n" + sortedFlowProtocols.map((pr) => `"${pr.proto}",${pr.bytes},${pr.packets},"${pr.percent}%"`).join("\n");
+      } else {
+        csv = "Source,Destination,Protocol,Packets,Bytes,Duration\n" + sortedFlowConversations.map((f) => `"${f.src}","${f.dst}","${f.proto}",${f.packets},${f.bytes},${f.dur}`).join("\n");
+      }
     } else if (activeReport === "cert") {
       csv = "Target,Port,Issuer,Subject,Key,ValidUntil,RemainingDays,Status\n" + certItems.map((c) => `"${c.host}",${c.port},"${c.issuer}","${c.subject}","${c.key}","${c.validUntil}",${c.days},"${c.status}"`).join("\n");
     } else if (activeReport === "event") {
@@ -2666,15 +2844,14 @@
         </div>
       </div>
 
-    <!-- REPORT 4: NetFlow / トラフィック分析 -->
+    <!-- REPORT 4: NetFlow分析 -->
     {:else if activeReport === "flow"}
-      <div class="space-y-6">
+      <div class="space-y-4">
         <div>
           <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <BarChart3 class="w-5 h-5 text-cyan-400" />
             {$_("report.flowTitle")}
           </h2>
-          <p class="text-xs text-slate-400 mt-1">{$_("report.flowSubtitle")}</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2704,51 +2881,140 @@
         <div class="flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-2">
           <button
             type="button"
-            onclick={() => (flowSubTab = "conversations")}
+            onclick={() => handleSelectFlowSubTab("conversations")}
             class="rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {flowSubTab === 'conversations' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
-            {$_("report.subFlowConversations")} ({flowConversations.length})
+            {$_("report.subFlowConversations")} ({filteredFlowConversations.length})
           </button>
           <button
             type="button"
-            onclick={() => (flowSubTab = "services")}
+            onclick={() => handleSelectFlowSubTab("services")}
             class="rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {flowSubTab === 'services' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
-            {$_("report.subFlowServices")} ({flowServices.length})
+            {$_("report.subFlowServices")} ({filteredFlowServices.length})
           </button>
           <button
             type="button"
-            onclick={() => (flowSubTab = "fumble")}
+            onclick={() => handleSelectFlowSubTab("fumble")}
             class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {flowSubTab === 'fumble' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
             <Flame class="w-3.5 h-3.5 text-amber-400" />
-            <span>{$_("report.subFlowFumble")} ({flowFumbles.length})</span>
+            <span>{$_("report.subFlowFumble")} ({filteredFlowFumbles.length})</span>
           </button>
           <button
             type="button"
-            onclick={() => (flowSubTab = "protocols")}
+            onclick={() => handleSelectFlowSubTab("protocols")}
             class="rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {flowSubTab === 'protocols' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
-            {$_("report.subFlowProtocols")}
+            {$_("report.subFlowProtocols")} ({filteredFlowProtocols.length})
           </button>
         </div>
 
-        {#if flowSubTab === "conversations"}
-          <!-- Flow Conversations Table -->
-          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
-            <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200">
-              {$_("report.topConversations")}
-            </div>
+        <!-- Tables Container with Pagination -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
+          {#if flowSubTab === "conversations"}
+            <!-- Flow Conversations Table -->
             <table class="w-full text-left text-xs border-collapse font-mono">
-              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
                 <tr>
-                  <th class="py-1 px-2">{$_("report.colSource")}</th>
-                  <th class="py-1 px-2">{$_("report.colDest")}</th>
-                  <th class="py-1 px-2">{$_("report.colProtoPort")}</th>
-                  <th class="py-1 px-2">{$_("report.colPackets")}</th>
-                  <th class="py-1 px-2">{$_("report.colBytes")}</th>
-                  <th class="py-1 px-2">{$_("report.colDuration")}</th>
-                  <th class="py-1 px-2">{$_("report.colStatus")}</th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("src")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colSource")}</span>
+                      {#if flowSortColumn === "src"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("dst")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colDest")}</span>
+                      {#if flowSortColumn === "dst"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("proto")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colProtoPort")}</span>
+                      {#if flowSortColumn === "proto"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("packets")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colPackets")}</span>
+                      {#if flowSortColumn === "packets"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("bytes")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colBytes")}</span>
+                      {#if flowSortColumn === "bytes"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("dur")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colDuration")}</span>
+                      {#if flowSortColumn === "dur"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("status")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colStatus")}</span>
+                      {#if flowSortColumn === "status"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -2759,76 +3025,221 @@
                     </td>
                   </tr>
                 {:else}
-                  {#each flowConversations as fl}
+                  {#each paginatedConversations as fl}
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{fl.src}</td>
-                      <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px]">{fl.dst}</td>
-                      <td class="py-1 px-2"><span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">{fl.proto}</span></td>
-                      <td class="py-1 px-2 text-slate-800 dark:text-slate-200 text-[11px]">{fl.packets}</td>
-                      <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">{fl.bytes}</td>
-                      <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{fl.dur}</td>
-                      <td class="py-1 px-2"><span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold leading-none">{fl.status}</span></td>
+                      <td class="py-1.5 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px] font-mono">{fl.src}</td>
+                      <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 text-[11px] font-mono">{fl.dst}</td>
+                      <td class="py-1.5 px-2.5">
+                        <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">
+                          {fl.proto}
+                        </span>
+                      </td>
+                      <td class="py-1.5 px-2.5 text-slate-800 dark:text-slate-200 text-[11px] font-mono">{fl.packets.toLocaleString()}</td>
+                      <td class="py-1.5 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(fl.bytes)}</td>
+                      <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-[11px] font-mono">{fl.dur > 0 ? `${Math.round(fl.dur)}s` : "<1s"}</td>
+                      <td class="py-1.5 px-2.5">
+                        <span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold leading-none">
+                          {fl.status}
+                        </span>
+                      </td>
                     </tr>
                   {/each}
                 {/if}
               </tbody>
             </table>
-          </div>
-        {:else if flowSubTab === "services"}
-          <!-- Top Services Table (DNS / TLS / RADIUS / HTTP etc.) -->
-          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
-            <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200">
-              {$_("report.subFlowServices")}
-            </div>
+          {:else if flowSubTab === "services"}
+            <!-- Top Services Table -->
             <table class="w-full text-left text-xs border-collapse font-mono">
-              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
                 <tr>
-                  <th class="py-1 px-2.5">{$_("report.colService")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colBytes")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colPackets")}</th>
-                  <th class="py-1 px-2.5">セッション数</th>
-                  <th class="py-1 px-2.5">{$_("report.colPercent")}</th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("name")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colService")}</span>
+                      {#if flowSortColumn === "name"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("bytes")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colBytes")}</span>
+                      {#if flowSortColumn === "bytes"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("packets")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colPackets")}</span>
+                      {#if flowSortColumn === "packets"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("flows")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colFlows")}</span>
+                      {#if flowSortColumn === "flows"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("percent")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colPercent")}</span>
+                      {#if flowSortColumn === "percent"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
-                {#each flowServices as s}
-                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{s.name}</td>
-                    <td class="py-1 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">{s.bytes}</td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{s.packets}</td>
-                    <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{s.flows}</td>
-                    <td class="py-1 px-2.5">
-                      <div class="flex items-center gap-2">
-                        <div class="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                          <div class="h-full bg-cyan-500 rounded-full" style="width: {s.percent}%"></div>
-                        </div>
-                        <span class="text-[10px] text-slate-500 dark:text-slate-400">{s.percent}%</span>
-                      </div>
+                {#if flowServices.length === 0}
+                  <tr>
+                    <td colspan="5" class="p-6 text-center text-slate-500 font-sans">
+                      データがありません
                     </td>
                   </tr>
-                {/each}
+                {:else}
+                  {#each paginatedServices as s}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td class="py-1.5 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{s.name}</td>
+                      <td class="py-1.5 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(s.bytes)}</td>
+                      <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{s.packets.toLocaleString()}</td>
+                      <td class="py-1.5 px-2.5 text-cyan-600 dark:text-cyan-400 font-mono text-[11px]">{s.flows.toLocaleString()}</td>
+                      <td class="py-1.5 px-2.5">
+                        <div class="flex items-center gap-2">
+                          <div class="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                            <div class="h-full bg-cyan-500 rounded-full" style="width: {s.percent}%"></div>
+                          </div>
+                          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{s.percent}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  {/each}
+                {/if}
               </tbody>
             </table>
-          </div>
-        {:else if flowSubTab === "fumble"}
-          <!-- Fumble Flows Table -->
-          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
-            <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-              <span class="flex items-center gap-2">
-                <Flame class="w-4 h-4 text-amber-500" />
-                {$_("report.subFlowFumble")}
-              </span>
-              <span class="text-[11px] font-normal text-slate-500">切断・拒絶・未確立フロー (SYN/RST, ICMP Unreach)</span>
-            </div>
+          {:else if flowSubTab === "fumble"}
+            <!-- Fumble Flows Table -->
             <table class="w-full text-left text-xs border-collapse font-mono">
-              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
                 <tr>
-                  <th class="py-1 px-2.5">{$_("report.colSource")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colDest")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colProtoPort")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colPackets")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colBytes")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colReason")}</th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("src")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colSource")}</span>
+                      {#if flowSortColumn === "src"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("dst")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colDest")}</span>
+                      {#if flowSortColumn === "dst"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("proto")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colProtoPort")}</span>
+                      {#if flowSortColumn === "proto"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("packets")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colPackets")}</span>
+                      {#if flowSortColumn === "packets"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("bytes")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colBytes")}</span>
+                      {#if flowSortColumn === "bytes"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("reason")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colReason")}</span>
+                      {#if flowSortColumn === "reason"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
@@ -2839,55 +3250,189 @@
                     </td>
                   </tr>
                 {:else}
-                  {#each flowFumbles as ff}
+                  {#each paginatedFumbles as ff}
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td class="py-1 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px]">{ff.src}</td>
-                      <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{ff.dst}</td>
-                      <td class="py-1 px-2.5"><span class="rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-semibold">{ff.proto}</span></td>
-                      <td class="py-1 px-2.5 text-slate-800 dark:text-slate-200 text-[11px]">{ff.packets}</td>
-                      <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{ff.bytes}</td>
-                      <td class="py-1 px-2.5 font-sans text-rose-600 dark:text-rose-400 text-[11px]">{ff.reason}</td>
+                      <td class="py-1.5 px-2.5 text-cyan-600 dark:text-cyan-400 text-[11px] font-mono">{ff.src}</td>
+                      <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 text-[11px] font-mono">{ff.dst}</td>
+                      <td class="py-1.5 px-2.5">
+                        <span class="rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-semibold">
+                          {ff.proto}
+                        </span>
+                      </td>
+                      <td class="py-1.5 px-2.5 text-slate-800 dark:text-slate-200 text-[11px] font-mono">{ff.packets.toLocaleString()}</td>
+                      <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{renderBytes(ff.bytes)}</td>
+                      <td class="py-1.5 px-2.5 font-sans text-rose-600 dark:text-rose-400 text-[11px]">{ff.reason}</td>
                     </tr>
                   {/each}
                 {/if}
               </tbody>
             </table>
-          </div>
-        {:else if flowSubTab === "protocols"}
-          <!-- Protocol Breakdown Table -->
-          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
-            <div class="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-5 py-3 text-xs font-bold text-slate-800 dark:text-slate-200">
-              {$_("report.subFlowProtocols")}
-            </div>
+          {:else if flowSubTab === "protocols"}
+            <!-- Protocol Breakdown Table -->
             <table class="w-full text-left text-xs border-collapse font-mono">
-              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800 select-none">
                 <tr>
-                  <th class="py-1 px-2.5">プロトコル</th>
-                  <th class="py-1 px-2.5">{$_("report.colBytes")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colPackets")}</th>
-                  <th class="py-1 px-2.5">{$_("report.colPercent")}</th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("proto")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colProtocol")}</span>
+                      {#if flowSortColumn === "proto"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("bytes")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colBytes")}</span>
+                      {#if flowSortColumn === "bytes"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("packets")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colPackets")}</span>
+                      {#if flowSortColumn === "packets"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
+                  <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSortFlow("percent")}>
+                    <div class="inline-flex items-center gap-1">
+                      <span>{$_("report.colPercent")}</span>
+                      {#if flowSortColumn === "percent"}
+                        {#if flowSortDirection === "asc"}
+                          <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
+                        {:else}
+                          <ArrowDown class="h-2.5 w-2.5 text-cyan-400" />
+                        {/if}
+                      {:else}
+                        <ArrowUpDown class="h-2.5 w-2.5 text-slate-600" />
+                      {/if}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
-                {#each flowProtocols as pr}
-                  <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="py-1 px-2.5 font-bold text-cyan-600 dark:text-cyan-400 text-[11px]">{pr.proto}</td>
-                    <td class="py-1 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">{pr.bytes}</td>
-                    <td class="py-1 px-2.5 text-slate-700 dark:text-slate-300 text-[11px]">{pr.packets}</td>
-                    <td class="py-1 px-2.5">
-                      <div class="flex items-center gap-2">
-                        <div class="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                          <div class="h-full bg-emerald-500 rounded-full" style="width: {pr.percent}%"></div>
-                        </div>
-                        <span class="text-[10px] text-slate-500 dark:text-slate-400">{pr.percent}%</span>
-                      </div>
+                {#if flowProtocols.length === 0}
+                  <tr>
+                    <td colspan="4" class="p-6 text-center text-slate-500 font-sans">
+                      データがありません
                     </td>
                   </tr>
-                {/each}
+                {:else}
+                  {#each paginatedProtocols as pr}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td class="py-1.5 px-2.5 font-bold text-cyan-600 dark:text-cyan-400 font-mono text-[11px]">{pr.proto}</td>
+                      <td class="py-1.5 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(pr.bytes)}</td>
+                      <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{pr.packets.toLocaleString()}</td>
+                      <td class="py-1.5 px-2.5">
+                        <div class="flex items-center gap-2">
+                          <div class="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                            <div class="h-full bg-emerald-500 rounded-full" style="width: {pr.percent}%"></div>
+                          </div>
+                          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{pr.percent}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  {/each}
+                {/if}
               </tbody>
             </table>
+          {/if}
+
+          <!-- Pagination Footer -->
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-4 py-2 text-xs text-slate-600 dark:text-slate-400 shrink-0">
+            <div class="flex items-center gap-3">
+              <span>{$_("report.pageShowCount")}</span>
+              <select
+                bind:value={flowPageSize}
+                onchange={() => (flowCurrentPage = 1)}
+                class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+              >
+                <option value={10}>{$_("report.itemsPerPage", { values: { count: 10 } })}</option>
+                <option value={25}>{$_("report.itemsPerPage", { values: { count: 25 } })}</option>
+                <option value={50}>{$_("report.itemsPerPage", { values: { count: 50 } })}</option>
+                <option value={100}>{$_("report.itemsPerPage", { values: { count: 100 } })}</option>
+                <option value={250}>{$_("report.itemsPerPage", { values: { count: 250 } })}</option>
+                <option value={-1}>{$_("report.showAll")}</option>
+              </select>
+
+              <span class="font-mono text-[11px] text-slate-400">
+                {#if currentFlowTotalCount > 0}
+                  {$_("report.paginationRange", { values: { total: currentFlowTotalCount.toLocaleString(), from: (flowCurrentPage - 1) * (flowPageSize === -1 ? currentFlowTotalCount : flowPageSize) + 1, to: flowPageSize === -1 ? currentFlowTotalCount : Math.min(flowCurrentPage * flowPageSize, currentFlowTotalCount) } })}
+                {:else}
+                  {$_("report.totalZero")}
+                {/if}
+              </span>
+            </div>
+
+            {#if flowPageSize !== -1 && totalFlowPages > 1}
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={flowCurrentPage <= 1}
+                  onclick={() => (flowCurrentPage = 1)}
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title={$_("report.firstPage")}
+                >
+                  <ChevronsLeft class="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  disabled={flowCurrentPage <= 1}
+                  onclick={() => flowCurrentPage--}
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title={$_("report.prevPage")}
+                >
+                  <ChevronLeft class="h-4 w-4" />
+                </button>
+
+                <span class="px-2 font-mono text-xs text-slate-600 dark:text-slate-300">
+                  {flowCurrentPage} / {totalFlowPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={flowCurrentPage >= totalFlowPages}
+                  onclick={() => flowCurrentPage++}
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title={$_("report.nextPage")}
+                >
+                  <ChevronRight class="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  disabled={flowCurrentPage >= totalFlowPages}
+                  onclick={() => (flowCurrentPage = totalFlowPages)}
+                  class="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title={$_("report.lastPage")}
+                >
+                  <ChevronsRight class="h-4 w-4" />
+                </button>
+              </div>
+            {/if}
           </div>
-        {/if}
+        </div>
       </div>
 
     <!-- REPORT 5: イベント & ログ集計 (Windows 監査分析含む) -->
