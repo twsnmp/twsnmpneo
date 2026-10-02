@@ -211,6 +211,21 @@
     })
   );
 
+  // Check if node has any active SNMP polling registered
+  const hasSnmpPolling = $derived(
+    nodePollings.some((p: PollingEnt) => {
+      const t = (p.type || (p as any).Type || "").toLowerCase();
+      return t === "snmp" || t.startsWith("snmp");
+    })
+  );
+
+  // Approach 3: Hybrid SNMP determination
+  // Show SNMP menus if node has SNMP polling registered, OR if real ports are confirmed (> 0)
+  // While undecided (loading ports and no SNMP polling), do not show SNMP menus
+  const isSnmpSupported = $derived(
+    hasSnmpPolling || (isSnmpConfigured && !isLoadingPorts && realPorts.length > 0)
+  );
+
   // Tabs for vertical sidebar navigation (Matching ListView / LogSidebar style)
   const tabs = $derived<
     { id: TabType; name: string; icon: any; count?: number }[]
@@ -229,7 +244,7 @@
       icon: Activity,
       count: nodePollings.length > 0 ? nodePollings.length : undefined,
     },
-    ...(isSnmpConfigured
+    ...(isSnmpSupported
       ? [
           { id: "vpanel" as TabType, name: $_('nodeDetail.tabPanel'), icon: Box },
           {
@@ -376,8 +391,26 @@
     }
   }
 
+  const loadHostResourceData = async () => {
+    if (!targetNodeId || !isSnmpConfigured || isLoadingHostResource || hostResource) return;
+    isLoadingHostResource = true;
+    hostResourceError = "";
+    try {
+      const res = await fetchNodeHostResource(targetNodeId);
+      if (res.supported && res.data) {
+        hostResource = res.data;
+      } else if (res.error) {
+        hostResourceError = res.error;
+      }
+    } catch (e: any) {
+      hostResourceError = String(e?.message || e);
+    } finally {
+      isLoadingHostResource = false;
+    }
+  };
+
   const loadRmonData = async () => {
-    if (!targetNodeId || !isSnmpConfigured) return;
+    if (!targetNodeId || !isSnmpConfigured || isLoadingRmon || rmonStats.length > 0) return;
     isLoadingRmon = true;
     rmonError = "";
     try {
@@ -458,7 +491,7 @@
         diagnoseResult = null;
         diagnoseError = "";
 
-        // If SNMP is configured, query ports, host resources, and RMON from backend
+        // If SNMP is configured, probe ports from backend
         if (isSnmpConfigured && targetNodeId) {
           isLoadingPorts = true;
           fetchNodePorts(targetNodeId)
@@ -468,31 +501,27 @@
               } else {
                 realPorts = [];
               }
+              // If SNMP is confirmed (either by polling or ports found), load HostResource & RMON
+              if (hasSnmpPolling || realPorts.length > 0) {
+                loadHostResourceData();
+                loadRmonData();
+              }
             })
             .catch(() => {
               realPorts = [];
+              if (hasSnmpPolling) {
+                loadHostResourceData();
+                loadRmonData();
+              }
             })
             .finally(() => {
               isLoadingPorts = false;
             });
 
-          isLoadingHostResource = true;
-          fetchNodeHostResource(targetNodeId)
-            .then((res) => {
-              if (res.supported && res.data) {
-                hostResource = res.data;
-              } else if (res.error) {
-                hostResourceError = res.error;
-              }
-            })
-            .catch((e) => {
-              hostResourceError = String(e?.message || e);
-            })
-            .finally(() => {
-              isLoadingHostResource = false;
-            });
-
-          loadRmonData();
+          if (hasSnmpPolling) {
+            loadHostResourceData();
+            loadRmonData();
+          }
         }
 
         // Auto-fetch pollings if not passed
@@ -522,13 +551,15 @@
     }
   });
 
-  // Fetch RMON or diagnose on activeTab change if needed
+  // Fetch RMON, host resource, or diagnose on activeTab change if needed
   $effect(() => {
     if (show && node) {
-      if (!isSnmpConfigured && (activeTab === "vpanel" || activeTab === "ports" || activeTab === "hostinfo" || activeTab === "rmon")) {
+      if (!isSnmpSupported && (activeTab === "vpanel" || activeTab === "ports" || activeTab === "hostinfo" || activeTab === "rmon")) {
         activeTab = "basic";
       }
-      if (activeTab === "rmon" && rmonStats.length === 0 && !isLoadingRmon && isSnmpConfigured) {
+      if (activeTab === "hostinfo" && !hostResource && !isLoadingHostResource && isSnmpSupported) {
+        loadHostResourceData();
+      } else if (activeTab === "rmon" && rmonStats.length === 0 && !isLoadingRmon && isSnmpSupported) {
         loadRmonData();
       } else if (activeTab === "diagnose" && !diagnoseResult && !isDiagnosing) {
         runNodeDiagnose();
@@ -630,8 +661,8 @@
                 {getStateName(node.state, $_)}
               </span>
 
-              {#if !isSnmpConfigured}
-                <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+              {#if !isSnmpSupported && !isLoadingPorts}
+                <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold bg-slate-500/10 border border-slate-500/30 text-slate-500 dark:text-slate-400">
                   <ShieldAlert class="h-3 w-3" />
                   {$_('nodeDetail.snmpNotSupported')}
                 </span>
@@ -730,15 +761,22 @@
           >
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-700 dark:text-slate-200">SNMP</span>
-              {#if isSnmpConfigured}
+              {#if isSnmpSupported}
                 <span
                   class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"
                 >
                   ● {node.snmp_mode || "v2c"}
                 </span>
+              {:else if isLoadingPorts && isSnmpConfigured && !hasSnmpPolling}
+                <span
+                  class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-500"
+                >
+                  <RotateCw class="h-2.5 w-2.5 animate-spin" />
+                  確認中
+                </span>
               {:else}
                 <span
-                  class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800/60 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+                  class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400"
                 >
                   {$_('nodeDetail.snmpNotSupported')}
                 </span>
@@ -893,7 +931,7 @@
 
         <!-- 2. VPanel Tab -->
         {:else if activeTab === "vpanel"}
-          {#if !isSnmpConfigured}
+          {#if !isSnmpSupported}
             <div class="flex h-full flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-8 text-center shadow-sm">
               <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 mb-4">
                 <ShieldAlert class="h-8 w-8" />
@@ -944,7 +982,7 @@
 
         <!-- 3. Ports Tab -->
         {:else if activeTab === "ports"}
-          {#if !isSnmpConfigured}
+          {#if !isSnmpSupported}
             <div class="flex h-full flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-8 text-center shadow-sm">
               <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 mb-4">
                 <ShieldAlert class="h-8 w-8" />
@@ -1359,7 +1397,7 @@
 
         <!-- 6. Host Resource Tab (System, Storage, Device, FileSystem, Process) -->
         {:else if activeTab === "hostinfo"}
-          {#if !isSnmpConfigured}
+          {#if !isSnmpSupported}
             <div class="flex h-full flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-8 text-center shadow-sm">
               <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 mb-4">
                 <ShieldAlert class="h-8 w-8" />
@@ -1589,7 +1627,7 @@
 
         <!-- 7. RMON Tab -->
         {:else if activeTab === "rmon"}
-          {#if !isSnmpConfigured}
+          {#if !isSnmpSupported}
             <div class="flex h-full flex-col items-center justify-center text-slate-500">
               <ShieldAlert class="h-10 w-10 text-amber-500 mb-2" />
               <p class="font-semibold text-sm">{$_('nodeDetail.snmpNotSupported')}</p>
