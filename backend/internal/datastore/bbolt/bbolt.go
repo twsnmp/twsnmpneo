@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -1039,10 +1040,49 @@ func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFil
 		limit = 20000
 	}
 	logs := make([]*datastore.EventLogEnt, 0, min(limit, 1000))
-	keyword := strings.ToLower(filter.Filter)
+
+	var regexType *regexp.Regexp
+	if filter.Type != "" && filter.Type != "all" {
+		regexType, _ = regexp.Compile("(?i)" + filter.Type)
+	}
+	var regexNode *regexp.Regexp
+	if filter.NodeName != "" {
+		regexNode, _ = regexp.Compile("(?i)" + filter.NodeName)
+	}
+	var regexKeyword *regexp.Regexp
+	if filter.Filter != "" {
+		regexKeyword, _ = regexp.Compile("(?i)" + filter.Filter)
+	}
+
+	getLevelNum := func(l string) int {
+		switch strings.ToLower(l) {
+		case "high":
+			return 3
+		case "low":
+			return 2
+		case "warn":
+			return 1
+		default:
+			return 0
+		}
+	}
 	targetLevel := strings.ToLower(filter.Level)
-	targetType := strings.ToLower(filter.Type)
-	targetNodeName := strings.ToLower(filter.NodeName)
+	matchLevel := func(evLevel string) bool {
+		if targetLevel == "" || targetLevel == "all" || targetLevel == "0" {
+			return true
+		}
+		evLower := strings.ToLower(evLevel)
+		switch targetLevel {
+		case "high", "high+", "3":
+			return getLevelNum(evLower) >= 3
+		case "low", "low+", "2":
+			return getLevelNum(evLower) >= 2
+		case "warn", "warn+", "1":
+			return getLevelNum(evLower) >= 1
+		default:
+			return evLower == targetLevel
+		}
+	}
 
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketEventLog)
@@ -1083,25 +1123,43 @@ func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFil
 			if filter.NodeID != "" && ev.NodeID != filter.NodeID {
 				continue
 			}
-			if targetNodeName != "" && !strings.Contains(strings.ToLower(ev.NodeName), targetNodeName) {
+			if !matchLevel(ev.Level) {
 				continue
 			}
-			if targetLevel != "" && targetLevel != "all" && !strings.EqualFold(ev.Level, targetLevel) {
-				continue
-			}
-			if targetType != "" && targetType != "all" && !strings.EqualFold(ev.Type, targetType) {
-				continue
-			}
-			if keyword != "" {
-				evLower := strings.ToLower(ev.Event)
-				nodeLower := strings.ToLower(ev.NodeName)
-				typeLower := strings.ToLower(ev.Type)
-				levelLower := strings.ToLower(ev.Level)
-				if !strings.Contains(evLower, keyword) &&
-					!strings.Contains(nodeLower, keyword) &&
-					!strings.Contains(typeLower, keyword) &&
-					!strings.Contains(levelLower, keyword) {
+			if filter.NodeName != "" {
+				if regexNode != nil {
+					if !regexNode.MatchString(ev.NodeName) {
+						continue
+					}
+				} else if !strings.Contains(strings.ToLower(ev.NodeName), strings.ToLower(filter.NodeName)) {
 					continue
+				}
+			}
+			if filter.Type != "" && filter.Type != "all" {
+				if regexType != nil {
+					if !regexType.MatchString(ev.Type) {
+						continue
+					}
+				} else if !strings.EqualFold(ev.Type, filter.Type) {
+					continue
+				}
+			}
+			if filter.Filter != "" {
+				if regexKeyword != nil {
+					if !regexKeyword.MatchString(ev.Event) &&
+						!regexKeyword.MatchString(ev.NodeName) &&
+						!regexKeyword.MatchString(ev.Type) &&
+						!regexKeyword.MatchString(ev.Level) {
+						continue
+					}
+				} else {
+					kw := strings.ToLower(filter.Filter)
+					if !strings.Contains(strings.ToLower(ev.Event), kw) &&
+						!strings.Contains(strings.ToLower(ev.NodeName), kw) &&
+						!strings.Contains(strings.ToLower(ev.Type), kw) &&
+						!strings.Contains(strings.ToLower(ev.Level), kw) {
+						continue
+					}
 				}
 			}
 

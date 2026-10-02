@@ -1356,6 +1356,8 @@ func NewServer(cfg Config) (*Server, error) {
 			logType := c.QueryParam("type")
 			filter := c.QueryParam("filter")
 			src := c.QueryParam("src")
+			level := c.QueryParam("level")
+			tag := c.QueryParam("tag")
 			var startTime int64
 			var endTime int64
 			if s := c.QueryParam("start"); s != "" {
@@ -1377,6 +1379,8 @@ func NewServer(cfg Config) (*Server, error) {
 				Limit:     limit,
 				StartTime: startTime,
 				EndTime:   endTime,
+				Level:     level,
+				Tag:       tag,
 			})
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

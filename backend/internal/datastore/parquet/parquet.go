@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -34,6 +35,8 @@ type LogFilter struct {
 	Src       string // Source filter
 	Filter    string // Text search keyword
 	Limit     int
+	Level     string // Severity/level filter (e.g. warn, low, high, 0..7)
+	Tag       string // Tag / Type filter
 }
 
 // Config holds configuration for the Parquet store.
@@ -328,7 +331,65 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 	})
 
 	results := make([]*ParquetLogRecord, 0, limit)
-	keyword := strings.ToLower(filter.Filter)
+
+	var regexKeyword *regexp.Regexp
+	if filter.Filter != "" {
+		regexKeyword, _ = regexp.Compile("(?i)" + filter.Filter)
+	}
+	var regexSrc *regexp.Regexp
+	if filter.Src != "" {
+		regexSrc, _ = regexp.Compile("(?i)" + filter.Src)
+	}
+	var regexTag *regexp.Regexp
+	if filter.Tag != "" {
+		regexTag, _ = regexp.Compile("(?i)" + filter.Tag)
+	}
+
+	matchSyslogLevel := func(logStr string, targetLevel string) bool {
+		targetLevel = strings.ToLower(targetLevel)
+		if targetLevel == "" || targetLevel == "all" || targetLevel == "7" {
+			return true
+		}
+		maxSev := -1
+		switch targetLevel {
+		case "high", "high+", "2":
+			maxSev = 2
+		case "low", "low+", "3":
+			maxSev = 3
+		case "warn", "warn+", "4":
+			maxSev = 4
+		case "info", "info+", "6":
+			maxSev = 6
+		}
+		// Try finding "severity": N
+		if idx := strings.Index(logStr, `"severity":`); idx != -1 {
+			rest := strings.TrimSpace(logStr[idx+11:])
+			if len(rest) > 0 && rest[0] >= '0' && rest[0] <= '7' {
+				sev := int(rest[0] - '0')
+				if maxSev >= 0 {
+					return sev <= maxSev
+				}
+			}
+		} else if idx := strings.Index(logStr, `"Severity":`); idx != -1 {
+			rest := strings.TrimSpace(logStr[idx+11:])
+			if len(rest) > 0 && rest[0] >= '0' && rest[0] <= '7' {
+				sev := int(rest[0] - '0')
+				if maxSev >= 0 {
+					return sev <= maxSev
+				}
+			}
+		}
+		// String level check
+		lower := strings.ToLower(logStr)
+		if maxSev == 2 {
+			return strings.Contains(lower, `"level":"high"`)
+		} else if maxSev == 3 {
+			return strings.Contains(lower, `"level":"high"`) || strings.Contains(lower, `"level":"low"`)
+		} else if maxSev == 4 {
+			return strings.Contains(lower, `"level":"high"`) || strings.Contains(lower, `"level":"low"`) || strings.Contains(lower, `"level":"warn"`)
+		}
+		return true
+	}
 
 	for _, file := range files {
 		if ctx.Err() != nil {
@@ -372,11 +433,40 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 					if filter.EndTime > 0 && rec.Time > filter.EndTime {
 						continue
 					}
-					if filter.Src != "" && !strings.Contains(rec.Src, filter.Src) {
-						continue
+					if filter.Src != "" {
+						if regexSrc != nil {
+							if !regexSrc.MatchString(rec.Src) {
+								continue
+							}
+						} else if !strings.Contains(strings.ToLower(rec.Src), strings.ToLower(filter.Src)) {
+							continue
+						}
 					}
-					if keyword != "" && !strings.Contains(strings.ToLower(rec.Log), keyword) {
-						continue
+					if filter.Tag != "" {
+						if regexTag != nil {
+							if !regexTag.MatchString(rec.Log) {
+								continue
+							}
+						} else if !strings.Contains(strings.ToLower(rec.Log), strings.ToLower(filter.Tag)) {
+							continue
+						}
+					}
+					if filter.Level != "" && filter.Level != "all" {
+						if !matchSyslogLevel(rec.Log, filter.Level) {
+							continue
+						}
+					}
+					if filter.Filter != "" {
+						if regexKeyword != nil {
+							if !regexKeyword.MatchString(rec.Log) && !regexKeyword.MatchString(rec.Src) {
+								continue
+							}
+						} else {
+							kw := strings.ToLower(filter.Filter)
+							if !strings.Contains(strings.ToLower(rec.Log), kw) && !strings.Contains(strings.ToLower(rec.Src), kw) {
+								continue
+							}
+						}
 					}
 					cp := rec
 					results = append(results, &cp)

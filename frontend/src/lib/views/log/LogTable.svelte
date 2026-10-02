@@ -9,6 +9,7 @@
     ChevronsLeft,
     ChevronsRight,
     Sparkles,
+    Loader2,
   } from "@lucide/svelte";
   import { formatTimeStr, renderTimeMili, renderBytes, getStateColor } from "../../common";
   import { getLevelBadge, formatCounterData } from "./logUtils";
@@ -57,9 +58,36 @@
 </script>
 
 <div
-  class="flex-1 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm dark:shadow-lg flex flex-col min-h-0 transition-colors"
+  class="flex-1 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm dark:shadow-lg flex flex-col min-h-0 transition-colors relative"
 >
-  <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0">
+  {#if loading}
+    <!-- Top Animated Glowing Progress Bar -->
+    <div class="absolute top-0 left-0 right-0 h-1 bg-cyan-100 dark:bg-cyan-950/50 overflow-hidden z-30">
+      <div class="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-500 animate-pulse w-full"></div>
+    </div>
+
+    <!-- Centered Modal Loading Card -->
+    <div
+      class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70 dark:bg-slate-950/75 backdrop-blur-[2px] transition-all animate-in fade-in duration-150"
+    >
+      <div class="flex flex-col items-center gap-3.5 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-slate-900/95 shadow-2xl max-w-sm text-center">
+        <div class="relative flex items-center justify-center">
+          <div class="h-12 w-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
+          <Loader2 class="h-6 w-6 text-cyan-600 dark:text-cyan-400 absolute animate-spin" />
+        </div>
+        <div class="space-y-1">
+          <div class="text-sm font-bold text-slate-800 dark:text-slate-100">
+            {$_('log.searching')}
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+            {$_('log.searchingSub')}
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 {loading ? 'opacity-30 blur-[0.5px] pointer-events-none select-none' : ''} transition-opacity duration-200">
     <table class="w-full text-left text-xs">
       <thead
         class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400"

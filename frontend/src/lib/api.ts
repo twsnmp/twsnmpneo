@@ -1383,6 +1383,8 @@ export interface ParquetLogQueryFilter {
   start?: number;
   end?: number;
   limit?: number;
+  level?: string;
+  tag?: string;
 }
 
 export async function queryParquetLogs(typeOrFilter: string | ParquetLogQueryFilter = '', filterStr = ''): Promise<ParquetLogRecord[]> {
@@ -1394,6 +1396,8 @@ export async function queryParquetLogs(typeOrFilter: string | ParquetLogQueryFil
     if (typeOrFilter.start) params.set('start', String(typeOrFilter.start));
     if (typeOrFilter.end) params.set('end', String(typeOrFilter.end));
     if (typeOrFilter.limit) params.set('limit', String(typeOrFilter.limit));
+    if (typeOrFilter.level && typeOrFilter.level !== 'all') params.set('level', typeOrFilter.level);
+    if (typeOrFilter.tag && typeOrFilter.tag !== 'all') params.set('tag', typeOrFilter.tag);
   } else {
     if (typeOrFilter) params.set('type', typeOrFilter);
     if (filterStr) params.set('filter', filterStr);

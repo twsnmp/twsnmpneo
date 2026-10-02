@@ -15,6 +15,14 @@ export interface FilterState {
   type: string;
   source: string;
   keyword: string;
+  single?: boolean;
+  srcPort?: string;
+  dstAddr?: string;
+  dstPort?: string;
+  protocol?: string;
+  tcpFlags?: string;
+  mac?: string;
+  state?: string;
 }
 
 export interface LogItem {

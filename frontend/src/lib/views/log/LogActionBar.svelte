@@ -24,6 +24,7 @@
     sflowCounter: boolean;
     loading: boolean;
     onOpenFilter: () => void;
+    onClearFilter?: () => void;
     onToggleColumn: (key: string) => void;
     onSflowCounterToggle: () => void;
     onOpenReport: () => void;
@@ -42,6 +43,7 @@
     sflowCounter = $bindable(false),
     loading = false,
     onOpenFilter,
+    onClearFilter,
     onToggleColumn,
     onSflowCounterToggle,
     onOpenReport,
@@ -60,7 +62,14 @@
       (filterState.level && filterState.level !== "all") ||
       filterState.type ||
       filterState.source ||
-      filterState.keyword
+      filterState.keyword ||
+      filterState.srcPort ||
+      filterState.dstAddr ||
+      filterState.dstPort ||
+      filterState.protocol ||
+      filterState.tcpFlags ||
+      filterState.mac ||
+      filterState.state
     )
   );
 
@@ -94,18 +103,34 @@
       {/if}
     </div>
 
-    <!-- Filter Modal Button -->
-    <button
-      type="button"
-      onclick={onOpenFilter}
-      class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-    >
-      <Filter class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-      <span>{$_('log.filterBtn')}</span>
-      {#if hasActiveFilters}
-        <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
+    <!-- Filter Modal Button & Active Indicator -->
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        onclick={onOpenFilter}
+        class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer {hasActiveFilters ? 'border-cyan-500/50 bg-cyan-50/50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300' : ''}"
+      >
+        <Filter class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+        <span>{$_('log.filterBtn')}</span>
+        {#if hasActiveFilters}
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+          </span>
+        {/if}
+      </button>
+
+      {#if hasActiveFilters && onClearFilter}
+        <button
+          type="button"
+          title={$_('log.filterModal.clearActive')}
+          onclick={onClearFilter}
+          class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/40 p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+        >
+          <X class="h-3.5 w-3.5" />
+        </button>
       {/if}
-    </button>
+    </div>
 
     <!-- Column Visibility Toggle Dropdown -->
     <div class="relative">
@@ -208,10 +233,10 @@
       type="button"
       onclick={onRefresh}
       disabled={loading}
-      class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
+      class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer {loading ? 'opacity-80 cursor-wait' : ''}"
     >
       <RefreshCw class="h-3.5 w-3.5 {loading ? 'animate-spin' : ''}" />
-      <span>{$_('common.refresh')}</span>
+      <span>{loading ? $_('log.searching') : $_('common.refresh')}</span>
     </button>
   </div>
 </div>

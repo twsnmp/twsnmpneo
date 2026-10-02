@@ -34,18 +34,42 @@
   // Reception Chart state
   let chartZoomRange = $state<{ st: number; et: number } | null>(null);
 
-  // Search & Filter state
+  // Search & Filter state (per-category state preservation)
   let searchQuery = $state("");
   let fetchLimit = $state(10000);
   let showFilterModal = $state(false);
-  let filterState = $state<FilterState>({
-    start: "",
-    end: "",
-    level: "all",
-    type: "",
-    source: "",
-    keyword: "",
+
+  const createDefaultFilters = (): Record<LogCategory, FilterState> => ({
+    event: { start: "", end: "", level: "all", type: "", source: "", keyword: "" },
+    syslog: { start: "", end: "", level: "all", type: "", source: "", keyword: "" },
+    trap: { start: "", end: "", level: "all", type: "", source: "", keyword: "" },
+    netflow: { start: "", end: "", level: "all", type: "", source: "", keyword: "", single: true, srcPort: "", dstAddr: "", dstPort: "", protocol: "", tcpFlags: "" },
+    sflow: { start: "", end: "", level: "all", type: "", source: "", keyword: "", single: true, srcPort: "", dstAddr: "", dstPort: "", protocol: "" },
+    arp: { start: "", end: "", level: "all", type: "", source: "", keyword: "", mac: "", state: "" },
   });
+
+  let categoryFilters = $state<Record<LogCategory, FilterState>>(createDefaultFilters());
+  const currentFilterState = $derived<FilterState>(categoryFilters[activeTab]);
+
+  const handleClearFilter = () => {
+    categoryFilters[activeTab] = {
+      start: "",
+      end: "",
+      level: "all",
+      type: "",
+      source: "",
+      keyword: "",
+      single: true,
+      srcPort: "",
+      dstAddr: "",
+      dstPort: "",
+      protocol: "",
+      tcpFlags: "",
+      mac: "",
+      state: "",
+    };
+    loadCurrentLogs();
+  };
 
   // Report & AI Modal state
   let showReportModal = $state(false);
@@ -102,19 +126,20 @@
     loading = true;
     try {
       refreshCounts();
+      const currentFilter = categoryFilters[activeTab];
       let startTime = 0;
       let endTime = 0;
-      if (filterState.start) startTime = new Date(filterState.start).getTime() * 1e6;
-      if (filterState.end) endTime = new Date(filterState.end).getTime() * 1e6;
+      if (currentFilter.start) startTime = new Date(currentFilter.start).getTime() * 1e6;
+      if (currentFilter.end) endTime = new Date(currentFilter.end).getTime() * 1e6;
 
       if (activeTab === "event") {
         eventLogs = await fetchEventLogs({
           start: startTime || undefined,
           end: endTime || undefined,
-          level: filterState.level !== "all" ? filterState.level : undefined,
-          type: filterState.type || undefined,
-          nodeName: filterState.source || undefined,
-          filter: filterState.keyword || undefined,
+          level: currentFilter.level !== "all" ? currentFilter.level : undefined,
+          type: currentFilter.type || undefined,
+          nodeName: currentFilter.source || undefined,
+          filter: currentFilter.keyword || undefined,
           limit: fetchLimit,
         });
         logCounts["event"] = eventLogs.length;
@@ -122,8 +147,10 @@
         const queryType = activeTab === "arp" ? "arplog" : activeTab === "sflow" && sflowCounter ? "sflowCounter" : activeTab;
         const pq = await queryParquetLogs({
           type: queryType,
-          src: filterState.source || undefined,
-          filter: filterState.keyword || undefined,
+          src: currentFilter.source || undefined,
+          filter: currentFilter.keyword || undefined,
+          level: currentFilter.level !== "all" ? currentFilter.level : undefined,
+          tag: currentFilter.type || undefined,
           start: startTime || undefined,
           end: endTime || undefined,
           limit: fetchLimit,
@@ -156,7 +183,7 @@
         }
       }
 
-      // 2. Incremental search filter
+      // 2. Incremental quick text search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         if (!item.fullText.toLowerCase().includes(q)) {
@@ -164,10 +191,53 @@
         }
       }
 
-      // 3. Level filter
-      if (filterState.level !== "all" && item.level) {
-        if (item.level.toLowerCase() !== filterState.level.toLowerCase()) {
+      // 3. Structured sub-fields for protocols (NetFlow, sFlow, ARP)
+      const filter = categoryFilters[activeTab];
+      if (activeTab === "netflow" || (activeTab === "sflow" && !sflowCounter)) {
+        if (filter.single) {
+          if (filter.source) {
+            const s = filter.source.toLowerCase();
+            const hit = (item.srcAddr && item.srcAddr.toLowerCase().includes(s)) ||
+                        (item.dstAddr && item.dstAddr.toLowerCase().includes(s));
+            if (!hit) return false;
+          }
+          if (filter.srcPort) {
+            const p = filter.srcPort;
+            const hit = String(item.srcPort || "") === p || String(item.dstPort || "") === p;
+            if (!hit) return false;
+          }
+        } else {
+          if (filter.source && (!item.srcAddr || !item.srcAddr.toLowerCase().includes(filter.source.toLowerCase()))) {
+            return false;
+          }
+          if (filter.srcPort && String(item.srcPort || "") !== filter.srcPort) {
+            return false;
+          }
+          if (filter.dstAddr && (!item.dstAddr || !item.dstAddr.toLowerCase().includes(filter.dstAddr.toLowerCase()))) {
+            return false;
+          }
+          if (filter.dstPort && String(item.dstPort || "") !== filter.dstPort) {
+            return false;
+          }
+        }
+        if (filter.protocol && (!item.protocol || !item.protocol.toLowerCase().includes(filter.protocol.toLowerCase()))) {
           return false;
+        }
+        if (filter.tcpFlags && (!item.tcpFlags || !item.tcpFlags.toLowerCase().includes(filter.tcpFlags.toLowerCase()))) {
+          return false;
+        }
+      } else if (activeTab === "arp") {
+        if (filter.mac) {
+          const m = filter.mac.toLowerCase();
+          const hit = (item.newMac && item.newMac.toLowerCase().includes(m)) ||
+                      (item.oldMac && item.oldMac.toLowerCase().includes(m));
+          if (!hit) return false;
+        }
+        if (filter.state) {
+          const st = filter.state.toLowerCase();
+          const hit = (item.state && item.state.toLowerCase().includes(st)) ||
+                      (item.newVendor && item.newVendor.toLowerCase().includes(st));
+          if (!hit) return false;
         }
       }
 
@@ -288,6 +358,7 @@
     currentTabCount={structuredLogs.length}
     hitCount={filteredLogs.length}
     bind:fetchLimit
+    {loading}
     onTabSelect={handleTabSelect}
     onLimitChange={loadCurrentLogs}
   />
@@ -305,12 +376,13 @@
     <LogActionBar
       {activeTab}
       bind:searchQuery
-      {filterState}
+      filterState={currentFilterState}
       {currentColumns}
       {columnVisibility}
       bind:sflowCounter
       {loading}
       onOpenFilter={() => (showFilterModal = true)}
+      onClearFilter={handleClearFilter}
       onToggleColumn={toggleColumn}
       onSflowCounterToggle={() => {
         currentPage = 1;
@@ -345,11 +417,12 @@
     />
   </div>
 
-  <!-- Detailed Filter Modal -->
+  <!-- Search Criteria Modal -->
   <LogFilterModal
     bind:show={showFilterModal}
     logCategory={activeTab}
-    bind:filterState
+    {sflowCounter}
+    bind:filterState={categoryFilters[activeTab]}
     onApply={loadCurrentLogs}
   />
 

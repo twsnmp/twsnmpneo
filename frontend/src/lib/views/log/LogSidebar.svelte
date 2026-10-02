@@ -9,6 +9,7 @@
     currentTabCount: number;
     hitCount: number;
     fetchLimit: number;
+    loading?: boolean;
     onTabSelect: (tab: LogCategory) => void;
     onLimitChange: () => void;
   }
@@ -19,6 +20,7 @@
     currentTabCount = 0,
     hitCount = 0,
     fetchLimit = $bindable(),
+    loading = false,
     onTabSelect,
     onLimitChange,
   }: Props = $props();
@@ -59,7 +61,11 @@
             ? 'bg-white/20 text-white'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent'}"
         >
-          {count.toLocaleString()}
+          {#if loading && activeTab === cat.id}
+            <span class="animate-pulse">...</span>
+          {:else}
+            {count.toLocaleString()}
+          {/if}
         </span>
       </button>
     {/each}
@@ -84,7 +90,14 @@
     </div>
     <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
       <span>{$_('log.hitCount')}</span>
-      <span class="text-cyan-600 dark:text-cyan-400 font-bold">{hitCount.toLocaleString()} {$_('log.recordsUnit')}</span>
+      {#if loading}
+        <span class="text-cyan-600 dark:text-cyan-400 font-bold animate-pulse flex items-center gap-1">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-cyan-500 animate-ping"></span>
+          <span>{$_('log.searching')}</span>
+        </span>
+      {:else}
+        <span class="text-cyan-600 dark:text-cyan-400 font-bold">{hitCount.toLocaleString()} {$_('log.recordsUnit')}</span>
+      {/if}
     </div>
   </div>
 </div>
