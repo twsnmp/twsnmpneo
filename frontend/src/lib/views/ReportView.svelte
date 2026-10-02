@@ -10,6 +10,7 @@
     FileText,
     ScrollText,
     Radio,
+    Eye,
     ShieldCheck,
     Thermometer,
     Sparkles,
@@ -46,6 +47,7 @@
   import EventReport from "./reports/EventReport.svelte";
   import SyslogReport from "./reports/SyslogReport.svelte";
   import TrapReport from "./reports/TrapReport.svelte";
+  import ArpReport from "./reports/ArpReport.svelte";
   import CertReport from "./reports/CertReport.svelte";
   import SensorReport from "./reports/SensorReport.svelte";
   import AnomalyReport from "./reports/AnomalyReport.svelte";
@@ -59,6 +61,7 @@
     | "event"
     | "syslog"
     | "trap"
+    | "arp"
     | "cert"
     | "sensor"
     | "ai";
@@ -97,6 +100,7 @@
     { id: "event", name: $_("report.tabEvent"), icon: FileText },
     { id: "syslog", name: $_("report.tabSyslog"), icon: ScrollText },
     { id: "trap", name: $_("report.tabTrap"), icon: Radio },
+    { id: "arp", name: $_("report.tabArp"), icon: Eye },
     { id: "cert", name: $_("report.tabCert"), icon: ShieldCheck },
     { id: "sensor", name: $_("report.tabSensor"), icon: Thermometer },
     { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
@@ -123,7 +127,7 @@
         queryParquetLogs({ type: "sflow", start: start24h, limit: 10000 }).catch(() => []),
         fetchCertMonitors().catch(() => []),
         fetchMqttStats().catch(() => []),
-        queryParquetLogs({ type: "arplog", limit: 2000 }).catch(() => []),
+        queryParquetLogs({ type: "arplog", limit: 10000 }).catch(() => []),
         queryParquetLogs({ type: "syslog", start: start24h, limit: 10000 }).catch(() => []),
         queryParquetLogs({ type: "trap", start: start24h, limit: 10000 }).catch(() => []),
       ]);
@@ -306,6 +310,13 @@
         bind:this={activeReportRef}
         {searchQuery}
         {trapLogs}
+        {nodes}
+      />
+    {:else if activeReport === "arp"}
+      <ArpReport
+        bind:this={activeReportRef}
+        {searchQuery}
+        {arpLogs}
         {nodes}
       />
     {:else if activeReport === "cert"}
