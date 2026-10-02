@@ -46,6 +46,8 @@
     ChevronLeft,
     ChevronRight,
     ChevronsRight,
+    Maximize2,
+    Minimize2,
   } from "@lucide/svelte";
 
   let {
@@ -64,6 +66,7 @@
 
   type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo" | "rmon" | "diagnose";
   let activeTab = $state<TabType>("basic");
+  let isMaximized = $state(false);
 
   // Host resource active sub-tab
   type HrSubTab = "system" | "storage" | "device" | "filesystem" | "process";
@@ -137,6 +140,44 @@
       );
     })
   );
+
+  // Tabs for vertical sidebar navigation (Matching ListView / LogSidebar style)
+  const tabs = $derived<
+    { id: TabType; name: string; icon: any; count?: number }[]
+  >([
+    { id: "basic", name: $_('nodeDetail.tabBasic'), icon: Info },
+    { id: "diagnose", name: $_('nodeDetail.tabDiagnose'), icon: Stethoscope },
+    {
+      id: "logs",
+      name: $_('nodeDetail.tabLogs'),
+      icon: FileText,
+      count: nodeLogs.length > 0 ? nodeLogs.length : undefined,
+    },
+    {
+      id: "polling",
+      name: $_('nodeDetail.tabPolling'),
+      icon: Activity,
+      count: nodePollings.length > 0 ? nodePollings.length : undefined,
+    },
+    ...(isSnmpConfigured
+      ? [
+          { id: "vpanel" as TabType, name: $_('nodeDetail.tabPanel'), icon: Box },
+          {
+            id: "ports" as TabType,
+            name: $_('nodeDetail.tabPorts'),
+            icon: ListTree,
+            count: realPorts.length > 0 ? realPorts.length : undefined,
+          },
+          { id: "hostinfo" as TabType, name: $_('nodeDetail.tabHostInfo'), icon: Server },
+          {
+            id: "rmon" as TabType,
+            name: $_('nodeDetail.tabRmon'),
+            icon: Gauge,
+            count: rmonStats.length > 0 ? rmonStats.length : undefined,
+          },
+        ]
+      : []),
+  ]);
 
   // Sorting & Pagination States for Tables
   // 1. Ports
@@ -414,6 +455,9 @@
   // Fetch RMON or diagnose on activeTab change if needed
   $effect(() => {
     if (show && node) {
+      if (!isSnmpConfigured && (activeTab === "vpanel" || activeTab === "ports" || activeTab === "hostinfo" || activeTab === "rmon")) {
+        activeTab = "basic";
+      }
       if (activeTab === "rmon" && rmonStats.length === 0 && !isLoadingRmon && isSnmpConfigured) {
         loadRmonData();
       } else if (activeTab === "diagnose" && !diagnoseResult && !isDiagnosing) {
@@ -488,7 +532,9 @@
   >
     <!-- Wide Landscape Dialog Container -->
     <div
-      class="flex h-[82vh] w-[94vw] max-w-6xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200 transition-colors"
+      class="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200 transition-all duration-200 {isMaximized
+        ? 'h-[96vh] w-[98vw] max-w-none'
+        : 'h-[88vh] w-[96vw] max-w-[1440px]'}"
     >
       <!-- Modal Header -->
       <div
@@ -527,105 +573,133 @@
           </div>
         </div>
 
-        <!-- Tab Buttons (Header Navigation) -->
-        <div
-          class="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 p-1 text-xs"
-        >
+        <div class="flex items-center gap-1.5">
+          <!-- Maximize / Restore Toggle Button -->
           <button
             type="button"
-            onclick={() => (activeTab = "basic")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'basic' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
+            title={isMaximized ? $_('nodeDetail.restore') : $_('nodeDetail.maximize')}
+            aria-label={isMaximized ? $_('nodeDetail.restore') : $_('nodeDetail.maximize')}
+            onclick={() => {
+              isMaximized = !isMaximized;
+              if (activeTab === "vpanel") {
+                setTimeout(() => {
+                  initVPanel("vpanel-canvas-container");
+                  const vports = realPorts.length > 0
+                    ? realPorts.map((p) => ({ State: p.State, Speed: p.Speed }))
+                    : [];
+                  setVPanel(vports, power, rotate, vpanelZoom, 12);
+                }, 100);
+              }
+            }}
+            class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors cursor-pointer"
           >
-            <Info class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabBasic')}
-          </button>
-          <button
-            type="button"
-            onclick={() => (activeTab = "vpanel")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'vpanel' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
-          >
-            <Box class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabPanel')}
-          </button>
-          <button
-            type="button"
-            onclick={() => (activeTab = "ports")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'ports' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
-          >
-            <ListTree class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabPorts')}
-            {#if isSnmpConfigured && realPorts.length > 0}
-              <span class="ml-1 rounded-full px-1.5 py-0.2 text-[10px] {activeTab === 'ports' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
-                {realPorts.length}
-              </span>
+            {#if isMaximized}
+              <Minimize2 class="h-4 w-4" />
+            {:else}
+              <Maximize2 class="h-4 w-4" />
             {/if}
           </button>
+
+          <!-- Close Button -->
           <button
             type="button"
-            onclick={() => (activeTab = "polling")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'polling' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
+            aria-label={$_('common.close')}
+            onclick={() => (show = false)}
+            class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors cursor-pointer"
           >
-            <Activity class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabPolling')}
-            {#if nodePollings.length > 0}
-              <span class="ml-1 rounded-full px-1.5 py-0.2 text-[10px] {activeTab === 'polling' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
-                {nodePollings.length}
-              </span>
-            {/if}
-          </button>
-          <button
-            type="button"
-            onclick={() => (activeTab = "logs")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'logs' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
-          >
-            <FileText class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabLogs')}
-            {#if nodeLogs.length > 0}
-              <span class="ml-1 rounded-full px-1.5 py-0.2 text-[10px] {activeTab === 'logs' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
-                {nodeLogs.length}
-              </span>
-            {/if}
-          </button>
-          <button
-            type="button"
-            onclick={() => (activeTab = "hostinfo")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'hostinfo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
-          >
-            <Server class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabHostInfo')}
-          </button>
-          <button
-            type="button"
-            onclick={() => (activeTab = "rmon")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'rmon' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
-          >
-            <Gauge class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabRmon')}
-            {#if isSnmpConfigured && rmonStats.length > 0}
-              <span class="ml-1 rounded-full px-1.5 py-0.2 text-[10px] {activeTab === 'rmon' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
-                {rmonStats.length}
-              </span>
-            {/if}
-          </button>
-          <button
-            type="button"
-            onclick={() => (activeTab = "diagnose")}
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-all cursor-pointer {activeTab === 'diagnose' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/40'}"
-          >
-            <Stethoscope class="h-3.5 w-3.5" />
-            {$_('nodeDetail.tabDiagnose')}
+            <X class="h-5 w-5" />
           </button>
         </div>
-
-        <button
-          type="button"
-          aria-label={$_('common.close')}
-          onclick={() => (show = false)}
-          class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors cursor-pointer"
-        >
-          <X class="h-5 w-5" />
-        </button>
       </div>
+
+      <!-- Main Body Container (Sidebar + Content) -->
+      <div class="flex flex-1 overflow-hidden min-h-0">
+        <!-- Left Sidebar Navigation (Matching ListView / LogSidebar specification) -->
+        <div
+          class="w-60 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70 p-3 space-y-2 shrink-0 flex flex-col justify-between overflow-y-auto transition-colors"
+        >
+          <div class="space-y-1">
+            <div
+              class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+            >
+              {$_('nodeDetail.navTitle')}
+            </div>
+
+            {#each tabs as tab}
+              <button
+                type="button"
+                onclick={() => (activeTab = tab.id)}
+                class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === tab.id
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
+              >
+                <div class="flex items-center gap-2.5 truncate">
+                  <tab.icon
+                    class="h-4 w-4 shrink-0 {activeTab === tab.id
+                      ? 'text-white'
+                      : 'text-blue-600 dark:text-cyan-400'}"
+                  />
+                  <span class="truncate">{tab.name}</span>
+                </div>
+                {#if tab.count !== undefined}
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[10px] font-mono {activeTab === tab.id
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent'}"
+                  >
+                    {tab.count}
+                  </span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+
+          <!-- Node Status & Telemetry Summary Card -->
+          <div
+            class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-2 transition-colors"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-700 dark:text-slate-200">SNMP</span>
+              {#if isSnmpConfigured}
+                <span
+                  class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"
+                >
+                  ● {node.snmp_mode || "v2c"}
+                </span>
+              {:else}
+                <span
+                  class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800/60 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+                >
+                  {$_('nodeDetail.snmpNotSupported')}
+                </span>
+              {/if}
+            </div>
+            {#if node.ip}
+              <div
+                class="pt-1.5 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-[10px]"
+              >
+                <span class="text-slate-500 dark:text-slate-400">IP</span>
+                <span
+                  class="font-mono text-slate-700 dark:text-cyan-400 font-medium truncate max-w-[120px]"
+                  title={node.ip}
+                >
+                  {node.ip}
+                </span>
+              </div>
+            {/if}
+            {#if node.mac}
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-slate-500 dark:text-slate-400">MAC</span>
+                <span
+                  class="font-mono text-slate-700 dark:text-slate-300 font-medium truncate max-w-[120px]"
+                  title={node.mac}
+                >
+                  {node.mac}
+                </span>
+              </div>
+            {/if}
+          </div>
+        </div>
 
       <!-- Tab Content Area -->
       <div
@@ -1689,6 +1763,7 @@
             {/if}
           </div>
         {/if}
+      </div>
       </div>
 
       <!-- Modal Footer (Matching twsnmpfk Close button) -->

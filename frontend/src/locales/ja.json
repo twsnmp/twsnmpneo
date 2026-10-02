@@ -884,6 +884,9 @@
   },
   "nodeDetail": {
     "title": "ノード詳細情報",
+    "navTitle": "表示項目",
+    "maximize": "最大化",
+    "restore": "元のサイズに戻す",
     "tabBasic": "基本情報",
     "tabPanel": "パネル",
     "tabVpanel": "パネル",
@@ -892,7 +895,7 @@
     "tabLogs": "イベントログ",
     "tabHostInfo": "ホストリソース",
     "tabRmon": "RMON統計",
-    "tabDiagnose": "ノード診断",
+    "tabDiagnose": "診断情報",
     "rmonDataSource": "データソース",
     "rmonDropEvents": "破棄イベント",
     "rmonOctets": "バイト数 (Octets)",

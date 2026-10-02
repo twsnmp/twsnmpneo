@@ -884,6 +884,9 @@
   },
   "nodeDetail": {
     "title": "Node Details",
+    "navTitle": "Navigation",
+    "maximize": "Maximize",
+    "restore": "Restore down",
     "tabBasic": "Basic Info",
     "tabPanel": "Panel",
     "tabVpanel": "Panel",
