@@ -1274,6 +1274,57 @@ export async function deletePolling(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete polling failed: ${res.statusText}`);
 }
 
+export interface PollingTemplateEnt {
+  ID: number;
+  Name: string;
+  Level: string;
+  Type: string;
+  Mode: string;
+  Params: string;
+  Filter: string;
+  Extractor: string;
+  Script: string;
+  Descr: string;
+  AutoParam: string;
+}
+
+export async function fetchPollingTemplates(lang = ''): Promise<PollingTemplateEnt[]> {
+  const q = lang ? `?lang=${encodeURIComponent(lang)}` : '';
+  const res = await fetch(`${API_BASE}/polling/templates${q}`);
+  if (!res.ok) throw new Error(`Fetch polling templates failed: ${res.statusText}`);
+  const list = await res.json();
+  return Array.isArray(list) ? list : [];
+}
+
+export async function fetchPollingTemplate(id: number, lang = ''): Promise<PollingTemplateEnt> {
+  const q = lang ? `?lang=${encodeURIComponent(lang)}` : '';
+  const res = await fetch(`${API_BASE}/polling/template/${id}${q}`);
+  if (!res.ok) throw new Error(`Fetch polling template failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function generateAutoPollings(nodeID: string, templateID: number, lang = ''): Promise<PollingEnt[]> {
+  const res = await fetch(`${API_BASE}/polling/auto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nodeID, templateID, lang }),
+  });
+  if (!res.ok) throw new Error(`Generate auto pollings failed: ${res.statusText}`);
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).map(normalizePolling);
+}
+
+export async function fetchAutoGrok(testData: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/polling/autogrok`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ testData }),
+  });
+  if (!res.ok) return '';
+  const data = await res.json();
+  return data.pattern || '';
+}
+
 export interface EventLogQueryFilter {
   start?: number;
   end?: number;

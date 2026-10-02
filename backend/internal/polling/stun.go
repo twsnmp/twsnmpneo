@@ -103,6 +103,7 @@ func (p *STUNPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *dat
 
 	// JS script evaluation
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("ip", res.IP)
 	_ = vm.Set("oldip", oldIP)
 	_ = vm.Set("port", float64(res.Port))

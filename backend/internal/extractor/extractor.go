@@ -92,3 +92,42 @@ func ApplyExtractor(extractor string, text string, vm *otto.Otto, fields map[str
 		return nil
 	}
 }
+
+// RegisterBodyHelpers registers getBody, jsonpath, and goquery helpers on Otto VM for string payloads.
+func RegisterBodyHelpers(text string, vm *otto.Otto) {
+	if vm == nil {
+		return
+	}
+	_ = vm.Set("getBody", func(call otto.FunctionCall) otto.Value {
+		if r, err := otto.ToValue(text); err == nil {
+			return r
+		}
+		return otto.UndefinedValue()
+	})
+	_ = vm.Set("jsonpath", func(call otto.FunctionCall) otto.Value {
+		if call.Argument(0).IsString() {
+			sel := call.Argument(0).String()
+			var parsed interface{}
+			if err := json.Unmarshal([]byte(text), &parsed); err == nil {
+				if v, err := jsonpath.Get(sel, parsed); err == nil {
+					if ov, err := otto.ToValue(v); err == nil {
+						return ov
+					}
+				}
+			}
+		}
+		return otto.UndefinedValue()
+	})
+	_ = vm.Set("goquery", func(call otto.FunctionCall) otto.Value {
+		if call.Argument(0).IsString() {
+			sel := call.Argument(0).String()
+			doc, err := goquery.NewDocumentFromReader(strings.NewReader(text))
+			if err == nil {
+				if ov, err := otto.ToValue(doc.Find(sel).Text()); err == nil {
+					return ov
+				}
+			}
+		}
+		return otto.UndefinedValue()
+	})
+}

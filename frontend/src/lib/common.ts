@@ -286,3 +286,38 @@ export const renderPercent = (v: number | undefined | null): string => {
   return v.toFixed(2) + '%';
 };
 
+export const typeList = [
+  { name: 'PING', value: 'ping' },
+  { name: 'SNMP', value: 'snmp' },
+  { name: 'gNMI', value: 'gnmi' },
+  { name: 'TCP', value: 'tcp' },
+  { name: 'HTTP', value: 'http' },
+  { name: 'TLS', value: 'tls' },
+  { name: 'DNS', value: 'dns' },
+  { name: 'NTP', value: 'ntp' },
+  { name: 'SYSLOG', value: 'syslog' },
+  { name: 'SNMP TRAP', value: 'trap' },
+  { name: 'ARP Log', value: 'arplog' },
+  { name: 'NetFlow', value: 'netflow' },
+  { name: 'Command', value: 'cmd' },
+  { name: 'SSH', value: 'ssh' },
+  { name: 'Report', value: 'report' },
+  { name: 'TWSNMP', value: 'twsnmp' },
+  { name: 'TwLogEye', value: 'twlogeye' },
+  { name: 'Pi-Hole', value: 'pihole' },
+  { name: 'LXI', value: 'lxi' },
+  { name: 'Monitor', value: 'monitor' },
+  { name: 'MQTT', value: 'mqtt' },
+  { name: 'EMAIL', value: 'email' },
+  { name: 'STUN', value: 'stun' },
+];
+
+const pollingTypeMap = new Map<string, string>();
+typeList.forEach((e) => {
+  pollingTypeMap.set(e.value, e.name);
+});
+
+export const renderPollingType = (type: string): string => {
+  return pollingTypeMap.get(type) || type.toUpperCase() || 'Unknown';
+};
+

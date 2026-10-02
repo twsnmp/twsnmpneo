@@ -168,6 +168,8 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 
 	// Set up Otto VM for extractor and script evaluation
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
+	extractor.RegisterBodyHelpers(bodyStr, vm)
 	_ = vm.Set("status", strconv.Itoa(statusCode))
 	_ = vm.Set("code", statusCode)
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))

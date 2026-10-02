@@ -30,88 +30,11 @@ func (p *SNMPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *dat
 		}, nil
 	}
 
-	port := uint16(node.SnmpPort)
-	if port == 0 {
-		port = 161
-	}
-
 	timeoutSec := pe.Timeout
 	if timeoutSec <= 0 {
 		timeoutSec = 2
 	}
-
-	agent := &gosnmp.GoSNMP{
-		Target:    node.IP,
-		Port:      port,
-		Transport: "udp",
-		Community: node.Community,
-		Version:   gosnmp.Version2c,
-		Timeout:   time.Duration(timeoutSec) * time.Second,
-		Retries:   pe.Retry,
-		MaxOids:   gosnmp.MaxOids,
-	}
-	if agent.Community == "" {
-		agent.Community = "public"
-	}
-
-	// Setup SNMPv3 if configured
-	switch node.SnmpMode {
-	case "v1":
-		agent.Version = gosnmp.Version1
-	case "v3auth":
-		agent.Version = gosnmp.Version3
-		agent.SecurityModel = gosnmp.UserSecurityModel
-		agent.MsgFlags = gosnmp.AuthNoPriv
-		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 node.User,
-			AuthenticationProtocol:   gosnmp.SHA,
-			AuthenticationPassphrase: node.Password,
-		}
-	case "v3authpriv":
-		agent.Version = gosnmp.Version3
-		agent.SecurityModel = gosnmp.UserSecurityModel
-		agent.MsgFlags = gosnmp.AuthPriv
-		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 node.User,
-			AuthenticationProtocol:   gosnmp.SHA,
-			AuthenticationPassphrase: node.Password,
-			PrivacyProtocol:          gosnmp.AES,
-			PrivacyPassphrase:        node.Password,
-		}
-	case "v3authprivex":
-		agent.Version = gosnmp.Version3
-		agent.SecurityModel = gosnmp.UserSecurityModel
-		agent.MsgFlags = gosnmp.AuthPriv
-		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 node.User,
-			AuthenticationProtocol:   gosnmp.SHA256,
-			AuthenticationPassphrase: node.Password,
-			PrivacyProtocol:          gosnmp.AES256,
-			PrivacyPassphrase:        node.Password,
-		}
-	case "v3sha256aes128":
-		agent.Version = gosnmp.Version3
-		agent.SecurityModel = gosnmp.UserSecurityModel
-		agent.MsgFlags = gosnmp.AuthPriv
-		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 node.User,
-			AuthenticationProtocol:   gosnmp.SHA256,
-			AuthenticationPassphrase: node.Password,
-			PrivacyProtocol:          gosnmp.AES,
-			PrivacyPassphrase:        node.Password,
-		}
-	case "v3sha512aes256":
-		agent.Version = gosnmp.Version3
-		agent.SecurityModel = gosnmp.UserSecurityModel
-		agent.MsgFlags = gosnmp.AuthPriv
-		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 node.User,
-			AuthenticationProtocol:   gosnmp.SHA512,
-			AuthenticationPassphrase: node.Password,
-			PrivacyProtocol:          gosnmp.AES256,
-			PrivacyPassphrase:        node.Password,
-		}
-	}
+	agent := BuildSNMPAgent(node, timeoutSec, pe.Retry)
 
 	start := time.Now()
 	if err := agent.Connect(); err != nil {
@@ -335,6 +258,7 @@ func (p *SNMPPoller) pollSystemDate(pe *datastore.PollingEnt, agent *gosnmp.GoSN
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("diff", diff)
 	_ = vm.Set("hrSystemDate", ts)
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))
@@ -415,6 +339,7 @@ func (p *SNMPPoller) pollCount(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("count", float64(count))
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))
 
@@ -515,6 +440,7 @@ func (p *SNMPPoller) pollProcess(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("count", float64(count))
 	_ = vm.Set("changed", float64(changed))
 	_ = vm.Set("pidSum", pidSum)
@@ -582,6 +508,7 @@ func (p *SNMPPoller) pollStats(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("count", float64(count))
 	_ = vm.Set("sum", float64(sum))
 	_ = vm.Set("avg", avg)
@@ -721,6 +648,7 @@ func (p *SNMPPoller) pollTraffic(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, lr)
 	for k, v := range lr {
 		_ = vm.Set(k, v)
 	}
@@ -749,6 +677,7 @@ func (p *SNMPPoller) pollScript(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, 
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))
 	_ = vm.Set("snmpGet", func(call otto.FunctionCall) otto.Value {
 		if call.Argument(0).IsString() {
@@ -878,6 +807,7 @@ func (p *SNMPPoller) pollGet(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, sta
 	// Script evaluation if provided
 	if pe.Script != "" {
 		vm := otto.New()
+		SetupOttoVM(pe, vm, lr)
 		for k, v := range lr {
 			_ = vm.Set(k, v)
 		}
@@ -911,4 +841,88 @@ func formatSNMPValue(v gosnmp.SnmpPDU) string {
 	default:
 		return strconv.FormatInt(gosnmp.ToBigInt(v.Value).Int64(), 10)
 	}
+}
+
+// BuildSNMPAgent creates a configured GoSNMP client for a node.
+func BuildSNMPAgent(node *datastore.NodeEnt, timeoutSec int, retries int) *gosnmp.GoSNMP {
+	port := uint16(node.SnmpPort)
+	if port == 0 {
+		port = 161
+	}
+	if timeoutSec <= 0 {
+		timeoutSec = 2
+	}
+
+	agent := &gosnmp.GoSNMP{
+		Target:    node.IP,
+		Port:      port,
+		Transport: "udp",
+		Community: node.Community,
+		Version:   gosnmp.Version2c,
+		Timeout:   time.Duration(timeoutSec) * time.Second,
+		Retries:   retries,
+		MaxOids:   gosnmp.MaxOids,
+	}
+	if agent.Community == "" {
+		agent.Community = "public"
+	}
+
+	switch node.SnmpMode {
+	case "v1":
+		agent.Version = gosnmp.Version1
+	case "v3auth":
+		agent.Version = gosnmp.Version3
+		agent.SecurityModel = gosnmp.UserSecurityModel
+		agent.MsgFlags = gosnmp.AuthNoPriv
+		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 node.User,
+			AuthenticationProtocol:   gosnmp.SHA,
+			AuthenticationPassphrase: node.Password,
+		}
+	case "v3authpriv":
+		agent.Version = gosnmp.Version3
+		agent.SecurityModel = gosnmp.UserSecurityModel
+		agent.MsgFlags = gosnmp.AuthPriv
+		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 node.User,
+			AuthenticationProtocol:   gosnmp.SHA,
+			AuthenticationPassphrase: node.Password,
+			PrivacyProtocol:          gosnmp.AES,
+			PrivacyPassphrase:        node.Password,
+		}
+	case "v3authprivex":
+		agent.Version = gosnmp.Version3
+		agent.SecurityModel = gosnmp.UserSecurityModel
+		agent.MsgFlags = gosnmp.AuthPriv
+		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 node.User,
+			AuthenticationProtocol:   gosnmp.SHA256,
+			AuthenticationPassphrase: node.Password,
+			PrivacyProtocol:          gosnmp.AES256,
+			PrivacyPassphrase:        node.Password,
+		}
+	case "v3sha256aes128":
+		agent.Version = gosnmp.Version3
+		agent.SecurityModel = gosnmp.UserSecurityModel
+		agent.MsgFlags = gosnmp.AuthPriv
+		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 node.User,
+			AuthenticationProtocol:   gosnmp.SHA256,
+			AuthenticationPassphrase: node.Password,
+			PrivacyProtocol:          gosnmp.AES,
+			PrivacyPassphrase:        node.Password,
+		}
+	case "v3sha512aes256":
+		agent.Version = gosnmp.Version3
+		agent.SecurityModel = gosnmp.UserSecurityModel
+		agent.MsgFlags = gosnmp.AuthPriv
+		agent.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 node.User,
+			AuthenticationProtocol:   gosnmp.SHA512,
+			AuthenticationPassphrase: node.Password,
+			PrivacyProtocol:          gosnmp.AES256,
+			PrivacyPassphrase:        node.Password,
+		}
+	}
+	return agent
 }

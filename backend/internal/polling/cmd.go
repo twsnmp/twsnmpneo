@@ -77,6 +77,8 @@ func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
+	extractor.RegisterBodyHelpers(stdoutStr, vm)
 	_ = vm.Set("exitCode", float64(exitCode))
 	_ = vm.Set("interval", float64(pe.PollInt))
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))

@@ -23,6 +23,7 @@
   import NodeDialog from "../components/NodeDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
   import PollingDialog from "../components/PollingDialog.svelte";
+  import PollingTemplateDialog from "../components/PollingTemplateDialog.svelte";
   import NetworkDialog from "../components/NetworkDialog.svelte";
   import LineDialog from "../components/LineDialog.svelte";
   import DrawItemDialog from "../components/DrawItemDialog.svelte";
@@ -102,6 +103,7 @@
   let detailNode = $state<NodeEnt | null>(null);
 
   let showPollingDialog = $state(false);
+  let showTemplateDialog = $state(false);
   let selectedPolling = $state<PollingEnt | null>(null);
 
   let showNetworkDialog = $state(false);
@@ -439,7 +441,7 @@
       showNodeDialog = true;
     } else if (activeCategory === "pollings") {
       selectedPolling = null;
-      showPollingDialog = true;
+      showTemplateDialog = true;
     } else if (activeCategory === "networks") {
       selectedNetwork = null;
       showNetworkDialog = true;
@@ -471,6 +473,10 @@
   // Polling actions
   const handleEditPolling = (p: PollingEnt) => {
     selectedPolling = { ...p };
+    showPollingDialog = true;
+  };
+  const handleSelectTemplate = (_template: any, prefilled?: Partial<PollingEnt>) => {
+    selectedPolling = prefilled ? ({ ...prefilled } as PollingEnt) : null;
     showPollingDialog = true;
   };
   const handleDeletePolling = async (id: string) => {
@@ -1191,6 +1197,13 @@
     pollings={pollings}
   />
 {/if}
+
+<PollingTemplateDialog
+  bind:show={showTemplateDialog}
+  {nodes}
+  onSelect={handleSelectTemplate}
+  onCreated={loadAll}
+/>
 
 <PollingDialog
   bind:show={showPollingDialog}

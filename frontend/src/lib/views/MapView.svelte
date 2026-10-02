@@ -29,6 +29,7 @@
   import GNMIToolDialog from "../components/GNMIToolDialog.svelte";
   import NetworkReportDialog from "../components/NetworkReportDialog.svelte";
   import PollingDialog from "../components/PollingDialog.svelte";
+  import PollingTemplateDialog from "../components/PollingTemplateDialog.svelte";
   import GridDialog from "../components/GridDialog.svelte";
   import {
     fetchNodes,
@@ -132,6 +133,8 @@
   let showGNMIToolDialog = $state(false);
   let showNodePollingList = $state(false);
   let showPollingDialog = $state(false);
+  let showTemplateDialog = $state(false);
+  let templateNodeId = $state("");
   let selectedPolling = $state<PollingEnt | null>(null);
 
   // Context menu state
@@ -547,13 +550,12 @@
 
   const handleAddNodePolling = () => {
     showNodePollingList = false;
-    selectedPolling = {
-      id: "",
-      node_id: contextTargetNode,
-      name: "Ping",
-      type: "ping",
-      state: "unknown",
-    };
+    templateNodeId = contextTargetNode;
+    showTemplateDialog = true;
+  };
+
+  const handleSelectTemplate = (_template: any, prefilled?: Partial<PollingEnt>) => {
+    selectedPolling = prefilled ? ({ ...prefilled } as PollingEnt) : null;
     showPollingDialog = true;
   };
 
@@ -1250,6 +1252,13 @@
     bind:show={showGNMIToolDialog}
     node={contextTargetNet ? null : (nodes.find((item) => (item.id || item.ID) === contextTargetNode) || null)}
     onAddPolling={handleAddPollingFromTool}
+  />
+  <PollingTemplateDialog
+    bind:show={showTemplateDialog}
+    nodeId={templateNodeId}
+    {nodes}
+    onSelect={handleSelectTemplate}
+    onCreated={reloadAllData}
   />
   <PollingDialog bind:show={showPollingDialog} bind:polling={selectedPolling} {nodes} onSave={reloadAllData} />
   {#if showNodePollingList}

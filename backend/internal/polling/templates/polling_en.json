@@ -1,0 +1,609 @@
+[
+  {
+    "Name": "New Polling",
+    "Type": "",
+    "Level": "off",
+    "Descr": "New Polling"
+  },  
+  {
+    "Name": "PING",
+    "Type": "ping",
+    "Level": "low",
+    "Descr": "PING"
+  },
+  {
+    "Name": "Smokeping Monitoring",
+    "Type": "ping",
+    "Mode": "smoke",
+    "Params": "count=10,size=64",
+    "Script": "loss < 10.0 && avg < 100 * 1000 * 1000",
+    "Level": "low",
+    "Descr": "Smokeping mode ping monitoring sending continuous PINGs (count) to measure response times (min, max, avg, median, jitter) and packet loss rate (loss %)."
+  },
+  {
+    "Name": "LAN port",
+    "Type": "snmp",
+    "Mode": "ifOperStatus",
+    "Params": "$i",
+    "Level": "low",
+    "Descr": "polling i/f state",
+    "AutoParam": "ifIndex"
+  },
+  {
+    "Name": "SNMP restart",
+    "Type": "snmp",
+    "Mode": "sysUpTime",
+    "Level": "low",
+    "Descr": "Detect reboot"
+  },
+  {
+    "Name": "SNMP traffic",
+    "Type": "snmp",
+    "Mode": "traffic",
+    "Params": "$i",
+    "Level": "off",
+    "Descr": "polling i/f traffic",
+    "AutoParam": "ifIndex"
+  },
+  {
+    "Name": "CPU usgage",
+    "Type": "snmp",
+    "Mode": "stats",
+    "Params": "hrProcessorLoad",
+    "Script": "avg < 90.0",
+    "Level": "low",
+    "Descr": "CPU usgae"
+  },
+  {
+    "Name": "Storage usage",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "hrStorageSize.$i,hrStorageUsed.$i",
+    "Script": "rate=hrStorageSize > 0 ? 100.0*(hrStorageUsed/hrStorageSize):0.0;rate < 90.0",
+    "Level": "low",
+    "Descr": "storage usage",
+    "AutoParam": "hrStorageSize"
+  },
+  {
+    "Name": "TCP port",
+    "Type": "tcp",
+    "Mode": "",
+    "Params": "TODO:port number",
+    "Level": "low",
+    "Descr": "TCP port"
+  },
+  {
+    "Name": "HTTP",
+    "Type": "http",
+    "Mode": "",
+    "Params": "TODO:port number or URL",
+    "Level": "low",
+    "Descr": "HTTP"
+  },
+  {
+    "Name": "HTTPS",
+    "Type": "http",
+    "Mode": "https",
+    "Params": "TODO:port number of URL",
+    "Level": "low",
+    "Descr": "HTTPS"
+  },
+  {
+    "Name": "TLS cert",
+    "Type": "tls",
+    "Mode": "expire",
+    "Params": "TODO:port number of host:port",
+    "Script": "30",
+    "Level": "low",
+    "Descr": "check server cert expire"
+  },
+  {
+    "Name": "TLS証明書検証",
+    "Type": "tls",
+    "Mode": "verify",
+    "Params": "TODO:port number of host:port",
+    "Level": "low",
+    "Descr": "check server cert"
+  },
+  {
+    "Name": "Process",
+    "Type": "snmp",
+    "Mode": "count",
+    "Params": "hrSWRunName",
+    "Filter":"TODO:process name",
+    "Script":"count > 0",
+    "Level": "low",
+    "Descr": "check number of process"
+  },
+  {
+    "Name": "TCP connection table",
+    "Type": "snmp",
+    "Mode": "count",
+    "Params": "tcpConnState",
+    "Filter":"TODO:Connection state(ex:5)",
+    "Script":"count > 0",
+    "Level": "low",
+    "Descr": "TCP connect table"
+  },
+  {
+    "Name": "process restart",
+    "Type": "snmp",
+    "Mode": "process",
+    "Params": "", 
+    "Filter": "TODO:process name",
+    "Script": "changed == 0",
+    "Level": "low",
+    "Descr": "check pid"
+  },
+  {
+    "Name": "process",
+    "Type": "snmp",
+    "Mode": "process",
+    "Params": "", 
+    "Filter": "TODO:porcess name",
+    "Script": "count > 0",
+    "Level": "low",
+    "Descr": "check process running"
+  },
+  {
+    "Name": "TCP connectin number",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "tcpCurrEstab.0",
+    "Script": "tcpCurrEstab < 10000",
+    "Level": "low",
+    "Descr": "TCP connectin number"
+  },
+  {
+    "Name": "NTP server",
+    "Type": "ntp",
+    "Mode": "",
+    "Params": "",
+    "Level": "low",
+    "Descr": "NTP server"
+  },
+  {
+    "Name": "DNS",
+    "Type": "dns",
+    "Mode": "host",
+    "Params": "TODO:host name",
+    "Script": "count > 0",
+    "Level": "low",
+    "Descr": "DNS"
+  },
+  {
+    "Name": "SSH",
+    "Type": "ssh",
+    "Mode": "",
+    "Params": "TODO:command",
+    "Script": "exitCode == 0",
+    "Level": "low",
+    "Descr": "SSH"
+  },
+  {
+    "Name": "SSH uptime",
+    "Type": "ssh",
+    "Params": "/usr/bin/uptime",
+    "Extractor": "load average: %{BASE10NUM:load1m}, %{BASE10NUM:load5m}, %{BASE10NUM:load15m}",
+    "Script": "load1m < 1.0",
+    "Level": "low",
+    "Descr": "SSH uptime"
+  },
+  {
+    "Name": "Syslog count",
+    "Type": "syslog",
+    "Mode": "count",
+    "Params": "TODO:host",
+    "Filter": "TODO:filter",
+    "Script": "count < 1",
+    "Level": "off",
+    "Descr": "syslog count"
+  },
+  {
+    "Name": "Syslog stats",
+    "Type": "syslog",
+    "Mode": "stats",
+    "Params": "",
+    "Filter": "",
+    "Script": "",
+    "Level": "off",
+    "Descr": "syslog stats"
+  },
+  {
+    "Name": "Syslog Threat Detection (Sigma)",
+    "Type": "syslog",
+    "Mode": "sigma",
+    "Params": "",
+    "Filter": "all",
+    "Script": "critical == 0 && high == 0",
+    "Level": "warn",
+    "Descr": "Monitor threats and compliance violations in Syslog using Sigma rules. Set pack names or rule names in Filter; checks all rules when empty."
+  },
+  {
+    "Name": "SNMP TRAP count",
+    "Type": "trap",
+    "Mode": "count",
+    "Params": "TODO:from",
+    "Filter": "TODO:TRAP type",
+    "Script": "count < 1",
+    "Level": "low",
+    "Descr": "TRAP count"
+  },
+  {
+    "Name": "SNMP TRAP stats",
+    "Type": "trap",
+    "Mode": "stats",
+    "Params": "",
+    "Filter": "",
+    "Script": "",
+    "Level": "off",
+    "Descr": "SNMP TRAP stats"
+  },
+  {
+    "Name": "TWSNMP",
+    "Type": "twsnmp",
+    "Level": "low",
+    "Descr": "TWSNMP"
+  },
+  {
+    "Name": "TwLogEye Notify",
+    "Type": "twlogeye",
+    "Level": "low",
+    "Script": "count < 1",
+    "Descr": "TwLogEye notify"
+  },
+  {
+    "Name": "TwLogEye Syslog Report",
+    "Type": "twlogeye",
+    "Mode": "report.syslog",
+    "Level": "off",
+    "Descr": "TwLogEye Syslog Report"
+  },
+  {
+    "Name": "TwLogEye SNMP TRAP Report",
+    "Type": "twlogeye",
+    "Mode": "report.snmptrap",
+    "Level": "off",
+    "Descr": "TwLogEye SNMP TRAP Report"
+  },
+  {
+    "Name": "TwLogEye Netflow Report",
+    "Type": "twlogeye",
+    "Mode": "report.netflow",
+    "Level": "off",
+    "Descr": "TwLogEye Netflow Report"
+  },
+  {
+    "Name": "TwLogEye Windows Event Log Report",
+    "Type": "twlogeye",
+    "Mode": "report.winevent",
+    "Level": "off",
+    "Descr": "TwLogEye Windows Event Log Report"
+  },
+{
+    "Name": "TwLogEye OpenTelemetry Report",
+    "Type": "twlogeye",
+    "Mode": "report.otel",
+    "Level": "off",
+    "Descr": "TwLogEye OpenTelemetry report monitoring"
+  },
+  {
+    "Name": "TwLogEye MQTT Report",
+    "Type": "twlogeye",
+    "Mode": "report.mqtt",
+    "Level": "off",
+    "Descr": "TwLogEye MQTT report monitoring"
+  },
+  {
+    "Name": "TwLogEye Anomaly Report",
+    "Type": "twlogeye",
+    "Mode": "report.anomaly",
+    "Level": "off",
+    "Descr": "TwLogEye Anomaly Report"
+  },
+  {
+    "Name": "New device",
+    "Type": "arplog",
+    "Mode": "",
+    "Filter": "New",
+    "Script": "count < 1",
+    "Level": "off",
+    "Descr": "New devcie by arp watch"
+  },
+  {
+    "Name": "Change MAC",
+    "Type": "arplog",
+    "Mode": "",
+    "Filter": "Change",
+    "Script": "count < 1",
+    "Level": "off",
+    "Descr": "change MAC by arp watch"
+  },
+  {
+    "Name": "ARP log stats",
+    "Type": "arplog",
+    "Mode": "stats",
+    "Filter": "",
+    "Script": "",
+    "Level": "off",
+    "Descr": "arp log stats"
+  },
+  {
+    "Name": "NetFlow stats",
+    "Type": "netflow",
+    "Mode": "stats",
+    "Params": "",
+    "Level": "off",
+    "Descr": "NetFlow stats",
+    "AutoMode": "disable"
+  },
+  {
+    "Name": "NetFlow count",
+    "Type": "netflow",
+    "Mode": "count",
+    "Params": "",
+    "Level": "off",
+    "Descr": "NetFlow count",
+    "AutoMode": "disable"
+  },
+  {
+    "Name": "NetFlow traffic",
+    "Type": "netflow",
+    "Mode": "traffic",
+    "Filter": "TODO:Filter",
+    "Params": "",
+    "Level": "off",
+    "Descr": "NetFlow traffic",
+    "AutoMode": "disable"
+  },
+  {
+    "Name": "MQTT connection confirmation",
+    "Type": "mqtt",
+    "Mode": "connect",
+    "Params": "TODO: MQTT blocker URL",
+    "Level": "off",
+    "Descr": "Check connection to MQTT blocker",
+    "AutoMode": "disable"
+  },
+  {
+    "Name": "MQTT Topic monitoring",
+    "Type": "mqtt",
+    "Mode": "subscribe",
+    "Params": "TODO: MQTT blocker URL",
+    "Filter": "TODO:Topic path",
+    "Level": "off",
+    "Descr": "MQTT Topic monitoring",
+    "AutoMode": "disable"
+  },  
+  {
+    "Name": "Pi-hole percent blocked",
+    "Type": "pihole",
+    "Mode": "stats/summary",
+    "Script": "var pb = jsonpath('$.queries.percent_blocked');\nsetResult('percent_blocked',pb);\npb < 10",
+    "Level": "off",
+    "Descr": "Pi-hole percent blocked"
+  },
+  {
+    "Name": "Resource monitor",
+    "Type": "monitor",
+    "Mode": "",
+    "Script": "",
+    "Level": "off",
+    "Descr": "Resource(CPU,Memory,Disk...) monitor "
+ },
+ {
+    "Name": "Mail server login confirmation",
+    "Type": "email",
+    "Mode": "login",
+    "Params": "TODO: Mail server URL (imaps://user:pass@imap.example.com:993/INBOX)",
+    "Level": "off",
+    "Descr": "Confirm login to IMAP or POP3 server"
+  },
+  {
+    "Name": "Mail Server Receipt Confirmation",
+    "Type": "email",
+    "Mode": "stats",
+    "Params": "TODO: Mail server URL (imaps://user:pass@imap.example.com:993/INBOX)",
+    "Script": "!newMsg",
+    "Level": "off",
+    "Descr": "Confirm receipt of new mail from IMAP or POP3 server"
+  },
+  {
+    "Name": "STUN Global IPv4 Monitor",
+    "Type": "stun",
+    "Mode": "ipv4",
+    "Params": "stun.cloudflare.com:3478",
+    "Script": "oldip == '' || oldip == ip",
+    "Level": "warn",
+    "Descr": "Monitor changes in the public global IPv4 address via STUN server"
+  },
+  {
+    "Name": "STUN Global IPv6 Monitor",
+    "Type": "stun",
+    "Mode": "ipv6",
+    "Params": "stun.cloudflare.com:3478",
+    "Script": "oldip == '' || oldip == ip",
+    "Level": "warn",
+    "Descr": "Monitor changes in the public global IPv6 address via STUN server"
+  },
+  {
+    "Name": "Yamaha CPU Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "yamahaRTCPUUtil5sec.0",
+    "Script": "yamahaRTCPUUtil5sec < 90.0",
+    "Level": "low",
+    "Descr": "Yamaha router CPU utilization (5s avg)"
+  },
+  {
+    "Name": "Yamaha Memory Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "yamahaRTMemoryUtil.0",
+    "Script": "yamahaRTMemoryUtil < 90.0",
+    "Level": "low",
+    "Descr": "Yamaha router memory utilization (%)"
+  },
+  {
+    "Name": "Yamaha Temperature",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "yamahaRTFirmwareEnvTemperature.0",
+    "Script": "yamahaRTFirmwareEnvTemperature < 55",
+    "Level": "low",
+    "Descr": "Yamaha router internal temperature (deg C)"
+  },
+  {
+    "Name": "Cisco CPU Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "cpmCPUTotal5minRev.1",
+    "Script": "cpmCPUTotal5minRev < 90.0",
+    "Level": "low",
+    "Descr": "Cisco device CPU utilization (5m avg)"
+  },
+  {
+    "Name": "Cisco Temperature Status",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "ciscoEnvMonTemperatureStatusValue.1",
+    "Script": "ciscoEnvMonTemperatureStatusValue < 60",
+    "Level": "low",
+    "Descr": "Cisco device temperature sensor (deg C)"
+  },
+  {
+    "Name": "Cisco Fan Status",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "ciscoEnvMonFanState.1",
+    "Script": "ciscoEnvMonFanState == 1",
+    "Level": "low",
+    "Descr": "Cisco device fan state (1: normal)"
+  },
+  {
+    "Name": "Cisco Power Supply Status",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "ciscoEnvMonSupplyState.1",
+    "Script": "ciscoEnvMonSupplyState == 1",
+    "Level": "low",
+    "Descr": "Cisco device power supply state (1: normal)"
+  },
+  {
+    "Name": "Juniper CPU Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "jnxOperatingCPU.9.1.0.0",
+    "Script": "jnxOperatingCPU < 90.0",
+    "Level": "low",
+    "Descr": "Juniper device CPU utilization (%)"
+  },
+  {
+    "Name": "Juniper Memory Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "jnxOperatingBuffer.9.1.0.0",
+    "Script": "jnxOperatingBuffer < 90.0",
+    "Level": "low",
+    "Descr": "Juniper device memory utilization (%)"
+  },
+  {
+    "Name": "Juniper Temperature",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "jnxOperatingTemp.9.1.0.0",
+    "Script": "jnxOperatingTemp < 65",
+    "Level": "low",
+    "Descr": "Juniper device temperature (deg C)"
+  },
+  {
+    "Name": "FortiGate CPU Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "fgSysCpuUsage.0",
+    "Script": "fgSysCpuUsage < 90.0",
+    "Level": "low",
+    "Descr": "FortiGate CPU utilization (%)"
+  },
+  {
+    "Name": "FortiGate Memory Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "fgSysMemUsage.0",
+    "Script": "fgSysMemUsage < 90.0",
+    "Level": "low",
+    "Descr": "FortiGate memory utilization (%)"
+  },
+  {
+    "Name": "Allied CPU Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "atpSysCpuUtil.0",
+    "Script": "atpSysCpuUtil < 90.0",
+    "Level": "low",
+    "Descr": "Allied Telesis switch CPU utilization"
+  },
+  {
+    "Name": "Allied Memory Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "atpSysMemoryUtil.0",
+    "Script": "atpSysMemoryUtil < 90.0",
+    "Level": "low",
+    "Descr": "Allied Telesis switch memory utilization"
+  },
+  {
+    "Name": "Synology CPU Utilization",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "synoCpuSystemLoad.0",
+    "Script": "synoCpuSystemLoad < 90.0",
+    "Level": "low",
+    "Descr": "Synology NAS CPU utilization (%)"
+  },
+  {
+    "Name": "Synology System Temperature",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "synoTemperature.0",
+    "Script": "synoTemperature < 60",
+    "Level": "low",
+    "Descr": "Synology NAS system temperature (deg C)"
+  },
+  {
+    "Name": "Synology Fan Status",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "synoSystemFanStatus.0",
+    "Script": "synoSystemFanStatus == 1",
+    "Level": "low",
+    "Descr": "Synology NAS fan status (1: Normal)"
+  },
+  {
+    "Name": "APC Battery Capacity",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "upsAdvBatteryCapacity.0",
+    "Script": "upsAdvBatteryCapacity > 20",
+    "Level": "high",
+    "Descr": "APC UPS battery capacity (%)"
+  },
+  {
+    "Name": "APC Battery Temperature",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "upsAdvBatteryTemperature.0",
+    "Script": "upsAdvBatteryTemperature < 40",
+    "Level": "warn",
+    "Descr": "APC UPS battery temperature (deg C)"
+  },
+  {
+    "Name": "Net-SNMP CPU Idle",
+    "Type": "snmp",
+    "Mode": "get",
+    "Params": "ssCpuIdle.0",
+    "Script": "ssCpuIdle > 10.0",
+    "Level": "low",
+    "Descr": "Net-SNMP CPU idle percentage (%)"
+  }
+]

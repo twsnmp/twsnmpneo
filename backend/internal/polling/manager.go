@@ -65,6 +65,18 @@ func NewManager(cfg Config) *Manager {
 	m.RegisterPoller("cmd", NewCmdPoller())
 	m.RegisterPoller("command", NewCmdPoller())
 	m.RegisterPoller("ssh", NewSSHPoller())
+	m.RegisterPoller("syslog", NewSyslogPoller(cfg.Store, cfg.LogStore))
+	m.RegisterPoller("trap", NewSnmpTrapPoller(cfg.Store, cfg.LogStore))
+	m.RegisterPoller("snmptrap", NewSnmpTrapPoller(cfg.Store, cfg.LogStore))
+	m.RegisterPoller("arplog", NewArpLogPoller(cfg.Store, cfg.LogStore))
+	m.RegisterPoller("netflow", NewNetFlowPoller(cfg.Store, cfg.LogStore))
+	m.RegisterPoller("gnmi", NewGNMIPoller())
+	m.RegisterPoller("mqtt", NewMQTTPoller())
+	m.RegisterPoller("email", NewEMailPoller())
+	m.RegisterPoller("pihole", NewPiHolePoller())
+	m.RegisterPoller("lxi", NewLXIPoller())
+	m.RegisterPoller("twlogeye", NewTwLogEyePoller())
+	m.RegisterPoller("report", NewCmdPoller()) // Placeholder for report type
 
 	return m
 }
@@ -153,6 +165,14 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 		res = &Result{
 			State:   StateHigh,
 			Message: err.Error(),
+		}
+	}
+
+	// Dynamic state override via setLevel(...) from JavaScript
+	if res.Fields != nil {
+		if lvl, ok := res.Fields["_level"].(string); ok && lvl != "" {
+			res.State = lvl
+			delete(res.Fields, "_level")
 		}
 	}
 

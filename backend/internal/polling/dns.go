@@ -138,6 +138,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 
 	// JS script evaluation
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))
 	_ = vm.Set("count", float64(len(out)))
 	for k, v := range fields {

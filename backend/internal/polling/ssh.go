@@ -137,6 +137,8 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
+	extractor.RegisterBodyHelpers(outStr, vm)
 	_ = vm.Set("exitCode", float64(exitCode))
 	_ = vm.Set("interval", float64(pe.PollInt))
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))

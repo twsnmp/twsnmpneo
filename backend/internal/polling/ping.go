@@ -269,7 +269,7 @@ func (p *PingPoller) pollSmoke(pe *datastore.PollingEnt, target string) (*Result
 		state = StateNormal
 	}
 	if pe.Script != "" {
-		ok, err := runPingScript(pe.Script, fields, pe.PollInt)
+		ok, err := runPingScript(pe, fields)
 		if err != nil {
 			message := fmt.Sprintf("invalid script err=%v", err)
 			fields["error"] = message
@@ -294,17 +294,15 @@ func (p *PingPoller) pollSmoke(pe *datastore.PollingEnt, target string) (*Result
 	}, nil
 }
 
-func runPingScript(script string, fields map[string]interface{}, interval int) (bool, error) {
+func runPingScript(pe *datastore.PollingEnt, fields map[string]interface{}) (bool, error) {
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	for key, value := range fields {
 		if err := vm.Set(key, value); err != nil {
 			return false, fmt.Errorf("set script variable %q: %w", key, err)
 		}
 	}
-	if err := vm.Set("interval", interval); err != nil {
-		return false, fmt.Errorf("set script variable interval: %w", err)
-	}
-	value, err := vm.Run(script)
+	value, err := vm.Run(pe.Script)
 	if err != nil {
 		return false, err
 	}

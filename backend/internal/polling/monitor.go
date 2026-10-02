@@ -66,6 +66,7 @@ func (p *MonitorPoller) Poll(_ context.Context, pe *datastore.PollingEnt, _ *dat
 	}
 
 	vm := otto.New()
+	SetupOttoVM(pe, vm, fields)
 	for k, v := range fields {
 		_ = vm.Set(k, v)
 	}

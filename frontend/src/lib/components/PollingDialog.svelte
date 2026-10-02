@@ -77,18 +77,29 @@
   });
 
   const pollingTypes = [
-    { value: "ping", label: "PING (ICMP Echo)" },
-    { value: "snmp", label: "SNMP (sysUpTime / OID)" },
-    { value: "http", label: "HTTP / HTTPS (Web)" },
-    { value: "tcp", label: "TCP Port (Socket)" },
-    { value: "tls", label: "TLS (SSL Certificate)" },
-    { value: "dns", label: "DNS Lookup" },
-    { value: "ntp", label: "NTP Time Sync" },
-    { value: "stun", label: "STUN (Public IP / NAT)" },
-    { value: "twsnmp", label: "TWSNMP (Remote Node)" },
-    { value: "monitor", label: "Monitor (Host Resource)" },
-    { value: "cmd", label: "Command (Local Shell / Script)" },
-    { value: "ssh", label: "SSH (Remote Command)" },
+    { value: "ping", label: "PING" },
+    { value: "snmp", label: "SNMP" },
+    { value: "gnmi", label: "gNMI" },
+    { value: "tcp", label: "TCP" },
+    { value: "http", label: "HTTP" },
+    { value: "tls", label: "TLS" },
+    { value: "dns", label: "DNS" },
+    { value: "ntp", label: "NTP" },
+    { value: "syslog", label: "SYSLOG" },
+    { value: "trap", label: "SNMP TRAP" },
+    { value: "arplog", label: "ARP Log" },
+    { value: "netflow", label: "NetFlow" },
+    { value: "cmd", label: "Command" },
+    { value: "ssh", label: "SSH" },
+    { value: "report", label: "Report" },
+    { value: "twsnmp", label: "TWSNMP" },
+    { value: "twlogeye", label: "TwLogEye" },
+    { value: "pihole", label: "Pi-Hole" },
+    { value: "lxi", label: "LXI" },
+    { value: "monitor", label: "Monitor" },
+    { value: "mqtt", label: "MQTT" },
+    { value: "email", label: "EMAIL" },
+    { value: "stun", label: "STUN" },
   ];
 
   const controlClass =
@@ -311,6 +322,55 @@
               <select id="poll-mode" bind:value={mode} class={controlClass}>
                 <option value="">udp4 (IPv4)</option>
                 <option value="ipv6">ipv6 / udp6 (IPv6)</option>
+              </select>
+            {:else if type === "syslog"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">count (ログ件数カウント)</option>
+                <option value="pri">pri (プライオリティ別集計)</option>
+                <option value="stats">stats (統計集計)</option>
+                <option value="sigma">sigma (Sigma脅威検知ルール)</option>
+              </select>
+            {:else if type === "trap" || type === "snmptrap"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">count (TRAP件数カウント)</option>
+                <option value="stats">stats (統計集計)</option>
+              </select>
+            {:else if type === "arplog"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">count (ARPイベントカウント)</option>
+                <option value="stats">stats (統計集計)</option>
+              </select>
+            {:else if type === "netflow"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="traffic">traffic (流量 bps/pps)</option>
+                <option value="count">count (フロー件数)</option>
+                <option value="stats">stats (統計集計)</option>
+              </select>
+            {:else if type === "gnmi"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">get (テレメトリ取得)</option>
+                <option value="subscribe">subscribe (購読ストリーム)</option>
+              </select>
+            {:else if type === "mqtt"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">subscribe (トピック購読)</option>
+                <option value="connect">connect (接続確認・RTT)</option>
+              </select>
+            {:else if type === "email"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">stats (メール件数・サイズ)</option>
+                <option value="login">login (接続確認・RTT)</option>
+              </select>
+            {:else if type === "twlogeye"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="">notify (通知監視)</option>
+                <option value="report.syslog">report.syslog</option>
+                <option value="report.trap">report.trap</option>
+                <option value="report.netflow">report.netflow</option>
+                <option value="report.winevent">report.winevent</option>
+                <option value="report.mqtt">report.mqtt</option>
+                <option value="report.otel">report.otel</option>
+                <option value="report.anomaly">report.anomaly</option>
               </select>
             {:else}
               <input id="poll-mode" class={controlClass} bind:value={mode} />

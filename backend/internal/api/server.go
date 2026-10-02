@@ -499,6 +499,71 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "count": count})
 		})
 
+		// Polling Templates
+		apiGroup.GET("/polling/templates", func(c echo.Context) error {
+			lang := c.QueryParam("lang")
+			if lang == "" {
+				lang = i18n.GetLang()
+			}
+			templates, err := polling.LoadTemplates(lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, templates)
+		})
+
+		apiGroup.GET("/polling/template/:id", func(c echo.Context) error {
+			id, err := strconv.Atoi(c.Param("id"))
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid template id"})
+			}
+			lang := c.QueryParam("lang")
+			if lang == "" {
+				lang = i18n.GetLang()
+			}
+			tmpl, err := polling.GetTemplate(lang, id)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, tmpl)
+		})
+
+		apiGroup.POST("/polling/auto", func(c echo.Context) error {
+			var req struct {
+				NodeID     string `json:"nodeID"`
+				TemplateID int    `json:"templateID"`
+				Lang       string `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			lang := req.Lang
+			if lang == "" {
+				lang = i18n.GetLang()
+			}
+			tmpl, err := polling.GetTemplate(lang, req.TemplateID)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+			}
+			var node *datastore.NodeEnt
+			if req.NodeID != "" {
+				node, _ = cfg.Store.GetNode(c.Request().Context(), req.NodeID)
+			}
+			pollings := polling.GenerateAutoPollings(c.Request().Context(), node, tmpl)
+			return c.JSON(http.StatusOK, pollings)
+		})
+
+		apiGroup.POST("/polling/autogrok", func(c echo.Context) error {
+			var req struct {
+				TestData string `json:"testData"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			pattern := polling.AutoGrok(req.TestData)
+			return c.JSON(http.StatusOK, map[string]string{"pattern": pattern})
+		})
+
 		// Lines
 		apiGroup.GET("/lines", func(c echo.Context) error {
 			lines, err := cfg.Store.ListLines(c.Request().Context())
