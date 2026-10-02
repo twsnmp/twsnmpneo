@@ -56,11 +56,11 @@
     | "device"
     | "ipam"
     | "polling"
-    | "flow"
-    | "sflow"
     | "event"
     | "syslog"
     | "trap"
+    | "flow"
+    | "sflow"
     | "arp"
     | "cert"
     | "sensor"
@@ -95,11 +95,11 @@
     { id: "device", name: $_("report.tabDevice"), icon: Laptop },
     { id: "ipam", name: $_("report.tabIpam"), icon: Network },
     { id: "polling", name: $_("report.tabPolling"), icon: Activity },
-    { id: "flow", name: $_("report.tabFlow"), icon: BarChart3 },
-    { id: "sflow", name: $_("report.tabSFlow"), icon: Share2 },
     { id: "event", name: $_("report.tabEvent"), icon: FileText },
     { id: "syslog", name: $_("report.tabSyslog"), icon: ScrollText },
     { id: "trap", name: $_("report.tabTrap"), icon: Radio },
+    { id: "flow", name: $_("report.tabFlow"), icon: BarChart3 },
+    { id: "sflow", name: $_("report.tabSFlow"), icon: Share2 },
     { id: "arp", name: $_("report.tabArp"), icon: Eye },
     { id: "cert", name: $_("report.tabCert"), icon: ShieldCheck },
     { id: "sensor", name: $_("report.tabSensor"), icon: Thermometer },
@@ -279,18 +279,6 @@
         {pollings}
         {nodes}
       />
-    {:else if activeReport === "flow"}
-      <NetFlowReport
-        bind:this={activeReportRef}
-        {searchQuery}
-        {netflowLogs}
-      />
-    {:else if activeReport === "sflow"}
-      <SFlowReport
-        bind:this={activeReportRef}
-        {searchQuery}
-        {sflowLogs}
-      />
     {:else if activeReport === "event"}
       <EventReport
         bind:this={activeReportRef}
@@ -311,6 +299,18 @@
         {searchQuery}
         {trapLogs}
         {nodes}
+      />
+    {:else if activeReport === "flow"}
+      <NetFlowReport
+        bind:this={activeReportRef}
+        {searchQuery}
+        {netflowLogs}
+      />
+    {:else if activeReport === "sflow"}
+      <SFlowReport
+        bind:this={activeReportRef}
+        {searchQuery}
+        {sflowLogs}
       />
     {:else if activeReport === "arp"}
       <ArpReport

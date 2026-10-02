@@ -198,17 +198,18 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Full column sorting, standardized state badges (colored dot + badge tag), and pretty-printed payload code block.
    - Fully theme-adaptive 7-tab MQTT analytics report modal (`MQTTReportModal.svelte`) and independent Parquet logs (`type: mqtt`) with date filtering and automatic rotation.
 8. **Report View (`ReportView.svelte`)**:
-   - Grouped analytics suites:
+   - Analytics suites:
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
      - **IPAM & IP Analytics**: Multi-subnet address heatmap (ECharts aggregated blocks with drilldown), IPv4 inventory, IPv6 inventory, host communication graphs.
-     - **Flow & Traffic Analytics**: Top server ports, Flows, Fumble flows, Ethernet types, DNS queries, RADIUS, TLS.
+     - **Polling Availability (SLA)**: Polling SLA stats, response times, and failure rates.
      - **Event Log Analytics**: Aggregated event logs categorized by event type, severity level, and associated nodes, including breakdown and trend analytics.
      - **Syslog Analytics**: Aggregated Syslog messages categorized by source host, application tag, facility, and severity level.
      - **SNMP TRAP Analytics**: Aggregated SNMP TRAP messages categorized by source, trap type, enterprise, and severity level.
+     - **NetFlow Analytics**: Top server ports, Flows, Fumble flows, Ethernet types, DNS queries, RADIUS, TLS.
+     - **sFlow Analytics**: Sampled flow and counter aggregation.
      - **ARP Watch Analytics**: Aggregated ARP monitoring events categorized by IP/node, vendor, state (new device/MAC change), and severity level.
-     - **Windows Analytics**: Event ID stats, Logon logs, Account events, Kerberos, Privilege access, Processes, Tasks.
-     - **Sensor & IoT Analytics**: Environmental (temp/humidity), Power consumption, Motion sensors, SDR RF power, MQTT clients/topics.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
+     - **Sensor & IoT Analytics**: Environmental (temp/humidity), Power consumption, Motion sensors, SDR RF power, MQTT clients/topics.
      - **AI Anomaly**: AI anomaly scores across nodes and pollings.
 9. **Tool View (`ToolView.svelte`)**:
    - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface with enterprise MIB resolution.
