@@ -204,6 +204,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **Flow & Traffic Analytics**: Top server ports, Flows, Fumble flows, Ethernet types, DNS queries, RADIUS, TLS.
      - **Event Log Analytics**: Aggregated event logs categorized by event type, severity level, and associated nodes, including breakdown and trend analytics.
      - **Syslog Analytics**: Aggregated Syslog messages categorized by source host, application tag, facility, and severity level.
+     - **SNMP TRAP Analytics**: Aggregated SNMP TRAP messages categorized by source, trap type, enterprise, and severity level.
      - **Windows Analytics**: Event ID stats, Logon logs, Account events, Kerberos, Privilege access, Processes, Tasks.
      - **Sensor & IoT Analytics**: Environmental (temp/humidity), Power consumption, Motion sensors, SDR RF power, MQTT clients/topics.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.

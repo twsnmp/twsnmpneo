@@ -9,6 +9,7 @@
     Share2,
     FileText,
     ScrollText,
+    Radio,
     ShieldCheck,
     Thermometer,
     Sparkles,
@@ -44,6 +45,7 @@
   import SFlowReport from "./reports/SFlowReport.svelte";
   import EventReport from "./reports/EventReport.svelte";
   import SyslogReport from "./reports/SyslogReport.svelte";
+  import TrapReport from "./reports/TrapReport.svelte";
   import CertReport from "./reports/CertReport.svelte";
   import SensorReport from "./reports/SensorReport.svelte";
   import AnomalyReport from "./reports/AnomalyReport.svelte";
@@ -56,6 +58,7 @@
     | "sflow"
     | "event"
     | "syslog"
+    | "trap"
     | "cert"
     | "sensor"
     | "ai";
@@ -81,6 +84,7 @@
   let netflowLogs = $state<ParquetLogRecord[]>([]);
   let sflowLogs = $state<ParquetLogRecord[]>([]);
   let syslogLogs = $state<ParquetLogRecord[]>([]);
+  let trapLogs = $state<ParquetLogRecord[]>([]);
   let certMonitors = $state<CertMonitorEnt[]>([]);
   let mqttStats = $state<MqttStatEnt[]>([]);
 
@@ -92,6 +96,7 @@
     { id: "sflow", name: $_("report.tabSFlow"), icon: Share2 },
     { id: "event", name: $_("report.tabEvent"), icon: FileText },
     { id: "syslog", name: $_("report.tabSyslog"), icon: ScrollText },
+    { id: "trap", name: $_("report.tabTrap"), icon: Radio },
     { id: "cert", name: $_("report.tabCert"), icon: ShieldCheck },
     { id: "sensor", name: $_("report.tabSensor"), icon: Thermometer },
     { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
@@ -102,7 +107,7 @@
     const now = Date.now();
     const start24h = (now - 24 * 60 * 60 * 1000) * 1e6; // UnixNano
     try {
-      const [n, p, l, a, ipam, netflows, sflows, certs, mqtt, arps, syslogs] = await Promise.all([
+      const [n, p, l, a, ipam, netflows, sflows, certs, mqtt, arps, syslogs, traps] = await Promise.all([
         fetchNodes().catch(() => []),
         fetchPollings().catch(() => []),
         fetchEventLogs().catch(() => []),
@@ -120,6 +125,7 @@
         fetchMqttStats().catch(() => []),
         queryParquetLogs({ type: "arplog", limit: 2000 }).catch(() => []),
         queryParquetLogs({ type: "syslog", start: start24h, limit: 10000 }).catch(() => []),
+        queryParquetLogs({ type: "trap", start: start24h, limit: 10000 }).catch(() => []),
       ]);
       nodes = n;
       pollings = p;
@@ -132,6 +138,7 @@
       mqttStats = mqtt;
       arpLogs = arps;
       syslogLogs = syslogs;
+      trapLogs = traps;
     } catch (e) {
       console.error("Failed to load report data:", e);
     } finally {
@@ -292,6 +299,13 @@
         bind:this={activeReportRef}
         {searchQuery}
         {syslogLogs}
+        {nodes}
+      />
+    {:else if activeReport === "trap"}
+      <TrapReport
+        bind:this={activeReportRef}
+        {searchQuery}
+        {trapLogs}
         {nodes}
       />
     {:else if activeReport === "cert"}
