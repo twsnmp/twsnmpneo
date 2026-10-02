@@ -1194,7 +1194,8 @@
   <NodeDetailModal
     bind:show={showDetailModal}
     node={detailNode}
-    pollings={pollings}
+    bind:pollings={pollings}
+    onPollingChanged={loadAll}
   />
 {/if}
 

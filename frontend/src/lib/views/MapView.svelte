@@ -93,7 +93,6 @@
     Eye,
     Radio,
     Power,
-    ListChecks,
     ExternalLink,
   } from "@lucide/svelte";
 
@@ -131,7 +130,6 @@
   let showPingDialog = $state(false);
   let showMIBBrowserDialog = $state(false);
   let showGNMIToolDialog = $state(false);
-  let showNodePollingList = $state(false);
   let showPollingDialog = $state(false);
   let showTemplateDialog = $state(false);
   let templateNodeId = $state("");
@@ -537,36 +535,9 @@
     showPollingDialog = true;
   };
 
-  const handleOpenNodePolling = () => {
-    showNodePollingList = true;
-    showContextMenu = false;
-  };
-
-  const handleEditNodePolling = (polling: PollingEnt) => {
-    showNodePollingList = false;
-    selectedPolling = { ...polling };
-    showPollingDialog = true;
-  };
-
-  const handleAddNodePolling = () => {
-    showNodePollingList = false;
-    templateNodeId = contextTargetNode;
-    showTemplateDialog = true;
-  };
-
   const handleSelectTemplate = (_template: any, prefilled?: Partial<PollingEnt>) => {
     selectedPolling = prefilled ? ({ ...prefilled } as PollingEnt) : null;
     showPollingDialog = true;
-  };
-
-  const handleDeleteNodePolling = async (pollingId: string) => {
-    if (!window.confirm($_("list.confirmDelete.polling"))) return;
-    try {
-      await deletePolling(pollingId);
-      await reloadAllData();
-    } catch (e) {
-      showToastMessage("Error: " + (e instanceof Error ? e.message : String(e)));
-    }
   };
 
   const handleRecheckTargetNode = async () => {
@@ -938,10 +909,6 @@
           <Edit3 class="h-3.5 w-3.5 text-slate-400" />
           {$_('map.context.editNode')}
         </button>
-        <button onclick={handleOpenNodePolling} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <ListChecks class="h-3.5 w-3.5 text-blue-500" />
-          {$_('map.context.polling')}
-        </button>
         <button onclick={handleRecheckTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <RefreshCw class="h-3.5 w-3.5 text-blue-500" />
           {$_('map.context.recheck')}
@@ -1228,8 +1195,9 @@
   <NodeDetailModal
     bind:show={showNodeDetailModal}
     node={detailNode}
-    {pollings}
+    bind:pollings={pollings}
     logs={eventLogs}
+    onPollingChanged={reloadAllData}
   />
   <NetworkReportDialog
     bind:show={showNetworkReport}
@@ -1261,42 +1229,6 @@
     onCreated={reloadAllData}
   />
   <PollingDialog bind:show={showPollingDialog} bind:polling={selectedPolling} {nodes} onSave={reloadAllData} />
-  {#if showNodePollingList}
-    <div class="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" tabindex="-1" onkeydown={(e) => e.key === "Escape" && (showNodePollingList = false)}>
-      <div class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-white text-slate-800 shadow-2xl dark:bg-[#0b1329] dark:text-slate-100">
-        <div class="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-          <div>
-            <h2 class="text-sm font-bold">{$_('map.context.polling')} — {nodes.find((item) => (item.id || item.ID) === contextTargetNode)?.name}</h2>
-            <p class="text-xs text-slate-500">{$_('map.tools.pollingForNode')}</p>
-          </div>
-          <button type="button" aria-label={$_('common.close')} onclick={() => (showNodePollingList = false)} class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X class="h-4 w-4" /></button>
-        </div>
-        <div class="flex-1 overflow-auto p-4">
-          <div class="mb-3 flex justify-end">
-            <button type="button" onclick={handleAddNodePolling} class="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-500">{$_('map.tools.addPolling')}</button>
-          </div>
-          <div class="overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
-            <table class="w-full text-left text-xs">
-              <thead class="bg-slate-100 dark:bg-slate-900"><tr><th class="p-2">{$_('list.table.pollingName')}</th><th class="p-2">{$_('list.table.type')}</th><th class="p-2">{$_('list.table.status')}</th><th class="p-2"></th></tr></thead>
-              <tbody>
-                {#each pollings.filter((poll) => (poll.node_id || poll.NodeID) === contextTargetNode) as poll (poll.id || poll.ID)}
-                  <tr class="border-t border-slate-200 dark:border-slate-800">
-                    <td class="p-2">{poll.name || poll.Name}</td><td class="p-2">{poll.type || poll.Type}</td><td class="p-2">{poll.state || poll.State}</td>
-                    <td class="p-2 text-right">
-                      <button type="button" onclick={() => handleEditNodePolling(poll)} class="rounded-md px-2 py-1 text-cyan-700 hover:bg-cyan-50 dark:text-cyan-300 dark:hover:bg-slate-800">{$_('common.edit')}</button>
-                      <button type="button" onclick={() => handleDeleteNodePolling(poll.id || poll.ID || "")} class="rounded-md px-2 py-1 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40">{$_('common.delete')}</button>
-                    </td>
-                  </tr>
-                {:else}
-                  <tr><td colspan="4" class="p-4 text-center text-slate-500">{$_('map.tools.noPollings')}</td></tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  {/if}
   <GridDialog bind:show={showGridDialog} onTest={handleGridTest} onExec={handleGridExec} />
 
   <!-- Floating Toast Notification for Auto Layout / Check All -->

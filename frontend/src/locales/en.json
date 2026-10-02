@@ -61,7 +61,8 @@
     "error": "Error",
     "warning": "Warning",
     "info": "Info",
-    "upload": "Upload"
+    "upload": "Upload",
+    "view": "View"
   },
   "mib": {
     "dialogTitle": "MIB Browser",
@@ -1790,5 +1791,15 @@
     "NoMatches": "No matching templates found",
     "SearchPlaceholder": "Search templates...",
     "Back": "Back"
+  },
+  "pollingDetail": {
+    "title": "Polling Details",
+    "basicInfo": "Basic Info",
+    "params": "Parameters & Filters",
+    "script": "Evaluation Script",
+    "schedule": "Schedule & Execution",
+    "latestResult": "Latest Execution Result",
+    "noResult": "No execution result available",
+    "deleteConfirm": "Are you sure you want to delete this polling?"
   }
 }

@@ -4,6 +4,7 @@
   import { getStateColor, getStateName, formatTimeStr } from "../common";
   import {
     fetchPollings,
+    deletePolling,
     fetchEventLogs,
     fetchNodePorts,
     fetchNodeHostResource,
@@ -19,6 +20,8 @@
     RmonEtherStatsEnt,
     NodeDiagnoseResult,
   } from "../api";
+  import PollingDetailModal from "./PollingDetailModal.svelte";
+  import PollingDialog from "./PollingDialog.svelte";
   import { _ } from "svelte-i18n";
   import {
     X,
@@ -48,20 +51,25 @@
     ChevronsRight,
     Maximize2,
     Minimize2,
+    Eye,
+    Pencil,
+    Trash2,
   } from "@lucide/svelte";
 
   let {
     show = $bindable(false),
     node = null,
-    pollings = [],
+    pollings = $bindable([]),
     logs = [],
     initialTab = "basic",
+    onPollingChanged = () => {},
   } = $props<{
     show: boolean;
     node: NodeEnt | null;
     pollings?: PollingEnt[];
     logs?: EventLogEnt[];
     initialTab?: TabType;
+    onPollingChanged?: () => void;
   }>();
 
   type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo" | "rmon" | "diagnose";
@@ -103,6 +111,68 @@
   let internalLogs = $state<EventLogEnt[]>([]);
   let isLoadingPollings = $state(false);
   let isLoadingLogs = $state(false);
+
+  // Polling Sub-Dialog states
+  let showPollingDetailModal = $state(false);
+  let detailPolling = $state<PollingEnt | null>(null);
+  let showPollingEditDialog = $state(false);
+  let editPolling = $state<PollingEnt | null>(null);
+
+  const reloadPollings = async () => {
+    isLoadingPollings = true;
+    try {
+      const res = await fetchPollings();
+      internalPollings = res;
+      pollings = res;
+    } catch (e) {
+      console.error("Failed to reload pollings:", e);
+    } finally {
+      isLoadingPollings = false;
+    }
+  };
+
+  const handleViewPolling = (p: PollingEnt) => {
+    detailPolling = p;
+    showPollingDetailModal = true;
+  };
+
+  const handleEditPolling = (p: PollingEnt) => {
+    editPolling = { ...p };
+    showPollingEditDialog = true;
+  };
+
+  const handleDeletePolling = async (p: PollingEnt) => {
+    const pName = p.name || (p as any).Name || "このポーリング";
+    const msg = $_('pollingDetail.deleteConfirm') || `ポーリング「${pName}」を削除してもよろしいですか？`;
+    if (confirm(msg)) {
+      try {
+        const id = p.id || (p as any).ID || "";
+        if (id) {
+          await deletePolling(id);
+          await reloadPollings();
+          onPollingChanged();
+        }
+      } catch (e) {
+        console.error("Failed to delete polling:", e);
+      }
+    }
+  };
+
+  const getLevelBadgeClass = (lvl: string = "off") => {
+    switch (lvl?.toLowerCase()) {
+      case "high":
+        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30";
+      case "low":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30";
+      case "warn":
+        return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30";
+      case "info":
+        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30";
+      case "off":
+      default:
+        return "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-400/30";
+    }
+  };
 
   // Copy feedback states
   let copiedIP = $state(false);
@@ -1040,8 +1110,18 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="py-1.5 px-3 w-24 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("type")}>
-                        <div class="inline-flex items-center gap-1">
+                      <th class="py-1.5 px-3 w-24 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("level")}>
+                        <div class="inline-flex items-center gap-1 whitespace-nowrap">
+                          <span class="whitespace-nowrap">{$_('polling.level')}</span>
+                          {#if pollSortCol === "level"}
+                            {#if pollSortDir === "asc"}<ArrowUp class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{/if}
+                          {:else}
+                            <ArrowUpDown class="h-3 w-3 text-slate-400" />
+                          {/if}
+                        </div>
+                      </th>
+                      <th class="py-1.5 px-3 w-24 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("type")}>
+                        <div class="inline-flex items-center gap-1 whitespace-nowrap">
                           <span>{$_('nodeDetail.colType')}</span>
                           {#if pollSortCol === "type"}
                             {#if pollSortDir === "asc"}<ArrowUp class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{/if}
@@ -1050,18 +1130,8 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="py-1.5 px-3 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("target")}>
-                        <div class="inline-flex items-center gap-1">
-                          <span>{$_('nodeDetail.colTarget')}</span>
-                          {#if pollSortCol === "target"}
-                            {#if pollSortDir === "asc"}<ArrowUp class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{/if}
-                          {:else}
-                            <ArrowUpDown class="h-3 w-3 text-slate-400" />
-                          {/if}
-                        </div>
-                      </th>
-                      <th class="py-1.5 px-3 w-28 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("last_val")}>
-                        <div class="inline-flex items-center gap-1">
+                      <th class="py-1.5 px-3 w-28 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("last_val")}>
+                        <div class="inline-flex items-center gap-1 whitespace-nowrap">
                           <span>{$_('nodeDetail.colLastVal')}</span>
                           {#if pollSortCol === "last_val"}
                             {#if pollSortDir === "asc"}<ArrowUp class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{/if}
@@ -1080,10 +1150,14 @@
                           {/if}
                         </div>
                       </th>
+                      <th class="py-1.5 px-3 w-24 text-right uppercase text-[10px] font-semibold text-slate-500">
+                        {$_('common.action')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
                     {#each paginatedPollings as p}
+                      {@const lvl = ((p as PollingEnt).level || (p as any).Level || "off").toLowerCase()}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         <td class="py-1 px-2 whitespace-nowrap">
                           <span
@@ -1096,13 +1170,50 @@
                         </td>
                         <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{(p as PollingEnt).name}</td>
                         <td class="py-1 px-2 whitespace-nowrap">
+                          <span
+                            class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border {getLevelBadgeClass(lvl)}"
+                          >
+                            {$_(`polling.levels.${lvl}`) || lvl}
+                          </span>
+                        </td>
+                        <td class="py-1 px-2 whitespace-nowrap">
                           <span class="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase bg-blue-50 dark:bg-cyan-500/10 text-blue-700 dark:text-cyan-300 border border-blue-200 dark:border-cyan-500/30">
                             {(p as PollingEnt).type}
                           </span>
                         </td>
-                        <td class="py-1 px-2 text-slate-600 dark:text-slate-400 truncate max-w-xs text-[11px]">{(p as PollingEnt).params || (p as PollingEnt).target || "-"}</td>
                         <td class="py-1 px-2 text-blue-600 dark:text-cyan-400 font-semibold whitespace-nowrap text-[11px]">{(p as PollingEnt).last_val ?? "-"}</td>
                         <td class="py-1 px-2 text-slate-500 text-[11px] whitespace-nowrap">{(p as PollingEnt).last_time ? formatTimeStr((p as PollingEnt).last_time) : "-"}</td>
+                        <td class="py-1 px-2 whitespace-nowrap text-right">
+                          <div class="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              title={$_('common.view')}
+                              aria-label={$_('common.view')}
+                              onclick={() => handleViewPolling(p as PollingEnt)}
+                              class="p-1 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              <Eye class="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title={$_('common.edit')}
+                              aria-label={$_('common.edit')}
+                              onclick={() => handleEditPolling(p as PollingEnt)}
+                              class="p-1 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              <Pencil class="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title={$_('common.delete')}
+                              aria-label={$_('common.delete')}
+                              onclick={() => handleDeletePolling(p as PollingEnt)}
+                              class="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              <Trash2 class="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     {/each}
                   </tbody>
@@ -1781,4 +1892,25 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if showPollingDetailModal}
+  <PollingDetailModal
+    bind:show={showPollingDetailModal}
+    polling={detailPolling}
+    {node}
+    onEdit={(p) => handleEditPolling(p)}
+  />
+{/if}
+
+{#if showPollingEditDialog}
+  <PollingDialog
+    bind:show={showPollingEditDialog}
+    bind:polling={editPolling}
+    nodes={node ? [node] : []}
+    onSave={async () => {
+      await reloadPollings();
+      onPollingChanged();
+    }}
+  />
 {/if}

@@ -61,7 +61,8 @@
     "error": "エラー",
     "warning": "警告",
     "info": "情報",
-    "upload": "アップロード"
+    "upload": "アップロード",
+    "view": "表示"
   },
   "mib": {
     "dialogTitle": "MIBブラウザー",
@@ -844,11 +845,11 @@
     "modeDefault": "通常",
     "modeLine": "ライン品質測定",
     "modeSmoke": "連続Ping統計",
-    "level": "障害レベル",
+    "level": "レベル",
     "levels": {
-      "high": "高",
-      "low": "低",
-      "warn": "警告",
+      "high": "重度",
+      "low": "軽度",
+      "warn": "注意",
       "info": "情報",
       "off": "停止"
     },
@@ -1790,5 +1791,15 @@
     "NoMatches": "一致するテンプレートが見つかりません",
     "SearchPlaceholder": "テンプレート検索...",
     "Back": "戻る"
+  },
+  "pollingDetail": {
+    "title": "ポーリング詳細情報",
+    "basicInfo": "基本情報",
+    "params": "パラメータ・抽出条件",
+    "script": "判定スクリプト",
+    "schedule": "スケジュール・実行設定",
+    "latestResult": "最新の実行結果",
+    "noResult": "実行結果データはありません",
+    "deleteConfirm": "このポーリングを削除してもよろしいですか？"
   }
 }
