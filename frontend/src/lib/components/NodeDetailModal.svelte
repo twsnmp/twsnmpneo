@@ -95,11 +95,13 @@
   let isLoadingPorts = $state(false);
   let hostResource = $state<HostResourceEnt | null>(null);
   let isLoadingHostResource = $state(false);
+  let isHostResourceLoaded = $state(false);
   let hostResourceError = $state<string>("");
 
   // RMON states
   let rmonStats = $state<RmonEtherStatsEnt[]>([]);
   let isLoadingRmon = $state(false);
+  let isRmonLoaded = $state(false);
   let rmonError = $state<string>("");
 
   // Diagnose states
@@ -391,8 +393,9 @@
     }
   }
 
-  const loadHostResourceData = async () => {
-    if (!targetNodeId || !isSnmpConfigured || isLoadingHostResource || hostResource) return;
+  const loadHostResourceData = async (force = false) => {
+    if (!targetNodeId || !isSnmpConfigured || isLoadingHostResource) return;
+    if (!force && isHostResourceLoaded) return;
     isLoadingHostResource = true;
     hostResourceError = "";
     try {
@@ -406,11 +409,13 @@
       hostResourceError = String(e?.message || e);
     } finally {
       isLoadingHostResource = false;
+      isHostResourceLoaded = true;
     }
   };
 
-  const loadRmonData = async () => {
-    if (!targetNodeId || !isSnmpConfigured || isLoadingRmon || rmonStats.length > 0) return;
+  const loadRmonData = async (force = false) => {
+    if (!targetNodeId || !isSnmpConfigured || isLoadingRmon) return;
+    if (!force && isRmonLoaded) return;
     isLoadingRmon = true;
     rmonError = "";
     try {
@@ -424,6 +429,7 @@
       rmonError = String(e?.message || e);
     } finally {
       isLoadingRmon = false;
+      isRmonLoaded = true;
     }
   };
 
@@ -485,8 +491,10 @@
         activeTab = initialTab;
         realPorts = [];
         hostResource = null;
+        isHostResourceLoaded = false;
         // Reset RMON and diagnose states
         rmonStats = [];
+        isRmonLoaded = false;
         rmonError = "";
         diagnoseResult = null;
         diagnoseError = "";
@@ -557,9 +565,9 @@
       if (!isSnmpSupported && (activeTab === "vpanel" || activeTab === "ports" || activeTab === "hostinfo" || activeTab === "rmon")) {
         activeTab = "basic";
       }
-      if (activeTab === "hostinfo" && !hostResource && !isLoadingHostResource && isSnmpSupported) {
+      if (activeTab === "hostinfo" && !isHostResourceLoaded && !isLoadingHostResource && isSnmpSupported) {
         loadHostResourceData();
-      } else if (activeTab === "rmon" && rmonStats.length === 0 && !isLoadingRmon && isSnmpSupported) {
+      } else if (activeTab === "rmon" && !isRmonLoaded && !isLoadingRmon && isSnmpSupported) {
         loadRmonData();
       } else if (activeTab === "diagnose" && !diagnoseResult && !isDiagnosing) {
         runNodeDiagnose();
@@ -569,7 +577,7 @@
 
   const vpanelAction = (container: HTMLElement) => {
     const timer = setTimeout(() => {
-      initVPanel("vpanel-canvas-container");
+      initVPanel(container);
       // Use realPorts or fallback
       const vports = realPorts.length > 0
         ? realPorts.map((p) => ({ State: p.State, Speed: p.Speed }))
@@ -1421,6 +1429,14 @@
               {#if hostResourceError}
                 <p class="text-[11px] text-rose-500 mt-1">{hostResourceError}</p>
               {/if}
+              <button
+                type="button"
+                onclick={() => loadHostResourceData(true)}
+                class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
+              >
+                <RotateCw class="h-3.5 w-3.5" />
+                {$_('common.reload')}
+              </button>
             </div>
           {:else}
             <!-- Host Resource Sub-Tabs -->
@@ -1646,7 +1662,7 @@
               <p class="font-semibold text-sm text-rose-600 dark:text-rose-400">{rmonError}</p>
               <button
                 type="button"
-                onclick={loadRmonData}
+                onclick={() => loadRmonData(true)}
                 class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer"
               >
                 <RotateCw class="h-3.5 w-3.5" />
@@ -1660,7 +1676,7 @@
               <p class="text-xs text-slate-400 mt-1">{$_('nodeDetail.noRmonDataHint')}</p>
               <button
                 type="button"
-                onclick={loadRmonData}
+                onclick={() => loadRmonData(true)}
                 class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer"
               >
                 <RotateCw class="h-3.5 w-3.5" />

@@ -62,7 +62,9 @@
     "warning": "警告",
     "info": "情報",
     "upload": "アップロード",
-    "view": "表示"
+    "view": "表示",
+    "reload": "再読み込み",
+    "retry": "再試行"
   },
   "mib": {
     "dialogTitle": "MIBブラウザー",

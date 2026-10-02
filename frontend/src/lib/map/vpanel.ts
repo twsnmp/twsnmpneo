@@ -22,30 +22,26 @@ const vpanelMain = (p: any) => {
   let depth: number;
   let r = 0;
 
-  p.preload = () => {
-    try {
-      font = p.loadFont(inconslata);
-    } catch (e) {
-      console.warn("Could not preload inconsolata font:", e);
-    }
-    try {
-      portImage = p.loadImage(port);
-    } catch (e) {
-      console.warn("Could not preload port image:", e);
-    }
-  };
-
-  p.setup = () => {
+  p.setup = async () => {
     p.createCanvas(cw, ch, p.WEBGL);
     p.frameRate(10);
-    if (font) {
-      try {
-        p.textFont(font, 24);
-      } catch (e) {
-        console.warn("Could not set textFont:", e);
-      }
-    }
     p.camera(100, -500, 2000, 0, 0, 0);
+
+    try {
+      font = await p.loadFont(inconslata);
+      if (font) {
+        try {
+          p.textFont(font, 24);
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("Could not load inconsolata font:", e);
+    }
+    try {
+      portImage = await p.loadImage(port);
+    } catch (e) {
+      console.warn("Could not load port image:", e);
+    }
   };
 
   p.draw = () => {
@@ -138,7 +134,7 @@ const vpanelMain = (p: any) => {
       if (font) {
         p.push();
         p.fill("#ccc");
-        p.rotateY(p.radians(180.0));
+        p.rotateY(Math.PI);
         p.text(i + 1 + "", 0, 60);
         p.pop();
       }
@@ -156,7 +152,7 @@ const vpanelMain = (p: any) => {
     if (font) {
       p.push();
       p.fill("#ccc");
-      p.rotateY(p.radians(180.0));
+      p.rotateY(Math.PI);
       p.text("POWER", 0, 60);
       p.pop();
     }
@@ -174,8 +170,8 @@ export const setVPanel = (po: any, pw: any, r: any, z: number, pwv: number) => {
   portWrap = pwv || 16;
 };
 
-export const initVPanel = (div: string) => {
-  const d = document.getElementById(div);
+export const initVPanel = (target: string | HTMLElement) => {
+  const d = typeof target === "string" ? document.getElementById(target) : target;
   if (!d) {
     return;
   }

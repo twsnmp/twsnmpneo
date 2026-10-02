@@ -62,7 +62,9 @@
     "warning": "Warning",
     "info": "Info",
     "upload": "Upload",
-    "view": "View"
+    "view": "View",
+    "reload": "Reload",
+    "retry": "Retry"
   },
   "mib": {
     "dialogTitle": "MIB Browser",
