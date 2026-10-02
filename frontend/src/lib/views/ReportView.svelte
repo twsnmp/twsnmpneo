@@ -278,6 +278,7 @@
         bind:this={activeReportRef}
         {searchQuery}
         {logs}
+        {nodes}
       />
     {:else if activeReport === "cert"}
       <CertReport
