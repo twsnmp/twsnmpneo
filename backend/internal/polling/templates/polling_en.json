@@ -89,6 +89,15 @@
     "Descr": "HTTPS"
   },
   {
+    "Name": "Server Certificate",
+    "Type": "tls",
+    "Mode": "cert",
+    "Params": "443",
+    "Script": "30",
+    "Level": "warn",
+    "Descr": "Collect server certificate information for reports and detect expiration or verification errors"
+  },
+  {
     "Name": "TLS cert",
     "Type": "tls",
     "Mode": "expire",

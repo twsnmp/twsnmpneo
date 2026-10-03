@@ -18,6 +18,7 @@
     RefreshCw,
     Download,
     Trash2,
+    Plus,
   } from "@lucide/svelte";
   import {
     fetchNodes,
@@ -233,6 +234,17 @@
             <span>{$_("report.btnClear")}</span>
           </button>
         {/if}
+        {#if activeReport === "cert"}
+          <button
+            type="button"
+            onclick={() => activeReportRef?.handleAddNewCertPolling?.()}
+            class="flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
+            title={$_("report.btnAddCertPolling")}
+          >
+            <Plus class="h-3.5 w-3.5" />
+            <span>{$_("report.btnAddCertPolling")}</span>
+          </button>
+        {/if}
         <button
           type="button"
           onclick={loadData}
@@ -323,7 +335,8 @@
       <CertReport
         bind:this={activeReportRef}
         {searchQuery}
-        {certMonitors}
+        {pollings}
+        {nodes}
         onReload={loadData}
       />
     {:else if activeReport === "sensor"}

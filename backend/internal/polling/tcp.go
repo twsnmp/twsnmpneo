@@ -2,9 +2,13 @@ package polling
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -21,13 +25,16 @@ func NewTCPPoller() *TCPPoller {
 }
 
 func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
-	if node == nil || node.IP == "" {
-		return &Result{State: StateHigh, Message: "missing node IP address"}, nil
+	if node == nil {
+		return &Result{State: StateHigh, Message: "missing node"}, nil
+	}
+	if node.IP == "" && node.Name == "" && pe.Params == "" {
+		return &Result{State: StateHigh, Message: "missing node IP or host address"}, nil
 	}
 
 	mode := pe.Mode
 	switch mode {
-	case "verify", "version", "expire":
+	case "verify", "version", "expire", "cert":
 		return p.pollTLS(pe, node)
 	}
 	return p.pollTCP(ctx, pe, node)
@@ -122,10 +129,19 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 		mode = "verify"
 	}
 	target := pe.Params
+	hostPart := node.IP
+	if hostPart == "" {
+		hostPart = node.Name
+	}
 	if target == "" {
-		target = net.JoinHostPort(node.IP, "443")
+		target = net.JoinHostPort(hostPart, "443")
 	} else if !strings.Contains(target, ":") {
-		target = net.JoinHostPort(node.IP, target)
+		target = net.JoinHostPort(hostPart, target)
+	}
+
+	host := node.Name
+	if a := strings.SplitN(target, ":", 2); len(a) > 1 && a[0] != "" {
+		host = a[0]
 	}
 
 	tlsCfg := &tls.Config{
@@ -158,6 +174,11 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 	}
 	d := &net.Dialer{Timeout: timeout}
 
+	// mode: "cert" dedicated certificate report and expiration monitor
+	if mode == "cert" {
+		return p.pollTLSCert(pe, node, target, host, d)
+	}
+
 	var rtt time.Duration
 	var cs tls.ConnectionState
 	var lastErr error
@@ -189,10 +210,6 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 	}
 
 	// Populate TLS state fields (FK compatible)
-	host := node.Name
-	if a := strings.SplitN(target, ":", 2); len(a) > 1 {
-		host = a[0]
-	}
 	fillTLSFields(fields, host, &cs)
 
 	// expire mode: check if cert expires within Script days
@@ -239,6 +256,143 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 	}, nil
 }
 
+// pollTLSCert gathers complete TLS certificate details for the server certificate report
+// and evaluates state according to the user-configured polling Level.
+func (p *TCPPoller) pollTLSCert(pe *datastore.PollingEnt, node *datastore.NodeEnt, target, host string, d *net.Dialer) (*Result, error) {
+	failLevel := StateHigh
+	if pe.Level != "" && pe.Level != "off" {
+		failLevel = pe.Level
+	}
+
+	serverName := host
+	if h, _, err := net.SplitHostPort(target); err == nil && h != "" {
+		serverName = h
+	}
+
+	verifyTlsCfg := &tls.Config{
+		ServerName:         serverName,
+		InsecureSkipVerify: false,
+	}
+
+	var rtt time.Duration
+	var certCs tls.ConnectionState
+	var certErr error
+	verifyOk := false
+
+	start := time.Now()
+	conn, err := tls.DialWithDialer(d, "tcp", target, verifyTlsCfg)
+	rtt = time.Since(start)
+
+	if err == nil {
+		verifyOk = true
+		certCs = conn.ConnectionState()
+		conn.Close()
+	} else {
+		certErr = err
+		// Try again with InsecureSkipVerify to retrieve certificate attributes even if self-signed/expired/mismatched
+		insecureTlsCfg := &tls.Config{
+			ServerName:         serverName,
+			InsecureSkipVerify: true, //nolint:gosec
+		}
+		start2 := time.Now()
+		connInsecure, err2 := tls.DialWithDialer(d, "tcp", target, insecureTlsCfg)
+		if err2 != nil {
+			fields := map[string]interface{}{
+				"rtt":    float64(rtt.Nanoseconds()),
+				"error":  fmt.Sprintf("tls connection failed: %v", err),
+				"verify": false,
+				"target": target,
+			}
+			return &Result{
+				State:   failLevel,
+				RTT:     rtt,
+				Message: fmt.Sprintf("tls connect to %s failed: %v", target, err),
+				Fields:  fields,
+			}, nil
+		}
+		rtt = time.Since(start2)
+		certCs = connInsecure.ConnectionState()
+		connInsecure.Close()
+	}
+
+	fields := map[string]interface{}{
+		"rtt":    float64(rtt.Nanoseconds()),
+		"target": target,
+		"verify": verifyOk,
+	}
+	fillTLSFields(fields, host, &certCs)
+	if !verifyOk && certErr != nil {
+		fields["error"] = certErr.Error()
+	} else {
+		fields["error"] = ""
+	}
+
+	cert := serverCert(host, &certCs)
+	if cert == nil {
+		fields["error"] = "server certificate not found"
+		return &Result{
+			State:   failLevel,
+			RTT:     rtt,
+			Message: "server certificate not found",
+			Fields:  fields,
+		}, nil
+	}
+
+	// Warning threshold days from Script (default 30 days)
+	thresholdDays := 30
+	if pe.Script != "" {
+		var parsed int
+		if _, err := fmt.Sscanf(pe.Script, "%d", &parsed); err == nil && parsed > 0 {
+			thresholdDays = parsed
+		}
+	}
+
+	now := time.Now()
+	days := int(math.Ceil(cert.NotAfter.Sub(now).Hours() / 24))
+	fields["days"] = float64(days)
+
+	// Evaluate state based on configured monitoring Level
+	if days <= 0 {
+		return &Result{
+			State:   failLevel,
+			RTT:     rtt,
+			Message: fmt.Sprintf("tls cert expired on %s (%d days ago)", cert.NotAfter.Format("2006/01/02"), -days),
+			Fields:  fields,
+		}, nil
+	}
+	if now.Before(cert.NotBefore) {
+		return &Result{
+			State:   failLevel,
+			RTT:     rtt,
+			Message: fmt.Sprintf("tls cert not yet valid (valid from %s)", cert.NotBefore.Format("2006/01/02")),
+			Fields:  fields,
+		}, nil
+	}
+	if !verifyOk {
+		return &Result{
+			State:   failLevel,
+			RTT:     rtt,
+			Message: fmt.Sprintf("tls cert verification failed: %v", certErr),
+			Fields:  fields,
+		}, nil
+	}
+	if days <= thresholdDays {
+		return &Result{
+			State:   failLevel,
+			RTT:     rtt,
+			Message: fmt.Sprintf("tls cert expires %s (within %d days, %d days remaining)", cert.NotAfter.Format("2006/01/02"), thresholdDays, days),
+			Fields:  fields,
+		}, nil
+	}
+
+	return &Result{
+		State:   StateNormal,
+		RTT:     rtt,
+		Message: fmt.Sprintf("tls cert ok, valid until %s (%d days remaining)", cert.NotAfter.Format("2006/01/02"), days),
+		Fields:  fields,
+	}, nil
+}
+
 func fillTLSFields(fields map[string]interface{}, host string, cs *tls.ConnectionState) {
 	switch cs.Version {
 	case 0x0300:
@@ -259,10 +413,26 @@ func fillTLSFields(fields map[string]interface{}, host string, cs *tls.Connectio
 	if cert := serverCert(host, cs); cert != nil {
 		fields["issuer"] = cert.Issuer.String()
 		fields["subject"] = cert.Subject.String()
-		fields["notAfter"] = cert.NotAfter.Format("2006/01/02")
+		fields["serialNumber"] = cert.SerialNumber.String()
+		fields["notBefore"] = cert.NotBefore.Format("2006/01/02 15:04:05")
+		fields["notAfter"] = cert.NotAfter.Format("2006/01/02 15:04:05")
+		fields["notAfterUnix"] = float64(cert.NotAfter.Unix())
+		fields["notBeforeUnix"] = float64(cert.NotBefore.Unix())
+		days := int(math.Ceil(time.Until(cert.NotAfter).Hours() / 24))
+		fields["days"] = float64(days)
 		fields["subjectKeyID"] = fmt.Sprintf("%x", cert.SubjectKeyId)
 		if cert.NotAfter.After(time.Now()) {
 			fields["valid"] = "true"
+		}
+		switch pub := cert.PublicKey.(type) {
+		case *rsa.PublicKey:
+			fields["key"] = fmt.Sprintf("RSA %d-bit", pub.N.BitLen())
+		case *ecdsa.PublicKey:
+			fields["key"] = fmt.Sprintf("ECDSA %s", pub.Curve.Params().Name)
+		case ed25519.PublicKey:
+			fields["key"] = "Ed25519"
+		default:
+			fields["key"] = cert.PublicKeyAlgorithm.String()
 		}
 	}
 }

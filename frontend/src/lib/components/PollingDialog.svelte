@@ -304,6 +304,9 @@
             {:else if type === "tcp" || type === "tls"}
               <select id="poll-mode" bind:value={mode} class={controlClass}>
                 <option value="">{type === "tls" ? "verify" : $_("polling.modeDefault")}</option>
+                {#if type === "tls"}
+                  <option value="cert">cert (サーバー証明書レポート)</option>
+                {/if}
                 <option value="verify">verify (証明書検証)</option>
                 <option value="version">version (バージョン確認)</option>
                 <option value="expire">expire (有効期限確認)</option>

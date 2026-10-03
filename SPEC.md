@@ -327,7 +327,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
     3. **gNMI (`gnmi`)**: OpenConfig gNMI telemetry polling via `github.com/openconfig/gnmic/pkg/api` (`get` and `subscribe` streaming modes) with target authentication and JSON path/XPath data extraction.
     4. **TCP (`tcp`)**: Plain TCP socket connectivity check with optional banner capture and regex pattern matching.
     5. **HTTP / HTTPS (`http`)**: Web service polling with support for `hash` mode (SHA256 response body change detection), `metrics` mode (Apache, Nginx, Fiber JSON metrics parsing), and Otto JavaScript scripting with full HTTP context (`status`, `code`, `rtt`, `interval`).
-    6. **TLS (`tls`)**: TLS certificate check supporting modes `verify` (valid certificate chain), `version` (TLS protocol version restriction), and `expire` (remaining days threshold verification). Populates FK-compatible fields (`rtt`, `version`, `cipherSuite`, `valid`, `issuer`, `subject`, `notAfter`).
+    6. **TLS (`tls`)**: TLS certificate check supporting modes `verify` (valid certificate chain), `version` (TLS protocol version restriction), `expire` (remaining days threshold verification), and `cert` (dedicated server certificate monitoring report with full attributes: issuer, subject, serialNumber, start/end dates, remaining days, key strength, and state evaluated against configured polling Level). Populates FK-compatible fields (`rtt`, `version`, `cipherSuite`, `valid`, `issuer`, `subject`, `notAfter`, `notBefore`, `serialNumber`, `days`, `key`).
     7. **DNS (`dns`)**: Supports record resolution types (`ipaddr`, `addr`, `host`, `mx`, `ns`, `txt`, `cname`). In `ipaddr` mode, automatically detects IP address changes across polling runs. Evaluates JavaScript boolean expressions via Otto VM in other modes.
     8. **NTP (`ntp`)**: Uses `beevik/ntp` to query target servers and populates `rtt`, `stratum`, `refid`, and clock `offset` in nanoseconds, matching FK fields.
     9. **Syslog (`syslog`)**: Log monitoring over indexed log stores. Modes: `count` (matching message frequency), `pri` (facility/severity filtering), `stats` (message volume aggregation), and `sigma` (automated Sigma rule threat detection evaluating critical/high security matches).
@@ -418,9 +418,10 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - Temperature/humidity sensor time-series trends, threshold violation alarms.
   - Power consumption watt-hour tracking.
   - MQTT broker subscriber tracking and topic message inspection.
-* **TLS Certificate Expiration Monitor**:
-  - Automatic inspection of SSL/TLS certificates on port 443/custom ports.
-  - Tracking of issuer, expiration date, remaining days, and automated alerts when expiration is within 30/14/7 days.
+* **Server Certificate Report (サーバー証明書)**:
+  - Aggregates TLS server certificates monitored via node pollings (`type: tls`, `mode: cert`).
+  - Replicates TWSNMP FK tabular layout and expandable accordion view: State, Target, Port, Subject, Issuer, Start, End, and Last time.
+  - Expandable detail view displays Serial Number, validation status, error diagnostics, term, days remaining, and key strength, with AI diagnosis support.
 
 ---
 

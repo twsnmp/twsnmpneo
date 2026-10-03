@@ -89,6 +89,15 @@
     "Descr": "HTTPS接続監視"
   },
   {
+    "Name": "サーバー証明書",
+    "Type": "tls",
+    "Mode": "cert",
+    "Params": "443",
+    "Script": "30",
+    "Level": "warn",
+    "Descr": "サーバー証明書情報を収集してレポートに出力し、有効期限や検証エラーを検知"
+  },
+  {
     "Name": "TLS証明書期限",
     "Type": "tls",
     "Mode": "expire",
