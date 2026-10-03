@@ -246,20 +246,19 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 	}
 
 	// Record to Parquet log store if enabled
-	if m.logStore != nil && p.LogMode != datastore.LogModeNone {
-		shouldLog := true
-		if p.LogMode == datastore.LogModeOnChange && oldState == res.State {
-			shouldLog = false
+	if m.logStore != nil && (p.LogMode == datastore.LogModeAlways || p.LogMode == datastore.LogModeAI || (p.LogMode == datastore.LogModeOnChange && oldState != res.State)) {
+		payload := map[string]interface{}{
+			"State":  res.State,
+			"Result": p.Result,
 		}
-		if shouldLog {
-			logData, _ := json.Marshal(p.Result)
-			_ = m.logStore.WriteLog(&parquet.ParquetLogRecord{
-				Time: now,
-				Type: "polling",
-				Src:  p.NodeID,
-				Log:  string(logData),
-			})
-		}
+		logData, _ := json.Marshal(payload)
+		_ = m.logStore.WriteLog(&parquet.ParquetLogRecord{
+			Time:      now,
+			Timestamp: now,
+			Type:      "polling",
+			Src:       p.ID,
+			Log:       string(logData),
+		})
 	}
 
 	return res, nil

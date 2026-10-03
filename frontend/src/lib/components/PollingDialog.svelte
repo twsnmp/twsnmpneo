@@ -452,11 +452,21 @@
           <div class="grid gap-3 sm:grid-cols-2">
             <div class="space-y-1.5">
               <label for="poll-ai-mode" class={labelClass}>{$_("polling.aiMode")}</label>
-              <input id="poll-ai-mode" class={controlClass} bind:value={aiMode} />
+              <select id="poll-ai-mode" class={controlClass} bind:value={aiMode}>
+                <option value="default">{$_("polling.aiModes.default")}</option>
+                <option value="iforest">{$_("polling.aiModes.iforest")}</option>
+                <option value="zscore">{$_("polling.aiModes.zscore")}</option>
+                <option value="lof">{$_("polling.aiModes.lof")}</option>
+                <option value="knn">{$_("polling.aiModes.knn")}</option>
+                <option value="mahalanobis">{$_("polling.aiModes.mahalanobis")}</option>
+                <option value="hotelling">{$_("polling.aiModes.hotelling")}</option>
+                <option value="autoencoder">{$_("polling.aiModes.autoencoder")}</option>
+                <option value="lstm">{$_("polling.aiModes.lstm")}</option>
+              </select>
             </div>
             <div class="space-y-1.5">
               <label for="poll-vector-cols" class={labelClass}>{$_("polling.vectorCols")}</label>
-              <input id="poll-vector-cols" class={controlClass} bind:value={vectorCols} />
+              <input id="poll-vector-cols" class={controlClass} bind:value={vectorCols} placeholder="rtt,loss,load..." />
             </div>
           </div>
         {/if}

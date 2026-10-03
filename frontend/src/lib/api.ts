@@ -2426,3 +2426,53 @@ export async function saveLocConf(conf: LocConfEnt): Promise<boolean> {
   }
 }
 
+export interface AIListEnt {
+  ID: string;
+  Node: string;
+  Polling: string;
+  Score: number;
+  Count: number;
+  LastTime: number;
+}
+
+export interface AIResultEnt {
+  PollingID: string;
+  ScoreData: [number, number][];
+  LastTime: number;
+}
+
+export async function fetchAIList(): Promise<AIListEnt[]> {
+  const res = await fetch(`${API_BASE}/ai/list`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch AI list: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function fetchAIResult(id: string): Promise<AIResultEnt> {
+  const res = await fetch(`${API_BASE}/ai/result/${encodeURIComponent(id)}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch AI result: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function deleteAIResult(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/ai/result/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete AI result: ${res.statusText}`);
+  }
+}
+
+export async function recheckAI(): Promise<AIListEnt[]> {
+  const res = await fetch(`${API_BASE}/ai/recheck`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to recheck AI: ${res.statusText}`);
+  }
+  return await res.json();
+}
+

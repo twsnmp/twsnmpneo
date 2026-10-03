@@ -148,6 +148,9 @@
       console.error("Failed to load report data:", e);
     } finally {
       loading = false;
+      if (activeReportRef && typeof activeReportRef.refresh === "function") {
+        activeReportRef.refresh();
+      }
     }
   };
 
@@ -353,6 +356,7 @@
         {nodes}
         {pollings}
         {logs}
+        onReload={loadData}
       />
     {/if}
   </div>

@@ -96,8 +96,12 @@ type DataStore interface {
 	// ForEachLastEventLog iterates event logs in reverse chronological order
 	ForEachLastEventLog(fn func(*EventLogEnt) bool)
 
-	// AI Results
+	// AI Results & Config
 	GetAIResult(pollingID string) (*AIResultEnt, error)
+	SaveAIResult(ctx context.Context, result *AIResultEnt) error
+	DeleteAIResult(ctx context.Context, id string) error
+	GetAIConf(ctx context.Context) (*AIConfEnt, error)
+	SaveAIConf(ctx context.Context, conf *AIConfEnt) error
 	GetDBSize() int64
 
 	// ARP Table
@@ -137,7 +141,24 @@ type DataStore interface {
 // AIResultEnt holds AI anomaly detection results for a polling.
 type AIResultEnt struct {
 	PollingID string      `json:"PollingID"`
-	ScoreData [][2]float64 `json:"ScoreData"`
+	ScoreData [][]float64 `json:"ScoreData"`
 	LastTime  int64       `json:"LastTime"`
+}
+
+// AIListEnt represents an entry in the AI anomaly detection list report.
+type AIListEnt struct {
+	ID       string  `json:"ID"`
+	Node     string  `json:"Node"`
+	Polling  string  `json:"Polling"`
+	Score    float64 `json:"Score"`
+	Count    int     `json:"Count"`
+	LastTime int64   `json:"LastTime"`
+}
+
+// AIConfEnt defines anomaly detection threshold settings.
+type AIConfEnt struct {
+	HighThreshold float64 `json:"HighThreshold"`
+	LowThreshold  float64 `json:"LowThreshold"`
+	WarnThreshold float64 `json:"WarnThreshold"`
 }
 

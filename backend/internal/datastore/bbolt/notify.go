@@ -243,6 +243,60 @@ func (s *Store) SaveAIResult(_ context.Context, result *datastore.AIResultEnt) e
 	})
 }
 
+// DeleteAIResult removes AI anomaly detection results for a polling, or all if id == "all".
+func (s *Store) DeleteAIResult(_ context.Context, id string) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		if id == "all" {
+			_ = tx.DeleteBucket([]byte("ai"))
+			_, err := tx.CreateBucketIfNotExists([]byte("ai"))
+			return err
+		}
+		b := tx.Bucket([]byte("ai"))
+		if b == nil {
+			return nil
+		}
+		return b.Delete([]byte(id))
+	})
+}
+
+// GetAIConf retrieves the AI configuration settings.
+func (s *Store) GetAIConf(_ context.Context) (*datastore.AIConfEnt, error) {
+	var conf datastore.AIConfEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte("config"))
+		if b == nil {
+			return nil
+		}
+		v := b.Get([]byte("aiConf"))
+		if v == nil {
+			return nil
+		}
+		return json.Unmarshal(v, &conf)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &conf, nil
+}
+
+// SaveAIConf stores the AI configuration settings.
+func (s *Store) SaveAIConf(_ context.Context, conf *datastore.AIConfEnt) error {
+	if conf == nil {
+		return datastore.ErrInvalidParams
+	}
+	data, err := json.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte("config"))
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte("aiConf"), data)
+	})
+}
+
 // --- DB Size ---
 
 // GetDBSize returns the total bbolt database size in bytes.

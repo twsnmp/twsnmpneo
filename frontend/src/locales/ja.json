@@ -861,7 +861,7 @@
       "none": "記録しない",
       "always": "毎回記録",
       "onChange": "状態変化時",
-      "ai": "AI分析用"
+      "ai": "異常検知あり"
     },
     "params": "パラメータ",
     "paramsHelp": "形式はポーリング種別ごとに異なります。",
@@ -873,8 +873,19 @@
     "extractor": "Grok 抽出パターン",
     "script": "JavaScript スクリプト",
     "scriptHelp": "連続Pingモードでは測定結果を変数として使用し、真偽値で状態を判定します。",
-    "aiMode": "AI分析モード",
-    "vectorCols": "AI特徴量",
+    "aiMode": "異常検知アルゴリズム",
+    "aiModes": {
+      "default": "デフォルト (Isolation Forest)",
+      "iforest": "アイソレーションフォレスト (Isolation Forest)",
+      "zscore": "基本統計 (Z-Score)",
+      "lof": "局所外れ値因子法 (Local Outlier Factor)",
+      "knn": "k近傍法 (k-NN)",
+      "mahalanobis": "マハラノビス距離 (Mahalanobis)",
+      "hotelling": "ホテリング理論 (Hotelling's Theory)",
+      "autoencoder": "オートエンコーダー (Auto Encoder)",
+      "lstm": "LSTM (LSTM)"
+    },
+    "vectorCols": "特徴ベクトル (VectorCols)",
     "failAction": "障害時アクション",
     "repairAction": "復旧時アクション",
     "mqtt": "MQTT結果送信",
@@ -1405,7 +1416,7 @@
     "tabArp": "ARP監視分析",
     "tabCert": "サーバー証明書",
     "tabSensor": "環境・IoTセンサー",
-    "tabAi": "AI異常検知スコア (AIList)",
+    "tabAi": "異常検知",
     "titleSuite": "分析レポートスイート (Reports)",
     "dataSync": "データ同期",
     "realtime": "● リアルタイム",
@@ -1606,13 +1617,13 @@
     "upsPowerSub": "商用電源給電中 (AC 100V)",
     "mqttReceived": "MQTT 受信メッセージ",
     "mqttTopicSub": "トピック: twsnmp/sensor/#",
-    "aiTitle": "AI 異常検知スコア (AIList)",
-    "aiSubtitle": "統計的変化点検出およびLLMエージェントによるノード・ポーリングの複合異常判定レポート",
-    "aiAnalyzedNodes": "解析対象ノード数",
+    "aiTitle": "異常検知",
+    "aiSubtitle": "ポーリングのログモードを「異常検知あり」に設定した項目の異常度スコア分析レポート",
+    "aiAnalyzedPollings": "対象ポーリング数",
+    "aiAnomalyPollings": "異常検知数",
+    "aiAvgScore": "平均異常スコア",
     "aiFeaturesSub": "時系列特徴量抽出中",
-    "aiAnomalyNodes": "異常検出ノード",
-    "aiNoSpikesSub": "特異なスパイクなし",
-    "aiAvgScore": "平均異常度スコア",
+    "aiNoSpikesSub": "スコア60以上なし (正常)",
     "aiStableSub": "全体安定稼働中",
     "aiEngine": "診断推論エンジン",
     "aiEngineSub": "マルチLLM統合",
@@ -1850,5 +1861,23 @@
     "latestResult": "最新の実行結果",
     "noResult": "実行結果データはありません",
     "deleteConfirm": "このポーリングを削除してもよろしいですか？"
+  },
+  "AIList": {
+    "AnomaryScore": "異常スコア",
+    "Node": "ノード名",
+    "Polling": "ポーリング",
+    "Count": "データ数",
+    "LastTime": "最終確認",
+    "Report": "レポート",
+    "Clear": "クリア",
+    "Reload": "更新",
+    "Csv": "CSV(Data)",
+    "ConfirmClear": "選択した異常検知結果を削除しますか？"
+  },
+  "AIReport": {
+    "Heatmap": "ヒートマップ",
+    "PieChart": "異常割合",
+    "TimeChart": "タイムチャート",
+    "Close": "閉じる"
   }
 }

@@ -1,89 +1,173 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
-  import { Sparkles } from "@lucide/svelte";
-  import type { NodeEnt, PollingEnt, EventLogEnt } from "../../api";
+  import {
+    Sparkles,
+    BarChart3,
+    Download,
+    Trash2,
+    ArrowUp,
+    ArrowDown,
+    ArrowUpDown,
+  } from "@lucide/svelte";
+  import {
+    fetchAIList,
+    deleteAIResult,
+    type AIListEnt,
+    type NodeEnt,
+    type PollingEnt,
+    type EventLogEnt,
+  } from "../../api";
+  import { getScoreColor, getScoreIcon, formatTimeStr } from "../../common";
+  import AIReportModal from "./AIReportModal.svelte";
+  import ReportPagination from "./components/ReportPagination.svelte";
 
   let {
     nodes = [],
     pollings = [],
     logs = [],
     searchQuery = "",
+    onReload,
   }: {
     nodes?: NodeEnt[];
     pollings?: PollingEnt[];
     logs?: EventLogEnt[];
     searchQuery?: string;
+    onReload?: () => Promise<void> | void;
   } = $props();
 
-  const allAiEvaluatedNodes = $derived.by(() => {
-    return nodes.map((n, i) => {
-      const nodePollings = pollings.filter((p) => p.node_id === n.id);
-      const failedPollings = nodePollings.filter((p) => p.state !== "normal" && p.state !== "info");
-      const failRate = nodePollings.length > 0 ? (failedPollings.length / nodePollings.length) * 100 : 0;
+  let data = $state<AIListEnt[]>([]);
+  let loading = $state(false);
+  let showReportModal = $state(false);
+  let selectedReportId = $state("");
+  let selectedReportTitle = $state("");
 
-      let stateWeight = 0;
-      if (n.state === "warn" || n.state === "low") stateWeight = 25;
-      else if (n.state === "high" || n.state === "error") stateWeight = 60;
+  // Pagination & Sorting state
+  let pageSize = $state(25);
+  let currentPage = $state(1);
+  let sortField = $state<keyof AIListEnt>("Score");
+  let sortAsc = $state(false);
 
-      const nodeLogs = logs.filter(
-        (l) =>
-          (l.node_id === n.id || l.node_name === n.name) &&
-          (l.level === "warn" || l.level === "high" || l.level === "error")
-      );
-      const logWeight = Math.min(25, nodeLogs.length * 5);
+  export const refresh = async () => {
+    await loadData();
+  };
 
-      const rawScore = stateWeight + failRate * 0.35 + logWeight + ((i * 1.5) % 4);
-      const score = Math.min(100, Math.max(2.1, Math.round(rawScore * 10) / 10));
+  const loadData = async () => {
+    loading = true;
+    try {
+      data = await fetchAIList();
+    } catch (e) {
+      console.error("Failed to load AI list:", e);
+    } finally {
+      loading = false;
+    }
+  };
 
-      let verdict = $_("report.stableVerdict");
-      let factors = $_("report.normalRttJitter");
-      let verdictClass =
-        "bg-emerald-100 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400";
-
-      if (score >= 60) {
-        verdict = "異常検知 (High Anomaly)";
-        factors = `重大障害検知 (${failedPollings.length}/${nodePollings.length} ポーリング停止, ログ警告多発)`;
-        verdictClass =
-          "bg-rose-100 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/30 text-rose-700 dark:text-rose-400";
-      } else if (score >= 25) {
-        verdict = "注意監視 (Elevated Jitter)";
-        factors = `軽微な遅延 / パケットロス検知 (警告ポーリング ${failedPollings.length} 件)`;
-        verdictClass =
-          "bg-amber-100 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-400";
-      }
-
-      return {
-        id: n.id,
-        name: n.name,
-        ip: n.ip,
-        score: score.toFixed(1),
-        factors,
-        verdict,
-        verdictClass,
-      };
-    });
+  onMount(() => {
+    loadData();
   });
 
-  const aiEvaluatedNodes = $derived.by(() => {
+  const uniqueNodes = $derived(new Set(data.map((d) => d.Node)));
+  const uniqueNodeCount = $derived(uniqueNodes.size);
+  const highAnomalyItems = $derived(data.filter((d) => d.Score >= 60));
+  const highAnomalyCount = $derived(highAnomalyItems.length);
+  const highAnomalyNodes = $derived(new Set(highAnomalyItems.map((d) => d.Node)));
+  const highAnomalyNodeCount = $derived(highAnomalyNodes.size);
+  const avgScore = $derived(
+    data.length > 0
+      ? (data.reduce((acc, d) => acc + d.Score, 0) / data.length).toFixed(2)
+      : "0.00"
+  );
+  const maxScore = $derived(
+    data.length > 0 ? Math.max(...data.map((d) => d.Score)).toFixed(2) : "0.00"
+  );
+
+  const filteredData = $derived.by(() => {
+    let list = [...data];
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return allAiEvaluatedNodes;
-    return allAiEvaluatedNodes.filter(
-      (n) =>
-        n.name.toLowerCase().includes(q) ||
-        n.ip.toLowerCase().includes(q) ||
-        n.factors.toLowerCase().includes(q) ||
-        n.verdict.toLowerCase().includes(q) ||
-        n.score.includes(q)
-    );
+    if (q) {
+      list = list.filter(
+        (item) =>
+          item.Node.toLowerCase().includes(q) ||
+          item.Polling.toLowerCase().includes(q) ||
+          String(item.Score).includes(q) ||
+          String(item.Count).includes(q)
+      );
+    }
+
+    list.sort((a, b) => {
+      const valA = a[sortField];
+      const valB = b[sortField];
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortAsc ? valA - valB : valB - valA;
+      }
+      return sortAsc
+        ? String(valA).localeCompare(String(valB))
+        : String(valB).localeCompare(String(valA));
+    });
+
+    return list;
   });
+
+  const paginatedData = $derived.by(() => {
+    if (pageSize === -1) return filteredData;
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  });
+
+  const handleSort = (field: keyof AIListEnt) => {
+    if (sortField === field) {
+      sortAsc = !sortAsc;
+    } else {
+      sortField = field;
+      sortAsc = false;
+    }
+  };
+
+  const handleOpenReport = (item: AIListEnt) => {
+    selectedReportId = item.ID;
+    selectedReportTitle = `${item.Node} - ${item.Polling}`;
+    showReportModal = true;
+  };
+
+  const handleExportAIData = (item: AIListEnt) => {
+    const url = `/api/ai/export/${encodeURIComponent(item.ID)}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `twsnmp_ai_data_${item.ID}_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleClearItem = async (item: AIListEnt) => {
+    const confirmMsg = `ポーリング「${item.Polling}」(${item.Node}) の異常検知結果を削除しますか？`;
+    if (!confirm(confirmMsg)) return;
+
+    loading = true;
+    try {
+      await deleteAIResult(item.ID);
+      await loadData();
+      await onReload?.();
+    } catch (e) {
+      console.error("Failed to clear AI result:", e);
+      alert("削除に失敗しました");
+    } finally {
+      loading = false;
+    }
+  };
 
   export function exportCSV(): void {
-    const csv =
-      "Node,IP,Score,Factors,Verdict\n" +
-      aiEvaluatedNodes
-        .map((a) => `"${a.name}","${a.ip}",${a.score},"${a.factors}","${a.verdict}"`)
-        .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const headers = ["Anomaly score", "Node Name", "Polling", "Count", "Last time"];
+    const rows = filteredData.map((d) => [
+      d.Score.toFixed(2),
+      `"${d.Node.replace(/"/g, '""')}"`,
+      `"${d.Polling.replace(/"/g, '""')}"`,
+      d.Count,
+      `"${formatTimeStr(d.LastTime > 1e11 ? d.LastTime : d.LastTime * 1000)}"`,
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `twsnmp_report_ai_${Date.now()}.csv`;
@@ -91,76 +175,254 @@
   }
 </script>
 
-<div class="space-y-6">
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Sparkles class="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-      {$_("report.aiTitle")}
-    </h2>
-    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.aiSubtitle")}</p>
+<div class="space-y-4">
+  <!-- Top Header Title -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Sparkles class="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
+        {$_("report.aiTitle")}
+      </h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.aiSubtitle")}</p>
+    </div>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  <!-- KPI Summary Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnalyzedNodes")}</span>
-      <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">{aiEvaluatedNodes.length} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitDevices")}</span></div>
-      <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.aiFeaturesSub")}</div>
+      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnalyzedPollings")}</span>
+      <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">
+        {data.length} <span class="text-xs font-normal text-slate-400">件</span>
+      </div>
+      <div class="text-[10px] text-slate-400">
+        対象ノード: {uniqueNodeCount} ノード
+      </div>
     </div>
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnomalyNodes")}</span>
-      <div class="text-2xl font-bold font-mono text-rose-500 dark:text-rose-400">{aiEvaluatedNodes.filter((n) => Number(n.score) >= 60).length} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{$_("report.unitPollings")}</span></div>
-      <div class="text-[10px] text-slate-500 dark:text-slate-400">要点検ノード数</div>
+      <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnomalyPollings")}</span>
+      <div class="text-2xl font-bold font-mono {highAnomalyCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">
+        {highAnomalyCount} <span class="text-xs font-normal text-slate-400">件</span>
+      </div>
+      <div class="text-[10px] {highAnomalyCount > 0 ? 'text-rose-500/80' : 'text-emerald-500/80'}">
+        {highAnomalyCount > 0 ? `スコア 60 以上 (${highAnomalyNodeCount} ノード)` : $_("report.aiNoSpikesSub")}
+      </div>
     </div>
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
       <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAvgScore")}</span>
-      <div class="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">
-        {aiEvaluatedNodes.length > 0 ? (aiEvaluatedNodes.reduce((sum, n) => sum + Number(n.score), 0) / aiEvaluatedNodes.length).toFixed(1) : "0.0"} <span class="text-xs font-normal text-slate-500 dark:text-slate-400">/ 100</span>
+      <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">
+        {avgScore}
       </div>
-      <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_("report.aiStableSub")}</div>
-    </div>
-    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
-      <span class="text-xs font-semibold text-slate-400">{$_("report.aiEngine")}</span>
-      <div class="text-xl font-bold font-mono text-cyan-300">NEO AI Agent / MCP</div>
-      <div class="text-[10px] text-slate-400">{$_("report.aiEngineSub")}</div>
+      <div class="text-[10px] text-slate-400">
+        {data.length > 0 ? `最高スコア: ${maxScore}` : $_("report.aiStableSub")}
+      </div>
     </div>
   </div>
 
-  <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden">
-    <table class="w-full text-left text-xs border-collapse font-mono">
-      <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
-        <tr>
-          <th class="py-1 px-2">{$_("report.colTargetNode")}</th>
-          <th class="py-1 px-2">{$_("report.colIp")}</th>
-          <th class="py-1 px-2">{$_("report.colAnomalyScore")}</th>
-          <th class="py-1 px-2">{$_("report.colEvaluationFactors")}</th>
-          <th class="py-1 px-2">{$_("report.colAiVerdict")}</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
-        {#if aiEvaluatedNodes.length === 0}
+  <!-- AI Anomaly Detection Table Container -->
+  <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse font-sans select-none">
+        <thead class="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800">
           <tr>
-            <td colspan="5" class="p-8 text-center text-slate-500 font-sans">
-              {$_("report.noNodes")}
-            </td>
+            <!-- Anomaly Score Sortable -->
+            <th
+              onclick={() => handleSort("Score")}
+              class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors w-[18%]"
+            >
+              <div class="flex items-center gap-1">
+                <span>{$_("AIList.AnomaryScore")}</span>
+                {#if sortField === "Score"}
+                  {#if sortAsc}
+                    <ArrowUp class="w-3 h-3 text-cyan-500" />
+                  {:else}
+                    <ArrowDown class="w-3 h-3 text-cyan-500" />
+                  {/if}
+                {:else}
+                  <ArrowUpDown class="w-3 h-3 opacity-30" />
+                {/if}
+              </div>
+            </th>
+
+            <!-- Node Name Sortable -->
+            <th
+              onclick={() => handleSort("Node")}
+              class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors w-[26%]"
+            >
+              <div class="flex items-center gap-1">
+                <span>{$_("AIList.Node")}</span>
+                {#if sortField === "Node"}
+                  {#if sortAsc}
+                    <ArrowUp class="w-3 h-3 text-cyan-500" />
+                  {:else}
+                    <ArrowDown class="w-3 h-3 text-cyan-500" />
+                  {/if}
+                {:else}
+                  <ArrowUpDown class="w-3 h-3 opacity-30" />
+                {/if}
+              </div>
+            </th>
+
+            <!-- Polling Sortable -->
+            <th
+              onclick={() => handleSort("Polling")}
+              class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors w-[22%]"
+            >
+              <div class="flex items-center gap-1">
+                <span>{$_("AIList.Polling")}</span>
+                {#if sortField === "Polling"}
+                  {#if sortAsc}
+                    <ArrowUp class="w-3 h-3 text-cyan-500" />
+                  {:else}
+                    <ArrowDown class="w-3 h-3 text-cyan-500" />
+                  {/if}
+                {:else}
+                  <ArrowUpDown class="w-3 h-3 opacity-30" />
+                {/if}
+              </div>
+            </th>
+
+            <!-- Count Sortable -->
+            <th
+              onclick={() => handleSort("Count")}
+              class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors w-[12%]"
+            >
+              <div class="flex items-center gap-1">
+                <span>{$_("AIList.Count")}</span>
+                {#if sortField === "Count"}
+                  {#if sortAsc}
+                    <ArrowUp class="w-3 h-3 text-cyan-500" />
+                  {:else}
+                    <ArrowDown class="w-3 h-3 text-cyan-500" />
+                  {/if}
+                {:else}
+                  <ArrowUpDown class="w-3 h-3 opacity-30" />
+                {/if}
+              </div>
+            </th>
+
+            <!-- Last Time Sortable -->
+            <th
+              onclick={() => handleSort("LastTime")}
+              class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors w-[16%]"
+            >
+              <div class="flex items-center gap-1">
+                <span>{$_("AIList.LastTime")}</span>
+                {#if sortField === "LastTime"}
+                  {#if sortAsc}
+                    <ArrowUp class="w-3 h-3 text-cyan-500" />
+                  {:else}
+                    <ArrowDown class="w-3 h-3 text-cyan-500" />
+                  {/if}
+                {:else}
+                  <ArrowUpDown class="w-3 h-3 opacity-30" />
+                {/if}
+              </div>
+            </th>
+
+            <!-- Actions Header -->
+            <th class="py-2.5 px-3 text-center w-28">
+              {$_("report.colAction")}
+            </th>
           </tr>
-        {:else}
-          {#each aiEvaluatedNodes as an}
-            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{an.name}</td>
-              <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{an.ip}</td>
-              <td class="py-1 px-2 font-bold font-mono text-[11px] {Number(an.score) >= 60 ? 'text-rose-500' : Number(an.score) >= 25 ? 'text-amber-500' : 'text-emerald-500'}">
-                {an.score}
-              </td>
-              <td class="py-1 px-2 text-slate-700 dark:text-slate-400 font-sans text-[11px]">{an.factors}</td>
-              <td class="py-1 px-2">
-                <span class="rounded px-1.5 py-0.5 text-[9px] font-bold font-sans leading-none border {an.verdictClass}">
-                  {an.verdict}
-                </span>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
+          {#if loading && data.length === 0}
+            <tr>
+              <td colspan="6" class="py-12 text-center text-slate-500 font-sans">
+                <span class="mdi mdi-loading mdi-spin text-2xl text-cyan-500"></span>
+                <div class="mt-2 text-xs">{$_("common.loading")}</div>
               </td>
             </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
+          {:else if paginatedData.length === 0}
+            <tr>
+              <td colspan="6" class="py-12 text-center text-slate-500 font-sans">
+                <span class="mdi mdi-chart-bell-curve-cumulative text-3xl text-slate-400 dark:text-slate-600"></span>
+                <div class="mt-2 text-xs">
+                  ポーリングのログモードを「異常検知あり」に設定したポーリングがここに表示されます。
+                </div>
+              </td>
+            </tr>
+          {:else}
+            {#each paginatedData as item}
+              <tr class="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-800 dark:text-slate-200">
+                <!-- Anomaly score with colored MDI emoticon icon -->
+                <td class="py-2 px-3 whitespace-nowrap">
+                  <span
+                    class="mdi {getScoreIcon(item.Score)} text-sm"
+                    style="color: {getScoreColor(item.Score)};"
+                  ></span>
+                  <span class="ml-2 font-mono font-medium">
+                    {item.Score.toFixed(2)}
+                  </span>
+                </td>
+
+                <!-- Node Name -->
+                <td class="py-2 px-3 font-sans truncate max-w-[200px]" title={item.Node}>
+                  {item.Node}
+                </td>
+
+                <!-- Polling -->
+                <td class="py-2 px-3 font-sans truncate max-w-[200px]" title={item.Polling}>
+                  {item.Polling}
+                </td>
+
+                <!-- Count -->
+                <td class="py-2 px-3 font-mono">
+                  {item.Count}
+                </td>
+
+                <!-- Last time -->
+                <td class="py-2 px-3 font-mono whitespace-nowrap text-slate-500 dark:text-slate-400 text-[11px]">
+                  {formatTimeStr(item.LastTime > 1e11 ? item.LastTime : item.LastTime * 1000)}
+                </td>
+
+                <!-- Row Actions (Icon Buttons) -->
+                <td class="py-2 px-3 text-center whitespace-nowrap">
+                  <div class="inline-flex items-center gap-1.5 justify-center">
+                    <button
+                      type="button"
+                      onclick={() => handleOpenReport(item)}
+                      class="p-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 transition-colors cursor-pointer"
+                      title={$_("AIList.Report")}
+                    >
+                      <BarChart3 class="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleExportAIData(item)}
+                      class="p-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                      title={$_("AIList.Csv")}
+                    >
+                      <Download class="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleClearItem(item)}
+                      class="p-1 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      title={$_("AIList.Clear")}
+                    >
+                      <Trash2 class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <ReportPagination
+      bind:pageSize
+      bind:currentPage
+      totalCount={filteredData.length}
+    />
   </div>
 </div>
+
+<AIReportModal
+  bind:show={showReportModal}
+  id={selectedReportId}
+  title={selectedReportTitle}
+/>

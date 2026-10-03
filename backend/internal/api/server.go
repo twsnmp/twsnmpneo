@@ -225,6 +225,59 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			return c.JSON(http.StatusOK, map[string]string{"diagnosis": diag})
 		})
+
+		// AI Anomaly Detection Endpoints
+		anomalySvc := ai.NewAnomalyService(cfg.Store, cfg.LogStore)
+
+		apiGroup.GET("/ai/list", func(c echo.Context) error {
+			list, err := anomalySvc.GetAIList(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+
+		apiGroup.GET("/report/ai", func(c echo.Context) error {
+			list, err := anomalySvc.GetAIList(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+
+		apiGroup.GET("/ai/result/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			res, err := cfg.Store.GetAIResult(id)
+			if err != nil || res == nil || len(res.ScoreData) < 1 {
+				return c.JSON(http.StatusOK, datastore.AIResultEnt{PollingID: id, ScoreData: [][]float64{}})
+			}
+			return c.JSON(http.StatusOK, res)
+		})
+
+		apiGroup.DELETE("/ai/result/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			if err := anomalySvc.DeleteAIResult(c.Request().Context(), id); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
+		apiGroup.GET("/ai/export/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			ts := time.Now().Format("20060102150405")
+			c.Response().Header().Set(echo.HeaderContentType, "text/csv; charset=utf-8")
+			c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=twsnmp_ai_data_%s_%s.csv", id, ts))
+			return anomalySvc.ExportAIData(c.Request().Context(), id, c.Response().Writer)
+		})
+
+		apiGroup.POST("/ai/recheck", func(c echo.Context) error {
+			anomalySvc.CheckAll(c.Request().Context())
+			list, err := anomalySvc.GetAIList(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, list)
+		})
 	}
 
 	if cfg.Store != nil {

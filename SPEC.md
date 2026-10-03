@@ -209,8 +209,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **sFlow Analytics**: Sampled flow and counter aggregation.
      - **ARP Watch Analytics**: Aggregated ARP monitoring events categorized by IP/node, vendor, state (new device/MAC change), and severity level.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
-     - **Sensor & IoT Analytics**: Environmental (temp/humidity), Power consumption, Motion sensors, SDR RF power, MQTT clients/topics.
-     - **AI Anomaly**: AI anomaly scores across nodes and pollings.
+     - **AI Anomaly**: AI anomaly score reporting strictly aligned with TWSNMP FK (`AIList`). Displays pollings configured with log mode "異常検知あり" (`LogMode == LogModeAI`). Polling editor supports algorithm selection (`iforest`, `zscore`, `lof`, `knn`, `mahalanobis`, `hotelling`, `autoencoder`, `lstm`) and vector feature columns (`VectorCols`). Table presents Anomaly score with severity emoticon icon, Node Name, Polling, Count, and Last time. Supports row selection, Heatmap/Pie/Time analytics report modal (`AIReportModal`), feature DataFrame CSV export (`/api/ai/export/:id`), and result clearing.
 9. **Tool View (`ToolView.svelte`)**:
    - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface with enterprise MIB resolution.
    - **Ping Tool**: Continuous Ping with real-time response time graph and sound alerts.

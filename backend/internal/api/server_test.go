@@ -328,6 +328,28 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("ai diagnose failed: code %d, body: %s", rec.Code, rec.Body.String())
 	}
 
+	// 8b. AI Anomaly Report Endpoints
+	req = httptest.NewRequest(http.MethodGet, "/api/ai/list", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("ai list failed: code %d, body: %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/ai/result/p-api-1", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("ai result failed: code %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/ai/result/p-api-1", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("ai delete result failed: code %d", rec.Code)
+	}
+
 	// 9. MCP Endpoint
 	req = httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
 	rec = httptest.NewRecorder()

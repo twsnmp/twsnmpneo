@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/parquet-go/parquet-go"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 )
 
 // ParquetLogRecord defines the schema for columnar log persistence.
@@ -542,6 +543,94 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 		}
 	}
 	return nil
+}
+
+// GetAllPollingLog retrieves all polling log entries for a given polling ID in chronological order.
+func (s *Store) GetAllPollingLog(ctx context.Context, pollingID string) ([]*datastore.PollingLogEnt, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	_ = s.Flush()
+
+	pollingDir := filepath.Join(s.dir, "polling")
+	entries, err := os.ReadDir(pollingDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	files := make([]string, 0)
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".parquet") {
+			files = append(files, filepath.Join(pollingDir, e.Name()))
+		}
+	}
+	// Sort files oldest first (chronological order)
+	sort.Strings(files)
+
+	var results []*datastore.PollingLogEnt
+	for _, filePath := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		f, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+		stat, err := f.Stat()
+		if err != nil || stat.Size() == 0 {
+			_ = f.Close()
+			continue
+		}
+
+		pf, err := parquet.OpenFile(f, stat.Size())
+		if err != nil {
+			_ = f.Close()
+			continue
+		}
+
+		reader := parquet.NewGenericReader[ParquetLogRecord](pf)
+		buf := make([]ParquetLogRecord, 256)
+		for {
+			n, rErr := reader.Read(buf)
+			for i := 0; i < n; i++ {
+				rec := &buf[i]
+				if rec.Src != pollingID {
+					continue
+				}
+				var payload struct {
+					State  string                 `json:"State"`
+					Result map[string]interface{} `json:"Result"`
+				}
+				ent := &datastore.PollingLogEnt{
+					Time:      rec.Time,
+					PollingID: rec.Src,
+				}
+				if err := json.Unmarshal([]byte(rec.Log), &payload); err == nil && payload.Result != nil {
+					ent.State = payload.State
+					ent.Result = payload.Result
+				} else {
+					var raw map[string]interface{}
+					if err := json.Unmarshal([]byte(rec.Log), &raw); err == nil {
+						ent.Result = raw
+						if st, ok := raw["state"].(string); ok {
+							ent.State = st
+						}
+					}
+				}
+				results = append(results, ent)
+			}
+			if rErr != nil {
+				break
+			}
+		}
+		_ = reader.Close()
+		_ = f.Close()
+	}
+
+	return results, nil
 }
 
 // Close flushes all data and terminates background threads.

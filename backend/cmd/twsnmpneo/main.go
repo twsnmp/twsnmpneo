@@ -219,6 +219,10 @@ func main() {
 	// Start Network background port manager
 	topology.StartNetworkBackend(ctx, store)
 
+	// Start AI Anomaly Detection background service
+	anomalySvc := ai.NewAnomalyService(store, pqStore)
+	go anomalySvc.Start(ctx)
+
 	// Resolve receiver ports from CLI flags and MapConf
 	mapConf, _ := store.GetMapConf(ctx)
 
