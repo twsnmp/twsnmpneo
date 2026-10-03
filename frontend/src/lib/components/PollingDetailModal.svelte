@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _ } from "svelte-i18n";
-  import { getStateColor, getStateName, formatTimeStr } from "../common";
+  import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
   import type { PollingEnt, NodeEnt } from "../api";
   import {
     X,
@@ -210,14 +210,8 @@
             </div>
             <div>
               <span class="text-slate-500 text-[10px] block">ログ保存モード</span>
-              <span class="font-mono font-semibold">
-                {#if (polling.log_mode || (polling as any).LogMode) === 1}
-                  状態変化時のみ
-                {:else if (polling.log_mode || (polling as any).LogMode) === 2}
-                  毎回保存
-                {:else}
-                  保存しない
-                {/if}
+              <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold border {getLogModeBadgeClass(polling.log_mode ?? (polling as any).LogMode)}">
+                {getLogModeName(polling.log_mode ?? (polling as any).LogMode, $_)}
               </span>
             </div>
             {#if polling.fail_action || (polling as any).FailAction}

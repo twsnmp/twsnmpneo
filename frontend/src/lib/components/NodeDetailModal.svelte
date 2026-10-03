@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack, onDestroy } from "svelte";
   import { initVPanel, setVPanel, deleteVPanel } from "../map/vpanel";
-  import { getStateColor, getStateName, formatTimeStr } from "../common";
+  import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
   import {
     fetchPollings,
     deletePolling,
@@ -296,6 +296,10 @@
     return [...items].sort((a: any, b: any) => {
       let va = a[col];
       let vb = b[col];
+      if (col === "log_mode") {
+        va = a.log_mode ?? a.LogMode ?? 0;
+        vb = b.log_mode ?? b.LogMode ?? 0;
+      }
       if (va === undefined || va === null) va = "";
       if (vb === undefined || vb === null) vb = "";
       let res = 0;
@@ -1176,6 +1180,16 @@
                           {/if}
                         </div>
                       </th>
+                      <th class="py-1.5 px-3 w-28 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("log_mode")}>
+                        <div class="inline-flex items-center gap-1 whitespace-nowrap">
+                          <span>{$_('nodeDetail.colLogMode')}</span>
+                          {#if pollSortCol === "log_mode"}
+                            {#if pollSortDir === "asc"}<ArrowUp class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{:else}<ArrowDown class="h-3 w-3 text-blue-600 dark:text-cyan-400" />{/if}
+                          {:else}
+                            <ArrowUpDown class="h-3 w-3 text-slate-400" />
+                          {/if}
+                        </div>
+                      </th>
                       <th class="py-1.5 px-3 w-28 whitespace-nowrap cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePollSort("last_val")}>
                         <div class="inline-flex items-center gap-1 whitespace-nowrap">
                           <span>{$_('nodeDetail.colLastVal')}</span>
@@ -1225,6 +1239,13 @@
                         <td class="py-1 px-2 whitespace-nowrap">
                           <span class="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase bg-blue-50 dark:bg-cyan-500/10 text-blue-700 dark:text-cyan-300 border border-blue-200 dark:border-cyan-500/30">
                             {(p as PollingEnt).type}
+                          </span>
+                        </td>
+                        <td class="py-1 px-2 whitespace-nowrap">
+                          <span
+                            class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border {getLogModeBadgeClass((p as PollingEnt).log_mode ?? (p as any).LogMode)}"
+                          >
+                            {getLogModeName((p as PollingEnt).log_mode ?? (p as any).LogMode, $_)}
                           </span>
                         </td>
                         <td class="py-1 px-2 text-blue-600 dark:text-cyan-400 font-semibold whitespace-nowrap text-[11px]">{(p as PollingEnt).last_val ?? "-"}</td>

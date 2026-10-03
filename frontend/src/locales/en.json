@@ -770,7 +770,7 @@
     "totalItems": "Total Items",
     "search": {
       "nodes": "Search by node name, IP, description...",
-      "pollings": "Search by polling name, target...",
+      "pollings": "Search by polling name, node...",
       "networks": "Search by network name, IP...",
       "lines": "Search by source, destination, info...",
       "drawitems": "Search by text, label..."
@@ -799,6 +799,7 @@
       "action": "Action",
       "pollingName": "Polling Name",
       "type": "Type",
+      "logMode": "Log Mode",
       "target": "Target",
       "targetNode": "Target Node",
       "lastVal": "Last Response",
@@ -956,6 +957,7 @@
     "colIn": "In (Rx)",
     "colOut": "Out (Tx)",
     "colType": "Type",
+    "colLogMode": "Log Mode",
     "colTarget": "Target",
     "colLastVal": "Last Value",
     "colLastTime": "Last Time",

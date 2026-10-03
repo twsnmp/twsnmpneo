@@ -18,11 +18,12 @@
     type LineEnt,
     type DrawItemEnt,
   } from "../api";
-  import { getStateColor, getStateName, formatTimeStr } from "../common";
+  import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
   import { _ } from "svelte-i18n";
   import NodeDialog from "../components/NodeDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
   import PollingDialog from "../components/PollingDialog.svelte";
+  import PollingDetailModal from "../components/PollingDetailModal.svelte";
   import PollingTemplateDialog from "../components/PollingTemplateDialog.svelte";
   import NetworkDialog from "../components/NetworkDialog.svelte";
   import LineDialog from "../components/LineDialog.svelte";
@@ -38,6 +39,7 @@
     Plus,
     Trash2,
     Edit3,
+    Eye,
     Copy,
     Box,
     AlertTriangle,
@@ -104,7 +106,10 @@
 
   let showPollingDialog = $state(false);
   let showTemplateDialog = $state(false);
+  let showPollingDetailModal = $state(false);
   let selectedPolling = $state<PollingEnt | null>(null);
+  let detailPolling = $state<PollingEnt | null>(null);
+  let detailPollingNode = $state<NodeEnt | null>(null);
 
   let showNetworkDialog = $state(false);
   let selectedNetwork = $state<NetworkEnt | null>(null);
@@ -274,7 +279,7 @@
           case "status": return item.state || item.State || "";
           case "name": return item.name || item.Name || "";
           case "type": return item.type || item.Type || "";
-          case "target": return item.params || item.target || item.Params || item.Target || "";
+          case "logMode": return item.log_mode ?? item.LogMode ?? 0;
           case "targetNode": return getNodeName(item.node_id || item.NodeID);
           case "lastVal": return item.last_val ?? "";
           case "lastTime": return item.last_time ?? "";
@@ -471,6 +476,11 @@
   };
 
   // Polling actions
+  const handleViewPolling = (p: PollingEnt) => {
+    detailPolling = p;
+    detailPollingNode = nodes.find((n) => n.id === (p.node_id || (p as any).NodeID)) || null;
+    showPollingDetailModal = true;
+  };
   const handleEditPolling = (p: PollingEnt) => {
     selectedPolling = { ...p };
     showPollingDialog = true;
@@ -811,8 +821,8 @@
               <tr>
                 {@render sortableHeader("pollings", "status", $_('list.table.status'), "w-28")}
                 {@render sortableHeader("pollings", "name", $_('list.table.pollingName'))}
-                {@render sortableHeader("pollings", "type", $_('list.table.type'), "w-28")}
-                {@render sortableHeader("pollings", "target", $_('list.table.target'))}
+                {@render sortableHeader("pollings", "type", $_('list.table.type'), "w-24")}
+                {@render sortableHeader("pollings", "logMode", $_('list.table.logMode'), "w-28")}
                 {@render sortableHeader("pollings", "targetNode", $_('list.table.targetNode'))}
                 {@render sortableHeader("pollings", "lastVal", $_('list.table.lastVal'), "w-32")}
                 {@render sortableHeader("pollings", "lastTime", $_('list.table.lastTime'), "w-40")}
@@ -834,7 +844,11 @@
                       {p.type}
                     </span>
                   </td>
-                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{p.params || p.Params || p.target || "-"}</td>
+                  <td class="py-1 px-2 whitespace-nowrap">
+                    <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border {getLogModeBadgeClass(p.log_mode ?? (p as any).LogMode)}">
+                      {getLogModeName(p.log_mode ?? (p as any).LogMode, $_)}
+                    </span>
+                  </td>
                   <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-sans font-medium">{getNodeName(p.node_id || (p as any).NodeID)}</td>
                   <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-semibold">
                     {#if p.last_val !== undefined}
@@ -849,16 +863,26 @@
                   <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
+                        onclick={() => handleViewPolling(p)}
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors cursor-pointer"
+                        title={$_('common.view')}
+                        aria-label={$_('common.view')}
+                      >
+                        <Eye class="h-4 w-4" />
+                      </button>
+                      <button
                         onclick={() => handleEditPolling(p)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                         title={$_('common.edit')}
+                        aria-label={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeletePolling(p.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                         title={$_('common.delete')}
+                        aria-label={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -1211,6 +1235,15 @@
   bind:polling={selectedPolling}
   nodes={nodes}
   onSave={loadAll}
+/>
+
+<PollingDetailModal
+  bind:show={showPollingDetailModal}
+  polling={detailPolling}
+  node={detailPollingNode}
+  onEdit={(p) => {
+    handleEditPolling(p);
+  }}
 />
 
 <NetworkDialog

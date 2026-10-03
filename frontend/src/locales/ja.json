@@ -770,7 +770,7 @@
     "totalItems": "全アイテム",
     "search": {
       "nodes": "ノード名・IP・説明で検索...",
-      "pollings": "ポーリング名・ターゲットで検索...",
+      "pollings": "ポーリング名・ノード名で検索...",
       "networks": "ネットワーク名・IPで検索...",
       "lines": "接続元・接続先・情報で検索...",
       "drawitems": "テキスト・ラベルで検索..."
@@ -799,6 +799,7 @@
       "action": "操作",
       "pollingName": "ポーリング名",
       "type": "種別",
+      "logMode": "ログモード",
       "target": "ターゲット",
       "targetNode": "対象ノード",
       "lastVal": "最新応答値",
@@ -956,6 +957,7 @@
     "colIn": "In (受信)",
     "colOut": "Out (送信)",
     "colType": "種別",
+    "colLogMode": "ログモード",
     "colTarget": "ターゲット",
     "colLastVal": "最新値",
     "colLastTime": "最終確認",

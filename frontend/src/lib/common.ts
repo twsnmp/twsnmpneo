@@ -347,3 +347,37 @@ export const getScoreIcon = (s: number): string => {
   return 'mdi-emoticon-dead-outline';
 };
 
+export const logModeList = [
+  { value: 0, text: '記録しない', textEn: 'None', key: 'none' },
+  { value: 1, text: '毎回記録', textEn: 'Always', key: 'always' },
+  { value: 2, text: '状態変化時', textEn: 'On Change', key: 'onChange' },
+  { value: 3, text: '異常検知あり', textEn: 'AI Anomaly', key: 'ai' },
+];
+
+export const getLogModeName = (val: number | undefined | null, t?: (key: string) => string): string => {
+  const mode = Number(val || 0);
+  const entry = logModeList.find((e) => e.value === mode) || logModeList[0];
+  if (t) {
+    const translated = t(`polling.logModes.${entry.key}`);
+    if (translated && !translated.startsWith('polling.logModes.')) {
+      return translated;
+    }
+  }
+  const isJa = (get(locale) || 'ja').startsWith('ja');
+  return isJa ? entry.text : entry.textEn;
+};
+
+export const getLogModeBadgeClass = (val: number | undefined | null): string => {
+  const mode = Number(val || 0);
+  switch (mode) {
+    case 1: // always
+      return 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-500/30';
+    case 2: // onChange
+      return 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30';
+    case 3: // ai
+      return 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30';
+    case 0: // none
+    default:
+      return 'bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+  }
+};
