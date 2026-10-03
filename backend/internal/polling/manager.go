@@ -11,6 +11,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 )
 
 // Config defines options for the Polling Manager.
@@ -77,6 +78,9 @@ func NewManager(cfg Config) *Manager {
 	m.RegisterPoller("lxi", NewLXIPoller())
 	m.RegisterPoller("twlogeye", NewTwLogEyePoller())
 	m.RegisterPoller("report", NewCmdPoller()) // Placeholder for report type
+	for _, src := range []string{logreport.SourceWifiScan, logreport.SourceBlueScan, logreport.SourcePcap, logreport.SourceWinLog} {
+		m.RegisterPoller(src, NewLogReportPoller(cfg.Store, cfg.LogStore, src))
+	}
 
 	return m
 }

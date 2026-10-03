@@ -26,6 +26,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/discover"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"github.com/twsnmp/twsnmpneo/backend/internal/layout"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 	"github.com/twsnmp/twsnmpneo/backend/internal/notify"
@@ -243,6 +244,35 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, list)
+		})
+
+		// Log-derived reports (Wi-Fi AP, Bluetooth, packet capture, Windows event)
+		// built by twwifiscan / twbluescan / twpcap / twwinlog pollings.
+		apiGroup.GET("/report/log/:kind", func(c echo.Context) error {
+			kind := c.Param("kind")
+			if !logreport.IsKind(kind) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "unknown report kind"})
+			}
+			items, err := cfg.Store.ListLogReportData(c.Request().Context(), kind)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			list := make([]json.RawMessage, 0, len(items))
+			for _, b := range items {
+				list = append(list, json.RawMessage(b))
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+
+		apiGroup.DELETE("/report/log/:kind", func(c echo.Context) error {
+			kind := c.Param("kind")
+			if !logreport.IsKind(kind) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "unknown report kind"})
+			}
+			if err := cfg.Store.ResetLogReportData(c.Request().Context(), kind); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 		})
 
 		apiGroup.GET("/ai/result/:id", func(c echo.Context) error {

@@ -100,6 +100,10 @@
     { value: "mqtt", label: "MQTT" },
     { value: "email", label: "EMAIL" },
     { value: "stun", label: "STUN" },
+    { value: "twwifiscan", label: "twWifiScan Report" },
+    { value: "twbluescan", label: "twBlueScan Report" },
+    { value: "twpcap", label: "twpcap Report" },
+    { value: "twwinlog", label: "twwinlog Report" },
   ];
 
   const controlClass =

@@ -136,6 +136,16 @@ type DataStore interface {
 	GetCertMonitor(ctx context.Context, id string) (*CertMonitorEnt, error)
 	SaveCertMonitor(ctx context.Context, c *CertMonitorEnt) error
 	DeleteCertMonitor(ctx context.Context, id string) error
+
+	// Log-derived reports (twWifiScan, twBlueScan, twpcap, twwinlog).
+	// Entities are stored as JSON per report kind and keyed by entity ID.
+	// GetLogReportData returns (nil, nil) when the entity does not exist.
+	GetLogReportData(ctx context.Context, kind, id string) ([]byte, error)
+	ListLogReportData(ctx context.Context, kind string) (map[string][]byte, error)
+	SaveLogReportData(ctx context.Context, kind string, items map[string][]byte) error
+	DeleteLogReportData(ctx context.Context, kind string, ids []string) error
+	// ResetLogReportData removes every entity of the kind. Kind "" removes all kinds.
+	ResetLogReportData(ctx context.Context, kind string) error
 }
 
 // AIResultEnt holds AI anomaly detection results for a polling.

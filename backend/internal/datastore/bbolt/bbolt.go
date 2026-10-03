@@ -38,6 +38,7 @@ var (
 	bucketMqttStat   = []byte("mqttStat")
 	bucketPKICerts   = []byte("pkiCertificates")
 	bucketCertMonitor = []byte("certMonitor")
+	bucketLogReport   = []byte("logReport")
 
 	keyMapConf           = []byte("mapConf")
 	keyNotifyConf        = []byte("notifyConf")
