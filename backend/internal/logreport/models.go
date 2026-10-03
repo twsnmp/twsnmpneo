@@ -7,6 +7,8 @@
 // syslog records and feeds them to a Session.
 package logreport
 
+import "strings"
+
 // Polling types / sources handled by this package.
 const (
 	SourceWifiScan = "twwifiscan"
@@ -37,7 +39,7 @@ const (
 
 // SyslogTag returns the syslog tag emitted by the source.
 func SyslogTag(source string) string {
-	switch source {
+	switch strings.ToLower(source) {
 	case SourceWifiScan:
 		return "twWifiScan"
 	case SourceBlueScan:
@@ -55,7 +57,7 @@ func IsSource(s string) bool { return SyslogTag(s) != "" }
 
 // KindsOf returns the report kinds fed by the source.
 func KindsOf(source string) []string {
-	switch source {
+	switch strings.ToLower(source) {
 	case SourceWifiScan:
 		return []string{KindWifiAP}
 	case SourceBlueScan:

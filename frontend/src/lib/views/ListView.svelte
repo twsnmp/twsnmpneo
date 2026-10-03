@@ -716,15 +716,6 @@
 
       <div class="flex items-center gap-2">
         <button
-          onclick={loadAll}
-          disabled={loading}
-          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
-        >
-          <RefreshCw class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 {loading ? 'animate-spin' : ''}" />
-          <span>{$_('common.refresh')}</span>
-        </button>
-
-        <button
           onclick={handleOpenAdd}
           class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
         >
@@ -736,6 +727,15 @@
              activeCategory === "lines" ? $_('list.addBtn.lines') :
              $_('list.addBtn.drawitems')}
           </span>
+        </button>
+
+        <button
+          onclick={loadAll}
+          disabled={loading}
+          class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
+        >
+          <RefreshCw class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 {loading ? 'animate-spin' : ''}" />
+          <span>{$_('common.refresh')}</span>
         </button>
       </div>
     </div>

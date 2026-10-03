@@ -113,3 +113,53 @@ func TestLogReportPollerNoStore(t *testing.T) {
 		t.Fatalf("res=%+v err=%v", res, err)
 	}
 }
+
+func TestSyslogPollerWithReportModes(t *testing.T) {
+	store, ls, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+	now := time.Now()
+
+	writeSyslog(t, ls, "scanner", "twWifiScan", "type=APInfo,ssid=test-wifi,bssid=11:22:33:44:55:66,rssi=-45,Channel=36,info=ax", now.Add(-time.Minute).UnixNano())
+	writeSyslog(t, ls, "scanner", "twBlueScan", "type=Device,address=aa:bb:cc:dd:ee:ff,name=Sensor1,rssi=-60", now.Add(-time.Minute).UnixNano())
+	writeSyslog(t, ls, "scanner", "twpcap", "type=DNS,DNSType=A,Name=google.com,sv=8.8.8.8,count=1,change=0,lcl=10.0.0.1,ft=2026-10-04T00:00:00Z,lt=2026-10-04T00:00:00Z", now.Add(-time.Minute).UnixNano())
+	writeSyslog(t, ls, "scanner", "twwinlog", "type=EventID,computer=Server01,eventID=4624,count=10", now.Add(-time.Minute).UnixNano())
+
+	sp := polling.NewSyslogPoller(store, ls)
+
+	// 1. Wifi Scan mode
+	resWifi, err := sp.Poll(ctx, &datastore.PollingEnt{Type: "syslog", Mode: "twwifiscan", PollInt: 60}, nil)
+	if err != nil || resWifi.State != polling.StateNormal {
+		t.Fatalf("resWifi=%+v err=%v", resWifi, err)
+	}
+	if aps, _ := store.ListLogReportData(ctx, logreport.KindWifiAP); len(aps) != 1 {
+		t.Fatalf("expected 1 wifi AP, got %d", len(aps))
+	}
+
+	// 2. Bluetooth Scan mode (case-insensitive test)
+	resBlue, err := sp.Poll(ctx, &datastore.PollingEnt{Type: "syslog", Mode: "twBlueScan", PollInt: 60}, nil)
+	if err != nil || resBlue.State != polling.StateNormal {
+		t.Fatalf("resBlue=%+v err=%v", resBlue, err)
+	}
+	if devs, _ := store.ListLogReportData(ctx, logreport.KindBlueDevice); len(devs) != 1 {
+		t.Fatalf("expected 1 BLE device, got %d", len(devs))
+	}
+
+	// 3. Pcap mode
+	resPcap, err := sp.Poll(ctx, &datastore.PollingEnt{Type: "syslog", Mode: "twpcap", PollInt: 60}, nil)
+	if err != nil || resPcap.State != polling.StateNormal {
+		t.Fatalf("resPcap=%+v err=%v", resPcap, err)
+	}
+	if dnsq, _ := store.ListLogReportData(ctx, logreport.KindDNSQ); len(dnsq) != 1 {
+		t.Fatalf("expected 1 DNS query record, got %d", len(dnsq))
+	}
+
+	// 4. WinLog mode
+	resWin, err := sp.Poll(ctx, &datastore.PollingEnt{Type: "syslog", Mode: "twwinlog", PollInt: 60}, nil)
+	if err != nil || resWin.State != polling.StateNormal {
+		t.Fatalf("resWin=%+v err=%v", resWin, err)
+	}
+	if evs, _ := store.ListLogReportData(ctx, logreport.KindWinEventID); len(evs) != 1 {
+		t.Fatalf("expected 1 Win EventID, got %d", len(evs))
+	}
+}

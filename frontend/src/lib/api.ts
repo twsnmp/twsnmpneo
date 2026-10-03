@@ -2476,3 +2476,277 @@ export async function recheckAI(): Promise<AIListEnt[]> {
   return await res.json();
 }
 
+// Log-derived Reports Types & Functions
+export interface RSSIEnt {
+  Value: number;
+  Time: number;
+}
+
+export interface ScoreInfo {
+  Penalty: number;
+  Score: number;
+  ValidScore: boolean;
+}
+
+export interface WifiAPEnt {
+  ID: string;
+  Host: string;
+  BSSID: string;
+  SSID: string;
+  Channel: string;
+  Info: string;
+  Vendor: string;
+  Count: number;
+  Change: number;
+  RSSI: RSSIEnt[];
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface BlueDeviceEnt {
+  ID: string;
+  Host: string;
+  Address: string;
+  AddressType: string;
+  Name: string;
+  Vendor: string;
+  Info: string;
+  Count: number;
+  RSSI: RSSIEnt[];
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface EnvDataEnt {
+  Time: number;
+  RSSI: number;
+  Temp: number;
+  Humidity: number;
+  Illuminance: number;
+  BarometricPressure: number;
+  Sound: number;
+  ETVOC: number;
+  ECo2: number;
+  Battery: number;
+}
+
+export interface EnvMonitorEnt {
+  ID: string;
+  Host: string;
+  Address: string;
+  Name: string;
+  Count: number;
+  EnvData: EnvDataEnt[];
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface PowerMonitorDataEnt {
+  Time: number;
+  Load: number;
+  Switch: boolean;
+  Over: boolean;
+  RSSI: number;
+}
+
+export interface PowerMonitorEnt {
+  ID: string;
+  Host: string;
+  Address: string;
+  Name: string;
+  Count: number;
+  Data: PowerMonitorDataEnt[];
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface MotionSensorDataEnt {
+  Time: number;
+  Event: string;
+  Moving: boolean;
+  Light: boolean;
+  Battery: number;
+  LastMove: number;
+  LastMoveDiff: number;
+  RSSI: number;
+}
+
+export interface MotionSensorEnt {
+  ID: string;
+  Host: string;
+  Address: string;
+  Name: string;
+  Count: number;
+  Data: MotionSensorDataEnt[];
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface EtherTypeEnt {
+  ID: string;
+  Host: string;
+  Type: string;
+  Name: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface DNSQEnt {
+  ID: string;
+  Host: string;
+  Type: string;
+  Server: string;
+  Name: string;
+  Count: number;
+  Change: number;
+  LastClient: string;
+  LastMAC: string;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface RADIUSFlowEnt extends ScoreInfo {
+  ID: string;
+  Client: string;
+  ClientName: string;
+  ClientNodeID: string;
+  Server: string;
+  ServerName: string;
+  ServerNodeID: string;
+  Accept: number;
+  Reject: number;
+  Request: number;
+  Challenge: number;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+  UpdateTime: number;
+}
+
+export interface TLSFlowEnt extends ScoreInfo {
+  ID: string;
+  Client: string;
+  ClientName: string;
+  ClientNodeID: string;
+  ClientLoc: string;
+  Server: string;
+  ServerName: string;
+  ServerNodeID: string;
+  ServerLoc: string;
+  Service: string;
+  Version: string;
+  Cipher: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+  UpdateTime: number;
+}
+
+export interface WinEventIDEnt {
+  ID: string;
+  Level: string;
+  Provider: string;
+  EventID: number;
+  Computer: string;
+  Channel: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface WinLogonEnt extends ScoreInfo {
+  ID: string;
+  Target: string;
+  Computer: string;
+  IP: string;
+  Count: number;
+  Logon: number;
+  Logoff: number;
+  Failed: number;
+  LogonType: Record<string, number>;
+  FailedCode: Record<string, number>;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface WinAccountEnt {
+  ID: string;
+  Subject: string;
+  Target: string;
+  Computer: string;
+  Count: number;
+  Edit: number;
+  Password: number;
+  Other: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface WinKerberosEnt extends ScoreInfo {
+  ID: string;
+  Target: string;
+  Computer: string;
+  IP: string;
+  Service: string;
+  TicketType: string;
+  Count: number;
+  Failed: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface WinPrivilegeEnt {
+  ID: string;
+  Subject: string;
+  Computer: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface WinProcessEnt {
+  ID: string;
+  Process: string;
+  Computer: string;
+  Count: number;
+  Start: number;
+  Exit: number;
+  LastSubject: string;
+  LastParent: string;
+  LastStatus: string;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface WinTaskEnt {
+  ID: string;
+  TaskName: string;
+  Computer: string;
+  Subject: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export async function fetchLogReport<T = any>(kind: string): Promise<T[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function resetLogReport(kind: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Reset log report failed: ${res.statusText}`);
+  }
+}
+
+

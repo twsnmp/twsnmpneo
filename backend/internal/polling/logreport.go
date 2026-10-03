@@ -47,18 +47,30 @@ func (p *LogReportPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, _ 
 	if p.store == nil || p.logStore == nil {
 		return &Result{State: StateUnknown, Message: "log store is not available"}, nil
 	}
+	src := p.source
+	if src == "" {
+		src = pe.Mode
+	}
+	if src == "" {
+		src = pe.Type
+	}
 	et := start.UnixNano()
 	st := et - int64(logReportFirstRun)
 	if pe.Result != nil {
-		if lt, ok := pe.Result["lastTime"].(float64); ok && int64(lt) > 0 {
-			st = int64(lt)
+		if cnt, ok := pe.Result["count"].(float64); ok && cnt > 0 {
+			if lt, ok := pe.Result["lastTime"].(float64); ok && int64(lt) > 0 && int64(lt) <= et {
+				st = int64(lt)
+			}
 		}
 	}
+	if st < et-int64(logReportFirstRun) {
+		st = et - int64(logReportFirstRun)
+	}
 
-	recs, truncated := p.queryRecords(ctx, st, et, pe.Params)
+	recs, truncated := p.queryRecords(ctx, st, et, pe.Params, src)
 	sess := logreport.NewSession(ctx, p.store)
 	for _, rec := range recs {
-		sess.Process(p.source, rec)
+		sess.Process(src, rec)
 	}
 	if err := sess.Commit(); err != nil {
 		return &Result{
@@ -76,7 +88,7 @@ func (p *LogReportPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, _ 
 		"lastTime":  float64(et),
 		"rtt":       float64(time.Since(start).Nanoseconds()),
 	}
-	msg := fmt.Sprintf("%s report: %d of %d logs processed", logreport.SyslogTag(p.source), sess.Processed, len(recs))
+	msg := fmt.Sprintf("%s report: %d of %d logs processed", logreport.SyslogTag(src), sess.Processed, len(recs))
 	if truncated {
 		msg += " (older logs skipped)"
 	}
@@ -89,7 +101,7 @@ func (p *LogReportPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, _ 
 // records are kept, so a window that returns a full page is split in two
 // until every part is complete. The second return value is true when records
 // were skipped because of the safety limits.
-func (p *LogReportPoller) queryRecords(ctx context.Context, st, et int64, host string) ([]logreport.Record, bool) {
+func (p *LogReportPoller) queryRecords(ctx context.Context, st, et int64, host, source string) ([]logreport.Record, bool) {
 	var recs []logreport.Record
 	truncated := false
 	var fetch func(from, to int64)
@@ -106,11 +118,11 @@ func (p *LogReportPoller) queryRecords(ctx context.Context, st, et int64, host s
 			StartTime: from,
 			EndTime:   to,
 			Src:       host,
-			Tag:       logreport.SyslogTag(p.source),
+			Tag:       logreport.SyslogTag(source),
 			Limit:     logReportPageSize,
 		})
 		if err != nil {
-			slog.Warn("log report query failed", "source", p.source, "error", err)
+			slog.Warn("log report query failed", "source", source, "error", err)
 			return
 		}
 		if len(logs) >= logReportPageSize {

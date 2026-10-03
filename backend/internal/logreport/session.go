@@ -296,20 +296,24 @@ func (s *Session) Process(source string, r Record) bool {
 
 // parseKV parses "k1=v1,k2=v2" as emitted by the tw* tools.
 func parseKV(c string) map[string]string {
+	c = strings.TrimSpace(c)
+	c = strings.TrimPrefix(c, ":")
+	c = strings.TrimSpace(c)
 	m := map[string]string{}
 	for _, kv := range strings.Split(c, ",") {
 		a := strings.SplitN(kv, "=", 2)
 		if len(a) == 2 {
-			m[a[0]] = a[1]
+			m[strings.TrimSpace(a[0])] = strings.TrimSpace(a[1])
 		}
 	}
 	return m
 }
 
 func atoi(s string) int {
-	n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	s = strings.TrimSpace(s)
+	n, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
-		f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return 0
 		}
@@ -319,12 +323,17 @@ func atoi(s string) int {
 }
 
 func atof(s string) float64 {
-	f, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	s = strings.TrimSpace(s)
+	f, _ := strconv.ParseFloat(s, 64)
 	return f
 }
 
 // parseTime parses an RFC3339 time as emitted by the tw* tools; def is returned on failure.
 func parseTime(s string, def int64) int64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return def
+	}
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
 		return t.UnixNano()
 	}

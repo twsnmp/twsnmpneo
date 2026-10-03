@@ -100,10 +100,6 @@
     { value: "mqtt", label: "MQTT" },
     { value: "email", label: "EMAIL" },
     { value: "stun", label: "STUN" },
-    { value: "twwifiscan", label: "twWifiScan Report" },
-    { value: "twbluescan", label: "twBlueScan Report" },
-    { value: "twpcap", label: "twpcap Report" },
-    { value: "twwinlog", label: "twwinlog Report" },
   ];
 
   const controlClass =
@@ -336,6 +332,10 @@
                 <option value="pri">pri (プライオリティ別集計)</option>
                 <option value="stats">stats (統計集計)</option>
                 <option value="sigma">sigma (Sigma脅威検知ルール)</option>
+                <option value="twwifiscan">twwifiscan (Wi-Fi AP レポート)</option>
+                <option value="twbluescan">twbluescan (Bluetooth/IoT レポート)</option>
+                <option value="twpcap">twpcap (Pcap トラフィックレポート)</option>
+                <option value="twwinlog">twwinlog (Windows イベントレポート)</option>
               </select>
             {:else if type === "trap" || type === "snmptrap"}
               <select id="poll-mode" bind:value={mode} class={controlClass}>
