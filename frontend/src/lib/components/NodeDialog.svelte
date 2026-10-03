@@ -73,7 +73,7 @@
           } else {
             name = $_('node.defaultName');
           }
-          ip = node?.ip || (node as any)?.IP || "192.168.1.10";
+          ip = node?.ip || (node as any)?.IP || "";
           mac = node?.mac || (node as any)?.MAC || "";
           descr = node?.descr || (node as any)?.Descr || "";
           icon = node?.icon || (node as any)?.Icon || "desktop";
@@ -97,7 +97,7 @@
   });
 
   const handleSave = async () => {
-    if (!name || !ip) {
+    if (!name || (!ip && addrMode !== "host")) {
       saveError = $_('node.saveError');
       return;
     }
@@ -193,20 +193,20 @@
                 id="node-name"
                 type="text"
                 bind:value={name}
-                placeholder="Web-Server-01"
+                placeholder=""
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
 
             <div>
               <label for="node-ip" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                {$_('node.ip')} <span class="text-rose-500">*</span>
+                {$_('node.ip')} {#if addrMode !== 'host'}<span class="text-rose-500">*</span>{/if}
               </label>
               <input
                 id="node-ip"
                 type="text"
                 bind:value={ip}
-                placeholder="192.168.1.10"
+                placeholder={addrMode === 'host' ? $_('node.ipHostPlaceholder') : ''}
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -217,7 +217,7 @@
                 id="node-mac"
                 type="text"
                 bind:value={mac}
-                placeholder="00:11:22:33:44:55"
+                placeholder=""
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -254,7 +254,7 @@
                 id="node-url"
                 type="text"
                 bind:value={url}
-                placeholder="https://192.168.1.10:8443/"
+                placeholder="URL"
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -265,7 +265,7 @@
                 id="node-descr"
                 type="text"
                 bind:value={descr}
-                placeholder="Rack-A"
+                placeholder=""
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -336,7 +336,7 @@
                   id="snmp-user"
                   type="text"
                   bind:value={user}
-                  placeholder="v3user"
+                  placeholder=""
                   class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
                 />
               </div>
@@ -346,7 +346,7 @@
                   id="snmp-pass"
                   type="password"
                   bind:value={password}
-                  placeholder="••••••••"
+                  placeholder=""
                   class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
                 />
               </div>
@@ -361,7 +361,7 @@
                 id="ssh-user"
                 type="text"
                 bind:value={sshUser}
-                placeholder="admin"
+                placeholder=""
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>
@@ -371,7 +371,7 @@
                 id="ssh-key"
                 type="text"
                 bind:value={publicKey}
-                placeholder="id_ed25519"
+                placeholder=""
                 class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
               />
             </div>

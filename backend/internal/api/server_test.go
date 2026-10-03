@@ -107,6 +107,31 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("get node by id failed: code %d, body: %s", rec.Code, rec.Body.String())
 	}
 
+	// 2.5 Test node creation with addr_mode="host" and no auto-created ping
+	hostNodePayload := `{"id":"n-host-1","name":"localhost","addr_mode":"host"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/nodes", strings.NewReader(hostNodePayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("post host node returned %d: %s", rec.Code, rec.Body.String())
+	}
+	var createdHostNode datastore.NodeEnt
+	if err := json.Unmarshal(rec.Body.Bytes(), &createdHostNode); err != nil {
+		t.Fatalf("unmarshal created host node: %v", err)
+	}
+	if createdHostNode.IP == "" {
+		t.Errorf("expected localhost to resolve to IP, got empty")
+	}
+	// Verify no automatic ping was created
+	allPolls, _ := bStore.ListPollings(context.Background())
+	for _, p := range allPolls {
+		if p.NodeID == "n-host-1" {
+			t.Errorf("expected no auto-created polling for node n-host-1, but found %s", p.Name)
+		}
+	}
+
+
 	// 3. Pollings CRUD: POST, GET, DELETE/:id
 	pollPayload := `{"ID":"p-api-1","NodeID":"n-api-1","Name":"Ping Check","Type":"ping","Mode":"smoke","Params":"count=5,size=128","Filter":"filter","Extractor":"extractor","Script":"loss < 100","Level":"warn","PollInt":45,"Timeout":2,"Retry":3,"LogMode":2,"FailAction":"failure action","RepairAction":"repair action","AIMode":"zscore","VectorCols":"rtt,loss","MqttURL":"tcp://localhost:1883","MqttTopic":"polling","MqttCols":"state,rtt","State":"normal"}`
 	req = httptest.NewRequest(http.MethodPost, "/api/pollings", strings.NewReader(pollPayload))

@@ -288,7 +288,13 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 ### 4.4 Map Element Editors
 
 * **Node Editor (`NodeDialog.svelte`)**:
-  - Input fields: Name, IP Address, MAC Address, Address Mode (IP/MAC), Icon selector, Custom Image icon selector, SNMP Version (v1/v2c/v3), Community, v3 User/Auth/Priv, SSH User/Key, URL, Location coordinate (lat,lng), AutoAck toggle.
+  - Input fields: Name, IP Address, MAC Address, Address Mode (`ip`=固定IP / `mac`=固定MAC / `host`=ホスト名), Icon selector, Custom Image icon selector, SNMP Version (v1/v2c/v3), Community, v3 User/Auth/Priv, SSH User/Key, URL, Location coordinate (lat,lng), AutoAck toggle.
+  - **Address Mode Handling (`twsnmpfk` parity)**:
+    - `ip` (Fixed IP): Static IP address, MAC is populated or monitored from ARP table.
+    - `mac` (Fixed MAC): Tracks and updates node IP address when device changes IP in local ARP table.
+    - `host` (Host Name): Node Name is treated as hostname. Resolves IP via DNS lookup upon save and periodic ARP/Host checks. IP input field is optional in this mode.
+  - **No Automatic Polling on Creation**: Nodes are added without implicitly generating default ping pollings. Pollings are managed explicitly by user or auto-detection.
+  - **Node State Aggregation**: Node state is aggregated across all active pollings (`Level != "off"`) with severity priority `high` > `low` > `warn` > `repair` > `normal` > `unknown`. Pollings with `Level = "off"` (停止) are excluded from node state calculations and do not trigger node severity alarms.
   - Integration with `NodeAutoDetectDialog`: Automatic SNMP detection of sysName, sysDescr, interfaces, and suggested pollings.
 * **Network Editor (`NetworkDialog.svelte`)**:
   - Input fields: Network Name, IP Address, Description, SNMP settings (v1/v2c/v3, Community, User, Password), URL, Unmanaged toggle.

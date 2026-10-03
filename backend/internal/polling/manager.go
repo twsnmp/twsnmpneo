@@ -162,8 +162,12 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 
 	res, err := poller.Poll(ctx, p, node)
 	if err != nil {
+		failState := StateHigh
+		if p.Level != "" {
+			failState = p.Level
+		}
 		res = &Result{
-			State:   StateHigh,
+			State:   failState,
 			Message: err.Error(),
 		}
 	}
@@ -235,10 +239,9 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 			})
 		}
 
-		// Update node state to match polling result
-		if node != nil && node.State != res.State {
-			node.State = res.State
-			_ = m.store.SaveNode(ctx, node)
+		// Update node state by aggregating all active pollings
+		if node != nil {
+			m.updateNodeState(ctx, node)
 		}
 	}
 
@@ -338,4 +341,73 @@ func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 		}(p)
 	}
 	return count, nil
+}
+
+func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) {
+	if m.store == nil || node == nil {
+		return
+	}
+	pollings, err := m.store.ListPollings(ctx)
+	if err != nil {
+		return
+	}
+
+	newState := StateUnknown
+	hasActivePolling := false
+
+	for _, p := range pollings {
+		if p.NodeID != node.ID || p.Level == "off" {
+			continue
+		}
+		hasActivePolling = true
+		s := p.State
+		if s == StateHigh {
+			newState = StateHigh
+			break
+		}
+		if s == StateLow {
+			newState = StateLow
+			continue
+		}
+		if newState == StateLow {
+			continue
+		}
+		if s == StateWarn {
+			newState = StateWarn
+			continue
+		}
+		if newState == StateWarn {
+			continue
+		}
+		if s == StateRepair {
+			if !node.AutoAck {
+				newState = StateRepair
+				continue
+			} else {
+				p.State = StateNormal
+				s = StateNormal
+				_ = m.store.SavePolling(ctx, p)
+			}
+		}
+		if newState != StateUnknown {
+			continue
+		}
+		if s == "info" {
+			s = StateNormal
+		}
+		newState = s
+	}
+
+	if !hasActivePolling {
+		if node.State == "" || node.State == StateHigh || node.State == StateLow || node.State == StateWarn {
+			newState = StateNormal
+		} else {
+			newState = node.State
+		}
+	}
+
+	if node.State != newState {
+		node.State = newState
+		_ = m.store.SaveNode(ctx, node)
+	}
 }

@@ -42,9 +42,9 @@ export const getStateName = (state: string, t?: (key: string) => string): string
 };
 
 export const addrModeList = [
-  { name: '固定 IP アドレス', nameEn: 'Static IP Address', value: 'ip' },
-  { name: '固定 MAC アドレス', nameEn: 'Static MAC Address', value: 'mac' },
-  { name: 'ホスト名', nameEn: 'Host Name', value: 'host' },
+  { name: 'IP固定', nameEn: 'Fixed IP', value: 'ip' },
+  { name: 'MAC固定', nameEn: 'Fixed MAC', value: 'mac' },
+  { name: 'ホスト名固定', nameEn: 'Fixed Host', value: 'host' },
 ];
 
 export const getAddrModeName = (val: string): string => {

@@ -425,3 +425,59 @@ func TestConcurrentPollingSafety(t *testing.T) {
 		<-done
 	}
 }
+
+func TestNodeStateAggregation(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  2,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:    "node-agg-1",
+		Name:  "TestNode",
+		IP:    "127.0.0.1",
+		State: "normal",
+	}
+	_ = store.SaveNode(ctx, node)
+
+	// Polling 1: Level is "off", but state is "high" (failure)
+	pOff := &datastore.PollingEnt{
+		ID:      "p-off",
+		NodeID:  node.ID,
+		Name:    "Off Polling",
+		Type:    "http",
+		Level:   "off",
+		State:   polling.StateHigh,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, pOff)
+
+	// Polling 2: Level is "low", and state is "normal"
+	pNormal := &datastore.PollingEnt{
+		ID:      "p-normal",
+		NodeID:  node.ID,
+		Name:    "Normal Polling",
+		Type:    "http",
+		Level:   "low",
+		State:   polling.StateNormal,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, pNormal)
+
+	// Execute pOff (even if executed, Level="off" must not make node state high)
+	_, _ = mgr.ExecuteOne(ctx, pOff)
+
+	savedNode, _ := store.GetNode(ctx, node.ID)
+	if savedNode.State == polling.StateHigh {
+		t.Fatalf("expected node state NOT to be high because polling level is off, got: %s", savedNode.State)
+	}
+	if savedNode.State != polling.StateNormal {
+		t.Fatalf("expected node state to remain normal, got: %s", savedNode.State)
+	}
+}

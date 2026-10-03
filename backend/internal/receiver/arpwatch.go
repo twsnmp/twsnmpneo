@@ -602,7 +602,7 @@ func (s *ArpWatchServer) writeParquetLog(ent *datastore.ArpLogEnt) {
 	})
 }
 
-// checkNodeMAC populates or updates MAC address for managed nodes.
+// checkNodeMAC populates or updates IP/MAC address for managed nodes according to their AddrMode.
 func (s *ArpWatchServer) checkNodeMAC(ctx context.Context) {
 	if s.cfg.Store == nil {
 		return
@@ -613,39 +613,135 @@ func (s *ArpWatchServer) checkNodeMAC(ctx context.Context) {
 	}
 
 	for _, n := range nodes {
-		if n.IP == "" {
+		switch n.AddrMode {
+		case "host":
+			s.checkFixHostMode(ctx, n)
+		case "mac":
+			s.checkFixMACMode(ctx, n)
+		default:
+			s.checkFixIPMode(ctx, n)
+		}
+	}
+}
+
+func (s *ArpWatchServer) checkFixHostMode(ctx context.Context, n *datastore.NodeEnt) {
+	targetHost := strings.TrimSpace(n.Name)
+	if targetHost == "" {
+		return
+	}
+	r := &net.Resolver{}
+	resolveCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ips, err := r.LookupHost(resolveCtx, targetHost)
+	if err != nil {
+		return
+	}
+	hitIP := ""
+	for _, ip := range ips {
+		if n.IP == ip {
+			return
+		}
+		if strings.Contains(ip, ":") || hitIP != "" {
 			continue
+		}
+		nIP := net.ParseIP(ip)
+		if nIP != nil && (nIP.IsGlobalUnicast() || nIP.IsLoopback()) {
+			hitIP = ip
+		}
+	}
+	if hitIP == "" {
+		return
+	}
+	oldIP := n.IP
+	n.IP = hitIP
+	_ = s.cfg.Store.SaveNode(ctx, n)
+	_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+		Time:     time.Now().UnixNano(),
+		Type:     "system",
+		Level:    "warn",
+		NodeID:   n.ID,
+		NodeName: n.Name,
+		Event:    fmt.Sprintf(i18n.Trans("Fixed host name node '%s' Change IP from '%s' to '%s'"), n.Name, oldIP, hitIP),
+	})
+}
+
+func (s *ArpWatchServer) checkFixMACMode(ctx context.Context, n *datastore.NodeEnt) {
+	if n.MAC == "" {
+		if n.IP == "" {
+			return
 		}
 		if v, ok := s.arpTable.Load(n.IP); ok {
 			mac := v.(string)
-			if n.MAC == "" {
-				n.MAC = mac
-				if n.Vendor == "" || n.Vendor == "Unknown" {
-					n.Vendor = datastore.FindVendor(mac)
-				}
-				_ = s.cfg.Store.SaveNode(ctx, n)
-				_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
-					Time:     time.Now().UnixNano(),
-					Type:     "arpwatch",
-					Level:    "info",
-					NodeID:   n.ID,
-					NodeName: n.Name,
-					Event:    fmt.Sprintf(i18n.Trans("Node %s add MAC address %s (%s)"), n.Name, mac, n.Vendor),
-				})
-			} else if normMACAddr(n.MAC) != mac {
-				oldMAC := n.MAC
-				n.MAC = mac
-				n.Vendor = datastore.FindVendor(mac)
-				_ = s.cfg.Store.SaveNode(ctx, n)
-				_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
-					Time:     time.Now().UnixNano(),
-					Type:     "arpwatch",
-					Level:    "warn",
-					NodeID:   n.ID,
-					NodeName: n.Name,
-					Event:    fmt.Sprintf(i18n.Trans("Node %s change MAC address: %s -> %s"), n.Name, oldMAC, mac),
-				})
+			vendor := datastore.FindVendor(mac)
+			if vendor != "" {
+				mac += fmt.Sprintf("(%s)", vendor)
 			}
+			n.MAC = mac
+			_ = s.cfg.Store.SaveNode(ctx, n)
+			_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "system",
+				Level:    "warn",
+				NodeID:   n.ID,
+				NodeName: n.Name,
+				Event:    fmt.Sprintf(i18n.Trans("Fixed MAC address node MAC is %s"), n.MAC),
+			})
+		}
+		return
+	}
+	a := strings.Split(n.MAC, "(")
+	cleanMAC := normMACAddr(strings.TrimSpace(a[0]))
+	if v, ok := s.macToIPTable.Load(cleanMAC); ok {
+		ip := v.(string)
+		if ip != "" && ip != n.IP {
+			oldIP := n.IP
+			n.IP = ip
+			_ = s.cfg.Store.SaveNode(ctx, n)
+			_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "system",
+				Level:    "warn",
+				NodeID:   n.ID,
+				NodeName: n.Name,
+				Event:    fmt.Sprintf(i18n.Trans("Fixed MAC address node '%s' Change IP address from '%s' to '%s'"), n.MAC, oldIP, ip),
+			})
+		}
+	}
+}
+
+func (s *ArpWatchServer) checkFixIPMode(ctx context.Context, n *datastore.NodeEnt) {
+	if n.IP == "" {
+		return
+	}
+	if v, ok := s.arpTable.Load(n.IP); ok {
+		mac := v.(string)
+		if n.MAC == "" {
+			n.MAC = mac
+			if n.Vendor == "" || n.Vendor == "Unknown" {
+				n.Vendor = datastore.FindVendor(mac)
+			}
+			_ = s.cfg.Store.SaveNode(ctx, n)
+			_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "arpwatch",
+				Level:    "info",
+				NodeID:   n.ID,
+				NodeName: n.Name,
+				Event:    fmt.Sprintf(i18n.Trans("Node %s add MAC address %s (%s)"), n.Name, mac, n.Vendor),
+			})
+		} else if normMACAddr(n.MAC) != mac {
+			oldMAC := n.MAC
+			n.MAC = mac
+			n.Vendor = datastore.FindVendor(mac)
+			_ = s.cfg.Store.SaveNode(ctx, n)
+			_ = s.cfg.Store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:     time.Now().UnixNano(),
+				Type:     "arpwatch",
+				Level:    "warn",
+				NodeID:   n.ID,
+				NodeName: n.Name,
+				Event:    fmt.Sprintf(i18n.Trans("Node %s change MAC address: %s -> %s"), n.Name, oldMAC, mac),
+			})
 		}
 	}
 }

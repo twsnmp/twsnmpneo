@@ -245,28 +245,31 @@ func NewServer(cfg Config) (*Server, error) {
 			if isNew {
 				n.ID = datastore.GenerateID()
 			}
+
+			// If address mode is host, resolve IP from node name
+			if n.AddrMode == "host" {
+				target := strings.TrimSpace(n.Name)
+				if target == "" && n.IP != "" {
+					target = strings.TrimSpace(n.IP)
+				}
+				if target != "" {
+					if hitIP := resolveHostToIPv4(c.Request().Context(), target); hitIP != "" {
+						n.IP = hitIP
+					}
+				}
+			} else if n.IP != "" && net.ParseIP(strings.TrimSpace(n.IP)) == nil {
+				// If IP field contains a hostname instead of a valid IP
+				if hitIP := resolveHostToIPv4(c.Request().Context(), strings.TrimSpace(n.IP)); hitIP != "" {
+					n.IP = hitIP
+				}
+			}
+
 			if err := cfg.Store.SaveNode(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			var eventMsg string
 			if isNew {
 				eventMsg = fmt.Sprintf(i18n.Trans("Added node %s (%s)"), n.Name, n.IP)
-				// Auto-create default Ping polling if node has IP
-				if n.IP != "" {
-					pID := datastore.GenerateID()
-					_ = cfg.Store.SavePolling(c.Request().Context(), &datastore.PollingEnt{
-						ID:       pID,
-						Name:     "Ping",
-						NodeID:   n.ID,
-						Type:     "ping",
-						PollInt:  60,
-						Timeout:  1,
-						Retry:    1,
-						LogMode:  datastore.LogModeOnChange,
-						State:    "unknown",
-						NextTime: time.Now().UnixNano(),
-					})
-				}
 			} else {
 				eventMsg = fmt.Sprintf(i18n.Trans("Updated node %s (%s)"), n.Name, n.IP)
 			}
@@ -2347,4 +2350,24 @@ func ResolveNameToOID(name string) string {
 		return ""
 	}
 	return oid
+}
+
+func resolveHostToIPv4(ctx context.Context, host string) string {
+	r := &net.Resolver{}
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ips, err := r.LookupHost(timeoutCtx, host)
+	if err != nil {
+		return ""
+	}
+	for _, ip := range ips {
+		if strings.Contains(ip, ":") {
+			continue
+		}
+		parsed := net.ParseIP(ip)
+		if parsed != nil && (parsed.IsGlobalUnicast() || parsed.IsLoopback()) {
+			return ip
+		}
+	}
+	return ""
 }

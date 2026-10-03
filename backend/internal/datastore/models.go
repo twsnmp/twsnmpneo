@@ -59,6 +59,61 @@ type NodeEnt struct {
 	SnmpPort     int    `json:"SnmpPort"`
 }
 
+// UnmarshalJSON implements custom JSON unmarshaling to seamlessly handle both snake_case
+// and PascalCase/camelCase field names from frontend API payloads.
+func (n *NodeEnt) UnmarshalJSON(data []byte) error {
+	type Alias NodeEnt
+	aux := &struct {
+		SnakeAddrMode     *string `json:"addr_mode"`
+		SnakeAutoAck      *bool   `json:"auto_ack"`
+		SnakeSnmpMode     *string `json:"snmp_mode"`
+		SnakeSnmpPort     *int    `json:"snmp_port"`
+		SnakeSSHUser      *string `json:"ssh_user"`
+		SnakePublicKey    *string `json:"public_key"`
+		SnakeGNMIPort     *string `json:"gnmi_port"`
+		SnakeGNMIEncoding *string `json:"gnmi_encoding"`
+		SnakeGNMIUser     *string `json:"gnmi_user"`
+		SnakeGNMIPassword *string `json:"gnmi_password"`
+		*Alias
+	}{
+		Alias: (*Alias)(n),
+	}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	if aux.SnakeAddrMode != nil && *aux.SnakeAddrMode != "" {
+		n.AddrMode = *aux.SnakeAddrMode
+	}
+	if aux.SnakeAutoAck != nil {
+		n.AutoAck = *aux.SnakeAutoAck
+	}
+	if aux.SnakeSnmpMode != nil && *aux.SnakeSnmpMode != "" {
+		n.SnmpMode = *aux.SnakeSnmpMode
+	}
+	if aux.SnakeSnmpPort != nil && *aux.SnakeSnmpPort != 0 {
+		n.SnmpPort = *aux.SnakeSnmpPort
+	}
+	if aux.SnakeSSHUser != nil && *aux.SnakeSSHUser != "" {
+		n.SSHUser = *aux.SnakeSSHUser
+	}
+	if aux.SnakePublicKey != nil && *aux.SnakePublicKey != "" {
+		n.PublicKey = *aux.SnakePublicKey
+	}
+	if aux.SnakeGNMIPort != nil && *aux.SnakeGNMIPort != "" {
+		n.GNMIPort = *aux.SnakeGNMIPort
+	}
+	if aux.SnakeGNMIEncoding != nil && *aux.SnakeGNMIEncoding != "" {
+		n.GNMIEncoding = *aux.SnakeGNMIEncoding
+	}
+	if aux.SnakeGNMIUser != nil && *aux.SnakeGNMIUser != "" {
+		n.GNMIUser = *aux.SnakeGNMIUser
+	}
+	if aux.SnakeGNMIPassword != nil && *aux.SnakeGNMIPassword != "" {
+		n.GNMIPassword = *aux.SnakeGNMIPassword
+	}
+	return nil
+}
+
 // LineEnt represents a connection between two nodes on the map.
 type LineEnt struct {
 	ID         string `json:"ID"`
