@@ -460,9 +460,9 @@
           {kpiCounts.duplicate + kpiCounts.changed + kpiCounts.dhcpError} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span>
         </div>
         <div class="text-[10px] text-slate-400 flex items-center gap-1.5">
-          <span class="text-rose-400">重複: {kpiCounts.duplicate}</span>
+          <span class="text-rose-400">{$_("report.stateDuplicate")}: {kpiCounts.duplicate}</span>
           <span>•</span>
-          <span class="text-amber-400">変化: {kpiCounts.changed}</span>
+          <span class="text-amber-400">{$_("report.stateChanged")}: {kpiCounts.changed}</span>
           <span>•</span>
           <span class="text-orange-400">DHCP: {kpiCounts.dhcpError}</span>
         </div>
@@ -487,7 +487,7 @@
       class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {deviceSubFilter === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
     >
       <Layers class="w-3.5 h-3.5" />
-      <span>全デバイス ({allDevices.length})</span>
+      <span>{$_("report.subAllDevices")} ({allDevices.length})</span>
     </button>
     <button
       type="button"
@@ -495,7 +495,7 @@
       class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {deviceSubFilter === 'vm' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
     >
       <Server class="w-3.5 h-3.5 text-indigo-300" />
-      <span>仮想マシン ({allDevices.filter(d => isVirtualMachine(d)).length})</span>
+      <span>{$_("report.subVmOnly")} ({allDevices.filter(d => isVirtualMachine(d)).length})</span>
     </button>
     <button
       type="button"
@@ -503,7 +503,7 @@
       class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {deviceSubFilter === 'managed' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
     >
       <CheckCircle2 class="w-3.5 h-3.5 text-emerald-300" />
-      <span>マップ登録済み ({allDevices.filter(d => d.isManaged).length})</span>
+      <span>{$_("report.subManagedOnly")} ({allDevices.filter(d => d.isManaged).length})</span>
     </button>
     <button
       type="button"
@@ -511,7 +511,7 @@
       class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {deviceSubFilter === 'unmanaged' ? 'bg-slate-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
     >
       <Shield class="w-3.5 h-3.5 text-slate-300" />
-      <span>マップ未登録 ({allDevices.filter(d => !d.isManaged).length})</span>
+      <span>{$_("report.subUnmanagedOnly")} ({allDevices.filter(d => !d.isManaged).length})</span>
     </button>
     <button
       type="button"
@@ -519,7 +519,7 @@
       class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {deviceSubFilter === 'problem' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
     >
       <AlertTriangle class="w-3.5 h-3.5 text-rose-300" />
-      <span>問題あり ({allDevices.filter(d => d.addressState !== 'normal').length})</span>
+      <span>{$_("report.subProblemOnly")} ({allDevices.filter(d => d.addressState !== 'normal').length})</span>
     </button>
   </div>
 
@@ -530,7 +530,7 @@
         <tr>
           <th class="py-1.5 px-2.5 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleSort("addressState")}>
             <div class="inline-flex items-center gap-1">
-              <span>State</span>
+              <span>{$_("report.colState")}</span>
               {#if sortColumn === "addressState"}
                 {#if sortDirection === "asc"}
                   <ArrowUp class="h-2.5 w-2.5 text-cyan-400" />
@@ -656,23 +656,23 @@
               <td class="py-1 px-2.5 whitespace-nowrap">
                 {#if d.addressState === "duplicate"}
                   <span class="rounded bg-rose-100 dark:bg-rose-500/20 border border-rose-300 dark:border-rose-500/40 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 dark:text-rose-400 leading-none">
-                    重複
+                    {$_("report.stateDuplicate")}
                   </span>
                 {:else if d.addressState === "dhcpError"}
                   <span class="rounded bg-orange-100 dark:bg-orange-500/20 border border-orange-300 dark:border-orange-500/40 px-1.5 py-0.5 text-[9px] font-bold text-orange-700 dark:text-orange-400 leading-none">
-                    DHCP未取得
+                    {$_("report.stateDhcpError")}
                   </span>
                 {:else if d.addressState === "ipChanged"}
                   <span class="rounded bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-none">
-                    IP変化
+                    {$_("report.stateIpChanged")}
                   </span>
                 {:else if d.addressState === "macChanged"}
                   <span class="rounded bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-none">
-                    MAC変化
+                    {$_("report.stateMacChanged")}
                   </span>
                 {:else}
                   <span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-400 leading-none">
-                    正常
+                    {$_("report.stateNormal")}
                   </span>
                 {/if}
               </td>
