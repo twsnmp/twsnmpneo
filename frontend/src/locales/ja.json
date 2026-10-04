@@ -1823,7 +1823,14 @@
     "lastSeen": "最終確認",
     "noDataFound": "データが見つかりません",
     "loading": "読み込み中...",
-    "apCount": "AP数"
+    "apCount": "AP数",
+    "wifiSecurityDetails": "セキュリティ & 詳細情報",
+    "firstSeen": "初回検知日時",
+    "wifiRssiHistory": "RSSI 履歴件数",
+    "wifiRssiTrend": "RSSI 電波強度推移 (直近 {count} 件)",
+    "changeCount": "属性変更回数",
+    "samples": "サンプル",
+    "none": "なし"
   },
   "Ping": {
     "Mode": "動作モード",

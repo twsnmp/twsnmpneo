@@ -490,7 +490,7 @@
                 <td class="py-1 px-2 text-right text-slate-700 dark:text-slate-300 font-bold">
                   {ap.Count.toLocaleString()}
                   {#if ap.Change > 0}
-                    <span class="ml-1 text-[10px] text-amber-500" title="属性変更回数">
+                    <span class="ml-1 text-[10px] text-amber-500" title={$_("report.changeCount") || "属性変更回数"}>
                       (Δ{ap.Change})
                     </span>
                   {/if}
@@ -508,16 +508,16 @@
                   <td colspan="9" class="p-4 space-y-3">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                       <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <div class="text-[11px] font-bold text-slate-400 uppercase">セキュリティ & 詳細情報</div>
-                        <div class="font-mono text-slate-800 dark:text-slate-200 break-words">{ap.Info || "なし"}</div>
+                        <div class="text-[11px] font-bold text-slate-400 uppercase">{$_("report.wifiSecurityDetails") || "セキュリティ & 詳細情報"}</div>
+                        <div class="font-mono text-slate-800 dark:text-slate-200 break-words">{ap.Info || $_("report.none") || "なし"}</div>
                       </div>
                       <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <div class="text-[11px] font-bold text-slate-400 uppercase">初回検知日時</div>
+                        <div class="text-[11px] font-bold text-slate-400 uppercase">{$_("report.firstSeen") || "初回検知日時"}</div>
                         <div class="font-mono text-slate-800 dark:text-slate-200">{formatTimeStr(ap.FirstTime)}</div>
                       </div>
                       <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <div class="text-[11px] font-bold text-slate-400 uppercase">RSSI 履歴件数</div>
-                        <div class="font-mono text-slate-800 dark:text-slate-200">{ap.RSSI?.length || 0} サンプル</div>
+                        <div class="text-[11px] font-bold text-slate-400 uppercase">{$_("report.wifiRssiHistory") || "RSSI 履歴件数"}</div>
+                        <div class="font-mono text-slate-800 dark:text-slate-200">{ap.RSSI?.length || 0} {$_("report.samples") || "サンプル"}</div>
                       </div>
                     </div>
 
@@ -526,7 +526,7 @@
                       <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
                         <div class="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
                           <Signal class="w-3.5 h-3.5 text-cyan-500" />
-                          RSSI 電波強度推移 (直近 {ap.RSSI.length} 件)
+                          {$_("report.wifiRssiTrend", { values: { count: ap.RSSI.length } }) || `RSSI 電波強度推移 (直近 ${ap.RSSI.length} 件)`}
                         </div>
                         <div class="flex items-end gap-1 h-12 pt-2 px-1">
                           {#each ap.RSSI.slice(-40) as r}

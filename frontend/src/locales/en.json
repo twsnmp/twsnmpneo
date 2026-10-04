@@ -1825,7 +1825,14 @@
     "lastSeen": "Last Seen",
     "noDataFound": "No data found",
     "loading": "Loading...",
-    "apCount": "AP Count"
+    "apCount": "AP Count",
+    "wifiSecurityDetails": "Security & Details",
+    "firstSeen": "First Seen",
+    "wifiRssiHistory": "RSSI History",
+    "wifiRssiTrend": "RSSI Signal Strength Trend (Last {count} items)",
+    "changeCount": "Attribute Change Count",
+    "samples": "samples",
+    "none": "None"
   },
   "Ping": {
     "Mode": "Mode",
