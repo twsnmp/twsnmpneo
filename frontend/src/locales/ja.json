@@ -1809,6 +1809,8 @@
     "sensorActivePollings": "環境・テレメトリ監視項目",
     "sensorMqttTopics": "MQTT テレメトリ トピック",
     "sensorNoData": "テレメトリデータはまだ受信されていません",
+    "wifiTitle": "Wi-Fi AP",
+    "wifiSubtitle": "twWifiScan から受信した Wi-Fi アクセスポイントの検出・信号強度レポート",
     "wifiTotalAPs": "Wi-Fi AP総数",
     "wifiUniqueSSIDs": "ユニークSSID数",
     "wifiTopChannel": "最多利用チャネル",

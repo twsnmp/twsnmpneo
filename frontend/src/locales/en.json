@@ -1811,6 +1811,8 @@
     "sensorActivePollings": "Telemetry & Sensor Pollings",
     "sensorMqttTopics": "MQTT Telemetry Topics",
     "sensorNoData": "No telemetry data received yet",
+    "wifiTitle": "Wi-Fi AP",
+    "wifiSubtitle": "Wi-Fi access points detection and signal strength report received from twWifiScan",
     "wifiTotalAPs": "Total Wi-Fi APs",
     "wifiUniqueSSIDs": "Unique SSIDs",
     "wifiTopChannel": "Top Channel",

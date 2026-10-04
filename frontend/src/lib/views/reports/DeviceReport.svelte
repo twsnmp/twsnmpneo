@@ -427,10 +427,13 @@
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Laptop class="w-5 h-5 text-cyan-400" />
-      {$_("report.deviceTitle")}
-    </h2>
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Laptop class="w-5 h-5 text-cyan-400" />
+        {$_("report.deviceTitle")}
+      </h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.deviceSubtitle")}</p>
+    </div>
   </div>
 
   <!-- KPI Cards with Vendor Graph -->

@@ -385,6 +385,7 @@
       <BarChart3 class="w-5 h-5 text-cyan-400" />
       {$_("report.flowTitle")}
     </h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.flowSubtitle")}</p>
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

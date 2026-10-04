@@ -383,6 +383,7 @@
       <Share2 class="w-5 h-5 text-indigo-400" />
       {$_("report.sflowTitle")}
     </h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.sflowSubtitle")}</p>
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

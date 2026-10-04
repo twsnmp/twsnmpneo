@@ -276,6 +276,17 @@
 </script>
 
 <div class="space-y-6">
+  <!-- Title Header -->
+  <div>
+    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+      <Wifi class="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
+      {$_("report.wifiTitle") || $_("report.tabWifi")}
+    </h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+      {$_("report.wifiSubtitle")}
+    </p>
+  </div>
+
   <!-- Summary Cards & Channel Chart -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm flex items-center gap-3">
