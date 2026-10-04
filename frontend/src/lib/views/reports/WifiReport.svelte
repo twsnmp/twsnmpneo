@@ -462,32 +462,32 @@
                 class="hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/10' : ''}"
                 onclick={() => (expandedId = isExpanded ? null : ap.ID)}
               >
-                <td class="py-2 px-3 text-center text-slate-400">
+                <td class="py-1 px-2 text-center text-slate-400">
                   {#if isExpanded}
                     <ChevronDown class="w-4 h-4 text-cyan-500" />
                   {:else}
                     <ChevronRight class="w-4 h-4" />
                   {/if}
                 </td>
-                <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200">
+                <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200">
                   {ap.SSID || "(Hidden SSID)"}
                 </td>
-                <td class="py-2 px-3 text-cyan-600 dark:text-cyan-400 font-mono text-[11px]">
+                <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-mono text-[11px]">
                   {ap.BSSID}
                 </td>
-                <td class="py-2 px-3 text-slate-700 dark:text-slate-300">
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300">
                   {ap.Channel ? `Ch ${ap.Channel}` : "-"}
                 </td>
-                <td class="py-2 px-3 font-sans text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[140px]" title={ap.Vendor}>
+                <td class="py-1 px-2 font-sans text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[140px]" title={ap.Vendor}>
                   {ap.Vendor || "-"}
                 </td>
-                <td class="py-2 px-3 text-right">
+                <td class="py-1 px-2 text-right">
                   <span class="inline-flex items-center gap-1 font-bold {rssi > -60 ? 'text-emerald-500' : rssi > -75 ? 'text-amber-500' : 'text-rose-500'}">
                     <Signal class="w-3 h-3" />
                     {rssi} dBm
                   </span>
                 </td>
-                <td class="py-2 px-3 text-right text-slate-700 dark:text-slate-300 font-bold">
+                <td class="py-1 px-2 text-right text-slate-700 dark:text-slate-300 font-bold">
                   {ap.Count.toLocaleString()}
                   {#if ap.Change > 0}
                     <span class="ml-1 text-[10px] text-amber-500" title="属性変更回数">
@@ -495,10 +495,10 @@
                     </span>
                   {/if}
                 </td>
-                <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[120px]" title={ap.Host}>
+                <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[120px]" title={ap.Host}>
                   {ap.Host}
                 </td>
-                <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                   {formatTimeStr(ap.LastTime)}
                 </td>
               </tr>

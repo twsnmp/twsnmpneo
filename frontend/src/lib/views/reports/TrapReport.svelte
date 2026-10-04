@@ -1070,19 +1070,19 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedHostSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+              <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                 {item.name}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.ip}
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.errorCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-500">
                     {item.errorCount.toLocaleString()}
@@ -1091,7 +1091,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.warnCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-500">
                     {item.warnCount.toLocaleString()}
@@ -1100,7 +1100,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.normalCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-500">
                     {item.normalCount.toLocaleString()}
@@ -1109,10 +1109,10 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topTrapTypes}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topTrapTypes}>
                 {item.topTrapTypes}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>
@@ -1130,7 +1130,7 @@
       <table class="w-full text-left text-xs border-collapse font-mono">
         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800 select-none">
           <tr>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("trapType")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("trapType")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colTrapType")}</span>
                 {#if sortColumn === "trapType"}
@@ -1140,7 +1140,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("count")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("count")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colEventCount")}</span>
                 {#if sortColumn === "count"}
@@ -1150,7 +1150,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("percent")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("percent")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colRatio")}</span>
                 {#if sortColumn === "percent"}
@@ -1160,7 +1160,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("errorCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("errorCount")}>
               <div class="inline-flex items-center gap-1">
                 <span class="text-rose-600 dark:text-rose-400 font-bold">{$_("report.colError")}</span>
                 {#if sortColumn === "errorCount"}
@@ -1170,7 +1170,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("warnCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("warnCount")}>
               <div class="inline-flex items-center gap-1">
                 <span class="text-amber-600 dark:text-amber-400 font-bold">{$_("report.colWarn")}</span>
                 {#if sortColumn === "warnCount"}
@@ -1180,7 +1180,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("normalCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("normalCount")}>
               <div class="inline-flex items-center gap-1">
                 <span class="text-emerald-600 dark:text-emerald-400 font-bold">{$_("report.colNormal")}</span>
                 {#if sortColumn === "normalCount"}
@@ -1190,7 +1190,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("hostCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("hostCount")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colAffectedHosts")}</span>
                 {#if sortColumn === "hostCount"}
@@ -1200,7 +1200,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("topEnterprise")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("topEnterprise")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colEnterprise")}</span>
                 {#if sortColumn === "topEnterprise"}
@@ -1210,7 +1210,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("lastTime")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("lastTime")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colLastSeen")}</span>
                 {#if sortColumn === "lastTime"}
@@ -1225,16 +1225,16 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedTypeSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+              <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                 {item.trapType}
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.errorCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-500">
                     {item.errorCount.toLocaleString()}
@@ -1243,7 +1243,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.warnCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-500">
                     {item.warnCount.toLocaleString()}
@@ -1252,7 +1252,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.normalCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-500">
                     {item.normalCount.toLocaleString()}
@@ -1261,13 +1261,13 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.hostCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topEnterprise}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topEnterprise}>
                 {item.topEnterprise}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>
@@ -1285,7 +1285,7 @@
       <table class="w-full text-left text-xs border-collapse font-mono">
         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800 select-none">
           <tr>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("enterprise")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("enterprise")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colEnterprise")}</span>
                 {#if sortColumn === "enterprise"}
@@ -1295,7 +1295,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("count")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("count")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colEventCount")}</span>
                 {#if sortColumn === "count"}
@@ -1305,7 +1305,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("percent")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("percent")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colRatio")}</span>
                 {#if sortColumn === "percent"}
@@ -1315,7 +1315,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("errorCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("errorCount")}>
               <div class="inline-flex items-center gap-1">
                 <span class="text-rose-600 dark:text-rose-400 font-bold">{$_("report.colError")}</span>
                 {#if sortColumn === "errorCount"}
@@ -1325,7 +1325,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("warnCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("warnCount")}>
               <div class="inline-flex items-center gap-1">
                 <span class="text-amber-600 dark:text-amber-400 font-bold">{$_("report.colWarn")}</span>
                 {#if sortColumn === "warnCount"}
@@ -1335,7 +1335,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("normalCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("normalCount")}>
               <div class="inline-flex items-center gap-1">
                 <span class="text-emerald-600 dark:text-emerald-400 font-bold">{$_("report.colNormal")}</span>
                 {#if sortColumn === "normalCount"}
@@ -1345,7 +1345,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("typeCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("typeCount")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colTrapType")}</span>
                 {#if sortColumn === "typeCount"}
@@ -1355,7 +1355,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("hostCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("hostCount")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colAffectedHosts")}</span>
                 {#if sortColumn === "hostCount"}
@@ -1365,10 +1365,10 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+            <th class="py-1 px-2 text-slate-600 dark:text-slate-400 whitespace-nowrap">
               <span>{$_("report.colTopTrapTypes")}</span>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("lastTime")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("lastTime")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colLastSeen")}</span>
                 {#if sortColumn === "lastTime"}
@@ -1386,13 +1386,13 @@
               <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 truncate max-w-sm" title={item.enterprise}>
                 {item.enterprise}
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.errorCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-500">
                     {item.errorCount.toLocaleString()}
@@ -1401,7 +1401,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.warnCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-500">
                     {item.warnCount.toLocaleString()}
@@ -1410,7 +1410,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.normalCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-500">
                     {item.normalCount.toLocaleString()}
@@ -1419,16 +1419,16 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.typeCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.hostCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topTrapTypes}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topTrapTypes}>
                 {item.topTrapTypes}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>
@@ -1446,7 +1446,7 @@
       <table class="w-full text-left text-xs border-collapse font-mono">
         <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800 select-none">
           <tr>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("levelName")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("levelName")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colStatus")}</span>
                 {#if sortColumn === "levelName"}
@@ -1456,7 +1456,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("count")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("count")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colEventCount")}</span>
                 {#if sortColumn === "count"}
@@ -1466,7 +1466,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("percent")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("percent")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colRatio")}</span>
                 {#if sortColumn === "percent"}
@@ -1476,7 +1476,7 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("hostCount")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("hostCount")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colAffectedHosts")}</span>
                 {#if sortColumn === "hostCount"}
@@ -1486,10 +1486,10 @@
                 {/if}
               </div>
             </th>
-            <th class="py-2 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+            <th class="py-1 px-2 text-slate-600 dark:text-slate-400 whitespace-nowrap">
               <span>{$_("report.colTopTrapTypes")}</span>
             </th>
-            <th class="py-2 px-3 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("lastTime")}>
+            <th class="py-1 px-2 cursor-pointer hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap" onclick={() => handleSort("lastTime")}>
               <div class="inline-flex items-center gap-1">
                 <span>{$_("report.colLastSeen")}</span>
                 {#if sortColumn === "lastTime"}
@@ -1504,7 +1504,7 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedLevelSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 <span
                   class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold"
                   style="background-color: {getStateColor(item.level)}20; color: {getStateColor(item.level)};"
@@ -1512,19 +1512,19 @@
                   {item.levelName}
                 </span>
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.hostCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topTrapTypes}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topTrapTypes}>
                 {item.topTrapTypes}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>

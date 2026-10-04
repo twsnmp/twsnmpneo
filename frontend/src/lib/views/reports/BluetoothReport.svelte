@@ -410,13 +410,13 @@
               {@const lastRSSI = getLatestRSSI(item)}
               {@const rssiBadge = getRSSIBadge(lastRSSI)}
               <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors group">
-                <td class="px-3 py-2.5 whitespace-nowrap">
+                <td class="px-2 py-1 whitespace-nowrap">
                   <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium border ${rssiBadge.color}`}>
                     <Signal class="w-3 h-3" />
                     {rssiBadge.label}
                   </span>
                 </td>
-                <td class="px-3 py-2.5 font-mono text-[11px] font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                <td class="px-2 py-1 font-mono text-[11px] font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
                   <button
                     type="button"
                     onclick={() => openDetailModal(item)}
@@ -425,7 +425,7 @@
                     {item.Address}
                   </button>
                 </td>
-                <td class="px-3 py-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[160px] truncate">
+                <td class="px-2 py-1 font-medium text-slate-800 dark:text-slate-200 max-w-[160px] truncate">
                   <div class="flex items-center gap-1.5">
                     <span class="truncate">{item.Name || "-"}</span>
                     <button
@@ -438,25 +438,25 @@
                     </button>
                   </div>
                 </td>
-                <td class="px-3 py-2.5 text-slate-600 dark:text-slate-400 max-w-[140px] truncate">
+                <td class="px-2 py-1 text-slate-600 dark:text-slate-400 max-w-[140px] truncate">
                   {item.Vendor || "-"}
                 </td>
-                <td class="px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                <td class="px-2 py-1 text-slate-600 dark:text-slate-400 whitespace-nowrap">
                   {item.Host || "-"}
                 </td>
-                <td class="px-3 py-2.5 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                <td class="px-2 py-1 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                   {item.AddressType || "-"}
                 </td>
-                <td class="px-3 py-2.5 text-slate-500 dark:text-slate-400 text-[11px] max-w-[200px] truncate" title={item.Info || ""}>
+                <td class="px-2 py-1 text-slate-500 dark:text-slate-400 text-[11px] max-w-[200px] truncate" title={item.Info || ""}>
                   {item.Info || "-"}
                 </td>
-                <td class="px-3 py-2.5 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                <td class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
                   {item.Count || 0}
                 </td>
-                <td class="px-3 py-2.5 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                <td class="px-2 py-1 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                   {formatTimeStr(item.LastTime * 1e6)}
                 </td>
-                <td class="px-3 py-2.5 text-right whitespace-nowrap">
+                <td class="px-2 py-1 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1">
                     <button
                       type="button"

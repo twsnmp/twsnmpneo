@@ -829,7 +829,7 @@
               {:else}
                 {#each paginatedLogs as row}
                   <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="px-4 py-2 text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    <td class="px-2 py-1 text-slate-800 dark:text-slate-200 whitespace-nowrap">
                       {formatTimeStr(Math.floor(row.Time / 1e6))}
                     </td>
                     <td class="px-2 py-1 text-right {getPercentClass(row.CPU, 80, 90)}">{renderPercent(row.CPU)}</td>

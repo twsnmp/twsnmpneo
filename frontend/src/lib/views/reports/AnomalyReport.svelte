@@ -346,7 +346,7 @@
             {#each paginatedData as item}
               <tr class="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-800 dark:text-slate-200">
                 <!-- Anomaly score with colored MDI emoticon icon -->
-                <td class="py-2 px-3 whitespace-nowrap">
+                <td class="py-1 px-2 whitespace-nowrap">
                   <span
                     class="mdi {getScoreIcon(item.Score)} text-sm"
                     style="color: {getScoreColor(item.Score)};"
@@ -357,27 +357,27 @@
                 </td>
 
                 <!-- Node Name -->
-                <td class="py-2 px-3 font-sans truncate max-w-[200px]" title={item.Node}>
+                <td class="py-1 px-2 font-sans truncate max-w-[200px]" title={item.Node}>
                   {item.Node}
                 </td>
 
                 <!-- Polling -->
-                <td class="py-2 px-3 font-sans truncate max-w-[200px]" title={item.Polling}>
+                <td class="py-1 px-2 font-sans truncate max-w-[200px]" title={item.Polling}>
                   {item.Polling}
                 </td>
 
                 <!-- Count -->
-                <td class="py-2 px-3 font-mono">
+                <td class="py-1 px-2 font-mono">
                   {item.Count}
                 </td>
 
                 <!-- Last time -->
-                <td class="py-2 px-3 font-mono whitespace-nowrap text-slate-500 dark:text-slate-400 text-[11px]">
+                <td class="py-1 px-2 font-mono whitespace-nowrap text-slate-500 dark:text-slate-400 text-[11px]">
                   {formatTimeStr(item.LastTime > 1e11 ? item.LastTime : item.LastTime * 1000)}
                 </td>
 
                 <!-- Row Actions (Icon Buttons) -->
-                <td class="py-2 px-3 text-center whitespace-nowrap">
+                <td class="py-0 px-1 text-center whitespace-nowrap">
                   <div class="inline-flex items-center gap-1.5 justify-center">
                     <button
                       type="button"

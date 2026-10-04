@@ -444,7 +444,7 @@
                 class="hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/10' : ''}"
                 onclick={() => (expandedId = isExpanded ? null : item.ID)}
               >
-                <td class="py-2 px-3 text-center text-slate-400">
+                <td class="py-1 px-2 text-center text-slate-400">
                   {#if isExpanded}
                     <ChevronDown class="w-4 h-4 text-cyan-500" />
                   {:else}
@@ -454,104 +454,104 @@
 
                 {#if activeTab === "ether"}
                   {@const e = item as EtherTypeEnt}
-                  <td class="py-2 px-3 font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
+                  <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
                     {e.Type}
                   </td>
-                  <td class="py-2 px-3 font-sans font-semibold text-slate-800 dark:text-slate-200">
+                  <td class="py-1 px-2 font-sans font-semibold text-slate-800 dark:text-slate-200">
                     {e.Name}
                   </td>
-                  <td class="py-2 px-3 text-right font-bold text-slate-700 dark:text-slate-300">
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">
                     {e.Count.toLocaleString()}
                   </td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
                     {e.Host}
                   </td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                     {formatTimeStr(e.LastTime)}
                   </td>
                 {:else if activeTab === "dns"}
                   {@const d = item as DNSQEnt}
-                  <td class="py-2 px-3 font-sans font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={d.Name}>
+                  <td class="py-1 px-2 font-sans font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={d.Name}>
                     {d.Name}
                   </td>
-                  <td class="py-2 px-3 text-cyan-600 dark:text-cyan-400 font-bold">
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-bold">
                     {d.Type}
                   </td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
                     {d.Server}
                   </td>
-                  <td class="py-2 px-3 text-right font-bold text-slate-700 dark:text-slate-300">
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">
                     {d.Count.toLocaleString()}
                   </td>
-                  <td class="py-2 px-3 text-right text-slate-500 dark:text-slate-400">
+                  <td class="py-1 px-2 text-right text-slate-500 dark:text-slate-400">
                     {d.Change > 0 ? `Δ ${d.Change}` : "-"}
                   </td>
-                  <td class="py-2 px-3 text-[11px] text-slate-600 dark:text-slate-400">
+                  <td class="py-1 px-2 text-[11px] text-slate-600 dark:text-slate-400">
                     {d.LastClient}
                   </td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                     {formatTimeStr(d.LastTime)}
                   </td>
                 {:else if activeTab === "radius"}
                   {@const r = item as RADIUSFlowEnt}
-                  <td class="py-2 px-3 text-slate-800 dark:text-slate-200 font-sans">
+                  <td class="py-1 px-2 text-slate-800 dark:text-slate-200 font-sans">
                     <span class="font-mono text-cyan-600 dark:text-cyan-400">{r.Client}</span>
                     {#if r.ClientName && r.ClientName !== r.Client}
                       <span class="ml-1 text-[11px] text-slate-500">({r.ClientName})</span>
                     {/if}
                   </td>
-                  <td class="py-2 px-3 text-slate-800 dark:text-slate-200 font-sans">
+                  <td class="py-1 px-2 text-slate-800 dark:text-slate-200 font-sans">
                     <span class="font-mono text-cyan-600 dark:text-cyan-400">{r.Server}</span>
                     {#if r.ServerName && r.ServerName !== r.Server}
                       <span class="ml-1 text-[11px] text-slate-500">({r.ServerName})</span>
                     {/if}
                   </td>
-                  <td class="py-2 px-3 text-right font-bold text-emerald-500">
+                  <td class="py-1 px-2 text-right font-bold text-emerald-500">
                     {r.Accept.toLocaleString()}
                   </td>
-                  <td class="py-2 px-3 text-right font-bold text-rose-500">
+                  <td class="py-1 px-2 text-right font-bold text-rose-500">
                     {r.Reject.toLocaleString()}
                   </td>
-                  <td class="py-2 px-3 text-right text-slate-500 dark:text-slate-400 text-[11px]">
+                  <td class="py-1 px-2 text-right text-slate-500 dark:text-slate-400 text-[11px]">
                     {r.Request} / {r.Challenge}
                   </td>
-                  <td class="py-2 px-3 text-right">
+                  <td class="py-1 px-2 text-right">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {r.Score >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'}">
                       {r.Score?.toFixed(1) ?? "-"} (P:{r.Penalty})
                     </span>
                   </td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                     {formatTimeStr(r.LastTime)}
                   </td>
                 {:else if activeTab === "tls"}
                   {@const t = item as TLSFlowEnt}
-                  <td class="py-2 px-3 font-sans text-slate-800 dark:text-slate-200">
+                  <td class="py-1 px-2 font-sans text-slate-800 dark:text-slate-200">
                     <span class="font-mono text-cyan-600 dark:text-cyan-400">{t.Client}</span>
                     {#if t.ClientName && t.ClientName !== t.Client}
                       <span class="ml-1 text-[11px] text-slate-500">({t.ClientName})</span>
                     {/if}
                   </td>
-                  <td class="py-2 px-3 font-sans text-slate-800 dark:text-slate-200">
+                  <td class="py-1 px-2 font-sans text-slate-800 dark:text-slate-200">
                     <span class="font-mono text-cyan-600 dark:text-cyan-400">{t.Server}</span>
                     {#if t.ServerName && t.ServerName !== t.Server}
                       <span class="ml-1 text-[11px] text-slate-500">({t.ServerName})</span>
                     {/if}
                   </td>
-                  <td class="py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                  <td class="py-1 px-2 font-semibold text-slate-700 dark:text-slate-300">
                     {t.Service}
                   </td>
-                  <td class="py-2 px-3 text-[11px] {t.Version.includes('1.3') ? 'text-emerald-500 font-bold' : t.Version.includes('1.2') ? 'text-cyan-500' : 'text-rose-500 font-bold'}">
+                  <td class="py-1 px-2 text-[11px] {t.Version.includes('1.3') ? 'text-emerald-500 font-bold' : t.Version.includes('1.2') ? 'text-cyan-500' : 'text-rose-500 font-bold'}">
                     {t.Version || "-"}
                   </td>
-                  <td class="py-2 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[150px]" title={t.Cipher}>
+                  <td class="py-1 px-2 font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[150px]" title={t.Cipher}>
                     {t.Cipher || "-"}
                   </td>
-                  <td class="py-2 px-3 text-right">
+                  <td class="py-1 px-2 text-right">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {t.Score >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'}">
                       {t.Score?.toFixed(1) ?? "-"} (P:{t.Penalty})
                     </span>
                   </td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                     {formatTimeStr(t.LastTime)}
                   </td>
                 {/if}

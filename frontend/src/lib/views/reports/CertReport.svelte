@@ -522,7 +522,7 @@
                 </td>
 
                 <!-- State Badge (TWSNMP FK style) -->
-                <td class="py-1.5 px-3">
+                <td class="py-1 px-2">
                   <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border leading-none {c.status === 'normal' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60' : c.status === 'warn' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60' : c.status === 'high' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}">
                     {#if c.status === "normal"}
                       <CheckCircle2 class="w-3 h-3 text-emerald-500" />
@@ -541,42 +541,42 @@
                 </td>
 
                 <!-- Target -->
-                <td class="py-1.5 px-3 font-bold font-sans text-[11px] text-slate-900 dark:text-slate-100">
+                <td class="py-1 px-2 font-bold font-sans text-[11px] text-slate-900 dark:text-slate-100">
                   {c.target}
                 </td>
 
                 <!-- Port -->
-                <td class="py-1.5 px-2.5 text-[11px] text-slate-600 dark:text-slate-400">
+                <td class="py-1 px-2 text-[11px] text-slate-600 dark:text-slate-400">
                   {c.port}
                 </td>
 
                 <!-- Subject -->
-                <td class="py-1.5 px-3 text-cyan-700 dark:text-cyan-400 text-[11px] truncate max-w-xs" title={c.subject}>
+                <td class="py-1 px-2 text-cyan-700 dark:text-cyan-400 text-[11px] truncate max-w-xs" title={c.subject}>
                   {c.subject}
                 </td>
 
                 <!-- Issuer -->
-                <td class="py-1.5 px-3 text-slate-700 dark:text-slate-400 font-sans text-[11px] truncate max-w-xs" title={c.issuer}>
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-400 font-sans text-[11px] truncate max-w-xs" title={c.issuer}>
                   {c.issuer}
                 </td>
 
                 <!-- Start -->
-                <td class="py-1.5 px-3 text-slate-600 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px] whitespace-nowrap">
                   {c.start}
                 </td>
 
                 <!-- End -->
-                <td class="py-1.5 px-3 font-semibold text-[11px] whitespace-nowrap {c.days <= 0 ? 'text-rose-500' : c.days <= 30 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'}">
+                <td class="py-1 px-2 font-semibold text-[11px] whitespace-nowrap {c.days <= 0 ? 'text-rose-500' : c.days <= 30 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'}">
                   {c.end}
                 </td>
 
                 <!-- Last time -->
-                <td class="py-1.5 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                   {c.lastTime}
                 </td>
 
                 <!-- Row Actions (Icon Buttons) -->
-                <td class="py-1.5 px-2 text-center whitespace-nowrap" onclick={(e) => e.stopPropagation()}>
+                <td class="py-1 px-2 text-center whitespace-nowrap" onclick={(e) => e.stopPropagation()}>
                   <div class="inline-flex items-center gap-1 justify-center">
                     <button
                       type="button"

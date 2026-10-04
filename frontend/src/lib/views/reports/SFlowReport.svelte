@@ -558,17 +558,17 @@
           {:else}
             {#each paginatedSFlowConversations as fl}
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-1.5 px-2.5 text-indigo-600 dark:text-indigo-400 text-[11px] font-mono">{fl.src}</td>
-                <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 text-[11px] font-mono">{fl.dst}</td>
-                <td class="py-1.5 px-2.5">
+                <td class="py-1 px-2 text-indigo-600 dark:text-indigo-400 text-[11px] font-mono">{fl.src}</td>
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px] font-mono">{fl.dst}</td>
+                <td class="py-1 px-2">
                   <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">
                     {fl.proto}
                   </span>
                 </td>
-                <td class="py-1.5 px-2.5 text-slate-800 dark:text-slate-200 text-[11px] font-mono">{fl.packets.toLocaleString()}</td>
-                <td class="py-1.5 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(fl.bytes)}</td>
-                <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-[11px] font-mono">{fl.dur > 0 ? `${Math.round(fl.dur)}s` : "<1s"}</td>
-                <td class="py-1.5 px-2.5">
+                <td class="py-1 px-2 text-slate-800 dark:text-slate-200 text-[11px] font-mono">{fl.packets.toLocaleString()}</td>
+                <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(fl.bytes)}</td>
+                <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px] font-mono">{fl.dur > 0 ? `${Math.round(fl.dur)}s` : "<1s"}</td>
+                <td class="py-1 px-2">
                   <span class="rounded bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold leading-none">
                     {fl.status}
                   </span>
@@ -665,11 +665,11 @@
           {:else}
             {#each paginatedSFlowServices as s}
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-1.5 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{s.name}</td>
-                <td class="py-1.5 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(s.bytes)}</td>
-                <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{s.packets.toLocaleString()}</td>
-                <td class="py-1.5 px-2.5 text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">{s.flows.toLocaleString()}</td>
-                <td class="py-1.5 px-2.5">
+                <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{s.name}</td>
+                <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(s.bytes)}</td>
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{s.packets.toLocaleString()}</td>
+                <td class="py-1 px-2 text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">{s.flows.toLocaleString()}</td>
+                <td class="py-1 px-2">
                   <div class="flex items-center gap-2">
                     <div class="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                       <div class="h-full bg-indigo-500 rounded-full" style="width: {s.percent}%"></div>
@@ -783,16 +783,16 @@
           {:else}
             {#each paginatedSFlowFumbles as ff}
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-1.5 px-2.5 text-indigo-600 dark:text-indigo-400 text-[11px] font-mono">{ff.src}</td>
-                <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 text-[11px] font-mono">{ff.dst}</td>
-                <td class="py-1.5 px-2.5">
+                <td class="py-1 px-2 text-indigo-600 dark:text-indigo-400 text-[11px] font-mono">{ff.src}</td>
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px] font-mono">{ff.dst}</td>
+                <td class="py-1 px-2">
                   <span class="rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-semibold">
                     {ff.proto}
                   </span>
                 </td>
-                <td class="py-1.5 px-2.5 text-slate-800 dark:text-slate-200 text-[11px] font-mono">{ff.packets.toLocaleString()}</td>
-                <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{renderBytes(ff.bytes)}</td>
-                <td class="py-1.5 px-2.5 font-sans text-rose-600 dark:text-rose-400 text-[11px]">{ff.reason}</td>
+                <td class="py-1 px-2 text-slate-800 dark:text-slate-200 text-[11px] font-mono">{ff.packets.toLocaleString()}</td>
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{renderBytes(ff.bytes)}</td>
+                <td class="py-1 px-2 font-sans text-rose-600 dark:text-rose-400 text-[11px]">{ff.reason}</td>
               </tr>
             {/each}
           {/if}
@@ -871,10 +871,10 @@
           {:else}
             {#each paginatedSFlowProtocols as pr}
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-1.5 px-2.5 font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">{pr.proto}</td>
-                <td class="py-1.5 px-2.5 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(pr.bytes)}</td>
-                <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{pr.packets.toLocaleString()}</td>
-                <td class="py-1.5 px-2.5">
+                <td class="py-1 px-2 font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">{pr.proto}</td>
+                <td class="py-1 px-2 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px]">{renderBytes(pr.bytes)}</td>
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-mono text-[11px]">{pr.packets.toLocaleString()}</td>
+                <td class="py-1 px-2">
                   <div class="flex items-center gap-2">
                     <div class="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                       <div class="h-full bg-emerald-500 rounded-full" style="width: {pr.percent}%"></div>

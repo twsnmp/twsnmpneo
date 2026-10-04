@@ -421,7 +421,7 @@
                 class="hover:bg-cyan-50/50 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/10' : ''}"
                 onclick={() => (expandedId = isExpanded ? null : item.ID)}
               >
-                <td class="py-2 px-3 text-center text-slate-400">
+                <td class="py-1 px-2 text-center text-slate-400">
                   {#if isExpanded}
                     <ChevronDown class="w-4 h-4 text-cyan-500" />
                   {:else}
@@ -431,80 +431,80 @@
 
                 {#if activeTab === "eventid"}
                   {@const e = item as WinEventIDEnt}
-                  <td class="py-2 px-3 font-sans text-slate-800 dark:text-slate-200">{e.Computer}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{e.Provider}</td>
-                  <td class="py-2 px-3 font-bold text-cyan-600 dark:text-cyan-400">{e.EventID}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px]">{e.Channel}</td>
-                  <td class="py-2 px-3">
+                  <td class="py-1 px-2 font-sans text-slate-800 dark:text-slate-200">{e.Computer}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{e.Provider}</td>
+                  <td class="py-1 px-2 font-bold text-cyan-600 dark:text-cyan-400">{e.EventID}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px]">{e.Channel}</td>
+                  <td class="py-1 px-2">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {e.Level === 'error' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400' : e.Level === 'warn' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}">
                       {e.Level}
                     </span>
                   </td>
-                  <td class="py-2 px-3 text-right font-bold text-slate-700 dark:text-slate-300">{e.Count.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(e.LastTime)}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{e.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(e.LastTime)}</td>
 
                 {:else if activeTab === "logon"}
                   {@const l = item as WinLogonEnt}
-                  <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200">{l.Target}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{l.Computer}</td>
-                  <td class="py-2 px-3 text-cyan-600 dark:text-cyan-400 text-[11px]">{l.IP || "-"}</td>
-                  <td class="py-2 px-3 text-right font-bold text-emerald-500">{l.Logon.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-right font-bold text-rose-500">{l.Failed.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-right text-slate-500">{l.Logoff.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-right">
+                  <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200">{l.Target}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{l.Computer}</td>
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{l.IP || "-"}</td>
+                  <td class="py-1 px-2 text-right font-bold text-emerald-500">{l.Logon.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-right font-bold text-rose-500">{l.Failed.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-right text-slate-500">{l.Logoff.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-right">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {l.Score >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'}">
                       {l.Score?.toFixed(1) ?? "-"} (P:{l.Penalty})
                     </span>
                   </td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(l.LastTime)}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(l.LastTime)}</td>
 
                 {:else if activeTab === "account"}
                   {@const a = item as WinAccountEnt}
-                  <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200">{a.Target}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{a.Computer}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{a.Subject}</td>
-                  <td class="py-2 px-3 text-right text-[11px] text-slate-500">{a.Edit} / {a.Password} / {a.Other}</td>
-                  <td class="py-2 px-3 text-right font-bold text-slate-700 dark:text-slate-300">{a.Count.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(a.LastTime)}</td>
+                  <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200">{a.Target}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{a.Computer}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{a.Subject}</td>
+                  <td class="py-1 px-2 text-right text-[11px] text-slate-500">{a.Edit} / {a.Password} / {a.Other}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{a.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(a.LastTime)}</td>
 
                 {:else if activeTab === "kerberos"}
                   {@const k = item as WinKerberosEnt}
-                  <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200">{k.Target}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{k.Computer}</td>
-                  <td class="py-2 px-3 text-cyan-600 dark:text-cyan-400 text-[11px]">{k.Service}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{k.TicketType}</td>
-                  <td class="py-2 px-3 text-right font-bold text-rose-500">{k.Failed.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-right">
+                  <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200">{k.Target}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{k.Computer}</td>
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 text-[11px]">{k.Service}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{k.TicketType}</td>
+                  <td class="py-1 px-2 text-right font-bold text-rose-500">{k.Failed.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-right">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {k.Score >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'}">
                       {k.Score?.toFixed(1) ?? "-"} (P:{k.Penalty})
                     </span>
                   </td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(k.LastTime)}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(k.LastTime)}</td>
 
                 {:else if activeTab === "privilege"}
                   {@const p = item as WinPrivilegeEnt}
-                  <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200">{p.Subject}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{p.Computer}</td>
-                  <td class="py-2 px-3 text-right font-bold text-amber-500">{p.Count.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(p.LastTime)}</td>
+                  <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200">{p.Subject}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{p.Computer}</td>
+                  <td class="py-1 px-2 text-right font-bold text-amber-500">{p.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(p.LastTime)}</td>
 
                 {:else if activeTab === "process"}
                   {@const pr = item as WinProcessEnt}
-                  <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={pr.Process}>{pr.Process}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{pr.Computer}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{pr.LastSubject || "-"}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] truncate max-w-[120px]" title={pr.LastParent}>{pr.LastParent || "-"}</td>
-                  <td class="py-2 px-3 text-right text-[11px] text-slate-500">{pr.Start} / {pr.Exit}</td>
-                  <td class="py-2 px-3 text-right font-bold text-slate-700 dark:text-slate-300">{pr.Count.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(pr.LastTime)}</td>
+                  <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={pr.Process}>{pr.Process}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{pr.Computer}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{pr.LastSubject || "-"}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] truncate max-w-[120px]" title={pr.LastParent}>{pr.LastParent || "-"}</td>
+                  <td class="py-1 px-2 text-right text-[11px] text-slate-500">{pr.Start} / {pr.Exit}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{pr.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(pr.LastTime)}</td>
 
                 {:else if activeTab === "task"}
                   {@const t = item as WinTaskEnt}
-                  <td class="py-2 px-3 font-semibold font-sans text-slate-800 dark:text-slate-200">{t.TaskName}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{t.Computer}</td>
-                  <td class="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{t.Subject}</td>
-                  <td class="py-2 px-3 text-right font-bold text-slate-700 dark:text-slate-300">{t.Count.toLocaleString()}</td>
-                  <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(t.LastTime)}</td>
+                  <td class="py-1 px-2 font-semibold font-sans text-slate-800 dark:text-slate-200">{t.TaskName}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{t.Computer}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">{t.Subject}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{t.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">{formatTimeStr(t.LastTime)}</td>
                 {/if}
               </tr>
 

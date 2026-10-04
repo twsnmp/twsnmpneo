@@ -653,7 +653,7 @@
         {:else}
           {#each paginatedDevices as d}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-1 px-2.5 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if d.addressState === "duplicate"}
                   <span class="rounded bg-rose-100 dark:bg-rose-500/20 border border-rose-300 dark:border-rose-500/40 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 dark:text-rose-400 leading-none">
                     {$_("report.stateDuplicate")}
@@ -676,28 +676,28 @@
                   </span>
                 {/if}
               </td>
-              <td class="py-1 px-2.5 font-mono text-cyan-600 dark:text-cyan-400 text-[11px] whitespace-nowrap">
+              <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 text-[11px] whitespace-nowrap">
                 {d.ip || "-"}
               </td>
-              <td class="py-1 px-2.5 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
                 {d.mac || "-"}
               </td>
-              <td class="py-1 px-2.5 font-sans font-medium text-slate-900 dark:text-slate-100 text-[11px] max-w-[140px] truncate" title={d.name}>
+              <td class="py-1 px-2 font-sans font-medium text-slate-900 dark:text-slate-100 text-[11px] max-w-[140px] truncate" title={d.name}>
                 {d.name}
               </td>
-              <td class="py-1 px-2.5 font-sans text-slate-700 dark:text-slate-300 text-[11px] max-w-[160px] truncate" title={d.vendor}>
+              <td class="py-1 px-2 font-sans text-slate-700 dark:text-slate-300 text-[11px] max-w-[160px] truncate" title={d.vendor}>
                 {d.vendor}
               </td>
-              <td class="py-1 px-2.5 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">
                 {d.lastChangeTime > 0 ? formatTimeStr(d.lastChangeTime) : "-"}
               </td>
-              <td class="py-1 px-2.5 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">
                 {d.firstTime > 0 ? formatTimeStr(d.firstTime) : "-"}
               </td>
-              <td class="py-1 px-2.5 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-mono text-[10px] text-slate-500 whitespace-nowrap">
                 {d.lastTime > 0 ? formatTimeStr(d.lastTime) : "-"}
               </td>
-              <td class="py-1 px-2.5 text-right whitespace-nowrap font-sans">
+              <td class="py-1 px-2 text-right whitespace-nowrap font-sans">
                 <div class="inline-flex items-center gap-1 justify-end">
                   {#if !d.isManaged && !d.isDhcpError}
                     <button

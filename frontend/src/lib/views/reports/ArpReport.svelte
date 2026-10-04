@@ -1037,19 +1037,19 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedIpSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+              <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                 {item.ip}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.name}
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.errorCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-500">
                     {item.errorCount.toLocaleString()}
@@ -1058,7 +1058,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.warnCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-500">
                     {item.warnCount.toLocaleString()}
@@ -1067,7 +1067,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.normalCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-500">
                     {item.normalCount.toLocaleString()}
@@ -1076,13 +1076,13 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.newMac}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.vendor}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.vendor}>
                 {item.vendor}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>
@@ -1195,16 +1195,16 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedVendorSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 truncate max-w-sm" title={item.vendor}>
+              <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200 truncate max-w-sm" title={item.vendor}>
                 {item.vendor}
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.errorCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-500">
                     {item.errorCount.toLocaleString()}
@@ -1213,7 +1213,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.warnCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-500">
                     {item.warnCount.toLocaleString()}
@@ -1222,7 +1222,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.normalCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-500">
                     {item.normalCount.toLocaleString()}
@@ -1231,13 +1231,13 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.ipCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.macCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>
@@ -1353,16 +1353,16 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedStateSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+              <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                 {item.stateName}
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.errorCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-500">
                     {item.errorCount.toLocaleString()}
@@ -1371,7 +1371,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.warnCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-500/10 text-amber-500">
                     {item.warnCount.toLocaleString()}
@@ -1380,7 +1380,7 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 {#if item.normalCount > 0}
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-500">
                     {item.normalCount.toLocaleString()}
@@ -1389,16 +1389,16 @@
                   <span class="text-slate-400 dark:text-slate-600">0</span>
                 {/if}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.ipCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.macCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topVendors}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topVendors}>
                 {item.topVendors}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>
@@ -1474,7 +1474,7 @@
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
           {#each paginatedLevelSummaries as item}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-2 px-3 whitespace-nowrap">
+              <td class="py-1 px-2 whitespace-nowrap">
                 <span
                   class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold"
                   style="background-color: {getStateColor(item.level)}20; color: {getStateColor(item.level)};"
@@ -1482,19 +1482,19 @@
                   {item.levelName}
                 </span>
               </td>
-              <td class="py-2 px-3 font-bold text-cyan-500 whitespace-nowrap">
+              <td class="py-1 px-2 font-bold text-cyan-500 whitespace-nowrap">
                 {item.count.toLocaleString()}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <span class="inline-block w-12 text-right">{item.percent}%</span>
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.ipCount}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topStates}>
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-xs" title={item.topStates}>
                 {item.topStates}
               </td>
-              <td class="py-2 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <td class="py-1 px-2 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {item.lastTime > 0 ? formatTimeStr(item.lastTime) : "-"}
               </td>
             </tr>

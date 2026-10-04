@@ -464,19 +464,19 @@
         {:else}
           {#each paginatedPollings as p}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-1.5 px-2.5 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{p.name}</td>
-              <td class="py-1.5 px-2.5">
+              <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{p.name}</td>
+              <td class="py-1 px-2">
                 <span class="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-sans text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 leading-none">
                   {p.type}
                 </span>
               </td>
-              <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[180px]" title={p.params || p.target || ""}>
+              <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px] truncate max-w-[180px]" title={p.params || p.target || ""}>
                 {p.params || p.target || "-"}
               </td>
-              <td class="py-1.5 px-2.5 font-sans text-slate-700 dark:text-slate-300 text-[11px]">
+              <td class="py-1 px-2 font-sans text-slate-700 dark:text-slate-300 text-[11px]">
                 {nodeMap.get(p.node_id) || p.node_id || "-"}
               </td>
-              <td class="py-1.5 px-2.5">
+              <td class="py-1 px-2">
                 <span
                   class="rounded px-2 py-0.5 text-[10px] font-sans font-semibold leading-none border"
                   style="background-color: {getStateColor(p.state)}15; color: {getStateColor(p.state)}; border-color: {getStateColor(p.state)}30;"
@@ -484,7 +484,7 @@
                   {getStateName(p.state)}
                 </span>
               </td>
-              <td class="py-1.5 px-2.5 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">
+              <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">
                 {p.last_val !== undefined && p.last_val !== null ? p.last_val : "-"}
               </td>
             </tr>

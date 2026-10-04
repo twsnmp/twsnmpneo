@@ -413,17 +413,17 @@
               <tbody>
                 {#each certificates as cert (cert.serial)}
                   <tr class="border-t border-slate-200 dark:border-slate-800">
-                    <td class="max-w-sm truncate px-4 py-3" title={cert.subject}>{cert.subject}</td>
-                    <td class="px-4 py-3 font-mono text-xs">{cert.serial}</td>
-                    <td class="whitespace-nowrap px-4 py-3">{renderDate(cert.expiresAt)}</td>
-                    <td class="px-4 py-3">
+                    <td class="max-w-sm truncate px-2 py-1" title={cert.subject}>{cert.subject}</td>
+                    <td class="px-2 py-1 font-mono text-xs">{cert.serial}</td>
+                    <td class="whitespace-nowrap px-2 py-1">{renderDate(cert.expiresAt)}</td>
+                    <td class="px-2 py-1">
                       {cert.revokedAt
                         ? $_("pki.revoked")
                         : cert.expiresAt < Date.now() / 1000
                           ? $_("pki.expired")
                           : $_("pki.valid")}
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3">
+                    <td class="whitespace-nowrap px-2 py-1">
                       <button type="button" onclick={() => download(cert.serial)} class="mr-3 text-cyan-700 hover:underline dark:text-cyan-400">{$_("common.export")}</button>
                       {#if !cert.revokedAt}
                         <button type="button" onclick={() => revoke(cert)} class="text-red-700 hover:underline dark:text-red-400">{$_("pki.revoke")}</button>
