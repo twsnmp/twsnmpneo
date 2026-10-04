@@ -19,6 +19,7 @@
     X,
     AlertTriangle,
     Clock,
+    Radio,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
   import { formatTimeStr } from "../../common";
@@ -828,6 +829,91 @@
     }
   });
 
+  const kpiStats = $derived.by(() => {
+    // 1. Env Stats
+    const envCount = envs.length;
+    let tempSum = 0;
+    let tempCount = 0;
+    let humSum = 0;
+    let humCount = 0;
+
+    for (const e of envs) {
+      if (e.EnvData && e.EnvData.length > 0) {
+        const last = e.EnvData[e.EnvData.length - 1];
+        if (last.Temp !== undefined && last.Temp !== null) {
+          tempSum += last.Temp;
+          tempCount++;
+        }
+        if (last.Humidity !== undefined && last.Humidity !== null) {
+          humSum += last.Humidity;
+          humCount++;
+        }
+      }
+    }
+    const avgTemp = tempCount > 0 ? tempSum / tempCount : null;
+    const avgHum = humCount > 0 ? humSum / humCount : null;
+
+    // 2. Power Stats
+    const powerCount = powers.length;
+    let totalLoad = 0;
+    let onPowers = 0;
+    let overPowers = 0;
+    for (const p of powers) {
+      if (p.Data && p.Data.length > 0) {
+        const last = p.Data[p.Data.length - 1];
+        if (last.Load !== undefined && last.Load !== null) {
+          totalLoad += last.Load;
+        }
+        if (last.Switch) onPowers++;
+        if (last.Over) overPowers++;
+      }
+    }
+
+    // 3. Motion Stats
+    const motionCount = motions.length;
+    let movingCount = 0;
+    let lightCount = 0;
+    for (const m of motions) {
+      if (m.Data && m.Data.length > 0) {
+        const last = m.Data[m.Data.length - 1];
+        if (last.Moving) movingCount++;
+        if (last.Light) lightCount++;
+      }
+    }
+
+    // 4. Host & Global Totals
+    const hosts = new Set<string>();
+    let totalPackets = 0;
+    for (const e of envs) {
+      if (e.Host) hosts.add(e.Host);
+      totalPackets += e.Count || 0;
+    }
+    for (const p of powers) {
+      if (p.Host) hosts.add(p.Host);
+      totalPackets += p.Count || 0;
+    }
+    for (const m of motions) {
+      if (m.Host) hosts.add(m.Host);
+      totalPackets += m.Count || 0;
+    }
+
+    return {
+      envCount,
+      avgTemp,
+      avgHum,
+      powerCount,
+      totalLoad,
+      onPowers,
+      overPowers,
+      motionCount,
+      movingCount,
+      lightCount,
+      totalSensors: envCount + powerCount + motionCount,
+      hostCount: hosts.size,
+      totalPackets,
+    };
+  });
+
   // Export CSV for active tab's table
   export function exportCSV(): void {
     let csv = "";
@@ -870,6 +956,85 @@
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
         {$_("report.sensorSubtitle")}
       </p>
+    </div>
+  </div>
+
+  <!-- KPI Summary Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Total & Hosts -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm flex items-center gap-3.5">
+      <div class="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-purple-600 dark:text-purple-400 shrink-0">
+        <Radio class="w-5 h-5" />
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+          {$_("report.sensorKpiTotal")}
+        </div>
+        <div class="text-xl font-bold font-mono text-slate-800 dark:text-slate-100 mt-0.5">
+          {kpiStats.totalSensors} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span>
+        </div>
+        <div class="text-[11px] text-slate-400 truncate mt-0.5">
+          {$_("report.sensorKpiHosts", { values: { hosts: kpiStats.hostCount, packets: kpiStats.totalPackets } })}
+        </div>
+      </div>
+    </div>
+
+    <!-- Env Sensors KPI -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm flex items-center gap-3.5">
+      <div class="p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 shrink-0">
+        <Thermometer class="w-5 h-5" />
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+          {$_("report.tabEnv")}
+        </div>
+        <div class="text-xl font-bold font-mono text-cyan-600 dark:text-cyan-400 mt-0.5">
+          {kpiStats.envCount} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span>
+        </div>
+        <div class="text-[11px] text-slate-400 truncate mt-0.5">
+          {#if kpiStats.avgTemp !== null && kpiStats.avgHum !== null}
+            {$_("report.sensorKpiAvgEnv", { values: { temp: kpiStats.avgTemp.toFixed(1), hum: kpiStats.avgHum.toFixed(1) } })}
+          {:else}
+            {$_("report.sensorNoData")}
+          {/if}
+        </div>
+      </div>
+    </div>
+
+    <!-- Power Sensors KPI -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm flex items-center gap-3.5">
+      <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 shrink-0">
+        <Zap class="w-5 h-5" />
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+          {$_("report.tabPower")}
+        </div>
+        <div class="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">
+          {kpiStats.totalLoad.toFixed(1)} <span class="text-xs font-normal text-slate-400">W</span>
+        </div>
+        <div class="text-[11px] text-slate-400 truncate mt-0.5">
+          {$_("report.sensorKpiPowerSub", { values: { on: kpiStats.onPowers, over: kpiStats.overPowers } })}
+        </div>
+      </div>
+    </div>
+
+    <!-- Motion Sensors KPI -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm flex items-center gap-3.5">
+      <div class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 shrink-0">
+        <Footprints class="w-5 h-5" />
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+          {$_("report.tabMotion")}
+        </div>
+        <div class="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+          {kpiStats.motionCount} <span class="text-xs font-normal text-slate-400">{$_("report.unitDevices")}</span>
+        </div>
+        <div class="text-[11px] text-slate-400 truncate mt-0.5">
+          {$_("report.sensorKpiMotionSub", { values: { moving: kpiStats.movingCount, light: kpiStats.lightCount } })}
+        </div>
+      </div>
     </div>
   </div>
 
