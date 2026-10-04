@@ -297,13 +297,14 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
 			kind := req.Kind
-			if kind == "env" {
+			switch kind {
+			case "env":
 				kind = logreport.KindEnvMonitor
-			} else if kind == "power" {
+			case "power":
 				kind = logreport.KindPowerMonitor
-			} else if kind == "motion" {
+			case "motion":
 				kind = logreport.KindMotionSensor
-			} else if kind == "device" {
+			case "device":
 				kind = logreport.KindBlueDevice
 			}
 			if !logreport.IsKind(kind) {
@@ -518,7 +519,6 @@ func NewServer(cfg Config) (*Server, error) {
 			list, _ := cfg.Store.ListCertMonitors(c.Request().Context())
 			return c.JSON(http.StatusOK, list)
 		})
-
 
 		// Pollings
 		apiGroup.GET("/pollings", func(c echo.Context) error {
