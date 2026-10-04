@@ -57,7 +57,7 @@
   import TrapReport from "./reports/TrapReport.svelte";
   import ArpReport from "./reports/ArpReport.svelte";
   import CertReport from "./reports/CertReport.svelte";
-  import SensorReport from "./reports/SensorReport.svelte";
+  import EnvSensor from "./reports/EnvSensor.svelte";
   import AnomalyReport from "./reports/AnomalyReport.svelte";
   import WifiReport from "./reports/WifiReport.svelte";
   import BluetoothReport from "./reports/BluetoothReport.svelte";
@@ -107,6 +107,21 @@
   let certMonitors = $state<CertMonitorEnt[]>([]);
   let mqttStats = $state<MqttStatEnt[]>([]);
 
+  const hasBlueScanPolling = $derived(
+    pollings.some(
+      (p) =>
+        p.type === "twbluescan" ||
+        (p.type === "syslog" &&
+          (p.mode === "twbluescan" || (p as any).Mode === "twbluescan"))
+    )
+  );
+
+  $effect(() => {
+    if (activeReport === "sensor" && !hasBlueScanPolling) {
+      activeReport = "device";
+    }
+  });
+
   const categories = $derived<{ id: ReportCategory; name: string; icon: any }[]>([
     { id: "device", name: $_("report.tabDevice"), icon: Laptop },
     { id: "ipam", name: $_("report.tabIpam"), icon: Network },
@@ -118,7 +133,9 @@
     { id: "sflow", name: $_("report.tabSFlow"), icon: Share2 },
     { id: "arp", name: $_("report.tabArp"), icon: Eye },
     { id: "cert", name: $_("report.tabCert"), icon: ShieldCheck },
-    { id: "sensor", name: $_("report.tabSensor"), icon: Thermometer },
+    ...(hasBlueScanPolling
+      ? [{ id: "sensor" as const, name: $_("report.tabSensor"), icon: Thermometer }]
+      : []),
     { id: "wifi", name: $_("report.tabWifi"), icon: Wifi },
     { id: "bluetooth", name: $_("report.tabBluetooth"), icon: Bluetooth },
     { id: "pcap", name: $_("report.tabPcap"), icon: Binary },
@@ -300,6 +317,7 @@
     (activeReport === "device" && arpList.length > 0) ||
     activeReport === "wifi" ||
     activeReport === "bluetooth" ||
+    activeReport === "sensor" ||
     activeReport === "pcap" ||
     activeReport === "winlog"
   );
@@ -513,11 +531,12 @@
           onReload={loadData}
         />
       {:else if activeReport === "sensor"}
-        <SensorReport
+        <EnvSensor
           bind:this={activeReportRef}
           {searchQuery}
-          {pollings}
-          {mqttStats}
+          {nodes}
+          onRefresh={loadData}
+          {loading}
         />
       {:else if activeReport === "wifi"}
         <WifiReport

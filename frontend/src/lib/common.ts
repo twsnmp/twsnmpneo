@@ -121,10 +121,10 @@ export const formatTime = (date: any, format = '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}'
   }
 };
 
-export const formatTimeStr = (t: number | string | Date | undefined | null): string => {
+export const formatTimeStr = (t: number | string | Date | undefined | null, format = '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}'): string => {
   if (t === undefined || t === null || t === '') return '-';
   if (t instanceof Date) {
-    return isNaN(t.getTime()) ? '-' : formatTime(t);
+    return isNaN(t.getTime()) ? '-' : formatTime(t, format);
   }
   let ms: number;
   if (typeof t === 'string') {
@@ -133,7 +133,7 @@ export const formatTimeStr = (t: number | string | Date | undefined | null): str
       t = num;
     } else {
       const d = new Date(t);
-      return isNaN(d.getTime()) ? String(t) : formatTime(d);
+      return isNaN(d.getTime()) ? String(t) : formatTime(d, format);
     }
   }
   if (typeof t === 'number') {
@@ -152,7 +152,7 @@ export const formatTimeStr = (t: number | string | Date | undefined | null): str
       ms = t * 1000;
     }
     const d = new Date(ms);
-    return isNaN(d.getTime()) ? '-' : formatTime(d);
+    return isNaN(d.getTime()) ? '-' : formatTime(d, format);
   }
   return '-';
 };

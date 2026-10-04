@@ -2749,4 +2749,24 @@ export async function resetLogReport(kind: string): Promise<void> {
   }
 }
 
+export async function deleteLogReportItem(kind: string, id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Delete log report item failed: ${res.statusText}`);
+  }
+}
+
+export async function updateLogReportName(kind: string, id: string, name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/log/name`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ Kind: kind, ID: id, Name: name }),
+  });
+  if (!res.ok) {
+    throw new Error(`Update log report name failed: ${res.statusText}`);
+  }
+}
+
 

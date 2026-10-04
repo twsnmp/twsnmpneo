@@ -275,6 +275,59 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 		})
 
+		apiGroup.DELETE("/report/log/:kind/:id", func(c echo.Context) error {
+			kind := c.Param("kind")
+			id := c.Param("id")
+			if !logreport.IsKind(kind) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "unknown report kind"})
+			}
+			if err := cfg.Store.DeleteLogReportData(c.Request().Context(), kind, []string{id}); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
+		apiGroup.POST("/report/log/name", func(c echo.Context) error {
+			var req struct {
+				Kind string `json:"Kind"`
+				ID   string `json:"ID"`
+				Name string `json:"Name"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			kind := req.Kind
+			if kind == "env" {
+				kind = logreport.KindEnvMonitor
+			} else if kind == "power" {
+				kind = logreport.KindPowerMonitor
+			} else if kind == "motion" {
+				kind = logreport.KindMotionSensor
+			} else if kind == "device" {
+				kind = logreport.KindBlueDevice
+			}
+			if !logreport.IsKind(kind) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "unknown report kind"})
+			}
+			raw, err := cfg.Store.GetLogReportData(c.Request().Context(), kind, req.ID)
+			if err != nil || len(raw) == 0 {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "entity not found"})
+			}
+			var m map[string]any
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			m["Name"] = req.Name
+			updated, err := json.Marshal(m)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveLogReportData(c.Request().Context(), kind, map[string][]byte{req.ID: updated}); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
 		apiGroup.GET("/ai/result/:id", func(c echo.Context) error {
 			id := c.Param("id")
 			res, err := cfg.Store.GetAIResult(id)

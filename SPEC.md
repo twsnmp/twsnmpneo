@@ -208,6 +208,11 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **NetFlow Analytics**: Top server ports, Flows, Fumble flows, Ethernet types, DNS queries, RADIUS, TLS.
      - **sFlow Analytics**: Sampled flow and counter aggregation.
      - **ARP Watch Analytics**: Aggregated ARP monitoring events categorized by IP/node, vendor, state (new device/MAC change), and severity level.
+     - **Environmental Sensors (環境センサー)**: Tabbed analytics suite (`SensorReport.svelte`) for IoT & environmental sensors parsed from `twBlueScan` syslog:
+       - **環境センサー (`envMonitor`)**: OMRON, SwitchBot, Inkbird (temperature, humidity, illuminance, barometric pressure, sound, eTVOC, eCO2, battery).
+       - **電力センサー (`powerMonitor`)**: SwitchBot Plug Mini (power load W, switch ON/OFF, overload alert).
+       - **人感センサー (`motionSensor`)**: SwitchBot Motion Sensor (motion detection, ambient light, battery, last move time).
+       - Includes real-time signal strength (RSSI), interactive ECharts historical trend charts, multi-sensor comparison charts, sensor renaming, individual deletion, and CSV export. Radio power (twSdrPower) is unsupported.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
      - **AI Anomaly**: AI anomaly score reporting strictly aligned with TWSNMP FK (`AIList`). Displays pollings configured with log mode "異常検知あり" (`LogMode == LogModeAI`). Polling editor supports algorithm selection (`iforest`, `zscore`, `lof`, `knn`, `mahalanobis`, `hotelling`, `autoencoder`, `lstm`) and vector feature columns (`VectorCols`). Table presents Anomaly score with severity emoticon icon, Node Name, Polling, Count, and Last time. Supports row selection, Heatmap/Pie/Time analytics report modal (`AIReportModal`), feature DataFrame CSV export (`/api/ai/export/:id`), and result clearing.
 9. **Tool View (`ToolView.svelte`)**:
