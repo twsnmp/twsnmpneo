@@ -27,7 +27,6 @@
     Calendar,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
-  import PollingDialog from "../../components/PollingDialog.svelte";
   import { formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -36,7 +35,6 @@
     deleteLogReportItem,
     updateLogReportName,
     type BlueDeviceEnt,
-    type PollingEnt,
     type NodeEnt,
   } from "../../api";
 

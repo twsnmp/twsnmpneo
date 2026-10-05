@@ -20,7 +20,6 @@
     Users,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
-  import PollingDialog from "../../components/PollingDialog.svelte";
   import { formatTimeStr } from "../../common";
   import {
     fetchLogReport,
@@ -32,7 +31,6 @@
     type WinPrivilegeEnt,
     type WinProcessEnt,
     type WinTaskEnt,
-    type PollingEnt,
     type NodeEnt,
   } from "../../api";
 
@@ -69,8 +67,6 @@
 
   let internalLoading = $state(false);
   let expandedId = $state<string | null>(null);
-  let showPollingModal = $state(false);
-  let editingPolling = $state<PollingEnt | null>(null);
 
   let sortColumn = $state("LastTime");
   let sortDirection = $state<"asc" | "desc">("desc");
@@ -186,38 +182,6 @@
     const start = (currentPage - 1) * pageSize;
     return currentList.slice(start, start + pageSize);
   });
-
-  export function handleAddNewPolling(): void {
-    editingPolling = {
-      id: "",
-      name: "twwinlog",
-      node_id: nodes[0]?.id || (nodes[0] as any)?.ID || "",
-      type: "syslog",
-      mode: "twwinlog",
-      params: "",
-      filter: "",
-      extractor: "",
-      script: "",
-      level: "off",
-      poll_int: 300,
-      timeout: 5,
-      retry: 1,
-      log_mode: 0,
-      next_time: 0,
-      last_time: 0,
-      result: {},
-      state: "unknown",
-      fail_action: "",
-      repair_action: "",
-      ai_mode: "default",
-      vector_cols: "",
-      mqtt_url: "",
-      mqtt_topic: "",
-      mqtt_cols: "",
-      fail_time: 0,
-    } as PollingEnt;
-    showPollingModal = true;
-  }
 
   export function exportCSV(): void {
     let header = "";
@@ -545,17 +509,4 @@
       totalCount={currentList.length}
     />
   </div>
-
-  <!-- Polling Dialog for Add/Edit -->
-  {#if showPollingModal}
-    <PollingDialog
-      bind:show={showPollingModal}
-      polling={editingPolling}
-      {nodes}
-      onSave={async () => {
-        showPollingModal = false;
-        onRefresh();
-      }}
-    />
-  {/if}
 </div>

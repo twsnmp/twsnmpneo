@@ -1,10 +1,9 @@
 // Package logreport builds the "report" datasets (Wi-Fi APs, Bluetooth devices,
-// packet-capture summaries and Windows event summaries) from syslog records
-// emitted by twWifiScan, twBlueScan, twpcap and twwinlog.
+// packet-capture summaries and Windows event summaries) from protocol records
+// emitted by twWifiScan, twBlueScan, twpcap, twwinlog, etc.
 //
-// Unlike TWSNMP FC the records are not processed while they are received.
-// A polling (types twwifiscan/twbluescan/twpcap/twwinlog) searches the stored
-// syslog records and feeds them to a Session.
+// Records are processed in real time when received by protocol servers (matching
+// TWSNMP FC behavior) through the Engine / Reporter pipeline.
 package logreport
 
 import "strings"

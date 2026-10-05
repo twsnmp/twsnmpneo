@@ -12,26 +12,18 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/extractor"
-	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 )
 
-// SyslogPoller inspects ingested Syslog messages with regex, grok, sigma rules,
-// or delegates to logreport for report generation (twwifiscan, twbluescan, twpcap, twwinlog).
+// SyslogPoller inspects ingested Syslog messages with regex, grok, or sigma rules.
 type SyslogPoller struct {
-	store         datastore.DataStore
-	logStore      *parquet.Store
-	reportPollers map[string]*LogReportPoller
+	store    datastore.DataStore
+	logStore *parquet.Store
 }
 
 func NewSyslogPoller(store datastore.DataStore, logStore *parquet.Store) *SyslogPoller {
-	rp := make(map[string]*LogReportPoller)
-	for _, src := range []string{logreport.SourceWifiScan, logreport.SourceBlueScan, logreport.SourcePcap, logreport.SourceWinLog} {
-		rp[src] = NewLogReportPoller(store, logStore, src)
-	}
 	return &SyslogPoller{
-		store:         store,
-		logStore:      logStore,
-		reportPollers: rp,
+		store:    store,
+		logStore: logStore,
 	}
 }
 
@@ -45,11 +37,6 @@ func (p *SyslogPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 		return p.pollStats(ctx, pe, node, start)
 	case "sigma":
 		return p.pollSigma(ctx, pe, node, start)
-	case "twwifiscan", "twbluescan", "twpcap", "twwinlog":
-		if rp, ok := p.reportPollers[mode]; ok {
-			return rp.Poll(ctx, pe, node)
-		}
-		return NewLogReportPoller(p.store, p.logStore, mode).Poll(ctx, pe, node)
 	default:
 		return p.pollCount(ctx, pe, node, start)
 	}

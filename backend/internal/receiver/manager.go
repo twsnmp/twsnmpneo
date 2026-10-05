@@ -8,17 +8,19 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 )
 
 // Config holds options for all receivers managed together.
 type Config struct {
-	Store        datastore.DataStore
-	LogStore     *parquet.Store
-	SyslogUDP    int
-	SyslogTCP    int
-	TrapPort     int
-	NetFlowPort  int
-	SFlowPort    int
+	Store          datastore.DataStore
+	LogStore       *parquet.Store
+	Reporter       logreport.Reporter
+	SyslogUDP      int
+	SyslogTCP      int
+	TrapPort       int
+	NetFlowPort    int
+	SFlowPort      int
 	OTelPort       int
 	OTelRetention  int
 	OTelFrom       string
@@ -32,6 +34,7 @@ type Config struct {
 // Manager controls the lifecycle of all embedded protocol receivers.
 type Manager struct {
 	cfg      Config
+	reporter logreport.Reporter
 	syslog   *SyslogServer
 	trap     *TrapServer
 	netflow  *NetFlowServer
@@ -43,13 +46,20 @@ type Manager struct {
 
 // NewManager creates an instance of the receiver manager.
 func NewManager(cfg Config) *Manager {
+	rep := cfg.Reporter
+	if rep == nil && cfg.Store != nil {
+		rep = logreport.NewEngine(cfg.Store)
+	}
+
 	return &Manager{
-		cfg: cfg,
+		cfg:      cfg,
+		reporter: rep,
 		syslog: NewSyslogServer(SyslogConfig{
 			UDPPort:  cfg.SyslogUDP,
 			TCPPort:  cfg.SyslogTCP,
 			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
+			Reporter: rep,
 		}),
 		trap: NewTrapServer(TrapConfig{
 			Port:     cfg.TrapPort,
@@ -137,6 +147,10 @@ func (m *Manager) Start(ctx context.Context) error {
 		_ = m.arpWatch.Start(ctx)
 	}()
 
+	if m.reporter != nil {
+		_ = m.reporter.Start(ctx)
+	}
+
 	// Periodic Parquet log rotation & datastore retention cleaner
 	go m.startRetentionCleaner(ctx)
 
@@ -145,6 +159,9 @@ func (m *Manager) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 	slog.Info("Stopping Protocol Receivers...")
+	if m.reporter != nil {
+		m.reporter.Stop()
+	}
 	wg.Wait()
 	return nil
 }

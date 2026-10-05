@@ -95,3 +95,19 @@ func Cleanup(ctx context.Context, store datastore.DataStore, source string, days
 	}
 	return firstErr
 }
+
+// AllSources returns all known report sources.
+func AllSources() []string {
+	return []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog}
+}
+
+// CleanupAll cleans up expired entities for all known sources.
+func CleanupAll(ctx context.Context, store datastore.DataStore, days, maxEntries int) error {
+	var firstErr error
+	for _, src := range AllSources() {
+		if err := Cleanup(ctx, store, src, days, maxEntries); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}

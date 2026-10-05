@@ -18,7 +18,6 @@
     X,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
-  import PollingDialog from "../../components/PollingDialog.svelte";
   import { formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -29,7 +28,6 @@
     type DNSQEnt,
     type RADIUSFlowEnt,
     type TLSFlowEnt,
-    type PollingEnt,
     type NodeEnt,
   } from "../../api";
 
@@ -54,8 +52,6 @@
   let tlsFlows = $state<TLSFlowEnt[]>([]);
   let internalLoading = $state(false);
   let expandedId = $state<string | null>(null);
-  let showPollingModal = $state(false);
-  let editingPolling = $state<PollingEnt | null>(null);
 
   // Detail Modal State
   let infoModalOpen = $state(false);
@@ -561,38 +557,6 @@
       };
     }
   });
-
-  export function handleAddNewPolling(): void {
-    editingPolling = {
-      id: "",
-      name: "twpcap",
-      node_id: nodes[0]?.id || (nodes[0] as any)?.ID || "",
-      type: "syslog",
-      mode: "twpcap",
-      params: "",
-      filter: "",
-      extractor: "",
-      script: "",
-      level: "off",
-      poll_int: 300,
-      timeout: 5,
-      retry: 1,
-      log_mode: 0,
-      next_time: 0,
-      last_time: 0,
-      result: {},
-      state: "unknown",
-      fail_action: "",
-      repair_action: "",
-      ai_mode: "default",
-      vector_cols: "",
-      mqtt_url: "",
-      mqtt_topic: "",
-      mqtt_cols: "",
-      fail_time: 0,
-    } as PollingEnt;
-    showPollingModal = true;
-  }
 
   export function exportCSV(): void {
     let header = "";
@@ -1696,18 +1660,5 @@
         </div>
       </div>
     </div>
-  {/if}
-
-  <!-- Polling Dialog for Add/Edit -->
-  {#if showPollingModal}
-    <PollingDialog
-      bind:show={showPollingModal}
-      polling={editingPolling}
-      {nodes}
-      onSave={async () => {
-        showPollingModal = false;
-        onRefresh();
-      }}
-    />
   {/if}
 </div>

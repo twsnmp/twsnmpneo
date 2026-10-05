@@ -269,7 +269,8 @@ func meanSD(xs []float64) (float64, float64) {
 // Process applies one syslog record of the given source (polling type).
 // It returns true when the record updated a report.
 func (s *Session) Process(source string, r Record) bool {
-	if !strings.EqualFold(r.Tag, SyslogTag(source)) {
+	cleanTag := CleanTag(r.Tag)
+	if !strings.EqualFold(cleanTag, SyslogTag(source)) && TagToSource(cleanTag) != source {
 		return false
 	}
 	m := parseKV(r.Content)
@@ -297,6 +298,13 @@ func (s *Session) Process(source string, r Record) bool {
 // parseKV parses "k1=v1,k2=v2" as emitted by the tw* tools.
 func parseKV(c string) map[string]string {
 	c = strings.TrimSpace(c)
+	// Strip any leading tag or colon prefix: "twWifiScan: type=..." -> "type=..."
+	for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower"} {
+		if strings.HasPrefix(strings.ToLower(c), strings.ToLower(prefix)) {
+			c = strings.TrimSpace(c[len(prefix):])
+			break
+		}
+	}
 	c = strings.TrimPrefix(c, ":")
 	c = strings.TrimSpace(c)
 	m := map[string]string{}

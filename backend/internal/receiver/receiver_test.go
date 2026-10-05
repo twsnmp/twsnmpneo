@@ -131,6 +131,51 @@ func TestSyslog_UDPAndTCP(t *testing.T) {
 	}
 }
 
+func TestSyslog_ReportIntegration(t *testing.T) {
+	bStore, pqStore, cleanup := setupTestStores(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	udpL, _ := net.ListenPacket("udp", "127.0.0.1:0")
+	udpPort := udpL.LocalAddr().(*net.UDPAddr).Port
+	_ = udpL.Close()
+
+	mgr := receiver.NewManager(receiver.Config{
+		Store:     bStore,
+		LogStore:  pqStore,
+		SyslogUDP: udpPort,
+	})
+
+	go func() {
+		_ = mgr.Start(ctx)
+	}()
+	time.Sleep(50 * time.Millisecond)
+
+	// Send UDP Syslog message for twWifiScan
+	udpConn, err := net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", udpPort))
+	if err != nil {
+		t.Skipf("dial udp syslog skipped: %v", err)
+		return
+	}
+	// Test standard RFC3164 packet: <134>Oct  6 05:00:00 scanner twWifiScan: type=APInfo,ssid=TestWifi,bssid=11:22:33:44:55:66,rssi=-45,Channel=36,info=ax
+	msg := []byte("<134>Oct  6 05:00:00 scanner twWifiScan: type=APInfo,ssid=TestWifi,bssid=11:22:33:44:55:66,rssi=-45,Channel=36,info=ax\n")
+	_, _ = udpConn.Write(msg)
+	_ = udpConn.Close()
+
+	// Wait for engine workerLoop flush
+	time.Sleep(1500 * time.Millisecond)
+
+	wifiData, err := bStore.ListLogReportData(ctx, "wifiAP")
+	if err != nil {
+		t.Fatalf("ListLogReportData failed: %v", err)
+	}
+	if len(wifiData) == 0 {
+		t.Fatalf("expected at least 1 wifiAP entity in datastore, got 0")
+	}
+}
+
 func TestSyslog_Parser(t *testing.T) {
 	// 1. RFC3164 test
 	msg := receiver.ParseSyslog("<14>Sep 20 12:00:00 myhost sudo: pam_unix authentication failure", "192.168.1.50")

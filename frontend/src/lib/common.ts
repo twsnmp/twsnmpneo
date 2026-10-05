@@ -310,10 +310,6 @@ export const typeList = [
   { name: 'MQTT', value: 'mqtt' },
   { name: 'EMAIL', value: 'email' },
   { name: 'STUN', value: 'stun' },
-  { name: 'twWifiScan Report', value: 'twwifiscan' },
-  { name: 'twBlueScan Report', value: 'twbluescan' },
-  { name: 'twpcap Report', value: 'twpcap' },
-  { name: 'twwinlog Report', value: 'twwinlog' },
 ];
 
 const pollingTypeMap = new Map<string, string>();

@@ -13,6 +13,7 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 	"gopkg.in/mcuadros/go-syslog.v2"
 	"gopkg.in/mcuadros/go-syslog.v2/format"
 )
@@ -23,6 +24,7 @@ type SyslogConfig struct {
 	TCPPort  int
 	Store    datastore.DataStore
 	LogStore *parquet.Store
+	Reporter logreport.Reporter
 }
 
 // SyslogServer receives and parses Syslog messages over UDP and TCP using go-syslog.
@@ -31,6 +33,7 @@ type SyslogServer struct {
 	tcpPort  int
 	store    datastore.DataStore
 	logStore *parquet.Store
+	reporter logreport.Reporter
 	mu       sync.Mutex
 	running  bool
 }
@@ -52,6 +55,7 @@ func NewSyslogServer(cfg SyslogConfig) *SyslogServer {
 		tcpPort:  cfg.TCPPort,
 		store:    cfg.Store,
 		logStore: cfg.LogStore,
+		reporter: cfg.Reporter,
 	}
 }
 
@@ -136,6 +140,10 @@ func (s *SyslogServer) handleLogParts(sl format.LogParts) {
 				Log:  string(rawJSON),
 			})
 		}
+	}
+
+	if s.reporter != nil {
+		s.reporter.ProcessSyslog(sl)
 	}
 
 	if s.store != nil && host != "" {
