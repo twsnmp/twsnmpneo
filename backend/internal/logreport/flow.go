@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
@@ -112,8 +113,31 @@ func (s *Session) ProcessFlow(fr *FlowRecord) {
 	s.Processed++
 }
 
+var fumbleAlertSuppressed sync.Map
+
 func (s *Session) checkFumble(fr *FlowRecord) bool {
 	now := time.Now().UnixNano()
+
+	fumbleThreshold := int64(10)
+	if conf, err := s.store.GetMapConf(s.ctx); err == nil && conf != nil && conf.FumbleThreshold > 0 {
+		fumbleThreshold = int64(conf.FumbleThreshold)
+	}
+
+	recordAlert := func(id string, tcpCount, icmpCount int64) {
+		if (tcpCount >= fumbleThreshold || icmpCount >= fumbleThreshold) {
+			lastAlert, exists := fumbleAlertSuppressed.Load(id)
+			if !exists || now-lastAlert.(int64) > int64(1*time.Hour) {
+				fumbleAlertSuppressed.Store(id, now)
+				_ = s.store.AddEventLog(s.ctx, &datastore.EventLogEnt{
+					Time:  now,
+					Type:  "report",
+					Level: "warn",
+					Event: fmt.Sprintf("[fumble] High fumble count detected for %s (TCP: %d, ICMP: %d)", id, tcpCount, icmpCount),
+				})
+			}
+		}
+	}
+
 	// TCP flows with packet count <= 2 are treated as fumble/aborted attempts
 	if fr.Prot == 6 && fr.Packets > 0 && fr.Packets <= 2 {
 		id := fr.DstIP + "_" + fr.SrcIP
@@ -122,6 +146,7 @@ func (s *Session) checkFumble(fr *FlowRecord) bool {
 			f.TCPCount++
 			f.LastTime = now
 			putEnt(s, KindFumble, id, f)
+			recordAlert(id, f.TCPCount, f.IcmpCount)
 			return true
 		}
 		id = fr.SrcIP + "_" + fr.DstIP
@@ -130,6 +155,7 @@ func (s *Session) checkFumble(fr *FlowRecord) bool {
 			f.TCPCount++
 			f.LastTime = now
 			putEnt(s, KindFumble, id, f)
+			recordAlert(id, f.TCPCount, f.IcmpCount)
 			return true
 		}
 		putEnt(s, KindFumble, id, &FumbleEnt{
@@ -138,6 +164,7 @@ func (s *Session) checkFumble(fr *FlowRecord) bool {
 			FirstTime: now,
 			LastTime:  now,
 		})
+		recordAlert(id, 1, 0)
 		return true
 	} else if fr.Prot == 1 {
 		// ICMP unreachable / time exceeded
@@ -150,6 +177,7 @@ func (s *Session) checkFumble(fr *FlowRecord) bool {
 				f.IcmpCount++
 				f.LastTime = now
 				putEnt(s, KindFumble, id, f)
+				recordAlert(id, f.TCPCount, f.IcmpCount)
 				return true
 			}
 			putEnt(s, KindFumble, id, &FumbleEnt{
@@ -158,6 +186,7 @@ func (s *Session) checkFumble(fr *FlowRecord) bool {
 				FirstTime: now,
 				LastTime:  now,
 			})
+			recordAlert(id, 0, 1)
 			return true
 		}
 	}

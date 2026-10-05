@@ -8,6 +8,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
@@ -217,6 +218,8 @@ func (s *Session) Commit() error {
 	return firstErr
 }
 
+var scoreAlertSuppressed sync.Map
+
 // recalcScores computes the deviation score (mean 50, sd 10) from penalties.
 func recalcScores[T any, P interface {
 	*T
@@ -246,6 +249,13 @@ func recalcScores[T any, P interface {
 	}
 	mean, sd := meanSD(xs)
 	out := make(map[string][]byte, len(ents))
+
+	scoreThreshold := 35.0
+	if conf, err := s.store.GetMapConf(s.ctx); err == nil && conf != nil && conf.ScoreThreshold > 0 {
+		scoreThreshold = conf.ScoreThreshold
+	}
+
+	now := time.Now().UnixNano()
 	for id, p := range ents {
 		si := p.scoreInfo()
 		if sd != 0 {
@@ -259,6 +269,21 @@ func recalcScores[T any, P interface {
 			continue
 		}
 		out[id] = b
+
+		// Anomaly score alert
+		if si.Score < scoreThreshold {
+			suppressKey := fmt.Sprintf("%s:%s", kind, id)
+			lastAlert, exists := scoreAlertSuppressed.Load(suppressKey)
+			if !exists || now-lastAlert.(int64) > int64(1*time.Hour) {
+				scoreAlertSuppressed.Store(suppressKey, now)
+				_ = s.store.AddEventLog(s.ctx, &datastore.EventLogEnt{
+					Time:  now,
+					Type:  "report",
+					Level: "warn",
+					Event: fmt.Sprintf("[%s] Low score detected for %s (Score: %.1f, Penalty: %d)", kind, id, si.Score, si.Penalty),
+				})
+			}
+		}
 	}
 	return s.store.SaveLogReportData(s.ctx, kind, out)
 }

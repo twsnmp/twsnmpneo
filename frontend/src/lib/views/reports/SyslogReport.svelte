@@ -192,6 +192,17 @@
 
   // KPI Overview Statistics
   const kpiStats = $derived.by(() => {
+    if (backendSyslogStats && backendSyslogStats.Total > 0 && !searchQuery) {
+      return {
+        total: backendSyslogStats.Total,
+        high: backendSyslogStats.ErrorCount,
+        warn: backendSyslogStats.WarnCount,
+        normal: backendSyslogStats.NormalCount,
+        uniqueHosts: Object.keys(backendSyslogStats.Hosts || {}).length,
+        uniqueTags: Object.keys(backendSyslogStats.Tags || {}).length,
+      };
+    }
+
     const total = filteredLogs.length;
     let high = 0;
     let warn = 0;
@@ -236,6 +247,25 @@
   }
 
   const hostSummaries = $derived.by<HostSummary[]>(() => {
+    if (backendSyslogStats && backendSyslogStats.Hosts && !searchQuery) {
+      const total = backendSyslogStats.Total || 1;
+      return Object.values(backendSyslogStats.Hosts).map((h) => {
+        const matchedNode = nodeByIp.get(h.Host) || nodeByName.get((h.Host || "").toLowerCase());
+        return {
+          host: h.Host,
+          name: h.NodeName || matchedNode?.name || h.Host,
+          ip: matchedNode?.ip || h.Host,
+          count: h.Count,
+          percent: Number(((h.Count / total) * 100).toFixed(1)),
+          errorCount: h.ErrorCount,
+          warnCount: h.WarnCount,
+          normalCount: h.NormalCount,
+          topTags: "-",
+          lastTime: h.LastTime,
+        };
+      });
+    }
+
     const total = filteredLogs.length;
     const map = new Map<
       string,
@@ -318,6 +348,20 @@
   }
 
   const tagSummaries = $derived.by<TagSummary[]>(() => {
+    if (backendSyslogStats && backendSyslogStats.Tags && !searchQuery) {
+      const total = backendSyslogStats.Total || 1;
+      return Object.values(backendSyslogStats.Tags).map((t) => ({
+        tag: t.Tag,
+        count: t.Count,
+        percent: Number(((t.Count / total) * 100).toFixed(1)),
+        errorCount: 0,
+        warnCount: 0,
+        normalCount: t.Count,
+        hostCount: 1,
+        lastTime: t.LastTime,
+      }));
+    }
+
     const total = filteredLogs.length;
     const map = new Map<
       string,

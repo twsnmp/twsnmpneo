@@ -265,6 +265,18 @@
 
   // KPI Overview Statistics
   const kpiStats = $derived.by(() => {
+    if (backendTrapStats && backendTrapStats.Total > 0 && !searchQuery) {
+      return {
+        total: backendTrapStats.Total,
+        high: backendTrapStats.ErrorCount,
+        warn: backendTrapStats.WarnCount,
+        normal: backendTrapStats.NormalCount,
+        uniqueHosts: Object.keys(backendTrapStats.Hosts || {}).length,
+        uniqueTypes: Object.keys(backendTrapStats.Types || {}).length,
+        uniqueEnterprises: Object.keys(backendTrapStats.Enterprises || {}).length,
+      };
+    }
+
     const total = filteredLogs.length;
     let high = 0;
     let warn = 0;
@@ -312,6 +324,25 @@
   }
 
   const hostSummaries = $derived.by<HostSummary[]>(() => {
+    if (backendTrapStats && backendTrapStats.Hosts && !searchQuery) {
+      const total = backendTrapStats.Total || 1;
+      return Object.values(backendTrapStats.Hosts).map((h) => {
+        const matchedNode = nodeByIp.get(h.Host) || nodeByName.get((h.Host || "").toLowerCase());
+        return {
+          host: h.Host,
+          name: h.NodeName || matchedNode?.name || h.Host,
+          ip: matchedNode?.ip || h.Host,
+          count: h.Count,
+          percent: Number(((h.Count / total) * 100).toFixed(1)),
+          errorCount: h.ErrorCount,
+          warnCount: h.WarnCount,
+          normalCount: h.NormalCount,
+          topTrapTypes: "-",
+          lastTime: h.LastTime,
+        };
+      });
+    }
+
     const total = filteredLogs.length;
     const map = new Map<
       string,
@@ -395,6 +426,21 @@
   }
 
   const typeSummaries = $derived.by<TypeSummary[]>(() => {
+    if (backendTrapStats && backendTrapStats.Types && !searchQuery) {
+      const total = backendTrapStats.Total || 1;
+      return Object.values(backendTrapStats.Types).map((t) => ({
+        trapType: t.TrapType,
+        count: t.Count,
+        percent: Number(((t.Count / total) * 100).toFixed(1)),
+        errorCount: 0,
+        warnCount: 0,
+        normalCount: t.Count,
+        hostCount: 1,
+        topEnterprise: "-",
+        lastTime: t.LastTime,
+      }));
+    }
+
     const total = filteredLogs.length;
     const map = new Map<
       string,

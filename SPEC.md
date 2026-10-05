@@ -198,15 +198,15 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Full column sorting, standardized state badges (colored dot + badge tag), and pretty-printed payload code block.
    - Fully theme-adaptive 7-tab MQTT analytics report modal (`MQTTReportModal.svelte`) and independent Parquet logs (`type: mqtt`) with date filtering and automatic rotation.
 8. **Report View (`ReportView.svelte`)**:
-   - Analytics suites:
+   - Analytics suites (powered by backend real-time aggregation engine `logreport.Engine` / `Reporter` pipeline, aligned with TWSNMP FC):
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
      - **IPAM & IP Analytics**: Multi-subnet address heatmap (ECharts aggregated blocks with drilldown), IPv4 inventory, IPv6 inventory, host communication graphs.
      - **Polling Availability (SLA)**: Polling SLA stats, response times, and failure rates.
      - **Event Log Analytics**: Aggregated event logs categorized by event type, severity level, and associated nodes, including breakdown and trend analytics.
-     - **Syslog Analytics**: Aggregated Syslog messages categorized by source host, application tag, facility, and severity level.
-     - **SNMP TRAP Analytics**: Aggregated SNMP TRAP messages categorized by source, trap type, enterprise, and severity level.
-     - **NetFlow Analytics**: Top server ports, Flows, Fumble flows, Ethernet types, DNS queries, RADIUS, TLS.
-     - **sFlow Analytics**: Sampled flow and counter aggregation.
+     - **Syslog Analytics**: Aggregated Syslog messages categorized by source host, application tag, facility, and severity level via real-time `SyslogStatsSummary`.
+     - **SNMP TRAP Analytics**: Aggregated SNMP TRAP messages categorized by source, trap type, enterprise, and severity level via real-time `TrapStatsSummary`.
+     - **NetFlow Analytics**: Top server ports, Conversations, Servers, Fumble flows, Protocols, with deviation scores (mean 50, sd 10) and penalty badges.
+     - **sFlow Analytics**: Sampled flow and counter aggregation with Conversations, Servers, Fumble flows, and deviation scores.
      - **ARP Watch Analytics**: Aggregated ARP monitoring events categorized by IP/node, vendor, state (new device/MAC change), and severity level.
      - **Environmental Sensors (環境センサー)**: Tabbed analytics suite (`SensorReport.svelte`) for IoT & environmental sensors parsed from `twBlueScan` syslog:
        - **環境センサー (`envMonitor`)**: OMRON, SwitchBot, Inkbird (temperature, humidity, illuminance, barometric pressure, sound, eTVOC, eCO2, battery).
@@ -215,6 +215,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
        - Includes real-time signal strength (RSSI), interactive ECharts historical trend charts, multi-sensor comparison charts, sensor renaming, individual deletion, and CSV export. Radio power (twSdrPower) is unsupported.
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
      - **AI Anomaly**: AI anomaly score reporting strictly aligned with TWSNMP FK (`AIList`). Displays pollings configured with log mode "異常検知あり" (`LogMode == LogModeAI`). Polling editor supports algorithm selection (`iforest`, `zscore`, `lof`, `knn`, `mahalanobis`, `hotelling`, `autoencoder`, `lstm`) and vector feature columns (`VectorCols`). Table presents Anomaly score with severity emoticon icon, Node Name, Polling, Count, and Last time. Supports row selection, Heatmap/Pie/Time analytics report modal (`AIReportModal`), feature DataFrame CSV export (`/api/ai/export/:id`), and result clearing.
+     - **Anomaly Detection & Alert Integration**: Periodic evaluation of entity scores and Fumble counts; triggers `EventLogEnt` (Level: "warn", Type: "report") with 1-hour duplicate suppression when deviation score drops below `ScoreThreshold` or fumble count exceeds `FumbleThreshold`.
 9. **Tool View (`ToolView.svelte`)**:
    - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface with enterprise MIB resolution.
    - **Ping Tool**: Continuous Ping with real-time response time graph and sound alerts.
@@ -227,7 +228,8 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Internal daemon services health, receiver packet/message counters, and runtime version details.
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
    - System settings button is located as an icon-only button on the top-right header utility bar.
-   - The sidebar separates Map Settings, Polling Settings, and Database settings, alongside receivers, notifications, AI / LLM, and MIB management. Map options (name, size, icons, background image, and import), polling/SNMP parameters, and GeoIP, event-log retention, and datastore settings each have dedicated panels. Notification credentials, AI API keys, custom icons, and Grok patterns remain configurable.
+   - The sidebar separates Map Settings, Polling Settings, and Database settings, alongside receivers, notifications, AI / LLM, and MIB management. Map options (name, size, icons, background image, and import), polling/SNMP parameters, and GeoIP, event-log retention, and datastore settings each have dedicated panels.
+   - **Report Settings**: Configures Report Retention Days (`ReportDays`, default: 30), Max Report Entries (`ReportLimit`, default: 10000), Low Score Alert Threshold (`ScoreThreshold`, default: 35.0), and Fumble Alert Threshold (`FumbleThreshold`, default: 10) directly within the Database configuration tab.
    - OAuth2 mail-provider redirect URIs use `https://<public-host>/api/notify/oauth2/callback` (HTTP is allowed only for localhost) and must be registered with the provider. SMTP and webhook tests may connect to local/private servers; link-local and metadata service addresses are rejected.
 
 ---

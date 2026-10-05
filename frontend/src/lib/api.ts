@@ -1092,14 +1092,56 @@ export async function deleteDrawItem(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete draw item failed: ${res.statusText}`);
 }
 
-export async function fetchMapConf(): Promise<any> {
+export interface MapConfEnt {
+  MapName?: string;
+  MapSize?: number;
+  IconSize?: number;
+  PollInt?: number;
+  Timeout?: number;
+  Retry?: number;
+  LogDays?: number;
+  SnmpMode?: string;
+  Community?: string;
+  SnmpUser?: string;
+  SnmpPassword?: string;
+  EnableSyslogd?: boolean;
+  EnableTrapd?: boolean;
+  EnableNetflowd?: boolean;
+  EnableSFlowd?: boolean;
+  EnableArpWatch?: boolean;
+  EnableSshd?: boolean;
+  EnableTcpd?: boolean;
+  EnableOTel?: boolean;
+  EnableMqtt?: boolean;
+  ArpWatchRange?: string;
+  ArpTimeout?: number;
+  OTelRetention?: number;
+  OTelFrom?: string;
+  ReportDays?: number;
+  ReportLimit?: number;
+  ScoreThreshold?: number;
+  FumbleThreshold?: number;
+  LLMProvider?: string;
+  LLMBaseURL?: string;
+  LLMModel?: string;
+  LLMAPIKey?: string;
+  MCPTransport?: string;
+  MCPEndpoint?: string;
+  MCPToken?: string;
+  MCPFrom?: string;
+  LogFormat?: string;
+  GeoIPInfo?: string;
+  [key: string]: any;
+}
+
+export async function fetchMapConf(): Promise<MapConfEnt> {
   const res = await fetch(`${API_BASE}/map/conf`);
   if (!res.ok) throw new Error(`Fetch map conf failed: ${res.statusText}`);
   return res.json();
 }
 export const getMapConf = fetchMapConf;
 
-export async function saveMapConf(conf: any): Promise<any> {
+export async function saveMapConf(conf: Partial<MapConfEnt>): Promise<MapConfEnt> {
   const res = await fetch(`${API_BASE}/map/conf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

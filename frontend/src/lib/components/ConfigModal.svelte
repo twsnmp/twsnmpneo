@@ -98,6 +98,10 @@
   let timeout = $state(1);
   let retry = $state(1);
   let logDays = $state(14);
+  let reportDays = $state(30);
+  let reportLimit = $state(10000);
+  let scoreThreshold = $state(35.0);
+  let fumbleThreshold = $state(10);
   let snmpMode = $state("v2c");
   let community = $state("public");
   let snmpUser = $state("");
@@ -278,8 +282,12 @@
         pollInt = conf.PollInt ?? conf.poll_int ?? 60;
         timeout = conf.Timeout ?? conf.timeout ?? 1;
         retry = conf.Retry ?? conf.retry ?? 1;
-        logDays = conf.LogDays ?? conf.log_days ?? 14;
-        snmpMode = conf.SnmpMode ?? conf.snmp_mode ?? "v2c";
+        logDays = conf.LogDays ?? (conf as any).log_days ?? 14;
+        reportDays = conf.ReportDays ?? (conf as any).report_days ?? 30;
+        reportLimit = conf.ReportLimit ?? (conf as any).report_limit ?? 10000;
+        scoreThreshold = conf.ScoreThreshold ?? (conf as any).score_threshold ?? 35.0;
+        fumbleThreshold = conf.FumbleThreshold ?? (conf as any).fumble_threshold ?? 10;
+        snmpMode = conf.SnmpMode ?? (conf as any).snmp_mode ?? "v2c";
         community = conf.Community ?? conf.community ?? "public";
         snmpUser = conf.SnmpUser ?? conf.snmp_user ?? "";
         snmpPassword = conf.SnmpPassword ?? conf.snmp_password ?? "";
@@ -519,6 +527,10 @@
         Timeout: Number(timeout),
         Retry: Number(retry),
         LogDays: Number(logDays),
+        ReportDays: Number(reportDays),
+        ReportLimit: Number(reportLimit),
+        ScoreThreshold: Number(scoreThreshold),
+        FumbleThreshold: Number(fumbleThreshold),
         SnmpMode: snmpMode,
         Community: community,
         SnmpUser: snmpUser,
@@ -1844,6 +1856,75 @@
                     <input type="radio" bind:group={logFormat} value="parquet" class="text-cyan-500 focus:ring-cyan-500/20" />
                     <span class="text-xs text-slate-800 dark:text-slate-200 font-medium">{$_('config.parquetOption')}</span>
                   </label>
+                </div>
+              </div>
+
+              <!-- Report Retention & Anomaly Score Thresholds -->
+              <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+                <div class="border-b border-slate-200 dark:border-slate-800 pb-2.5">
+                  <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Sliders class="w-4 h-4 text-cyan-500" />
+                    {$_('config.reportSettingTitle')}
+                  </h4>
+                  <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                    {$_('config.reportSettingDesc')}
+                  </p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label for="report-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      {$_('config.reportDaysLabel')}
+                    </label>
+                    <input
+                      id="report-days"
+                      type="number"
+                      min="1"
+                      max="365"
+                      bind:value={reportDays}
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label for="report-limit" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      {$_('config.reportLimitLabel')}
+                    </label>
+                    <input
+                      id="report-limit"
+                      type="number"
+                      min="100"
+                      max="1000000"
+                      step="500"
+                      bind:value={reportLimit}
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label for="score-threshold" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      {$_('config.scoreThresholdLabel')}
+                    </label>
+                    <input
+                      id="score-threshold"
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="0.5"
+                      bind:value={scoreThreshold}
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label for="fumble-threshold" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                      {$_('config.fumbleThresholdLabel')}
+                    </label>
+                    <input
+                      id="fumble-threshold"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      bind:value={fumbleThreshold}
+                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

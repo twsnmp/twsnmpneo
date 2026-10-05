@@ -283,19 +283,23 @@ type MapConfEnt struct {
 	MCPTransport   string `json:"MCPTransport"`
 	MCPEndpoint    string `json:"MCPEndpoint"`
 	MCPToken       string `json:"MCPToken"`
-	MCPFrom        string `json:"MCPFrom"`
-	IconSize       int    `json:"IconSize"`
-	MapSize        int    `json:"MapSize"`
-	ArpWatchRange  string `json:"ArpWatchRange"`
-	ArpTimeout     int    `json:"ArpTimeout"`
-	OTelRetention  int    `json:"OTelRetention"`
-	OTelFrom       string `json:"OTelFrom"`
-	LLMProvider    string `json:"LLMProvider"`
-	LLMBaseURL     string `json:"LLMBaseURL"`
-	LLMAPIKey      string `json:"LLMAPIKey"`
-	LLMModel       string `json:"LLMModel"`
-	LogFormat      string `json:"LogFormat"`
-	GeoIPInfo      string `json:"GeoIPInfo,omitempty"`
+	MCPFrom        string  `json:"MCPFrom"`
+	IconSize       int     `json:"IconSize"`
+	MapSize        int     `json:"MapSize"`
+	ArpWatchRange  string  `json:"ArpWatchRange"`
+	ArpTimeout     int     `json:"ArpTimeout"`
+	OTelRetention  int     `json:"OTelRetention"`
+	OTelFrom       string  `json:"OTelFrom"`
+	ReportDays     int     `json:"ReportDays"`
+	ReportLimit    int     `json:"ReportLimit"`
+	ScoreThreshold float64 `json:"ScoreThreshold"`
+	FumbleThreshold int    `json:"FumbleThreshold"`
+	LLMProvider    string  `json:"LLMProvider"`
+	LLMBaseURL     string  `json:"LLMBaseURL"`
+	LLMAPIKey      string  `json:"LLMAPIKey"`
+	LLMModel       string  `json:"LLMModel"`
+	LogFormat      string  `json:"LogFormat"`
+	GeoIPInfo      string  `json:"GeoIPInfo,omitempty"`
 }
 
 // NetFlowEnt represents a decoded NetFlow / IPFIX flow log entry.

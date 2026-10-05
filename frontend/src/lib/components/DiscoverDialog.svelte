@@ -11,6 +11,7 @@
     type DiscoverConfEnt,
     type DiscoverStat,
     type SnmpConfEnt,
+    type MapConfEnt,
   } from "../api";
   import { _ } from "svelte-i18n";
   import {
@@ -44,7 +45,7 @@
   let showHelp = $state(false);
   let timer: any = $state(undefined);
 
-  let mapConf = $state<SnmpConfEnt | null>(null);
+  let mapConf = $state<MapConfEnt | SnmpConfEnt | null>(null);
   let conf = $state<DiscoverConfEnt>({
     StartIP: "",
     EndIP: "",

@@ -108,13 +108,17 @@ func AllSources() []string {
 	return []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog}
 }
 
-// CleanupAll cleans up expired entities for all known sources.
+// CleanupAll cleans up expired entities for all known sources and kinds.
 func CleanupAll(ctx context.Context, store datastore.DataStore, days, maxEntries int) error {
-	var firstErr error
-	for _, src := range AllSources() {
-		if err := Cleanup(ctx, store, src, days, maxEntries); err != nil && firstErr == nil {
-			firstErr = err
+	if store != nil && (days <= 0 || maxEntries <= 0) {
+		if conf, err := store.GetMapConf(ctx); err == nil && conf != nil {
+			if days <= 0 && conf.ReportDays > 0 {
+				days = conf.ReportDays
+			}
+			if maxEntries <= 0 && conf.ReportLimit > 0 {
+				maxEntries = conf.ReportLimit
+			}
 		}
 	}
-	return firstErr
+	return Cleanup(ctx, store, "", days, maxEntries)
 }

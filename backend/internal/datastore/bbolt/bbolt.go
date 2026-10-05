@@ -201,6 +201,18 @@ func (s *Store) loadCache() error {
 					if _, hasOTel := rawMap["EnableOTel"]; !hasOTel {
 						s.mapConf.EnableOTel = true
 					}
+					if s.mapConf.ReportDays <= 0 {
+						s.mapConf.ReportDays = 30
+					}
+					if s.mapConf.ReportLimit <= 0 {
+						s.mapConf.ReportLimit = 10000
+					}
+					if s.mapConf.ScoreThreshold <= 0 {
+						s.mapConf.ScoreThreshold = 35.0
+					}
+					if s.mapConf.FumbleThreshold <= 0 {
+						s.mapConf.FumbleThreshold = 10
+					}
 				}
 			} else {
 				s.initDefaultMapConf()
@@ -353,20 +365,24 @@ func (s *Store) cleanupOrphans() {
 
 func (s *Store) initDefaultMapConf() {
 	s.mapConf = datastore.MapConfEnt{
-		MapName:        "TWSNMP NEO",
-		PollInt:        60,
-		Timeout:        1,
-		Retry:          1,
-		LogDays:        14,
-		SnmpMode:       "v2c",
-		Community:      "public",
-		EnableSyslogd:  true,
-		EnableTrapd:    true,
-		EnableArpWatch: true,
-		EnableOTel:     true,
-		OTelRetention:  24,
-		IconSize:       2,
-		LogFormat:      "parquet",
+		MapName:         "TWSNMP NEO",
+		PollInt:         60,
+		Timeout:         1,
+		Retry:           1,
+		LogDays:         14,
+		SnmpMode:        "v2c",
+		Community:       "public",
+		EnableSyslogd:   true,
+		EnableTrapd:     true,
+		EnableArpWatch:  true,
+		EnableOTel:      true,
+		OTelRetention:   24,
+		ReportDays:      30,
+		ReportLimit:     10000,
+		ScoreThreshold:  35.0,
+		FumbleThreshold: 10,
+		IconSize:        2,
+		LogFormat:       "parquet",
 	}
 }
 
