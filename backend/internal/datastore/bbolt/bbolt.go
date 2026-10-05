@@ -39,6 +39,7 @@ var (
 	bucketPKICerts   = []byte("pkiCertificates")
 	bucketCertMonitor = []byte("certMonitor")
 	bucketLogReport   = []byte("logReport")
+	bucketSensor      = []byte("sensor")
 
 	keyMapConf           = []byte("mapConf")
 	keyNotifyConf        = []byte("notifyConf")
@@ -63,6 +64,7 @@ type Store struct {
 	pollings    sync.Map // string -> *datastore.PollingEnt
 	otelMetrics sync.Map // string -> *datastore.OTelMetricEnt
 	mqttStats   sync.Map // string -> *datastore.MqttStatEnt
+	sensors     sync.Map // string -> *datastore.SensorEnt
 
 	mapConf      datastore.MapConfEnt
 	notifyConf   datastore.NotifyConfEnt
@@ -114,6 +116,7 @@ func New(dbPath string) (*Store, error) {
 			bucketMqttStat,
 			bucketPKICerts,
 			bucketCertMonitor,
+			bucketSensor,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
@@ -248,6 +251,18 @@ func (s *Store) loadCache() error {
 				var ms datastore.MqttStatEnt
 				if err := json.Unmarshal(v, &ms); err == nil {
 					s.mqttStats.Store(ms.ID, &ms)
+				}
+				return nil
+			})
+		}
+		// Load Sensors
+		if b := tx.Bucket(bucketSensor); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var sn datastore.SensorEnt
+				if err := json.Unmarshal(v, &sn); err == nil {
+					sn.StatsLen = len(sn.Stats)
+					sn.MonitorsLen = len(sn.Monitors)
+					s.sensors.Store(sn.ID, &sn)
 				}
 				return nil
 			})

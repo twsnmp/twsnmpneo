@@ -48,6 +48,7 @@ func NewManager(cfg Config) *Manager {
 		syslog: NewSyslogServer(SyslogConfig{
 			UDPPort:  cfg.SyslogUDP,
 			TCPPort:  cfg.SyslogTCP,
+			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
 		}),
 		trap: NewTrapServer(TrapConfig{
@@ -57,10 +58,12 @@ func NewManager(cfg Config) *Manager {
 		}),
 		netflow: NewNetFlowServer(NetFlowConfig{
 			Port:     cfg.NetFlowPort,
+			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
 		}),
 		sflow: NewSFlowServer(SFlowConfig{
 			Port:     cfg.SFlowPort,
+			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
 		}),
 		otel: NewOTelServer(OTelConfig{
@@ -137,10 +140,33 @@ func (m *Manager) Start(ctx context.Context) error {
 	// Periodic Parquet log rotation & datastore retention cleaner
 	go m.startRetentionCleaner(ctx)
 
+	// Periodic sensor state & rate evaluator (every 1 minute)
+	go m.startSensorEvaluator(ctx)
+
 	<-ctx.Done()
 	slog.Info("Stopping Protocol Receivers...")
 	wg.Wait()
 	return nil
+}
+
+func (m *Manager) startSensorEvaluator(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	if m.cfg.Store != nil {
+		m.cfg.Store.EvaluateSensorStates(ctx)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if m.cfg.Store != nil {
+				m.cfg.Store.EvaluateSensorStates(ctx)
+			}
+		}
+	}
 }
 
 func (m *Manager) startRetentionCleaner(ctx context.Context) {

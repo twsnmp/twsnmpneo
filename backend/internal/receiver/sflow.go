@@ -20,12 +20,14 @@ import (
 // SFlowConfig holds options for sFlow receiver.
 type SFlowConfig struct {
 	Port     int
+	Store    datastore.DataStore
 	LogStore *parquet.Store
 }
 
 // SFlowServer ingests sFlow v5 flow and counter samples over UDP.
 type SFlowServer struct {
 	port     int
+	store    datastore.DataStore
 	logStore *parquet.Store
 }
 
@@ -33,6 +35,7 @@ type SFlowServer struct {
 func NewSFlowServer(cfg SFlowConfig) *SFlowServer {
 	return &SFlowServer{
 		port:     cfg.Port,
+		store:    cfg.Store,
 		logStore: cfg.LogStore,
 	}
 }
@@ -86,6 +89,10 @@ func (s *SFlowServer) handlePacket(data []byte, fromIP string) {
 	if err != nil {
 		slog.Debug("Failed to decode sflow datagram", "error", err, "from", fromIP)
 		return
+	}
+
+	if s.store != nil && fromIP != "" && len(dg.Samples) > 0 {
+		s.store.UpdateSensor(fromIP, "sflow", "", int64(len(dg.Samples)))
 	}
 
 	for _, sample := range dg.Samples {

@@ -57,6 +57,7 @@
   import TrapReport from "./reports/TrapReport.svelte";
   import ArpReport from "./reports/ArpReport.svelte";
   import CertReport from "./reports/CertReport.svelte";
+  import SensorReport from "./reports/SensorReport.svelte";
   import EnvSensor from "./reports/EnvSensor.svelte";
   import AnomalyReport from "./reports/AnomalyReport.svelte";
   import WifiReport from "./reports/WifiReport.svelte";
@@ -76,6 +77,7 @@
     | "arp"
     | "cert"
     | "sensor"
+    | "env"
     | "wifi"
     | "bluetooth"
     | "pcap"
@@ -117,7 +119,7 @@
   );
 
   $effect(() => {
-    if (activeReport === "sensor" && !hasBlueScanPolling) {
+    if (activeReport === "env" && !hasBlueScanPolling) {
       activeReport = "device";
     }
   });
@@ -133,8 +135,9 @@
     { id: "sflow", name: $_("report.tabSFlow"), icon: Share2 },
     { id: "arp", name: $_("report.tabArp"), icon: Eye },
     { id: "cert", name: $_("report.tabCert"), icon: ShieldCheck },
+    { id: "sensor", name: $_("report.tabSensor"), icon: Radio },
     ...(hasBlueScanPolling
-      ? [{ id: "sensor" as const, name: $_("report.tabSensor"), icon: Thermometer }]
+      ? [{ id: "env" as const, name: $_("report.tabEnv"), icon: Thermometer }]
       : []),
     { id: "wifi", name: $_("report.tabWifi"), icon: Wifi },
     { id: "bluetooth", name: $_("report.tabBluetooth"), icon: Bluetooth },
@@ -317,7 +320,7 @@
     (activeReport === "device" && arpList.length > 0) ||
     activeReport === "wifi" ||
     activeReport === "bluetooth" ||
-    activeReport === "sensor" ||
+    activeReport === "env" ||
     activeReport === "pcap" ||
     activeReport === "winlog"
   );
@@ -531,6 +534,14 @@
           onReload={loadData}
         />
       {:else if activeReport === "sensor"}
+        <SensorReport
+          bind:this={activeReportRef}
+          {searchQuery}
+          {nodes}
+          onRefresh={loadData}
+          {loading}
+        />
+      {:else if activeReport === "env"}
         <EnvSensor
           bind:this={activeReportRef}
           {searchQuery}

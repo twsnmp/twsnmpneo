@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"gopkg.in/mcuadros/go-syslog.v2"
 	"gopkg.in/mcuadros/go-syslog.v2/format"
@@ -19,6 +21,7 @@ import (
 type SyslogConfig struct {
 	UDPPort  int
 	TCPPort  int
+	Store    datastore.DataStore
 	LogStore *parquet.Store
 }
 
@@ -26,6 +29,7 @@ type SyslogConfig struct {
 type SyslogServer struct {
 	udpPort  int
 	tcpPort  int
+	store    datastore.DataStore
 	logStore *parquet.Store
 	mu       sync.Mutex
 	running  bool
@@ -46,6 +50,7 @@ func NewSyslogServer(cfg SyslogConfig) *SyslogServer {
 	return &SyslogServer{
 		udpPort:  cfg.UDPPort,
 		tcpPort:  cfg.TCPPort,
+		store:    cfg.Store,
 		logStore: cfg.LogStore,
 	}
 }
@@ -132,6 +137,71 @@ func (s *SyslogServer) handleLogParts(sl format.LogParts) {
 			})
 		}
 	}
+
+	if s.store != nil && host != "" {
+		content, _ := sl["content"].(string)
+		tag, _ := sl["tag"].(string)
+		if tag == "" {
+			tag, _ = sl["app_name"].(string)
+		}
+
+		kvs := parseTWLogKVs(content)
+		tType := kvs["type"]
+		if tType == "Stats" {
+			param := kvs["param"]
+			count, _ := strconv.ParseInt(kvs["count"], 10, 64)
+			send, _ := strconv.ParseInt(kvs["send"], 10, 64)
+			total, _ := strconv.ParseInt(kvs["total"], 10, 64)
+			ps, _ := strconv.ParseFloat(kvs["ps"], 64)
+			s.store.CheckSensorStats(host, "syslog", param, count, send, total, ps)
+		} else if tType == "Monitor" {
+			param := kvs["param"]
+			cpu, _ := strconv.ParseFloat(kvs["cpu"], 64)
+			mem, _ := strconv.ParseFloat(kvs["mem"], 64)
+			load, _ := strconv.ParseFloat(kvs["load"], 64)
+			txSpeed, _ := strconv.ParseFloat(kvs["txSpeed"], 64)
+			rxSpeed, _ := strconv.ParseFloat(kvs["rxSpeed"], 64)
+			sent, _ := strconv.ParseInt(kvs["sent"], 10, 64)
+			recv, _ := strconv.ParseInt(kvs["recv"], 10, 64)
+			proc, _ := strconv.ParseInt(kvs["process"], 10, 64)
+			s.store.CheckSensorMonitor(host, "syslog", param, cpu, mem, load, txSpeed, rxSpeed, sent, recv, proc)
+		} else {
+			sensorType := "syslog"
+			param := ""
+			if tag != "" {
+				switch strings.ToLower(tag) {
+				case "twwifiscan":
+					sensorType = "twWifiScan"
+					param = kvs["param"]
+				case "twbluescan":
+					sensorType = "twBlueScan"
+					param = kvs["param"]
+				case "twpcap":
+					sensorType = "twpcap"
+					param = kvs["param"]
+				case "twwinlog":
+					sensorType = "twwinlog"
+					param = kvs["param"]
+				case "twsdrpower":
+					sensorType = "twSdrPower"
+					param = kvs["param"]
+				}
+			}
+			s.store.UpdateSensor(host, sensorType, param, 1)
+		}
+	}
+}
+
+func parseTWLogKVs(content string) map[string]string {
+	m := make(map[string]string)
+	parts := strings.Split(content, ",")
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 {
+			m[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return m
 }
 
 // ParseSyslog parses a raw syslog string into structured SyslogMessage using go-syslog.

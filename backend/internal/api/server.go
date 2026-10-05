@@ -246,6 +246,66 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, list)
 		})
 
+		// Sensors report (Remote reporting agents: syslog, mqtt, sflow, netflow, twWifiScan, etc.)
+		apiGroup.GET("/report/sensors", func(c echo.Context) error {
+			list, err := cfg.Store.ListSensors(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if list == nil {
+				list = []*datastore.SensorEnt{}
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+
+		apiGroup.GET("/report/sensor/stats/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			sn, err := cfg.Store.GetSensor(c.Request().Context(), id)
+			if err != nil || sn == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "sensor not found"})
+			}
+			stats := sn.Stats
+			if stats == nil {
+				stats = []datastore.SensorStatsEnt{}
+			}
+			return c.JSON(http.StatusOK, stats)
+		})
+
+		apiGroup.GET("/report/sensor/monitors/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			sn, err := cfg.Store.GetSensor(c.Request().Context(), id)
+			if err != nil || sn == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "sensor not found"})
+			}
+			monitors := sn.Monitors
+			if monitors == nil {
+				monitors = []datastore.SensorMonitorEnt{}
+			}
+			return c.JSON(http.StatusOK, monitors)
+		})
+
+		apiGroup.DELETE("/report/sensor/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			if id == "all" {
+				if err := cfg.Store.DeleteAllSensors(c.Request().Context()); err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				}
+			} else {
+				if err := cfg.Store.DeleteSensors(c.Request().Context(), []string{id}); err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				}
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok", "resp": "ok"})
+		})
+
+		apiGroup.POST("/report/sensor/:id", func(c echo.Context) error {
+			id := c.Param("id")
+			if err := cfg.Store.ToggleSensorIgnore(c.Request().Context(), id); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok", "resp": "ok"})
+		})
+
 		// Log-derived reports (Wi-Fi AP, Bluetooth, packet capture, Windows event)
 		// built by twwifiscan / twbluescan / twpcap / twwinlog pollings.
 		apiGroup.GET("/report/log/:kind", func(c echo.Context) error {

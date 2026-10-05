@@ -24,12 +24,14 @@ import (
 // NetFlowConfig holds options for NetFlow receiver.
 type NetFlowConfig struct {
 	Port     int
+	Store    datastore.DataStore
 	LogStore *parquet.Store
 }
 
 // NetFlowServer ingests NetFlow v5, v9, and IPFIX (v10) packets over UDP.
 type NetFlowServer struct {
 	port     int
+	store    datastore.DataStore
 	logStore *parquet.Store
 	mu       sync.Mutex
 	decoders map[string]*netflow.Decoder
@@ -39,6 +41,7 @@ type NetFlowServer struct {
 func NewNetFlowServer(cfg NetFlowConfig) *NetFlowServer {
 	return &NetFlowServer{
 		port:     cfg.Port,
+		store:    cfg.Store,
 		logStore: cfg.LogStore,
 		decoders: make(map[string]*netflow.Decoder),
 	}
@@ -119,10 +122,19 @@ func (s *NetFlowServer) handlePacket(data []byte, fromIP string, remoteStr strin
 	switch p := m.(type) {
 	case *netflow5.Packet:
 		s.handleNetFlow5(p, fromIP, now)
+		if s.store != nil && fromIP != "" {
+			s.store.UpdateSensor(fromIP, "netflow5", "", int64(len(p.Records)))
+		}
 	case *netflow9.Packet:
 		s.handleNetFlow9(p, fromIP, now)
+		if s.store != nil && fromIP != "" {
+			s.store.UpdateSensor(fromIP, "netflow9", "", 1)
+		}
 	case *ipfix.Message:
 		s.handleIPFIX(p, fromIP, now)
+		if s.store != nil && fromIP != "" {
+			s.store.UpdateSensor(fromIP, "ipfix", "", 1)
+		}
 	}
 }
 

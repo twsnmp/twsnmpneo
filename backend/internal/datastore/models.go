@@ -626,3 +626,44 @@ type CertMonitorEnt struct {
 	LastTime     int64  `json:"lastTime"`  // unix seconds
 }
 
+// SensorEnt represents a remote sensor reporting to TWSNMP (syslog, twWifiScan, twBlueScan, sflow, netflow, mqtt, etc.).
+type SensorEnt struct {
+	ID          string             `json:"ID"`
+	Host        string             `json:"Host"`
+	Type        string             `json:"Type"`
+	Param       string             `json:"Param"`
+	Total       int64              `json:"Total"`
+	Send        int64              `json:"Send"`
+	State       string             `json:"State"`
+	Ignore      bool               `json:"Ignore"`
+	Stats       []SensorStatsEnt   `json:"Stats,omitempty"`
+	Monitors    []SensorMonitorEnt `json:"Monitors,omitempty"`
+	StatsLen    int                `json:"StatsLen"`
+	MonitorsLen int                `json:"MonitorsLen"`
+	FirstTime   int64              `json:"FirstTime"` // unix nano
+	LastTime    int64              `json:"LastTime"`  // unix nano
+}
+
+// SensorStatsEnt represents periodic message rate / count telemetry for a sensor.
+type SensorStatsEnt struct {
+	Time     int64   `json:"Time"` // unix nano
+	Total    int64   `json:"Total"`
+	Count    int64   `json:"Count"`
+	PS       float64 `json:"PS"`
+	Send     int64   `json:"Send"`
+	LastSend int64   `json:"LastSend"`
+}
+
+// SensorMonitorEnt represents periodic system resource monitoring telemetry for a sensor host.
+type SensorMonitorEnt struct {
+	Time    int64   `json:"Time"` // unix nano
+	CPU     float64 `json:"CPU"`
+	Mem     float64 `json:"Mem"`
+	Load    float64 `json:"Load"`
+	Process int64   `json:"Process"`
+	Recv    int64   `json:"Recv"`
+	Sent    int64   `json:"Sent"`
+	TxSpeed float64 `json:"TxSpeed"`
+	RxSpeed float64 `json:"RxSpeed"`
+}
+

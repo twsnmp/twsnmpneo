@@ -137,6 +137,18 @@ type DataStore interface {
 	SaveCertMonitor(ctx context.Context, c *CertMonitorEnt) error
 	DeleteCertMonitor(ctx context.Context, id string) error
 
+	// Sensors (Remote Sensors Reporting to TWSNMP)
+	ListSensors(ctx context.Context) ([]*SensorEnt, error)
+	GetSensor(ctx context.Context, id string) (*SensorEnt, error)
+	SaveSensor(ctx context.Context, s *SensorEnt) error
+	DeleteSensors(ctx context.Context, ids []string) error
+	DeleteAllSensors(ctx context.Context) error
+	ToggleSensorIgnore(ctx context.Context, id string) error
+	UpdateSensor(host, sensorType, param string, count int64)
+	CheckSensorStats(host, sensorType, param string, count, send, total int64, ps float64)
+	CheckSensorMonitor(host, sensorType, param string, cpu, mem, load, txSpeed, rxSpeed float64, sent, recv, proc int64)
+	EvaluateSensorStates(ctx context.Context)
+
 	// Log-derived reports (twWifiScan, twBlueScan, twpcap, twwinlog).
 	// Entities are stored as JSON per report kind and keyed by entity ID.
 	// GetLogReportData returns (nil, nil) when the entity does not exist.

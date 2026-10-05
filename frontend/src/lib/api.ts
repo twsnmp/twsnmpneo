@@ -2769,4 +2769,93 @@ export async function updateLogReportName(kind: string, id: string, name: string
   }
 }
 
+export interface SensorStatsEnt {
+  Time: number; // unix nano
+  Total: number;
+  Count: number;
+  PS: number;
+  Send: number;
+  LastSend: number;
+}
+
+export interface SensorMonitorEnt {
+  Time: number; // unix nano
+  CPU: number;
+  Mem: number;
+  Load: number;
+  Process: number;
+  Recv: number;
+  Sent: number;
+  TxSpeed: number;
+  RxSpeed: number;
+}
+
+export interface SensorEnt {
+  ID: string;
+  Host: string;
+  Type: string;
+  Param: string;
+  Total: number;
+  Send: number;
+  State: string;
+  Ignore: boolean;
+  Stats?: SensorStatsEnt[];
+  Monitors?: SensorMonitorEnt[];
+  StatsLen: number;
+  MonitorsLen: number;
+  FirstTime: number; // unix nano
+  LastTime: number; // unix nano
+}
+
+export async function fetchSensors(): Promise<SensorEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/sensors`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchSensorStats(id: string): Promise<SensorStatsEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/sensor/stats/${encodeURIComponent(id)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchSensorMonitors(id: string): Promise<SensorMonitorEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/sensor/monitors/${encodeURIComponent(id)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteSensor(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/sensor/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Delete sensor failed: ${res.statusText}`);
+  }
+}
+
+export async function toggleSensor(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/sensor/${encodeURIComponent(id)}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error(`Toggle sensor failed: ${res.statusText}`);
+  }
+}
+
 
