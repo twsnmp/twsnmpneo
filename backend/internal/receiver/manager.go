@@ -65,16 +65,19 @@ func NewManager(cfg Config) *Manager {
 			Port:     cfg.TrapPort,
 			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
+			Reporter: rep,
 		}),
 		netflow: NewNetFlowServer(NetFlowConfig{
 			Port:     cfg.NetFlowPort,
 			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
+			Reporter: rep,
 		}),
 		sflow: NewSFlowServer(SFlowConfig{
 			Port:     cfg.SFlowPort,
 			Store:    cfg.Store,
 			LogStore: cfg.LogStore,
+			Reporter: rep,
 		}),
 		otel: NewOTelServer(OTelConfig{
 			Port:      cfg.OTelPort,

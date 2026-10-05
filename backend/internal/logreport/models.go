@@ -34,6 +34,11 @@ const (
 	KindWinPrivilege = "winPrivilege"
 	KindWinProcess   = "winProcess"
 	KindWinTask      = "winTask"
+	KindFlow         = "flow"
+	KindServer       = "server"
+	KindFumble       = "fumble"
+	KindSyslogStats  = "syslogStats"
+	KindTrapStats    = "trapStats"
 )
 
 // SyslogTag returns the syslog tag emitted by the source.
@@ -75,6 +80,7 @@ func AllKinds() []string {
 	for _, s := range []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog} {
 		ret = append(ret, KindsOf(s)...)
 	}
+	ret = append(ret, KindFlow, KindServer, KindFumble, KindSyslogStats, KindTrapStats)
 	return ret
 }
 
@@ -366,3 +372,128 @@ type WinTaskEnt struct {
 	FirstTime int64  `json:"FirstTime"`
 	LastTime  int64  `json:"LastTime"`
 }
+
+// FlowEnt represents a flow/session communication between client and server.
+type FlowEnt struct {
+	ID         string           `json:"ID"`
+	Client     string           `json:"Client"`
+	ClientName string           `json:"ClientName"`
+	ClientNodeID string         `json:"ClientNodeID"`
+	ClientLoc  string           `json:"ClientLoc"`
+	Server     string           `json:"Server"`
+	ServerName string           `json:"ServerName"`
+	ServerNodeID string         `json:"ServerNodeID"`
+	ServerLoc  string           `json:"ServerLoc"`
+	Services   map[string]int64 `json:"Services"`
+	Count      int64            `json:"Count"`
+	Bytes      int64            `json:"Bytes"`
+	Packets    int64            `json:"Packets"`
+	Duration   float64          `json:"Duration"`
+	ScoreInfo
+	FirstTime  int64            `json:"FirstTime"`
+	LastTime   int64            `json:"LastTime"`
+	UpdateTime int64            `json:"UpdateTime"`
+}
+
+func (x *FlowEnt) scoreInfo() *ScoreInfo { return &x.ScoreInfo }
+
+// ServerEnt represents aggregated server service statistics.
+type ServerEnt struct {
+	ID         string           `json:"ID"`
+	Server     string           `json:"Server"`
+	ServerName string           `json:"ServerName"`
+	ServerNodeID string         `json:"ServerNodeID"`
+	Loc        string           `json:"Loc"`
+	Services   map[string]int64 `json:"Services"`
+	Count      int64            `json:"Count"`
+	Bytes      int64            `json:"Bytes"`
+	Packets    int64            `json:"Packets"`
+	ScoreInfo
+	FirstTime  int64            `json:"FirstTime"`
+	LastTime   int64            `json:"LastTime"`
+	UpdateTime int64            `json:"UpdateTime"`
+}
+
+func (x *ServerEnt) scoreInfo() *ScoreInfo { return &x.ScoreInfo }
+
+
+// FumbleEnt represents suspicious/failed connections (small TCP packet flows, ICMP error replies).
+type FumbleEnt struct {
+	ID        string `json:"ID"`
+	TCPCount  int64  `json:"TCPCount"`
+	IcmpCount int64  `json:"IcmpCount"`
+	FirstTime int64  `json:"FirstTime"`
+	LastTime  int64  `json:"LastTime"`
+}
+
+// SyslogHostStat holds syslog statistics for a host.
+type SyslogHostStat struct {
+	Host        string `json:"Host"`
+	NodeName    string `json:"NodeName"`
+	Count       int64  `json:"Count"`
+	ErrorCount  int64  `json:"ErrorCount"`
+	WarnCount   int64  `json:"WarnCount"`
+	NormalCount int64  `json:"NormalCount"`
+	FirstTime   int64  `json:"FirstTime"`
+	LastTime    int64  `json:"LastTime"`
+}
+
+// SyslogTagStat holds syslog statistics for a tag.
+type SyslogTagStat struct {
+	Tag       string `json:"Tag"`
+	Count     int64  `json:"Count"`
+	FirstTime int64  `json:"FirstTime"`
+	LastTime  int64  `json:"LastTime"`
+}
+
+// SyslogStatsSummary represents the full aggregated syslog report.
+type SyslogStatsSummary struct {
+	ID          string                     `json:"ID"` // "summary"
+	Total       int64                      `json:"Total"`
+	ErrorCount  int64                      `json:"ErrorCount"`
+	WarnCount   int64                      `json:"WarnCount"`
+	NormalCount int64                      `json:"NormalCount"`
+	Hosts       map[string]*SyslogHostStat `json:"Hosts"`
+	Tags        map[string]*SyslogTagStat  `json:"Tags"`
+	Facilities  map[int]int64              `json:"Facilities"`
+	Severities  map[int]int64              `json:"Severities"`
+	FirstTime   int64                      `json:"FirstTime"`
+	LastTime    int64                      `json:"LastTime"`
+	UpdateTime  int64                      `json:"UpdateTime"`
+}
+
+// TrapHostStat holds SNMP trap statistics for a host.
+type TrapHostStat struct {
+	Host        string `json:"Host"`
+	NodeName    string `json:"NodeName"`
+	Count       int64  `json:"Count"`
+	ErrorCount  int64  `json:"ErrorCount"`
+	WarnCount   int64  `json:"WarnCount"`
+	NormalCount int64  `json:"NormalCount"`
+	FirstTime   int64  `json:"FirstTime"`
+	LastTime    int64  `json:"LastTime"`
+}
+
+// TrapTypeStat holds SNMP trap statistics for a trap type / OID.
+type TrapTypeStat struct {
+	TrapType  string `json:"TrapType"`
+	Count     int64  `json:"Count"`
+	FirstTime int64  `json:"FirstTime"`
+	LastTime  int64  `json:"LastTime"`
+}
+
+// TrapStatsSummary represents the full aggregated SNMP trap report.
+type TrapStatsSummary struct {
+	ID          string                   `json:"ID"` // "summary"
+	Total       int64                    `json:"Total"`
+	ErrorCount  int64                    `json:"ErrorCount"`
+	WarnCount   int64                    `json:"WarnCount"`
+	NormalCount int64                    `json:"NormalCount"`
+	Hosts       map[string]*TrapHostStat `json:"Hosts"`
+	Types       map[string]*TrapTypeStat `json:"Types"`
+	Enterprises map[string]int64         `json:"Enterprises"`
+	FirstTime   int64                    `json:"FirstTime"`
+	LastTime    int64                    `json:"LastTime"`
+	UpdateTime  int64                    `json:"UpdateTime"`
+}
+

@@ -12,17 +12,19 @@ import (
 )
 
 // Reporter is the interface implemented by the report engine for real-time
-// ingestion from various protocol receivers (Syslog, NetFlow, sFlow, MQTT, OTel, etc.).
+// ingestion from various protocol receivers (Syslog, NetFlow, sFlow, SNMP Trap, MQTT, OTel, etc.).
 type Reporter interface {
 	// ProcessSyslog ingests a raw syslog message map.
 	ProcessSyslog(sl map[string]interface{})
-	// ProcessNetFlow is a hook for future NetFlow/IPFIX report ingestion.
+	// ProcessNetFlow ingests a NetFlow/IPFIX record or map.
 	ProcessNetFlow(record any)
-	// ProcessSFlow is a hook for future sFlow report ingestion.
+	// ProcessSFlow ingests an sFlow record or map.
 	ProcessSFlow(record any)
-	// ProcessMQTT is a hook for future MQTT sensor/topic report ingestion.
+	// ProcessTrap ingests an SNMP trap message or map.
+	ProcessTrap(record any)
+	// ProcessMQTT is a hook for MQTT sensor/topic report ingestion.
 	ProcessMQTT(topic string, payload []byte)
-	// ProcessOTel is a hook for future OpenTelemetry report ingestion.
+	// ProcessOTel is a hook for OpenTelemetry report ingestion.
 	ProcessOTel(record any)
 
 	// Start starts background worker routines (queue processing, periodic cleanup).
@@ -33,11 +35,13 @@ type Reporter interface {
 
 // Engine processes incoming events asynchronously and updates the log report datastore.
 type Engine struct {
-	store        datastore.DataStore
-	syslogQueue  chan Record
-	stopCh       chan struct{}
-	flushCh      chan chan struct{}
-	wg           sync.WaitGroup
+	store         datastore.DataStore
+	syslogQueue   chan Record
+	flowQueue     chan *FlowRecord
+	trapQueue     chan *TrapRecord
+	stopCh        chan struct{}
+	flushCh       chan chan struct{}
+	wg            sync.WaitGroup
 	cleanInterval time.Duration
 	flushInterval time.Duration
 	maxBatchSize  int
@@ -53,7 +57,7 @@ func WithCleanInterval(d time.Duration) Option {
 	}
 }
 
-// WithFlushInterval overrides the default batch flush interval (1 second).
+// WithFlushInterval overrides the default batch flush interval (200ms).
 func WithFlushInterval(d time.Duration) Option {
 	return func(e *Engine) {
 		e.flushInterval = d
@@ -65,6 +69,8 @@ func NewEngine(store datastore.DataStore, opts ...Option) *Engine {
 	e := &Engine{
 		store:         store,
 		syslogQueue:   make(chan Record, 10000),
+		flowQueue:     make(chan *FlowRecord, 10000),
+		trapQueue:     make(chan *TrapRecord, 10000),
 		stopCh:        make(chan struct{}),
 		flushCh:       make(chan chan struct{}),
 		cleanInterval: time.Hour,
@@ -77,7 +83,7 @@ func NewEngine(store datastore.DataStore, opts ...Option) *Engine {
 	return e
 }
 
-// ProcessSyslog parses a syslog message and enqueues it if it matches a known report tag.
+// ProcessSyslog parses a syslog message and enqueues it for report ingestion and statistics aggregation.
 func (e *Engine) ProcessSyslog(sl map[string]interface{}) {
 	if e == nil || sl == nil {
 		return
@@ -99,14 +105,9 @@ func (e *Engine) ProcessSyslog(sl map[string]interface{}) {
 		for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower"} {
 			if strings.HasPrefix(strings.ToLower(cTrim), strings.ToLower(prefix)) {
 				tag = prefix
-				src = TagToSource(tag)
 				break
 			}
 		}
-	}
-
-	if src == "" || content == "" {
-		return
 	}
 
 	host, _ := sl["hostname"].(string)
@@ -140,12 +141,20 @@ func (e *Engine) ProcessSyslog(sl map[string]interface{}) {
 		sev = v
 	}
 
+	fac := 1
+	if v, ok := sl["facility"].(float64); ok {
+		fac = int(v)
+	} else if v, ok := sl["facility"].(int); ok {
+		fac = v
+	}
+
 	rec := Record{
 		Time:     tNano,
 		Host:     host,
 		Tag:      tag,
 		Content:  content,
 		Severity: sev,
+		Facility: fac,
 	}
 
 	select {
@@ -183,14 +192,107 @@ func TagToSource(tag string) string {
 	}
 }
 
-// ProcessNetFlow is a hook for future NetFlow/IPFIX ingestion.
+// ProcessNetFlow converts and enqueues a NetFlow/IPFIX record.
 func (e *Engine) ProcessNetFlow(record any) {
-	// To be expanded in upcoming iterations
+	if e == nil || record == nil {
+		return
+	}
+	var fr *FlowRecord
+	switch r := record.(type) {
+	case *datastore.NetFlowEnt:
+		fr = &FlowRecord{
+			Time:     r.Time,
+			SrcIP:    r.SrcAddr,
+			SrcPort:  r.SrcPort,
+			DstIP:    r.DstAddr,
+			DstPort:  r.DstPort,
+			Protocol: r.Protocol,
+			Packets:  int64(r.Packets),
+			Bytes:    int64(r.Bytes),
+			Duration: r.Dur,
+			TCPFlags: string(r.TCPFlags),
+		}
+	case *FlowRecord:
+		fr = r
+	default:
+		return
+	}
+
+	select {
+	case e.flowQueue <- fr:
+	default:
+		slog.Warn("logreport engine: flow queue full, dropping record")
+	}
 }
 
-// ProcessSFlow is a hook for future sFlow ingestion.
+// ProcessSFlow converts and enqueues an sFlow record.
 func (e *Engine) ProcessSFlow(record any) {
-	// To be expanded in upcoming iterations
+	if e == nil || record == nil {
+		return
+	}
+	var fr *FlowRecord
+	switch r := record.(type) {
+	case *datastore.SFlowEnt:
+		fr = &FlowRecord{
+			Time:     r.Time,
+			SrcIP:    r.SrcAddr,
+			SrcPort:  r.SrcPort,
+			DstIP:    r.DstAddr,
+			DstPort:  r.DstPort,
+			Protocol: r.Protocol,
+			Packets:  1,
+			Bytes:    int64(r.Bytes),
+			TCPFlags: string(r.TCPFlags),
+		}
+	case *FlowRecord:
+		fr = r
+	default:
+		return
+	}
+
+	select {
+	case e.flowQueue <- fr:
+	default:
+		slog.Warn("logreport engine: flow queue full, dropping record")
+	}
+}
+
+// ProcessTrap converts and enqueues an SNMP trap message.
+func (e *Engine) ProcessTrap(record any) {
+	if e == nil || record == nil {
+		return
+	}
+	var tr *TrapRecord
+	switch r := record.(type) {
+	case *TrapRecord:
+		tr = r
+	case map[string]interface{}:
+		timeVal, _ := r["Time"].(int64)
+		if timeVal == 0 {
+			timeVal = time.Now().UnixNano()
+		}
+		from, _ := r["FromAddress"].(string)
+		ttype, _ := r["TrapType"].(string)
+		ent, _ := r["Enterprise"].(string)
+		vars, _ := r["Variables"].(string)
+		lvl, _ := r["Level"].(string)
+		tr = &TrapRecord{
+			Time:        timeVal,
+			FromAddress: from,
+			TrapType:    ttype,
+			Enterprise:  ent,
+			Variables:   vars,
+			Level:       lvl,
+		}
+	default:
+		return
+	}
+
+	select {
+	case e.trapQueue <- tr:
+	default:
+		slog.Warn("logreport engine: trap queue full, dropping record")
+	}
 }
 
 // ProcessMQTT is a hook for future MQTT topic / payload ingestion.
@@ -252,48 +354,59 @@ func (e *Engine) workerLoop(ctx context.Context) {
 		}
 	}
 
+	drainAll := func() {
+		for {
+			select {
+			case rec := <-e.syslogQueue:
+				s := ensureSession()
+				src := TagToSource(rec.Tag)
+				if src != "" {
+					s.Process(src, rec)
+				}
+				s.ProcessSyslogStat(rec, rec.Facility)
+			case fr := <-e.flowQueue:
+				ensureSession().ProcessFlow(fr)
+			case tr := <-e.trapQueue:
+				ensureSession().ProcessTrapStat(tr)
+			default:
+				commitSession()
+				return
+			}
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			commitSession()
+			drainAll()
 			return
 		case <-e.stopCh:
-			// Drain remaining items from queue
-			for {
-				select {
-				case rec := <-e.syslogQueue:
-					src := TagToSource(rec.Tag)
-					if src != "" {
-						ensureSession().Process(src, rec)
-					}
-				default:
-					commitSession()
-					return
-				}
-			}
+			drainAll()
+			return
 		case done := <-e.flushCh:
-			draining := true
-			for draining {
-				select {
-				case rec := <-e.syslogQueue:
-					src := TagToSource(rec.Tag)
-					if src != "" {
-						ensureSession().Process(src, rec)
-					}
-				default:
-					commitSession()
-					close(done)
-					draining = false
-				}
-			}
+			drainAll()
+			close(done)
 		case rec := <-e.syslogQueue:
+			s := ensureSession()
 			src := TagToSource(rec.Tag)
 			if src != "" {
-				s := ensureSession()
 				s.Process(src, rec)
-				if s.Processed >= e.maxBatchSize {
-					commitSession()
-				}
+			}
+			s.ProcessSyslogStat(rec, rec.Facility)
+			if s.Processed >= e.maxBatchSize {
+				commitSession()
+			}
+		case fr := <-e.flowQueue:
+			s := ensureSession()
+			s.ProcessFlow(fr)
+			if s.Processed >= e.maxBatchSize {
+				commitSession()
+			}
+		case tr := <-e.trapQueue:
+			s := ensureSession()
+			s.ProcessTrapStat(tr)
+			if s.Processed >= e.maxBatchSize {
+				commitSession()
 			}
 		case <-flushTicker.C:
 			commitSession()

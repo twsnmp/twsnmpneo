@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
   import {
     Share2,
@@ -10,7 +11,16 @@
   import ReportPagination from "./components/ReportPagination.svelte";
   import { renderBytes } from "../../common";
   import { ipToNum, getServiceName, type ParsedFlow } from "./utils";
-  import type { ParquetLogRecord } from "../../api";
+  import {
+    fetchFlowReport,
+    fetchServerReport,
+    fetchFumbleReport,
+    resetFlowReport,
+    type FlowEnt,
+    type ServerEnt,
+    type FumbleEnt,
+    type ParquetLogRecord,
+  } from "../../api";
 
   let {
     searchQuery = "",
@@ -19,6 +29,39 @@
     searchQuery?: string;
     sflowLogs?: ParquetLogRecord[];
   } = $props();
+
+  let backendFlows = $state<FlowEnt[]>([]);
+  let backendServers = $state<ServerEnt[]>([]);
+  let backendFumbles = $state<FumbleEnt[]>([]);
+
+  export const refresh = async () => {
+    try {
+      const [bf, bs, bfm] = await Promise.all([
+        fetchFlowReport(),
+        fetchServerReport(),
+        fetchFumbleReport(),
+      ]);
+      backendFlows = bf;
+      backendServers = bs;
+      backendFumbles = bfm;
+    } catch {
+      // ignore
+    }
+  };
+
+  export const handleClear = async () => {
+    if (!confirm($_("report.confirmClearReport") || "レポートデータをクリアしますか？")) return;
+    try {
+      await resetFlowReport();
+      await refresh();
+    } catch (e: any) {
+      alert(e.message || e);
+    }
+  };
+
+  onMount(() => {
+    refresh();
+  });
 
   let sflowSubTab = $state<"conversations" | "services" | "fumble" | "protocols">("conversations");
   let sflowSortColumn = $state("bytes");
@@ -31,7 +74,7 @@
       sflowSortDirection = sflowSortDirection === "asc" ? "desc" : "asc";
     } else {
       sflowSortColumn = col;
-      sflowSortDirection = (col === "bytes" || col === "packets" || col === "flows" || col === "percent" || col === "dur") ? "desc" : "asc";
+      sflowSortDirection = (col === "bytes" || col === "packets" || col === "flows" || col === "percent" || col === "dur" || col === "count") ? "desc" : "asc";
     }
   };
 

@@ -410,10 +410,15 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - Multi-subnet address inventory supporting user-defined CIDR blocks and IP ranges.
   - Large-scale IP heatmap powered by Apache ECharts using hierarchical block aggregation and click-to-drilldown inspection.
   - Comprehensive status resolution: Used, Free, Duplicate, Polled, ARP-detected, and DHCP-assigned addresses.
-* **Flow & Server Report**:
-  - Ingest NetFlow / IPFIX / sFlow records into Parquet and summarize top communication pairs, top port numbers, bandwidth consumption over time.
-  - GeoIP geographic resolution of public IP addresses for flows.
-  - Fumble Flow detection: Unanswered TCP SYN packets, connection resets, port scans.
+* **Flow & Server Report (NetFlow / sFlow / IPFIX)**:
+  - Real-time aggregation via `logreport.Reporter` pipeline: Ingest NetFlow / IPFIX and sFlow records on packet arrival into aggregated `FlowEnt`, `ServerEnt`, and `FumbleEnt` datasets stored in bbolt, alongside persistent raw storage in Parquet.
+  - Client / Server / Service direction resolution algorithm based on port, protocol, private/public IP range, and known service definitions.
+  - Anomaly & Deviation Scoring (`calcFlowScore`, `calcServerScore`): Normal distribution (mean 50, sd 10) scoring with penalty calculations for high-risk countries (GeoIP), suspicious ports, and unresolvable DNS names.
+  - Fumble Flow detection: Identifies unanswered TCP SYN packets/aborted connections (small packets) and ICMP error replies.
+  - Dedicated APIs: `GET /api/report/flow`, `GET /api/report/server`, `GET /api/report/fumble`, and `DELETE /api/report/flow` (resets flow/server/fumble report data).
+* **Syslog & SNMP Trap Analytics**:
+  - Receive-time statistics aggregation via `logreport.Reporter`: Automatically updates `SyslogStatsSummary` and `TrapStatsSummary` in bbolt, capturing host-by-host distributions, tag/OID breakdowns, facility/enterprise counters, and severity error/warn/normal counters.
+  - Dedicated APIs: `GET /api/report/syslog/stats`, `DELETE /api/report/syslog/stats`, `GET /api/report/trap/stats`, and `DELETE /api/report/trap/stats`.
 * **Windows Analytics**:
   - Ingest Windows Event Logs via Syslog or WinRM.
   - Classify events: Logon successes/failures (Event 4624/4625), user creation/modification (4720/4726), privilege use (4672), scheduled tasks (4698), Kerberos ticket requests (4768/4769).
@@ -421,12 +426,12 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - Temperature/humidity sensor time-series trends, threshold violation alarms.
   - Power consumption watt-hour tracking.
   - MQTT broker subscriber tracking and topic message inspection.
-* **Log-derived Reports (Wi-Fi / Bluetooth / Packet Capture / Windows Event)**:
-  - Processing model: Real-time receive-time processing (matching TWSNMP FC behavior) via the extensible `logreport.Reporter` pipeline. When protocol receivers (Syslog, and future NetFlow/sFlow/MQTT/OTel) receive records matching target tags (`twWifiScan`, `twBlueScan`, `twpcap`, `twwinlog`), they are ingested asynchronously into the report engine and persisted to bbolt in batches. No polling is required.
+* **Log-derived Reports (Wi-Fi / Bluetooth / Packet Capture / Windows Event / Flow / Server / Stats)**:
+  - Processing model: Real-time receive-time processing (matching TWSNMP FC behavior) via the extensible `logreport.Reporter` pipeline. When protocol receivers (Syslog, NetFlow, sFlow, SNMP Trap, and future MQTT/OTel) receive records, they are ingested asynchronously into the report engine and persisted to bbolt in batches. No polling is required.
   - Syslog content is `key=value,key=value` with a `type` key (same format as TWSNMP FC). Handled types: twWifiScan `APInfo`; twBlueScan `Device`, `OMRONEnv`, `SwitchBotEnv`, `InkbirdEnv`, `SwitchBotPlugMini`, `SwitchBotMotionSensor`; twpcap `EtherType`, `DNS`, `RADIUS`, `TLSFlow`; twwinlog `EventID`, `Logon`/`Logoff`/`LogonFailed`, `Account`, `Kerberos`, `Privilege`, `Process`, `Task`. `Stats`/`Monitor` (sensor statistics) and twpcap `IPToMAC`/`DHCP`/`NTP` are not handled.
-  - Report kinds (`internal/logreport`): `wifiAP`, `blueDevice`, `envMonitor`, `powerMonitor`, `motionSensor`, `etherType`, `dnsq`, `radiusFlow`, `tlsFlow`, `winEventID`, `winLogon`, `winAccount`, `winKerberos`, `winPrivilege`, `winProcess`, `winTask`. Entities are stored as JSON in the bbolt nested bucket `logReport/<kind>` through `DataStore.GetLogReportData / ListLogReportData / SaveLogReportData / DeleteLogReportData / ResetLogReportData`. Field names follow TWSNMP FC.
-  - Time series (RSSI, environment, power, motion) use the syslog record time and are limited to 12*24*7 samples per entity (motion: twice that). Logon, Kerberos, RADIUS and TLS flows carry `Penalty`/`Score`/`ValidScore` (mean 50, sd 10 over the kind; penalties as in TWSNMP FC except the country check, which has no setting here). Node names/IDs of RADIUS/TLS flows are resolved from the node IP.
-  - Retention & Score Recalculation: Scheduled periodically (hourly) by the report engine in the background; entities not seen for 30 days are deleted; `wifiAP`, `blueDevice`, `dnsq`, `radiusFlow`, `tlsFlow` are limited to 10000 entries (oldest first, `tlsFlow` safest first); Bluetooth devices with a random address are deleted after one day.
+  - Report kinds (`internal/logreport`): `wifiAP`, `blueDevice`, `envMonitor`, `powerMonitor`, `motionSensor`, `etherType`, `dnsq`, `radiusFlow`, `tlsFlow`, `winEventID`, `winLogon`, `winAccount`, `winKerberos`, `winPrivilege`, `winProcess`, `winTask`, `flow`, `server`, `fumble`, `syslogStats`, `trapStats`. Entities are stored as JSON in the bbolt nested bucket `logReport/<kind>` through `DataStore.GetLogReportData / ListLogReportData / SaveLogReportData / DeleteLogReportData / ResetLogReportData`. Field names follow TWSNMP FC.
+  - Time series (RSSI, environment, power, motion) use the syslog record time and are limited to 12*24*7 samples per entity (motion: twice that). Logon, Kerberos, RADIUS, TLS flows, Flow and Server entities carry `Penalty`/`Score`/`ValidScore` (mean 50, sd 10 over the kind; penalties evaluated with GeoIP country and safe services). Node names/IDs are resolved from the node IP.
+  - Retention & Score Recalculation: Scheduled periodically (hourly) by the report engine in the background; entities not seen for 30 days are deleted; `wifiAP`, `blueDevice`, `dnsq`, `radiusFlow`, `tlsFlow`, `flow`, `server`, `fumble` are limited to 10000 entries (oldest first, `tlsFlow`/`flow`/`server` safest first); Bluetooth devices with a random address are deleted after one day.
   - API: `GET /api/report/log/:kind` returns all entities of a kind (JSON array), `DELETE /api/report/log/:kind` clears it. Unknown kinds return 404.
 * **Server Certificate Report (サーバー証明書)**:
   - Aggregates TLS server certificates monitored via node pollings (`type: tls`, `mode: cert`).

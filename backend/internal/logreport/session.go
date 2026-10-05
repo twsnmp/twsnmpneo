@@ -23,6 +23,7 @@ type Record struct {
 	Tag      string
 	Content  string
 	Severity int
+	Facility int
 }
 
 // ParseRecord converts a stored syslog JSON document into a Record.
@@ -46,14 +47,22 @@ func ParseRecord(logJSON, src string, t int64) (Record, bool) {
 		Tag:      str("tag", "app_name"),
 		Content:  str("content", "message"),
 		Severity: 6,
+		Facility: 1,
 	}
 	if r.Host == "" {
 		r.Host = src
 	}
 	if v, ok := m["severity"].(float64); ok {
 		r.Severity = int(v)
+	} else if v, ok := m["severity"].(int); ok {
+		r.Severity = v
 	}
-	return r, r.Tag != "" && r.Content != ""
+	if v, ok := m["facility"].(float64); ok {
+		r.Facility = int(v)
+	} else if v, ok := m["facility"].(int); ok {
+		r.Facility = v
+	}
+	return r, (r.Tag != "" || r.Host != "") && r.Content != ""
 }
 
 type nodeInfo struct{ Name, ID string }
@@ -195,6 +204,10 @@ func (s *Session) Commit() error {
 			err = recalcScores[RADIUSFlowEnt](s, kind)
 		case KindTLSFlow:
 			err = recalcScores[TLSFlowEnt](s, kind)
+		case KindFlow:
+			err = recalcScores[FlowEnt](s, kind)
+		case KindServer:
+			err = recalcScores[ServerEnt](s, kind)
 		}
 		if err != nil && firstErr == nil {
 			firstErr = err

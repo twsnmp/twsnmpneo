@@ -19,6 +19,7 @@ import (
 	"github.com/tehmaze/netflow/session"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 )
 
 // NetFlowConfig holds options for NetFlow receiver.
@@ -26,6 +27,7 @@ type NetFlowConfig struct {
 	Port     int
 	Store    datastore.DataStore
 	LogStore *parquet.Store
+	Reporter logreport.Reporter
 }
 
 // NetFlowServer ingests NetFlow v5, v9, and IPFIX (v10) packets over UDP.
@@ -33,6 +35,7 @@ type NetFlowServer struct {
 	port     int
 	store    datastore.DataStore
 	logStore *parquet.Store
+	reporter logreport.Reporter
 	mu       sync.Mutex
 	decoders map[string]*netflow.Decoder
 }
@@ -43,6 +46,7 @@ func NewNetFlowServer(cfg NetFlowConfig) *NetFlowServer {
 		port:     cfg.Port,
 		store:    cfg.Store,
 		logStore: cfg.LogStore,
+		reporter: cfg.Reporter,
 		decoders: make(map[string]*netflow.Decoder),
 	}
 }
@@ -331,6 +335,9 @@ func formatProtocol(pi uint8) string {
 }
 
 func (s *NetFlowServer) saveRecord(flow *datastore.NetFlowEnt, fromIP string) {
+	if s.reporter != nil {
+		s.reporter.ProcessNetFlow(flow)
+	}
 	if s.logStore == nil {
 		return
 	}

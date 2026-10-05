@@ -15,7 +15,13 @@
   import ReportPagination from "./components/ReportPagination.svelte";
   import { getStateColor, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
-  import type { ParquetLogRecord, NodeEnt } from "../../api";
+  import {
+    fetchTrapStats,
+    resetTrapStats,
+    type TrapStatsSummary,
+    type ParquetLogRecord,
+    type NodeEnt,
+  } from "../../api";
 
   let {
     trapLogs = [],
@@ -26,6 +32,30 @@
     nodes?: NodeEnt[];
     searchQuery?: string;
   } = $props();
+
+  let backendTrapStats = $state<TrapStatsSummary | null>(null);
+
+  export const refresh = async () => {
+    try {
+      backendTrapStats = await fetchTrapStats();
+    } catch {
+      // ignore
+    }
+  };
+
+  export const handleClear = async () => {
+    if (!confirm($_("report.confirmClearReport") || "レポートデータをクリアしますか？")) return;
+    try {
+      await resetTrapStats();
+      await refresh();
+    } catch (e: any) {
+      alert(e.message || e);
+    }
+  };
+
+  onMount(() => {
+    refresh();
+  });
 
   // Subtab navigation: host, type, enterprise, level
   let subTab = $state<"host" | "type" | "enterprise" | "level">("host");

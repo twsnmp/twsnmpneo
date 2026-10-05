@@ -195,6 +195,10 @@
 
   const hasClearSupport = $derived(
     (activeReport === "device" && arpList.length > 0) ||
+    activeReport === "flow" ||
+    activeReport === "sflow" ||
+    activeReport === "syslog" ||
+    activeReport === "trap" ||
     activeReport === "wifi" ||
     activeReport === "bluetooth" ||
     activeReport === "env" ||

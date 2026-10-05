@@ -12,6 +12,7 @@ import (
 	"github.com/gosnmp/gosnmp"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 )
 
@@ -21,6 +22,7 @@ type TrapConfig struct {
 	Community string
 	Store     datastore.DataStore
 	LogStore  *parquet.Store
+	Reporter  logreport.Reporter
 }
 
 // TrapServer receives SNMP TRAP v1 and v2c/v3 packets.
@@ -29,6 +31,7 @@ type TrapServer struct {
 	community string
 	store     datastore.DataStore
 	logStore  *parquet.Store
+	reporter  logreport.Reporter
 	listener  *gosnmp.TrapListener
 	mu        sync.Mutex
 }
@@ -50,6 +53,7 @@ func NewTrapServer(cfg TrapConfig) *TrapServer {
 		community: cfg.Community,
 		store:     cfg.Store,
 		logStore:  cfg.LogStore,
+		reporter:  cfg.Reporter,
 	}
 }
 
@@ -133,6 +137,10 @@ func (s *TrapServer) handleTrap(packet *gosnmp.SnmpPacket, addr *net.UDPAddr) {
 		msg.Enterprise = mib.OIDToName(packet.Enterprise)
 		msg.Generic = packet.GenericTrap
 		msg.Specific = packet.SpecificTrap
+	}
+
+	if s.reporter != nil {
+		s.reporter.ProcessTrap(msg)
 	}
 
 	if s.logStore != nil {

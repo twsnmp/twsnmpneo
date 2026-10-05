@@ -15,6 +15,7 @@ import (
 	"github.com/tehmaze/netflow/read"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 )
 
 // SFlowConfig holds options for sFlow receiver.
@@ -22,6 +23,7 @@ type SFlowConfig struct {
 	Port     int
 	Store    datastore.DataStore
 	LogStore *parquet.Store
+	Reporter logreport.Reporter
 }
 
 // SFlowServer ingests sFlow v5 flow and counter samples over UDP.
@@ -29,6 +31,7 @@ type SFlowServer struct {
 	port     int
 	store    datastore.DataStore
 	logStore *parquet.Store
+	reporter logreport.Reporter
 }
 
 // NewSFlowServer creates a new sFlow receiver instance.
@@ -37,6 +40,7 @@ func NewSFlowServer(cfg SFlowConfig) *SFlowServer {
 		port:     cfg.Port,
 		store:    cfg.Store,
 		logStore: cfg.LogStore,
+		reporter: cfg.Reporter,
 	}
 }
 
@@ -227,6 +231,10 @@ func (s *SFlowServer) saveRawPacketFlow(r *sflow.RawPacketFlow, reason int) {
 	e.Reason = reason
 	e.SrcLoc = datastore.GetLoc(e.SrcAddr)
 	e.DstLoc = datastore.GetLoc(e.DstAddr)
+
+	if s.reporter != nil {
+		s.reporter.ProcessSFlow(&e)
+	}
 
 	if s.logStore != nil {
 		rawJSON, err := json.Marshal(&e)

@@ -2858,4 +2858,199 @@ export async function toggleSensor(id: string): Promise<void> {
   }
 }
 
+export interface FlowEnt {
+  ID: string;
+  Client: string;
+  ClientName?: string;
+  ClientNodeID?: string;
+  ClientLoc?: string;
+  Server: string;
+  ServerName?: string;
+  ServerNodeID?: string;
+  ServerLoc?: string;
+  Services: Record<string, number>;
+  Count: number;
+  Bytes: number;
+  Packets: number;
+  Duration: number;
+  Penalty?: number;
+  Score?: number;
+  ValidScore?: boolean;
+  FirstTime: number;
+  LastTime: number;
+  UpdateTime: number;
+}
+
+export interface ServerEnt {
+  ID: string;
+  Server: string;
+  ServerName?: string;
+  ServerNodeID?: string;
+  Loc?: string;
+  Services: Record<string, number>;
+  Count: number;
+  Bytes: number;
+  Packets: number;
+  Penalty?: number;
+  Score?: number;
+  ValidScore?: boolean;
+  FirstTime: number;
+  LastTime: number;
+  UpdateTime: number;
+}
+
+export interface FumbleEnt {
+  ID: string;
+  TCPCount: number;
+  IcmpCount: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface SyslogHostStat {
+  Host: string;
+  NodeName?: string;
+  Count: number;
+  ErrorCount: number;
+  WarnCount: number;
+  NormalCount: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface SyslogTagStat {
+  Tag: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface SyslogStatsSummary {
+  ID: string;
+  Total: number;
+  ErrorCount: number;
+  WarnCount: number;
+  NormalCount: number;
+  Hosts: Record<string, SyslogHostStat>;
+  Tags: Record<string, SyslogTagStat>;
+  Facilities: Record<number, number>;
+  Severities: Record<number, number>;
+  FirstTime: number;
+  LastTime: number;
+  UpdateTime: number;
+}
+
+export interface TrapHostStat {
+  Host: string;
+  NodeName?: string;
+  Count: number;
+  ErrorCount: number;
+  WarnCount: number;
+  NormalCount: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface TrapTypeStat {
+  TrapType: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface TrapStatsSummary {
+  ID: string;
+  Total: number;
+  ErrorCount: number;
+  WarnCount: number;
+  NormalCount: number;
+  Hosts: Record<string, TrapHostStat>;
+  Types: Record<string, TrapTypeStat>;
+  Enterprises: Record<string, number>;
+  FirstTime: number;
+  LastTime: number;
+  UpdateTime: number;
+}
+
+export async function fetchFlowReport(): Promise<FlowEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/flow`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchServerReport(): Promise<ServerEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/server`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchFumbleReport(): Promise<FumbleEnt[]> {
+  try {
+    const res = await fetch(`${API_BASE}/report/fumble`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function resetFlowReport(): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/flow`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Reset flow report failed: ${res.statusText}`);
+  }
+}
+
+export async function fetchSyslogStats(): Promise<SyslogStatsSummary | null> {
+  try {
+    const res = await fetch(`${API_BASE}/report/syslog/stats`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function resetSyslogStats(): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/syslog/stats`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Reset syslog stats failed: ${res.statusText}`);
+  }
+}
+
+export async function fetchTrapStats(): Promise<TrapStatsSummary | null> {
+  try {
+    const res = await fetch(`${API_BASE}/report/trap/stats`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function resetTrapStats(): Promise<void> {
+  const res = await fetch(`${API_BASE}/report/trap/stats`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Reset trap stats failed: ${res.statusText}`);
+  }
+}
+
+
 

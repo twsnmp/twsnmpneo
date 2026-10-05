@@ -20,7 +20,13 @@
     severityNames,
   } from "../../common";
   import { isDarkMode } from "../../charts/utils";
-  import type { ParquetLogRecord, NodeEnt } from "../../api";
+  import {
+    fetchSyslogStats,
+    resetSyslogStats,
+    type SyslogStatsSummary,
+    type ParquetLogRecord,
+    type NodeEnt,
+  } from "../../api";
 
   let {
     syslogLogs = [],
@@ -31,6 +37,30 @@
     nodes?: NodeEnt[];
     searchQuery?: string;
   } = $props();
+
+  let backendSyslogStats = $state<SyslogStatsSummary | null>(null);
+
+  export const refresh = async () => {
+    try {
+      backendSyslogStats = await fetchSyslogStats();
+    } catch {
+      // ignore
+    }
+  };
+
+  export const handleClear = async () => {
+    if (!confirm($_("report.confirmClearReport") || "レポートデータをクリアしますか？")) return;
+    try {
+      await resetSyslogStats();
+      await refresh();
+    } catch (e: any) {
+      alert(e.message || e);
+    }
+  };
+
+  onMount(() => {
+    refresh();
+  });
 
   // Subtab navigation: host, tag, facility, level
   let subTab = $state<"host" | "tag" | "facility" | "level">("host");

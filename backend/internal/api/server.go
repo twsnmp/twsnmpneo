@@ -389,6 +389,99 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 		})
 
+		// Flow & Server Reports
+		apiGroup.GET("/report/flow", func(c echo.Context) error {
+			items, err := cfg.Store.ListLogReportData(c.Request().Context(), logreport.KindFlow)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			list := make([]json.RawMessage, 0, len(items))
+			for _, b := range items {
+				list = append(list, json.RawMessage(b))
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+		apiGroup.GET("/report/server", func(c echo.Context) error {
+			items, err := cfg.Store.ListLogReportData(c.Request().Context(), logreport.KindServer)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			list := make([]json.RawMessage, 0, len(items))
+			for _, b := range items {
+				list = append(list, json.RawMessage(b))
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+		apiGroup.GET("/report/fumble", func(c echo.Context) error {
+			items, err := cfg.Store.ListLogReportData(c.Request().Context(), logreport.KindFumble)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			list := make([]json.RawMessage, 0, len(items))
+			for _, b := range items {
+				list = append(list, json.RawMessage(b))
+			}
+			return c.JSON(http.StatusOK, list)
+		})
+		apiGroup.DELETE("/report/flow", func(c echo.Context) error {
+			ctx := c.Request().Context()
+			_ = cfg.Store.ResetLogReportData(ctx, logreport.KindFlow)
+			_ = cfg.Store.ResetLogReportData(ctx, logreport.KindServer)
+			_ = cfg.Store.ResetLogReportData(ctx, logreport.KindFumble)
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
+		// Syslog Statistics Report
+		apiGroup.GET("/report/syslog/stats", func(c echo.Context) error {
+			raw, err := cfg.Store.GetLogReportData(c.Request().Context(), logreport.KindSyslogStats, "summary")
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if len(raw) == 0 {
+				return c.JSON(http.StatusOK, &logreport.SyslogStatsSummary{
+					ID:         "summary",
+					Hosts:      make(map[string]*logreport.SyslogHostStat),
+					Tags:       make(map[string]*logreport.SyslogTagStat),
+					Facilities: make(map[int]int64),
+					Severities: make(map[int]int64),
+				})
+			}
+			var sum logreport.SyslogStatsSummary
+			if err := json.Unmarshal(raw, &sum); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, &sum)
+		})
+		apiGroup.DELETE("/report/syslog/stats", func(c echo.Context) error {
+			_ = cfg.Store.ResetLogReportData(c.Request().Context(), logreport.KindSyslogStats)
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
+		// SNMP Trap Statistics Report
+		apiGroup.GET("/report/trap/stats", func(c echo.Context) error {
+			raw, err := cfg.Store.GetLogReportData(c.Request().Context(), logreport.KindTrapStats, "summary")
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if len(raw) == 0 {
+				return c.JSON(http.StatusOK, &logreport.TrapStatsSummary{
+					ID:          "summary",
+					Hosts:       make(map[string]*logreport.TrapHostStat),
+					Types:       make(map[string]*logreport.TrapTypeStat),
+					Enterprises: make(map[string]int64),
+				})
+			}
+			var sum logreport.TrapStatsSummary
+			if err := json.Unmarshal(raw, &sum); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, &sum)
+		})
+		apiGroup.DELETE("/report/trap/stats", func(c echo.Context) error {
+			_ = cfg.Store.ResetLogReportData(c.Request().Context(), logreport.KindTrapStats)
+			return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+		})
+
 		apiGroup.GET("/ai/result/:id", func(c echo.Context) error {
 			id := c.Param("id")
 			res, err := cfg.Store.GetAIResult(id)

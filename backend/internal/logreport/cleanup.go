@@ -27,6 +27,7 @@ type cleanMeta struct {
 // limited kinds are also trimmed to maxEntries; the others only expire by age.
 var limitedKinds = map[string]bool{
 	KindWifiAP: true, KindBlueDevice: true, KindDNSQ: true, KindRADIUSFlow: true, KindTLSFlow: true,
+	KindFlow: true, KindServer: true, KindFumble: true,
 }
 
 // Cleanup removes expired entities of the kinds fed by source.
@@ -44,7 +45,13 @@ func Cleanup(ctx context.Context, store datastore.DataStore, source string, days
 	delOld := now.AddDate(0, 0, -days).UnixNano()
 	delRandom := now.AddDate(0, 0, -1).UnixNano()
 	var firstErr error
-	for _, kind := range KindsOf(source) {
+
+	kinds := KindsOf(source)
+	if len(kinds) == 0 && source == "" {
+		kinds = AllKinds()
+	}
+
+	for _, kind := range kinds {
 		items, err := store.ListLogReportData(ctx, kind)
 		if err != nil {
 			if firstErr == nil {
@@ -71,8 +78,8 @@ func Cleanup(ctx context.Context, store datastore.DataStore, source string, days
 			}
 		}
 		if limitedKinds[kind] && len(keep) > maxEntries {
-			if kind == KindTLSFlow {
-				// Safer flows (higher score) are dropped first.
+			if kind == KindTLSFlow || kind == KindFlow || kind == KindServer {
+				// Safer flows / servers (higher score) are dropped first.
 				sort.Slice(keep, func(i, j int) bool {
 					return keep[i].Score-float64(keep[i].LastTime-delOld)/float64(24*time.Hour) >
 						keep[j].Score-float64(keep[j].LastTime-delOld)/float64(24*time.Hour)
