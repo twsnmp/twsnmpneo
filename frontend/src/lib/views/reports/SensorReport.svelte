@@ -1134,7 +1134,7 @@
             {#each paginatedSensors as item}
               <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group">
                 <!-- State -->
-                <td class="py-2 px-3 font-sans">
+                <td class="py-1 px-2 font-sans">
                   <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
                     style="border-color: {getStateColor(item.State)}40; background-color: {getStateColor(item.State)}15; color: {getStateColor(item.State)};"
                   >
@@ -1144,44 +1144,44 @@
                 </td>
 
                 <!-- Host -->
-                <td class="py-2 px-3 font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                <td class="py-1 px-2 font-semibold text-slate-900 dark:text-slate-100 text-xs">
                   <span class="select-all">{item.Host}</span>
                 </td>
 
                 <!-- Type -->
-                <td class="py-2 px-3 text-xs">
+                <td class="py-1 px-2 text-xs">
                   <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
                     {item.Type}
                   </span>
                 </td>
 
                 <!-- Parameter -->
-                <td class="py-2 px-3 text-slate-500 dark:text-slate-400 truncate max-w-[130px] text-xs">
+                <td class="py-1 px-2 text-slate-500 dark:text-slate-400 truncate max-w-[130px] text-xs">
                   {item.Param || "-"}
                 </td>
 
                 <!-- Total -->
-                <td class="py-2 px-3 text-right text-slate-800 dark:text-slate-200 text-xs font-mono">
+                <td class="py-1 px-2 text-right text-slate-800 dark:text-slate-200 text-xs font-mono">
                   {item.Total.toLocaleString()}
                 </td>
 
                 <!-- Send -->
-                <td class="py-2 px-3 text-right text-slate-800 dark:text-slate-200 text-xs font-mono">
+                <td class="py-1 px-2 text-right text-slate-800 dark:text-slate-200 text-xs font-mono">
                   {item.Send.toLocaleString()}
                 </td>
 
                 <!-- FirstTime -->
-                <td class="py-2 px-3 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                   {item.FirstTime ? formatTimeStr(item.FirstTime) : "-"}
                 </td>
 
                 <!-- LastTime -->
-                <td class="py-2 px-3 text-slate-700 dark:text-slate-300 text-[11px] whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-700 dark:text-slate-300 text-[11px] whitespace-nowrap">
                   {item.LastTime ? formatTimeStr(item.LastTime) : "-"}
                 </td>
 
                 <!-- Action Buttons -->
-                <td class="py-2 px-3 text-center font-sans">
+                <td class="py-1 px-2 text-center font-sans">
                   <div class="inline-flex items-center gap-1">
                     <!-- Info Dialog Button -->
                     <button

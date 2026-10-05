@@ -147,14 +147,15 @@ func (s *SyslogServer) handleLogParts(sl format.LogParts) {
 
 		kvs := parseTWLogKVs(content)
 		tType := kvs["type"]
-		if tType == "Stats" {
+		switch tType {
+		case "Stats":
 			param := kvs["param"]
 			count, _ := strconv.ParseInt(kvs["count"], 10, 64)
 			send, _ := strconv.ParseInt(kvs["send"], 10, 64)
 			total, _ := strconv.ParseInt(kvs["total"], 10, 64)
 			ps, _ := strconv.ParseFloat(kvs["ps"], 64)
 			s.store.CheckSensorStats(host, "syslog", param, count, send, total, ps)
-		} else if tType == "Monitor" {
+		case "Monitor":
 			param := kvs["param"]
 			cpu, _ := strconv.ParseFloat(kvs["cpu"], 64)
 			mem, _ := strconv.ParseFloat(kvs["mem"], 64)
@@ -165,7 +166,7 @@ func (s *SyslogServer) handleLogParts(sl format.LogParts) {
 			recv, _ := strconv.ParseInt(kvs["recv"], 10, 64)
 			proc, _ := strconv.ParseInt(kvs["process"], 10, 64)
 			s.store.CheckSensorMonitor(host, "syslog", param, cpu, mem, load, txSpeed, rxSpeed, sent, recv, proc)
-		} else {
+		default:
 			sensorType := "syslog"
 			param := ""
 			if tag != "" {
