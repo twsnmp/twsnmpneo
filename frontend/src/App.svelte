@@ -10,6 +10,7 @@
   import SystemView from "./lib/views/SystemView.svelte";
   import PKIView from "./lib/views/PKIView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
+  import HelpDialog from "./lib/components/HelpDialog.svelte";
   import { fetchMapConf } from "./lib/api";
   import { _ } from "svelte-i18n";
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
@@ -41,6 +42,7 @@
       : true
   );
   let showConfig = $state(false);
+  let showHelp = $state(false);
   let mapName = $state("My Network");
 
   const refreshConf = async () => {
@@ -167,7 +169,7 @@
 
       <!-- Help Button -->
       <button
-        onclick={() => alert($_('help.mapUsage'))}
+        onclick={() => (showHelp = true)}
         title={$_('nav.help')}
         class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
       >
@@ -201,6 +203,7 @@
 
   <!-- Global Modals & Drawers -->
   <ConfigModal bind:show={showConfig} onSaved={refreshConf} />
+  <HelpDialog bind:show={showHelp} currentPage={currentPage} />
 
   <!-- Preload Material Design Icons font so browser immediately fetches woff2 -->
   <span class="mdi mdi-monitor pointer-events-none fixed -top-[9999px] -left-[9999px] opacity-0" aria-hidden="true"></span>

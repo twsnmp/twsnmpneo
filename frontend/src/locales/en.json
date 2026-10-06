@@ -460,6 +460,114 @@
     "errorGen": "Failed to generate AI response"
   },
   "help": {
+    "title": "TWSNMP NEO Help Center",
+    "subtitle": "Operation Guides, Documentation & Support",
+    "catGreeting": "Welcome to TWSNMP NEO meow! Check here if you need any help or guidance🐾",
+    "contextHelp": "Contextual Screen Guide",
+    "selectScreen": "Select Screen",
+    "resourcesTitle": "Official Resources & Support",
+    "pages": {
+      "map": {
+        "title": "Map (Topology Management)",
+        "summary": "The main visual interface for placing, connecting, and monitoring network nodes.",
+        "tips": [
+          "Right-click anywhere on the blank canvas to add nodes, networks, or draw items",
+          "Hold Shift and click nodes or ports to create and connect lines",
+          "Right-click nodes or SW-HUBs to run Ping, MIB Browser, 3D Panel, or edit properties",
+          "Use mouse wheel to zoom in/out, and drag to pan across the topology map"
+        ]
+      },
+      "location": {
+        "title": "Location Map (GIS)",
+        "summary": "Geographic node placement and status monitoring on OpenStreetMap.",
+        "tips": [
+          "Select a node from the top dropdown and click on the map to place it",
+          "Click 'Lock Position' on the top-right to prevent accidental node dragging",
+          "Click any node marker on the map to view status and access quick actions"
+        ]
+      },
+      "list": {
+        "title": "List (Resource Inventory)",
+        "summary": "Unified inventory tables for Nodes, Pollings, Networks, Lines, and Draw Items.",
+        "tips": [
+          "Switch resource types using the left sidebar menu (Nodes, Pollings, Networks, etc.)",
+          "Click any column header to sort in ascending or descending order",
+          "Use keyword search and filters to quickly find specific devices or metrics",
+          "Click 'Add from Template' to auto-generate standard monitoring configurations"
+        ]
+      },
+      "reports": {
+        "title": "Reports (Analytics & Telemetry)",
+        "summary": "Aggregated analytics for LAN devices, IPAM, Flows, SLA, IoT sensors, and AI anomalies.",
+        "tips": [
+          "Select the analysis category from the left sidebar (IPAM, Flow, Sensor, etc.)",
+          "Inspect IP address utilization heatmaps and NetFlow/sFlow traffic metrics",
+          "Interact with time-series charts for environmental sensors and smart plugs",
+          "Export aggregated reports directly via the CSV export button"
+        ]
+      },
+      "pki": {
+        "title": "PKI (Private Certificate Authority)",
+        "summary": "Built-in Private CA for TLS certificate issuance, SCEP server, and lifecycle management.",
+        "tips": [
+          "Manage Root/Intermediate CAs and issue new server/client TLS certificates",
+          "Review SCEP auto-enrollment endpoints and active issuance status for network devices",
+          "Track expiration dates and revocation status (CRL/OCSP) for all issued certificates"
+        ]
+      },
+      "logs": {
+        "title": "Logs (Real-time & Historical Query)",
+        "summary": "High-performance log viewer for EventLog, Syslog, SNMP TRAP, NetFlow, sFlow, and ARP Watch.",
+        "tips": [
+          "Switch log categories using the top tabs (EventLog, Syslog, TRAP, etc.)",
+          "Utilize regex search, severity filters, and time range pickers for fast investigation",
+          "Stored with Apache Parquet for lightning-fast querying across high log volumes",
+          "Click 'AI Log Diagnosis' to analyze error root causes and recommended actions"
+        ]
+      },
+      "otel": {
+        "title": "OpenTelemetry (Telemetry Viewer)",
+        "summary": "Visualizer for OpenTelemetry metrics, distributed traces, and log streams.",
+        "tips": [
+          "Switch between Metrics, Traces, and Logs from the left sidebar",
+          "Analyze inter-service call relationships using the interactive DAG topology map",
+          "Click traces to drill down into span hierarchy and latency bottlenecks"
+        ]
+      },
+      "mqtt": {
+        "title": "MQTT (Topic Monitor)",
+        "summary": "Real-time MQTT topic subscription, payload inspection, and broker stats.",
+        "tips": [
+          "View message throughput, latest payload, and topic health status in real time",
+          "Pretty-print JSON payloads to quickly inspect incoming telemetry data",
+          "Auto-generate polling instances directly from topic monitoring"
+        ]
+      },
+      "system": {
+        "title": "System (Server Status & Resources)",
+        "summary": "Host resource telemetry (CPU, Memory, Disk, Goroutines) and internal daemon metrics.",
+        "tips": [
+          "Monitor real-time system performance telemetry and time-series resource charts",
+          "Inspect background daemon health and received packet/message counters",
+          "Check binary build version, Git commit hash, and uptime"
+        ]
+      }
+    },
+    "links": {
+      "manual": "Official Manual (GitHub Pages)",
+      "manualDesc": "Detailed step-by-step guides, architecture, and feature specifications",
+      "note": "note Dev Blog & Releases",
+      "noteDesc": "Development updates, architecture deep dives, and articles",
+      "noteQa": "note Anonymous Q&A Box",
+      "noteQaDesc": "Ask questions and get advice anonymously on network management",
+      "noteBoard": "note Membership Board",
+      "noteBoardDesc": "Exclusive message board for paid membership community",
+      "issues": "GitHub Issues (Bugs & Feedback)",
+      "issuesDesc": "Report bugs, request new features, and join developer discussions",
+      "releases": "Release Notes",
+      "releasesDesc": "Check the latest version updates and changelog"
+    },
+    "version": "Version",
     "mapUsage": "TWSNMP NEO Help: Right-click on the map canvas to open the context menu for adding, editing, or deleting nodes and networks."
   },
   "map": {
