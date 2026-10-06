@@ -19,6 +19,7 @@
     type DrawItemEnt,
   } from "../api";
   import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
+  import { getVendor } from "./reports/utils";
   import { _ } from "svelte-i18n";
   import NodeDialog from "../components/NodeDialog.svelte";
   import NodeDetailModal from "../components/NodeDetailModal.svelte";
@@ -43,6 +44,9 @@
     Copy,
     Box,
     AlertTriangle,
+    AlertCircle,
+    Layers,
+    FileText,
     Type,
     Square,
     Gauge,
@@ -199,6 +203,78 @@
   const orphanLinesCount = $derived(lines.filter(isLineOrphaned).length);
   const offscreenDrawItemsCount = $derived(drawItems.filter(isDrawItemOffscreen).length);
 
+  // Status matching & counts for nodes
+  const isNodeMatchStatus = (n: NodeEnt, filter: string) => {
+    const st = (n.state || (n as any).State || "normal").toLowerCase();
+    if (filter === "all") return true;
+    if (filter === "normal") return st === "normal" || st === "repair" || st === "info" || st === "up";
+    if (filter === "warn") return st === "warn" || st === "warning";
+    if (filter === "error" || filter === "problem") return st === "high" || st === "low" || st === "error" || st === "down";
+    return st === filter;
+  };
+
+  const nodeStatusCounts = $derived.by(() => {
+    let normal = 0;
+    let warn = 0;
+    let error = 0;
+    for (const n of nodes) {
+      const st = (n.state || (n as any).State || "normal").toLowerCase();
+      if (st === "warn" || st === "warning") {
+        warn++;
+      } else if (st === "high" || st === "low" || st === "error" || st === "down") {
+        error++;
+      } else {
+        normal++;
+      }
+    }
+    return { all: nodes.length, normal, warn, error };
+  });
+
+  // Status matching & counts for pollings
+  const isPollingMatchStatus = (p: PollingEnt, filter: string) => {
+    const st = (p.state || (p as any).State || "normal").toLowerCase();
+    const logMode = p.log_mode ?? (p as any).LogMode ?? 0;
+    if (filter === "all") return true;
+    if (filter === "normal") return st === "normal" || st === "repair" || st === "info" || st === "up";
+    if (filter === "warn") return st === "warn" || st === "warning";
+    if (filter === "error" || filter === "problem") return st === "high" || st === "low" || st === "error" || st === "down";
+    if (filter === "logging" || filter === "hasLog") return logMode !== 0;
+    return st === filter;
+  };
+
+  const pollingStatusCounts = $derived.by(() => {
+    let normal = 0;
+    let warn = 0;
+    let error = 0;
+    let logging = 0;
+    for (const p of pollings) {
+      const st = (p.state || (p as any).State || "normal").toLowerCase();
+      const logMode = p.log_mode ?? (p as any).LogMode ?? 0;
+      if (st === "warn" || st === "warning") {
+        warn++;
+      } else if (st === "high" || st === "low" || st === "error" || st === "down") {
+        error++;
+      } else {
+        normal++;
+      }
+      if (logMode !== 0) {
+        logging++;
+      }
+    }
+    return { all: pollings.length, normal, warn, error, logging };
+  });
+
+  // Available distinct polling types
+  const availablePollingTypes = $derived.by(() => {
+    const typeSet = new Set<string>();
+    for (const p of pollings) {
+      const t = (p.type || (p as any).Type || "").trim();
+      if (t) typeSet.add(t.toLowerCase());
+    }
+    const types = Array.from(typeSet).sort();
+    return types.map(t => ({ value: t, label: t.toUpperCase() }));
+  });
+
   // Filtered lists
   const filteredNodes = $derived(
     nodes.filter((n) => {
@@ -206,10 +282,11 @@
       const q = searchQuery.toLowerCase();
       const name = (n.name || (n as any).Name || "").toLowerCase();
       const ip = (n.ip || (n as any).IP || "").toLowerCase();
+      const mac = (n.mac || (n as any).MAC || "").toLowerCase();
+      const vendor = (n.vendor || (n as any).Vendor || (n.mac ? getVendor(n.mac) : "") || "").toLowerCase();
       const descr = (n.descr || (n as any).Descr || "").toLowerCase();
-      const matchSearch = !q || name.includes(q) || ip.includes(q) || descr.includes(q);
-      const st = (n.state || (n as any).State || "normal").toLowerCase();
-      const matchStatus = statusFilter === "all" || st === statusFilter.toLowerCase();
+      const matchSearch = !q || name.includes(q) || ip.includes(q) || mac.includes(q) || vendor.includes(q) || descr.includes(q);
+      const matchStatus = isNodeMatchStatus(n, statusFilter);
       return matchSearch && matchStatus;
     })
   );
@@ -219,10 +296,13 @@
       const q = searchQuery.toLowerCase();
       const name = (p.name || (p as any).Name || "").toLowerCase();
       const target = (p.params || p.target || p.Params || (p as any).Target || "").toLowerCase();
+      const type = (p.type || (p as any).Type || "").toLowerCase();
+      const mode = (p.mode || (p as any).Mode || "").toLowerCase();
       const nodeName = getNodeName(p.node_id || (p as any).NodeID).toLowerCase();
-      const matchSearch = !q || name.includes(q) || target.includes(q) || nodeName.includes(q);
-      const matchType = typeFilter === "all" || p.type === typeFilter;
-      return matchSearch && matchType;
+      const matchSearch = !q || name.includes(q) || target.includes(q) || nodeName.includes(q) || type.includes(q) || mode.includes(q);
+      const matchType = typeFilter === "all" || type === typeFilter.toLowerCase();
+      const matchStatus = isPollingMatchStatus(p, statusFilter);
+      return matchSearch && matchType && matchStatus;
     })
   );
 
@@ -270,7 +350,7 @@
           case "name": return item.name || item.Name || "";
           case "ip": return item.ip || item.IP || "";
           case "mac": return item.mac || item.MAC || "";
-          case "coords": return [item.x ?? item.X ?? 0, item.y ?? item.Y ?? 0];
+          case "vendor": return item.vendor || item.Vendor || (item.mac ? getVendor(item.mac) : "") || "";
           case "descr": return item.descr || item.Descr || "";
         }
         break;
@@ -279,6 +359,7 @@
           case "status": return item.state || item.State || "";
           case "name": return item.name || item.Name || "";
           case "type": return item.type || item.Type || "";
+          case "mode": return item.mode || item.Mode || "";
           case "logMode": return item.log_mode ?? item.LogMode ?? 0;
           case "targetNode": return getNodeName(item.node_id || item.NodeID);
           case "lastVal": return item.last_val ?? "";
@@ -640,7 +721,7 @@
   <div class="flex-1 overflow-hidden flex flex-col p-5 gap-4 min-w-0">
     <!-- Top Action Bar (twnoaa style) -->
     <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg shrink-0 transition-colors">
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <!-- Search -->
         <div class="relative w-72">
           <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -661,30 +742,93 @@
 
         <!-- Dynamic Category Filters -->
         {#if activeCategory === "nodes"}
-          <select
-            bind:value={statusFilter}
-            onchange={() => (currentPages[activeCategory] = 1)}
-            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
-          >
-            <option value="all">{$_('list.filter.allStatus')} ({nodes.length})</option>
-            <option value="normal">{$_('status.normal')}</option>
-            <option value="warn">{$_('status.warn')}</option>
-            <option value="low">{$_('status.low')}</option>
-            <option value="high">{$_('status.high')}</option>
-          </select>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onclick={() => { statusFilter = "all"; currentPages.nodes = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <Layers class="w-3.5 h-3.5" />
+              <span>{$_('list.filter.allStatus')} ({nodeStatusCounts.all})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "normal"; currentPages.nodes = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'normal' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <CheckCircle2 class="w-3.5 h-3.5 {statusFilter === 'normal' ? 'text-white' : 'text-emerald-500'}" />
+              <span>{$_('list.filter.normalRepair')} ({nodeStatusCounts.normal})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "warn"; currentPages.nodes = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'warn' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <AlertTriangle class="w-3.5 h-3.5 {statusFilter === 'warn' ? 'text-white' : 'text-amber-500'}" />
+              <span>{$_('list.filter.warn')} ({nodeStatusCounts.warn})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "error"; currentPages.nodes = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'error' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <AlertCircle class="w-3.5 h-3.5 {statusFilter === 'error' ? 'text-white' : 'text-rose-500'}" />
+              <span>{$_('list.filter.faultHeavyLight')} ({nodeStatusCounts.error})</span>
+            </button>
+          </div>
         {:else if activeCategory === "pollings"}
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onclick={() => { statusFilter = "all"; currentPages.pollings = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <Layers class="w-3.5 h-3.5" />
+              <span>{$_('list.filter.allStatus')} ({pollingStatusCounts.all})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "normal"; currentPages.pollings = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'normal' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <CheckCircle2 class="w-3.5 h-3.5 {statusFilter === 'normal' ? 'text-white' : 'text-emerald-500'}" />
+              <span>{$_('list.filter.normalRepair')} ({pollingStatusCounts.normal})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "warn"; currentPages.pollings = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'warn' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <AlertTriangle class="w-3.5 h-3.5 {statusFilter === 'warn' ? 'text-white' : 'text-amber-500'}" />
+              <span>{$_('list.filter.warn')} ({pollingStatusCounts.warn})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "error"; currentPages.pollings = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'error' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <AlertCircle class="w-3.5 h-3.5 {statusFilter === 'error' ? 'text-white' : 'text-rose-500'}" />
+              <span>{$_('list.filter.faultHeavyLight')} ({pollingStatusCounts.error})</span>
+            </button>
+            <button
+              type="button"
+              onclick={() => { statusFilter = "logging"; currentPages.pollings = 1; }}
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'logging' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+            >
+              <FileText class="w-3.5 h-3.5 {statusFilter === 'logging' ? 'text-white' : 'text-indigo-500 dark:text-indigo-400'}" />
+              <span>{$_('list.filter.loggingOnly')} ({pollingStatusCounts.logging})</span>
+            </button>
+          </div>
+
           <select
             bind:value={typeFilter}
             onchange={() => (currentPages[activeCategory] = 1)}
             class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
           >
-            <option value="all">{$_('list.filter.allProtocols')} ({pollings.length})</option>
-            <option value="ping">PING</option>
-            <option value="http">HTTP/HTTPS</option>
-            <option value="snmp">SNMP</option>
-            <option value="tcp">TCP</option>
-            <option value="dns">DNS</option>
-            <option value="ntp">NTP</option>
+            <option value="all">{$_('list.filter.allPollingTypes')} ({pollings.length})</option>
+            {#each availablePollingTypes as pt}
+              <option value={pt.value}>{pt.label} ({pollings.filter(p => (p.type || (p as any).Type || '').toLowerCase() === pt.value.toLowerCase()).length})</option>
+            {/each}
           </select>
         {:else if activeCategory === "lines"}
           <select
@@ -753,7 +897,7 @@
                 {@render sortableHeader("nodes", "name", $_('list.table.nodeName'))}
                 {@render sortableHeader("nodes", "ip", $_('list.table.ip'))}
                 {@render sortableHeader("nodes", "mac", $_('list.table.mac'))}
-                {@render sortableHeader("nodes", "coords", $_('list.table.coords'), "w-32")}
+                {@render sortableHeader("nodes", "vendor", $_('list.table.vendor') || 'ベンダー')}
                 {@render sortableHeader("nodes", "descr", $_('list.table.descr'))}
                 <th class="py-1 px-2 text-right w-28">{$_('list.table.action')}</th>
               </tr>
@@ -773,29 +917,29 @@
                   </td>
                   <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-semibold">{n.ip}</td>
                   <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{n.mac || "-"}</td>
-                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
-                    ({n.x ?? 0}, {n.y ?? 0})
+                  <td class="py-1 px-2 font-sans text-slate-700 dark:text-slate-300 text-[11px] max-w-[160px] truncate" title={n.vendor || (n as any).Vendor || (n.mac ? getVendor(n.mac) : "") || "-"}>
+                    {n.vendor || (n as any).Vendor || (n.mac ? getVendor(n.mac) : "") || "-"}
                   </td>
                   <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-sans truncate max-w-xs">{n.descr || "-"}</td>
                   <td class="py-1 px-2 text-right font-sans">
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleDetailNode(n)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                        class="rounded-lg p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
                         title={$_('map.context.vpanelDetail')}
                       >
                         <Box class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleEditNode(n)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                         title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteNode(n.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                         title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
@@ -822,6 +966,7 @@
                 {@render sortableHeader("pollings", "status", $_('list.table.status'), "w-28")}
                 {@render sortableHeader("pollings", "name", $_('list.table.pollingName'))}
                 {@render sortableHeader("pollings", "type", $_('list.table.type'), "w-24")}
+                {@render sortableHeader("pollings", "mode", $_('list.table.mode') || 'モード', "w-28")}
                 {@render sortableHeader("pollings", "logMode", $_('list.table.logMode'), "w-28")}
                 {@render sortableHeader("pollings", "targetNode", $_('list.table.targetNode'))}
                 {@render sortableHeader("pollings", "lastVal", $_('list.table.lastVal'), "w-32")}
@@ -844,6 +989,9 @@
                       {p.type}
                     </span>
                   </td>
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-mono text-[11px] truncate max-w-[120px]">
+                    {p.mode || (p as any).Mode || "-"}
+                  </td>
                   <td class="py-1 px-2 whitespace-nowrap">
                     <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border {getLogModeBadgeClass(p.log_mode ?? (p as any).LogMode)}">
                       {getLogModeName(p.log_mode ?? (p as any).LogMode, $_)}
@@ -864,7 +1012,7 @@
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleViewPolling(p)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-cyan-400 transition-colors cursor-pointer"
+                        class="rounded-lg p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
                         title={$_('common.view')}
                         aria-label={$_('common.view')}
                       >
@@ -872,7 +1020,7 @@
                       </button>
                       <button
                         onclick={() => handleEditPolling(p)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                         title={$_('common.edit')}
                         aria-label={$_('common.edit')}
                       >
@@ -880,7 +1028,7 @@
                       </button>
                       <button
                         onclick={() => handleDeletePolling(p.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                         title={$_('common.delete')}
                         aria-label={$_('common.delete')}
                       >
@@ -892,7 +1040,7 @@
               {/each}
               {#if filteredPollings.length === 0}
                 <tr>
-                  <td colspan="8" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
+                  <td colspan="9" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                     {$_('list.empty.pollings')}
                   </td>
                 </tr>
@@ -938,14 +1086,14 @@
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditNetwork(net)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                         title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteNetwork(net.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                         title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
@@ -1015,14 +1163,14 @@
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditLine(l)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                         title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteLine(l.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                         title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />
@@ -1098,21 +1246,21 @@
                     <div class="flex items-center justify-end gap-1">
                       <button
                         onclick={() => handleEditDrawItem(d)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                         title={$_('common.edit')}
                       >
                         <Edit3 class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleCopyDrawItem(d.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                        class="rounded-lg p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors cursor-pointer"
                         title={$_('common.copy') || 'コピー'}
                       >
                         <Copy class="h-4 w-4" />
                       </button>
                       <button
                         onclick={() => handleDeleteDrawItem(d.id)}
-                        class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                         title={$_('common.delete')}
                       >
                         <Trash2 class="h-4 w-4" />

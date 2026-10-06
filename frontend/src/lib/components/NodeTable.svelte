@@ -136,14 +136,14 @@
               <td class="px-4 py-2.5 text-right whitespace-nowrap space-x-2">
                 <button
                   onclick={() => openEdit(node)}
-                  class="p-1 text-slate-400 hover:text-blue-400 transition-colors"
+                  class="rounded p-1 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                   title="Edit Node"
                 >
                   <Edit2 class="w-4 h-4" />
                 </button>
                 <button
                   onclick={() => handleDelete(node.id)}
-                  class="p-1 text-slate-400 hover:text-red-400 transition-colors"
+                  class="rounded p-1 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                   title="Delete Node"
                 >
                   <Trash2 class="w-4 h-4" />
