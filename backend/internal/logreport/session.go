@@ -276,12 +276,6 @@ func recalcScores[T any, P interface {
 			lastAlert, exists := scoreAlertSuppressed.Load(suppressKey)
 			if !exists || now-lastAlert.(int64) > int64(1*time.Hour) {
 				scoreAlertSuppressed.Store(suppressKey, now)
-				_ = s.store.AddEventLog(s.ctx, &datastore.EventLogEnt{
-					Time:  now,
-					Type:  "report",
-					Level: "warn",
-					Event: fmt.Sprintf("[%s] Low score detected for %s (Score: %.1f, Penalty: %d)", kind, id, si.Score, si.Penalty),
-				})
 			}
 		}
 	}
