@@ -481,3 +481,186 @@ func TestNodeStateAggregation(t *testing.T) {
 		t.Fatalf("expected node state to remain normal, got: %s", savedNode.State)
 	}
 }
+
+func TestPollingRecoveryAndRepairState(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	var isServerHealthy bool
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isServerHealthy {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("OK"))
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer ts.Close()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  2,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:      "node-repair-1",
+		Name:    "RepairTestNode",
+		IP:      "127.0.0.1",
+		State:   "normal",
+		AutoAck: false,
+	}
+	_ = store.SaveNode(ctx, node)
+
+	poll := &datastore.PollingEnt{
+		ID:           "poll-repair-1",
+		NodeID:       node.ID,
+		Name:         "HTTP Check",
+		Type:         "http",
+		Params:       ts.URL,
+		Level:        "high",
+		State:        polling.StateNormal,
+		PollInt:      60,
+		FailAction:   "mail fail-sub fail-body",
+		RepairAction: "mail repair-sub repair-body",
+	}
+	_ = store.SavePolling(ctx, poll)
+
+	// Step 1: Polling fails (server returns 500)
+	isServerHealthy = false
+	res, err := mgr.ExecuteOne(ctx, poll)
+	if err != nil || res.State != polling.StateHigh {
+		t.Fatalf("expected failure StateHigh, got %s (err: %v)", res.State, err)
+	}
+
+	savedPoll, _ := store.GetPolling(ctx, poll.ID)
+	if savedPoll.State != polling.StateHigh {
+		t.Fatalf("expected saved polling state to be high, got %s", savedPoll.State)
+	}
+	if savedPoll.FailTime == 0 {
+		t.Fatalf("expected FailTime to be recorded on failure")
+	}
+
+	savedNode, _ := store.GetNode(ctx, node.ID)
+	if savedNode.State != polling.StateHigh {
+		t.Fatalf("expected node state to become high, got %s", savedNode.State)
+	}
+
+	// Step 2: Server recovers -> Polling returns normal -> State must become "repair"
+	time.Sleep(50 * time.Millisecond)
+	isServerHealthy = true
+	res, err = mgr.ExecuteOne(ctx, poll)
+	if err != nil {
+		t.Fatalf("expected no poll error, got %v", err)
+	}
+	if res.State != polling.StateNormal {
+		t.Fatalf("expected poller result to be StateNormal, got %s", res.State)
+	}
+
+	savedPoll, _ = store.GetPolling(ctx, poll.ID)
+	if savedPoll.State != polling.StateRepair {
+		t.Fatalf("expected polling state to transition to repair, got %s", savedPoll.State)
+	}
+	if savedPoll.FailTime != 0 {
+		t.Fatalf("expected FailTime to be reset after recovery, got %d", savedPoll.FailTime)
+	}
+
+	// Because node.AutoAck is false, node state should become "repair"
+	savedNode, _ = store.GetNode(ctx, node.ID)
+	if savedNode.State != polling.StateRepair {
+		t.Fatalf("expected node state to be repair with AutoAck=false, got %s", savedNode.State)
+	}
+
+	// Check event logs for repair event
+	var foundRepairLog bool
+	store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
+		if l.Level == polling.StateRepair && l.Type == "polling" {
+			foundRepairLog = true
+			return false
+		}
+		return true
+	})
+	if !foundRepairLog {
+		t.Fatalf("expected to find event log with Level 'repair'")
+	}
+
+	// Step 3: Clear repair pollings
+	cleared := mgr.ClearRepairPollings(ctx)
+	if cleared != 1 {
+		t.Fatalf("expected 1 polling cleared, got %d", cleared)
+	}
+	savedPoll, _ = store.GetPolling(ctx, poll.ID)
+	if savedPoll.State != polling.StateUnknown {
+		t.Fatalf("expected cleared polling state to be unknown, got %s", savedPoll.State)
+	}
+}
+
+func TestPollingAutoAckRecovery(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	var isServerHealthy bool
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isServerHealthy {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer ts.Close()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  2,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:      "node-autoack-1",
+		Name:    "AutoAckNode",
+		IP:      "127.0.0.1",
+		State:   "normal",
+		AutoAck: true, // AutoAck enabled!
+	}
+	_ = store.SaveNode(ctx, node)
+
+	poll := &datastore.PollingEnt{
+		ID:      "poll-autoack-1",
+		NodeID:  node.ID,
+		Name:    "HTTP Check AutoAck",
+		Type:    "http",
+		Params:  ts.URL,
+		Level:   "high",
+		State:   polling.StateNormal,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, poll)
+
+	// Step 1: Failure
+	isServerHealthy = false
+	_, _ = mgr.ExecuteOne(ctx, poll)
+
+	savedNode, _ := store.GetNode(ctx, node.ID)
+	if savedNode.State != polling.StateHigh {
+		t.Fatalf("expected node state high on failure, got %s", savedNode.State)
+	}
+
+	// Step 2: Recovery with AutoAck=true -> updateNodeState automatically transitions repair to normal
+	isServerHealthy = true
+	_, _ = mgr.ExecuteOne(ctx, poll)
+
+	savedNode, _ = store.GetNode(ctx, node.ID)
+	if savedNode.State != polling.StateNormal {
+		t.Fatalf("expected node state normal with AutoAck=true, got %s", savedNode.State)
+	}
+
+	savedPoll, _ := store.GetPolling(ctx, poll.ID)
+	if savedPoll.State != polling.StateNormal {
+		t.Fatalf("expected polling state to be auto-acked to normal, got %s", savedPoll.State)
+	}
+}
+

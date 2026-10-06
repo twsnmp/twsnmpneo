@@ -161,6 +161,9 @@ var transMap = map[string]map[string]string{
 	"Repair": {
 		"ja": "復帰",
 	},
+	"Downtime": {
+		"ja": "障害時間",
+	},
 	"Unknown": {
 		"ja": "不明",
 	},

@@ -182,10 +182,55 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 
 	now := time.Now().UnixNano()
 	oldState := p.State
-	p.State = res.State
+	if oldState == "" {
+		oldState = StateUnknown
+	}
+
+	sendEvent := false
+	var downtimeSec int64 = 0
+
+	switch res.State {
+	case StateNormal:
+		if p.Result != nil {
+			delete(p.Result, "error")
+		}
+		if oldState != StateNormal && oldState != StateRepair {
+			if oldState == StateUnknown ||
+				p.Type == "syslog" || p.Type == "trap" || p.Type == "snmptrap" || p.Type == "arplog" {
+				p.State = StateNormal
+			} else {
+				p.State = StateRepair
+				if p.FailTime > 0 {
+					downtimeSec = (now - p.FailTime) / (1000 * 1000 * 1000)
+					if downtimeSec < 0 {
+						downtimeSec = 0
+					}
+					p.FailTime = 0
+				}
+			}
+			sendEvent = true
+		} else {
+			p.State = oldState
+		}
+	case StateUnknown:
+		if oldState != StateUnknown {
+			p.State = StateUnknown
+			sendEvent = true
+		}
+	default:
+		// Failure states (warn, low, high, etc.)
+		if oldState != res.State {
+			if oldState == StateNormal || oldState == StateRepair || oldState == StateUnknown || p.FailTime == 0 {
+				p.FailTime = now
+			}
+			p.State = res.State
+			sendEvent = true
+		}
+	}
+
 	p.LastTime = now
 	resMap := map[string]interface{}{
-		"state":   res.State,
+		"state":   p.State,
 		"rtt":     float64(res.RTT.Nanoseconds()),
 		"message": res.Message,
 	}
@@ -206,37 +251,32 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 		_ = m.store.SavePolling(ctx, p)
 
 		// Record state change event log
-		if oldState != res.State {
+		if sendEvent {
 			nodeName := p.NodeID
 			if node != nil {
 				nodeName = node.Name
-			}
-			level := "info"
-			switch res.State {
-			case StateWarn:
-				level = "warn"
-			case StateHigh:
-				level = "high"
-			case StateNormal:
-				if oldState == StateWarn || oldState == StateHigh {
-					level = "repair"
-				} else {
-					level = "info"
-				}
 			}
 			dispOld := oldState
 			if dispOld == "" {
 				dispOld = "unknown"
 			}
+			eventMsg := fmt.Sprintf(i18n.Trans("Polling %s: %s -> %s (%s)"), p.Name, dispOld, p.State, res.Message)
+			if p.State == StateRepair && downtimeSec > 0 {
+				eventMsg += fmt.Sprintf(" [%s: %s]", i18n.Trans("Downtime"), formatDowntime(downtimeSec))
+			}
 			_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
 				Time:      now,
 				Type:      "polling",
-				Level:     level,
+				Level:     p.State,
 				NodeName:  nodeName,
 				NodeID:    p.NodeID,
-				Event:     fmt.Sprintf(i18n.Trans("Polling %s: %s -> %s (%s)"), p.Name, dispOld, res.State, res.Message),
+				Event:     eventMsg,
 				LastLevel: oldState,
+				Downtime:  downtimeSec,
 			})
+
+			// Execute configured action in background
+			go doAction(context.Background(), p, m.store)
 		}
 
 		// Update node state by aggregating all active pollings
@@ -246,9 +286,9 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 	}
 
 	// Record to Parquet log store if enabled
-	if m.logStore != nil && (p.LogMode == datastore.LogModeAlways || p.LogMode == datastore.LogModeAI || (p.LogMode == datastore.LogModeOnChange && oldState != res.State)) {
+	if m.logStore != nil && (p.LogMode == datastore.LogModeAlways || p.LogMode == datastore.LogModeAI || (p.LogMode == datastore.LogModeOnChange && oldState != p.State)) {
 		payload := map[string]interface{}{
-			"State":  res.State,
+			"State":  p.State,
 			"Result": p.Result,
 		}
 		logData, _ := json.Marshal(payload)
@@ -398,7 +438,7 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 	}
 
 	if !hasActivePolling {
-		if node.State == "" || node.State == StateHigh || node.State == StateLow || node.State == StateWarn {
+		if node.State == "" || node.State == StateHigh || node.State == StateLow || node.State == StateWarn || node.State == StateRepair {
 			newState = StateNormal
 		} else {
 			newState = node.State
@@ -410,3 +450,25 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 		_ = m.store.SaveNode(ctx, node)
 	}
 }
+
+// ClearRepairPollings resets all pollings in 'repair' state to 'unknown' and schedules them immediately.
+func (m *Manager) ClearRepairPollings(ctx context.Context) int {
+	if m.store == nil {
+		return 0
+	}
+	pollings, err := m.store.ListPollings(ctx)
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, p := range pollings {
+		if p.State == StateRepair {
+			p.State = StateUnknown
+			p.NextTime = 0
+			_ = m.store.SavePolling(ctx, p)
+			count++
+		}
+	}
+	return count
+}
+

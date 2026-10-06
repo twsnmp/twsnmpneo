@@ -7,7 +7,7 @@ export const stateList = [
   { text: '軽度障害', textEn: 'Low Severity', color: '#fb9a99', icon: 'mdi-alert-circle', value: 'low' },
   { text: '注意', textEn: 'Warning', color: '#dfdf22', icon: 'mdi-alert', value: 'warn' },
   { text: '正常', textEn: 'Normal', color: '#33a02c', icon: 'mdi-check-circle', value: 'normal' },
-  { text: '復旧', textEn: 'Repaired', color: '#1f78b4', icon: 'mdi-autorenew', value: 'repair' },
+  { text: '復帰', textEn: 'Repaired', color: '#1f78b4', icon: 'mdi-autorenew', value: 'repair' },
   { text: '情報', textEn: 'Info', color: '#1f78b4', icon: 'mdi-information', value: 'info' },
   { text: '新規', textEn: 'New', color: '#1f78b4', icon: 'mdi-information', value: 'New' },
   { text: '変更', textEn: 'Change', color: '#e31a1c', icon: 'mdi-autorenew', value: 'Change' },
