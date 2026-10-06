@@ -10,8 +10,6 @@
   import SystemView from "./lib/views/SystemView.svelte";
   import PKIView from "./lib/views/PKIView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
-  import AIAssistant from "./lib/mcp/AIAssistant.svelte";
-  import CatAvatar from "./lib/components/CatAvatar.svelte";
   import { fetchMapConf } from "./lib/api";
   import { _ } from "svelte-i18n";
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
@@ -25,7 +23,6 @@
     Settings,
     Moon,
     Sun,
-    Bot,
     HelpCircle,
     Activity,
     Radio,
@@ -43,7 +40,6 @@
       : true
   );
   let showConfig = $state(false);
-  let showAI = $state(false);
   let mapName = $state("My Network");
 
   const refreshConf = async () => {
@@ -136,15 +132,6 @@
 
     <!-- Right Controls -->
     <div class="flex items-center gap-2">
-      <!-- AI Assistant Button -->
-      <button
-        onclick={() => (showAI = !showAI)}
-        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm cursor-pointer"
-      >
-        <CatAvatar size="w-5 h-5" rounded="rounded-md" />
-        <span>{$_('nav.aiAssistant')}</span>
-      </button>
-
       <!-- Language Switcher -->
       <button
         onclick={toggleLocale}
@@ -213,27 +200,6 @@
 
   <!-- Global Modals & Drawers -->
   <ConfigModal bind:show={showConfig} onSaved={refreshConf} />
-
-  <!-- AI Cat Assistant Drawer (Zero-latency instant slide-in) -->
-  <div
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    class="fixed inset-0 z-50 flex justify-end transition-all duration-200 {showAI ? 'pointer-events-auto visible' : 'pointer-events-none invisible'}"
-    onkeydown={(e) => e.key === "Escape" && (showAI = false)}
-  >
-    <button
-      type="button"
-      class="fixed inset-0 bg-black/50 transition-opacity duration-200 cursor-default {showAI ? 'opacity-100' : 'opacity-0'}"
-      aria-label={$_('common.close')}
-      onclick={() => (showAI = false)}
-    ></button>
-    <div
-      class="relative z-10 h-full w-full max-w-lg bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col transform transition-transform duration-200 ease-out {showAI ? 'translate-x-0' : 'translate-x-full'}"
-    >
-      <AIAssistant onClose={() => (showAI = false)} />
-    </div>
-  </div>
 
   <!-- Preload Material Design Icons font so browser immediately fetches woff2 -->
   <span class="mdi mdi-monitor pointer-events-none fixed -top-[9999px] -left-[9999px] opacity-0" aria-hidden="true"></span>

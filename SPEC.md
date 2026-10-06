@@ -146,7 +146,6 @@ twsnmpneo/
 │   │   │   │   ├── map.ts                    # Complete p5.js map engine (ported from twsnmpfk)
 │   │   │   │   ├── vpanel.ts                 # Complete p5.js 3D WEBGL panel engine (ported from twsnmpfk)
 │   │   │   │   └── chart/drawitem.ts         # Gauge, Bar, Line, and KPI card canvas renderers
-│   │   │   ├── mcp/              # AI chat & MCP assistant panel
 │   │   │   └── stores/           # Svelte 5 stores ($state) & API clients
 │   │   ├── static/               # Device icons & sound files
 │   │   ├── App.svelte            # Top navigation & active view router
@@ -566,18 +565,7 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 * **Canvas & Telemetry Chart i18n (`map.ts`, `vpanel.ts`, `echarts`)**:
   - Canvas graphics engines and ECharts tooltips/axes must reactively determine locale via `(get(locale) || 'ja').startsWith('ja')` to ensure all chart legends, axis names, and canvas labels render in the active language.
 
-#### 4.10.6 AI Cat Assistant Specifications
-* **Character & Persona Branding**:
-  - The AI assistant is formally branded as **AI Cat アシスタント / AI Cat Assistant** (successor to generic AI copilots).
-  - Displays the feline character avatar (`frontend/src/assets/images/aicat_thumb.jpg`) via `CatAvatar.svelte`.
-* **Zero-Latency Slide-In Drawer**:
-  - Rendered globally in `App.svelte` as an off-canvas drawer (`fixed inset-0 z-50 flex justify-end`) with CSS transform slide-in (`translate-x-full` -> `translate-x-0`).
-  - Pre-mounted in DOM to guarantee instantaneous opening without component initialization lag or network delays.
-* **Context-Aware Assistance**:
-  - Preloaded suggestion chips for quick queries (Network diagnosis, high-load detection, log anomaly scanning).
-  - Direct integration with backend LLM orchestration and MCP diagnostic tools.
-
-#### 4.10.7 GeoIP Database Management Standards
+#### 4.10.6 GeoIP Database Management Standards
 * **Database Format**: MaxMind GeoLite2 / GeoIP2 City & ASN binary databases (`.mmdb`).
 * **Theme-Adaptive Upload UI**:
   - The GeoIP upload and management card in `ConfigModal.svelte` must fully adapt to dark and light modes (`bg-slate-50 dark:bg-slate-950/60`, `border-slate-200 dark:border-slate-800`).
@@ -585,7 +573,7 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - Upload via `/api/conf/geoip` with automatic database version extraction.
   - One-click deletion via `/api/conf/geoip` with confirmation prompt and live status reflection.
 
-#### 4.10.8 MIB Module & Definition Management Standards
+#### 4.10.7 MIB Module & Definition Management Standards
 * **Configuration Modal Integration (`ConfigModal.svelte`)**:
   - Dedicated **MIB管理 / MIB Management** sidebar tab aligned with `twsnmpfk` settings.
   - Comprehensive tabular overview of loaded standard built-in MIBs (`int`) and user-extended MIBs (`ext` from `extmibs`).

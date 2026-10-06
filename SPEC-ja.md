@@ -153,7 +153,6 @@ twsnmpneo/
 │   │   │   │   ├── map.ts                    # p5.js マップ描画エンジン (twsnmpfk完全移植)
 │   │   │   │   ├── vpanel.ts                 # p5.js 3D WEBGL 機器パネル描画エンジン
 │   │   │   │   └── chart/drawitem.ts         # Gauge, Bar, Line, KPI カードキャンバスレンダラー
-│   │   │   ├── mcp/              # AIチャット & MCPアシスタントパネル
 │   │   │   └── stores/           # Svelte 5 stores ($state) & APIクライアント
 │   │   ├── static/               # デバイスアイコン & 音声ファイル
 │   │   ├── App.svelte            # トップナビゲーション & アクティブ画面ルーター
@@ -315,18 +314,7 @@ TWSNMP NEO のすべての画面・コンポーネント開発において、統
 * **Canvas およびテレメトリチャートの国際化 (`map.ts`, `vpanel.ts`, `echarts`)**:
   - p5.js Canvas 描画エンジンおよび ECharts のツールチップ・軸ラベルは、`(get(locale) || 'ja').startsWith('ja')` によりアクティブ言語を動的判定して描画。
 
-#### 4.10.6 AI Cat アシスタント仕様
-* **キャラクター & ペルソナ規約**:
-  - AI アシスタントの正式名称は **AI Cat アシスタント / AI Cat Assistant**。
-  - キャラクターアバター画像（`frontend/src/assets/images/aicat_thumb.jpg`）を `CatAvatar.svelte` 経由で表示。
-* **ゼロレイテンシ スライドインドロワー**:
-  - `App.svelte` にグローバル配置されたオフキャンバスドロワー（`fixed inset-0 z-50 flex justify-end`、CSS transform `translate-x-full` -> `translate-x-0`）。
-  - コンポーネント初期化ラグやネットワーク遅延を排除するため、DOMに事前マウント（プリマウント）。
-* **コンテキスト認識型アシスタンス**:
-  - クイッククエリ用の提案チップ（ネットワーク診断、高負荷検知、ログ異常スキャンなど）をプリロード。
-  - バックエンド LLM オーケストレーションおよび MCP 診断ツール群との直接連携。
-
-#### 4.10.7 GeoIP データベース管理標準
+#### 4.10.6 GeoIP データベース管理標準
 * **データベース形式**: MaxMind GeoLite2 / GeoIP2 City & ASN バイナリデータベース（`.mmdb`）。
 * **UI & 自動検出**:
   - ドラッグ＆ドロップ対応のアップロード UI。
