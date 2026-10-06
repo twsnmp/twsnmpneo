@@ -13,6 +13,7 @@
   import { fetchMapConf } from "./lib/api";
   import { _ } from "svelte-i18n";
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
+  import logoUrl from "./assets/logo.png";
   import {
     Network,
     MapPin,
@@ -101,8 +102,8 @@
   <header class="flex h-17 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 dark:border-slate-800 dark:bg-slate-950 px-4 py-2 shadow-sm dark:shadow-xl z-30 transition-colors">
     <!-- Brand -->
     <div class="flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 shadow-sm">
-        <Activity class="h-5 w-5 animate-pulse" />
+      <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-md shadow-cyan-500/20 border border-slate-200/60 dark:border-cyan-500/30 bg-slate-900">
+        <img src={logoUrl} alt="TWSNMP NEO" class="h-full w-full object-cover" />
       </div>
       <div>
         <h1 class="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
