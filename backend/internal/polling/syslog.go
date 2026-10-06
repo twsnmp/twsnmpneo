@@ -31,6 +31,8 @@ func (p *SyslogPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 	start := time.Now()
 	mode := strings.ToLower(pe.Mode)
 	switch mode {
+	case "", "count":
+		return p.pollCount(ctx, pe, node, start)
 	case "pri":
 		return p.pollPri(ctx, pe, node, start)
 	case "stats":
@@ -38,7 +40,11 @@ func (p *SyslogPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 	case "sigma":
 		return p.pollSigma(ctx, pe, node, start)
 	default:
-		return p.pollCount(ctx, pe, node, start)
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported syslog mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported syslog mode: %s", pe.Mode)},
+		}, nil
 	}
 }
 

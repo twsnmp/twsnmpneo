@@ -28,6 +28,13 @@ func NewMonitorPoller(sysMon *monitor.Monitor) *MonitorPoller {
 }
 
 func (p *MonitorPoller) Poll(_ context.Context, pe *datastore.PollingEnt, _ *datastore.NodeEnt) (*Result, error) {
+	if pe.Mode != "" {
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported monitor mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported monitor mode: %s", pe.Mode)},
+		}, nil
+	}
 	var mData *monitor.MonitorDataEnt
 	if p.sysMon != nil {
 		data := p.sysMon.GetData()

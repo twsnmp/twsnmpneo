@@ -21,6 +21,16 @@ func NewEMailPoller() *EMailPoller {
 }
 
 func (p *EMailPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "login", "stats", "pop3", "pop3s", "imap", "imaps":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported email mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported email mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 
 	target := pe.Params

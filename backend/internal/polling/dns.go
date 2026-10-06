@@ -28,9 +28,17 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		}
 	}
 
-	mode := pe.Mode
-	if mode == "" {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "ipaddr", "change":
 		mode = "ipaddr"
+	case "addr", "host", "mx", "ns", "txt", "cname":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported dns mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported dns mode: %s", pe.Mode)},
+		}, nil
 	}
 
 	timeout := time.Duration(pe.Timeout) * time.Second

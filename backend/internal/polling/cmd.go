@@ -21,6 +21,13 @@ func NewCmdPoller() *CmdPoller {
 }
 
 func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	if pe.Mode != "" {
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported cmd mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported cmd mode: %s", pe.Mode)},
+		}, nil
+	}
 	cmdStr := pe.Params
 	if cmdStr == "" {
 		return &Result{State: StateHigh, Message: "missing command to execute"}, nil

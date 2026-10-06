@@ -19,14 +19,24 @@ func NewSTUNPoller() *STUNPoller {
 }
 
 func (p *STUNPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	network := "udp4"
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "ipv4", "udp4":
+		network = "udp4"
+	case "ipv6", "udp6":
+		network = "udp6"
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported stun mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported stun mode: %s", pe.Mode)},
+		}, nil
+	}
+
 	server := pe.Params
 	if server == "" {
 		server = stun.DefaultServer
-	}
-
-	network := "udp4"
-	if pe.Mode == "ipv6" || pe.Mode == "udp6" {
-		network = "udp6"
 	}
 
 	timeout := time.Duration(pe.Timeout) * time.Second

@@ -42,6 +42,13 @@ func NewTWSNMPPoller() *TWSNMPPoller {
 }
 
 func (p *TWSNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	if pe.Mode != "" {
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported twsnmp mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported twsnmp mode: %s", pe.Mode)},
+		}, nil
+	}
 	if node == nil && pe.Params == "" {
 		return &Result{State: StateHigh, Message: "missing node or URL target"}, nil
 	}

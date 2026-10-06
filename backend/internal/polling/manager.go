@@ -301,6 +301,14 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 		})
 	}
 
+	if orig != nil {
+		orig.State = p.State
+		orig.FailTime = p.FailTime
+		orig.LastTime = p.LastTime
+		orig.NextTime = p.NextTime
+		orig.Result = p.Result
+	}
+
 	return res, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -31,6 +32,13 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 
 	port := "22"
 	if pe.Mode != "" {
+		if pNum, err := strconv.Atoi(pe.Mode); err != nil || pNum <= 0 || pNum > 65535 {
+			return &Result{
+				State:   StateUnknown,
+				Message: fmt.Sprintf("unsupported ssh mode: %s", pe.Mode),
+				Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported ssh mode: %s", pe.Mode)},
+			}, nil
+		}
 		port = pe.Mode
 	}
 

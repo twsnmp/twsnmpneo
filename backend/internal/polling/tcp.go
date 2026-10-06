@@ -32,12 +32,22 @@ func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		return &Result{State: StateHigh, Message: "missing node IP or host address"}, nil
 	}
 
-	mode := pe.Mode
+	mode := strings.ToLower(pe.Mode)
 	switch mode {
 	case "verify", "version", "expire", "cert":
 		return p.pollTLS(pe, node)
+	case "":
+		if pe.Type == "tls" {
+			return p.pollTLS(pe, node)
+		}
+		return p.pollTCP(ctx, pe, node)
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported %s mode: %s", pe.Type, pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported %s mode: %s", pe.Type, pe.Mode)},
+		}, nil
 	}
-	return p.pollTCP(ctx, pe, node)
 }
 
 // pollTCP performs a plain TCP connection check.

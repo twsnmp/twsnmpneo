@@ -22,6 +22,16 @@ func NewMQTTPoller() *MQTTPoller {
 }
 
 func (p *MQTTPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "connect", "subscribe":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported mqtt mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported mqtt mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 
 	rawURL := pe.MqttURL

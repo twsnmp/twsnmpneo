@@ -21,6 +21,13 @@ func NewLXIPoller() *LXIPoller {
 }
 
 func (p *LXIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	if pe.Mode != "" {
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported lxi mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported lxi mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 	if pe.Script == "" {
 		return &Result{State: failureState(pe.Level), Message: "lxi polling requires a Script"}, nil

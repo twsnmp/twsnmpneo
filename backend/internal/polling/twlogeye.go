@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -18,6 +19,16 @@ func NewTwLogEyePoller() *TwLogEyePoller {
 }
 
 func (p *TwLogEyePoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "report.syslog", "report.snmptrap", "report.netflow", "report.winevent", "report.otel", "report.mqtt", "report.anomaly":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported twlogeye mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported twlogeye mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 
 	addr := pe.Params

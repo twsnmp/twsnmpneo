@@ -17,6 +17,13 @@ func NewNTPPoller() *NTPPoller {
 }
 
 func (p *NTPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	if pe.Mode != "" {
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported ntp mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported ntp mode: %s", pe.Mode)},
+		}, nil
+	}
 	if node == nil || node.IP == "" {
 		return &Result{State: StateHigh, Message: "missing node IP address"}, nil
 	}

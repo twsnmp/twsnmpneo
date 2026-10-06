@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/openconfig/gnmic/pkg/api"
@@ -20,6 +21,16 @@ func NewGNMIPoller() *GNMIPoller {
 }
 
 func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "get", "subscribe":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported gnmi mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported gnmi mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 	if pe.Script == "" {
 		return &Result{State: StateHigh, Message: "gnmi polling requires a Script"}, nil

@@ -41,12 +41,18 @@ func (p *PingPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *dat
 	}
 
 	switch pe.Mode {
+	case "":
+		return p.pollSingle(pe, node.IP)
 	case "line":
 		return p.pollLine(pe, node.IP)
 	case "smoke":
 		return p.pollSmoke(pe, node.IP)
 	default:
-		return p.pollSingle(pe, node.IP)
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported ping mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported ping mode: %s", pe.Mode)},
+		}, nil
 	}
 }
 

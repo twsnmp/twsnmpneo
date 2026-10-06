@@ -51,6 +51,8 @@ func (p *SNMPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *dat
 
 	mode := pe.Mode
 	switch mode {
+	case "", "get", "ps":
+		return p.pollGet(pe, agent, start)
 	case "sysUpTime":
 		return p.pollSysUpTime(pe, agent, start)
 	case "ifOperStatus":
@@ -68,7 +70,11 @@ func (p *SNMPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *dat
 	case "script":
 		return p.pollScript(pe, agent, start)
 	default:
-		return p.pollGet(pe, agent, start)
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported snmp mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported snmp mode: %s", pe.Mode)},
+		}, nil
 	}
 }
 

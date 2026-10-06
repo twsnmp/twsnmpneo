@@ -27,6 +27,16 @@ func NewNetFlowPoller(store datastore.DataStore, logStore *parquet.Store) *NetFl
 }
 
 func (p *NetFlowPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "stats", "count", "traffic":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported netflow mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported netflow mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 	st := time.Now().Add(-time.Duration(pe.PollInt) * time.Second).UnixNano()
 	if pe.Result != nil {

@@ -34,6 +34,16 @@ func NewHTTPPoller() *HTTPPoller {
 }
 
 func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "http", "https", "hash", "metrics", "apache", "nginx", "fiber":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported http mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported http mode: %s", pe.Mode)},
+		}, nil
+	}
 	url := pe.Params
 	if url == "" {
 		if node != nil && node.URL != "" {

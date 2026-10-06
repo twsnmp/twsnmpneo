@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -25,6 +26,16 @@ func NewSnmpTrapPoller(store datastore.DataStore, logStore *parquet.Store) *Snmp
 }
 
 func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
+	mode := strings.ToLower(pe.Mode)
+	switch mode {
+	case "", "count", "stats":
+	default:
+		return &Result{
+			State:   StateUnknown,
+			Message: fmt.Sprintf("unsupported trap mode: %s", pe.Mode),
+			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported trap mode: %s", pe.Mode)},
+		}, nil
+	}
 	start := time.Now()
 	st := time.Now().Add(-time.Duration(pe.PollInt) * time.Second).UnixNano()
 	if pe.Result != nil {

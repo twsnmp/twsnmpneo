@@ -323,7 +323,7 @@ func TestPollingManager_ExecuteAndLog(t *testing.T) {
 		Name:     "Web Check",
 		Type:     "http",
 		Params:   ts.URL,
-		State:    "warn", // triggers state change to normal
+		State:    "unknown", // triggers state change to normal
 		LogMode:  datastore.LogModeAlways,
 		PollInt:  1,
 		NextTime: time.Now().UnixNano(),
@@ -663,4 +663,80 @@ func TestPollingAutoAckRecovery(t *testing.T) {
 		t.Fatalf("expected polling state to be auto-acked to normal, got %s", savedPoll.State)
 	}
 }
+
+func TestUnsupportedPollingModes(t *testing.T) {
+	ctx := context.Background()
+	store, _, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	mgr := polling.NewManager(polling.Config{
+		Store: store,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:   "node-unsupported",
+		Name: "TestNode",
+		IP:   "127.0.0.1",
+	}
+	_ = store.SaveNode(ctx, node)
+
+	tests := []struct {
+		name    string
+		pType   string
+		mode    string
+		wantErr string
+	}{
+		{"syslog twpcap", "syslog", "twpcap", "unsupported syslog mode: twpcap"},
+		{"syslog twbluescan", "syslog", "twbluescan", "unsupported syslog mode: twbluescan"},
+		{"snmp invalid", "snmp", "invalid_mode", "unsupported snmp mode: invalid_mode"},
+		{"ping invalid", "ping", "invalid_mode", "unsupported ping mode: invalid_mode"},
+		{"tcp invalid", "tcp", "invalid_mode", "unsupported tcp mode: invalid_mode"},
+		{"tls invalid", "tls", "invalid_mode", "unsupported tls mode: invalid_mode"},
+		{"dns invalid", "dns", "invalid_mode", "unsupported dns mode: invalid_mode"},
+		{"trap invalid", "trap", "twpcap", "unsupported trap mode: twpcap"},
+		{"arplog invalid", "arplog", "invalid_mode", "unsupported arplog mode: invalid_mode"},
+		{"netflow invalid", "netflow", "invalid_mode", "unsupported netflow mode: invalid_mode"},
+		{"stun invalid", "stun", "invalid_mode", "unsupported stun mode: invalid_mode"},
+		{"http invalid", "http", "invalid_mode", "unsupported http mode: invalid_mode"},
+		{"email invalid", "email", "invalid_mode", "unsupported email mode: invalid_mode"},
+		{"mqtt invalid", "mqtt", "invalid_mode", "unsupported mqtt mode: invalid_mode"},
+		{"gnmi invalid", "gnmi", "invalid_mode", "unsupported gnmi mode: invalid_mode"},
+		{"twlogeye invalid", "twlogeye", "invalid_mode", "unsupported twlogeye mode: invalid_mode"},
+		{"ntp invalid", "ntp", "invalid_mode", "unsupported ntp mode: invalid_mode"},
+		{"lxi invalid", "lxi", "invalid_mode", "unsupported lxi mode: invalid_mode"},
+		{"monitor invalid", "monitor", "invalid_mode", "unsupported monitor mode: invalid_mode"},
+		{"cmd invalid", "cmd", "invalid_mode", "unsupported cmd mode: invalid_mode"},
+		{"twsnmp invalid", "twsnmp", "invalid_mode", "unsupported twsnmp mode: invalid_mode"},
+		{"ssh invalid", "ssh", "invalid_mode", "unsupported ssh mode: invalid_mode"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pe := &datastore.PollingEnt{
+				ID:      "poll-" + tt.name,
+				NodeID:  node.ID,
+				Name:    tt.name,
+				Type:    tt.pType,
+				Mode:    tt.mode,
+				Params:  "127.0.0.1",
+				Level:   "high",
+				PollInt: 60,
+			}
+			res, err := mgr.ExecuteOne(ctx, pe)
+			if err != nil {
+				t.Fatalf("ExecuteOne returned error: %v", err)
+			}
+			if res.State != polling.StateUnknown {
+				t.Fatalf("expected StateUnknown for %s (mode=%s), got state=%s", tt.pType, tt.mode, res.State)
+			}
+			if res.Message != tt.wantErr {
+				t.Fatalf("expected message %q, got %q", tt.wantErr, res.Message)
+			}
+			if errVal, ok := res.Fields["error"].(string); !ok || errVal != tt.wantErr {
+				t.Fatalf("expected Fields[error] %q, got %v", tt.wantErr, res.Fields["error"])
+			}
+		})
+	}
+}
+
 
