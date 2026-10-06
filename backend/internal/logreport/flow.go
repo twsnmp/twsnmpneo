@@ -124,16 +124,10 @@ func (s *Session) checkFumble(fr *FlowRecord) bool {
 	}
 
 	recordAlert := func(id string, tcpCount, icmpCount int64) {
-		if (tcpCount >= fumbleThreshold || icmpCount >= fumbleThreshold) {
+		if tcpCount >= fumbleThreshold || icmpCount >= fumbleThreshold {
 			lastAlert, exists := fumbleAlertSuppressed.Load(id)
 			if !exists || now-lastAlert.(int64) > int64(1*time.Hour) {
 				fumbleAlertSuppressed.Store(id, now)
-				_ = s.store.AddEventLog(s.ctx, &datastore.EventLogEnt{
-					Time:  now,
-					Type:  "report",
-					Level: "warn",
-					Event: fmt.Sprintf("[fumble] High fumble count detected for %s (TCP: %d, ICMP: %d)", id, tcpCount, icmpCount),
-				})
 			}
 		}
 	}
