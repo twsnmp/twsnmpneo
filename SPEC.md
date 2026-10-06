@@ -140,7 +140,7 @@ twsnmpneo/
 │   │   │   │   ├── OTelView.svelte           # Dedicated OpenTelemetry metrics, traces, and DAG viewer
 │   │   │   │   ├── MQTTView.svelte           # Dedicated MQTT topic statistics, reports, and log viewer
 │   │   │   │   ├── ReportView.svelte         # Analytics reports (Device, IPAM, Flow, Windows, Sensor, Cert, AI)
-│   │   │   │   ├── ToolView.svelte           # Tools (MIB Browser, Ping, gNMI, WOL)
+│   │   │   │   ├── PKIView.svelte            # PKI Certificate Authority & SCEP server view
 │   │   │   │   └── SystemView.svelte         # System status & metrics
 │   │   │   ├── map/
 │   │   │   │   ├── map.ts                    # Complete p5.js map engine (ported from twsnmpfk)
@@ -216,11 +216,9 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
      - **AI Anomaly**: AI anomaly score reporting strictly aligned with TWSNMP FK (`AIList`). Displays pollings configured with log mode "異常検知あり" (`LogMode == LogModeAI`). Polling editor supports algorithm selection (`iforest`, `zscore`, `lof`, `knn`, `mahalanobis`, `hotelling`, `autoencoder`, `lstm`) and vector feature columns (`VectorCols`). Table presents Anomaly score with severity emoticon icon, Node Name, Polling, Count, and Last time. Supports row selection, Heatmap/Pie/Time analytics report modal (`AIReportModal`), feature DataFrame CSV export (`/api/ai/export/:id`), and result clearing.
      - **Anomaly Detection & Alert Integration**: Periodic evaluation of entity scores and Fumble counts; triggers `EventLogEnt` (Level: "warn", Type: "report") with 1-hour duplicate suppression when deviation score drops below `ScoreThreshold` or fumble count exceeds `FumbleThreshold`.
-9. **Tool View (`ToolView.svelte`)**:
-   - **MIB Browser**: MIB tree hierarchy, SNMP Walk/Table/Get query interface with enterprise MIB resolution.
-   - **Ping Tool**: Continuous Ping with real-time response time graph and sound alerts.
-   - **gNMI Tool**: Capabilities, Get, and Subscribe explorer.
-   - **WOL**: Wake-on-LAN magic packet dispatcher.
+9. **PKI & Certificate View (`PKIView.svelte`)**:
+   - Certificate Authority (CA) status, certificate issuance inventory, and SCEP management.
+   - Diagnostic tools (Ping, MIB Browser, gNMI, WOL) are launched as modals from Map context menu & NodeDetailModal.
 10. **System View (`SystemView.svelte`)**:
    - Fully compatible with TWSNMP FK resource monitor.
    - Top status summary cards: CPU utilization, Memory usage, Goroutines, Disk usage, Process Uptime, and Build/Git version.
@@ -635,9 +633,9 @@ flowchart TD
    - Port `vpanel.ts` (3D WEBGL hardware rack rendering).
    - Port editors: `NodeDialog`, `NetworkDialog`, `DrawItemDialog`, `LineDialog`.
 4. **Milestone 4: Node Detail, Polling Management & Operational Tools**
-   - Implement `NodeDetailModal` (Virtual Panel, Ports, Host Resource, RMON, Polling, Logs, Diagnose).
+   - Implement `NodeDetailModal` (Virtual Panel, Ports, Host Resource, RMON, Polling, Logs, Diagnose) with embedded Diagnostic Tools (Ping, MIB Browser, gNMI, WOL).
    - Implement `PollingDialog` and time-series telemetry charts.
-   - Implement `ToolView`: MIB Browser with MIB Tree explorer, Real-time Ping tool, gNMI tool, WOL.
+   - Implement Diagnostic Dialogs (`PingDialog`, `MIBBrowserDialog`, `GNMIToolDialog`) accessible from Map context menu & NodeDetailModal.
    - Implement `DiscoverView` (Ping/SNMP sweep engine).
 5. **Milestone 5: Dedicated Log Viewers & Protocol Receivers**
    - Implement dedicated views for EventLog, Syslog, SNMP TRAP, NetFlow, sFlow, ARP, OTel.

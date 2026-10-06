@@ -147,7 +147,7 @@ twsnmpneo/
 │   │   │   │   ├── OTelView.svelte           # OpenTelemetry 専用監視画面 (Metrics, Traces, Logs)
 │   │   │   │   ├── MQTTView.svelte           # MQTT 専用監視画面 (Stats, Logs)
 │   │   │   │   ├── ReportView.svelte         # 分析レポート画面 (8系統レポートスイート)
-│   │   │   │   ├── ToolView.svelte           # 診断ツール画面 (MIB Browser, Ping, gNMI, WOL)
+│   │   │   │   ├── PKIView.svelte            # PKI 認証局 & SCEP 証明書管理画面
 │   │   │   │   └── SystemView.svelte         # TWSNMP FK準拠リソースモニター・システム稼働情報
 │   │   │   ├── map/
 │   │   │   │   ├── map.ts                    # p5.js マップ描画エンジン (twsnmpfk完全移植)
@@ -219,11 +219,9 @@ twsnmpneo/
      - **セキュリティ & 証明書**: TLS/SSLサーバー証明書有効期限追跡, PKI CA一覧
      - **センサー & IoT**: 環境（温度/湿度）, 電力消費 (Wh), 動体検知, SDR無線強度, MQTTトピック/クライアント
      - **AI 異常検知**: ノードおよびポーリングのAI異常スコアリスト
-9. **ツール画面 (`ToolView.svelte`)**:
-   - **MIBブラウザ**: MIBツリー階層ナビゲーション、標準・Enterprise MIB解決、SNMP Get/GetNext/Walk/Table実行、Table結果のページネーション。
-   - **Ping ツール**: 連続Ping実行、リアルタイム応答時間EChartsグラフ、パケットサイズ指定、応答/パケロス音声再生。
-   - **gNMI ツール**: Capabilities, Get, Subscribe エクスプローラ。
-   - **WOL (Wake-on-LAN)**: マジックパケット送出。
+9. **PKI 証明書画面 (`PKIView.svelte`)**:
+   - 内部認証局 (CA) の状態確認、証明書一覧、SCEP 登録管理。
+   - 診断ツール（Ping, MIBブラウザ, gNMI, Wake-on-LAN）は、マップの右クリックメニューおよびノード詳細モーダル（`NodeDetailModal`）からダイアログとして起動する。
 10. **システム画面 (`SystemView.svelte`)**:
    - TWSNMP FK準拠の高精度リソースモニター。
    - トップサマリーカード: CPU使用率、メモリ使用量、ゴルーチン数、ディスク使用量、稼働時間、Gitコミットハッシュ・バージョン。

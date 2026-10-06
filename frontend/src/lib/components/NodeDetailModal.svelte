@@ -10,6 +10,7 @@
     fetchNodeHostResource,
     fetchNodeRmon,
     diagnoseNode,
+    sendWol,
   } from "../api";
   import type {
     NodeEnt,
@@ -22,6 +23,9 @@
   } from "../api";
   import PollingDetailModal from "./PollingDetailModal.svelte";
   import PollingDialog from "./PollingDialog.svelte";
+  import PingDialog from "./PingDialog.svelte";
+  import MIBBrowserDialog from "./MIBBrowserDialog.svelte";
+  import GNMIToolDialog from "./GNMIToolDialog.svelte";
   import { _ } from "svelte-i18n";
   import {
     X,
@@ -54,6 +58,9 @@
     Eye,
     Pencil,
     Trash2,
+    Power,
+    Radio,
+    Wrench,
   } from "@lucide/svelte";
 
   let {
@@ -119,6 +126,69 @@
   let detailPolling = $state<PollingEnt | null>(null);
   let showPollingEditDialog = $state(false);
   let editPolling = $state<PollingEnt | null>(null);
+
+  // Diagnostic Tools Dialog states
+  let showPingDialog = $state(false);
+  let showMIBBrowserDialog = $state(false);
+  let showGNMIToolDialog = $state(false);
+  let showAddPollingDialog = $state(false);
+  let addPollingObj = $state<PollingEnt | null>(null);
+
+  // WOL Toast states
+  let wolToastMessage = $state("");
+  let showWolToast = $state(false);
+  let wolToastTimer: any = null;
+
+  const showWolNotification = (msg: string) => {
+    wolToastMessage = msg;
+    showWolToast = true;
+    if (wolToastTimer) clearTimeout(wolToastTimer);
+    wolToastTimer = setTimeout(() => {
+      showWolToast = false;
+    }, 3500);
+  };
+
+  const handleOpenPing = () => {
+    showPingDialog = true;
+  };
+
+  const handleOpenMIBBrowser = () => {
+    showMIBBrowserDialog = true;
+  };
+
+  const handleOpenGNMITool = () => {
+    showGNMIToolDialog = true;
+  };
+
+  const handleWakeTargetNode = async () => {
+    if (!node) return;
+    const mac = (node.mac || (node as any).MAC || "").split("(", 1)[0].trim();
+    if (!mac) {
+      showWolNotification($_("map.tools.noMac") || "MACアドレスが設定されていません");
+      return;
+    }
+    try {
+      const nodeId = node.id || (node as any).ID;
+      await sendWol(mac, undefined, nodeId);
+      showWolNotification($_("map.tools.wolSent") || "Wake-on-LAN パケットを送信しました");
+    } catch (e) {
+      showWolNotification("Error: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  const handleAddPollingFromTool = (poll: Partial<PollingEnt>) => {
+    const nId = node?.id || (node as any)?.ID || "";
+    addPollingObj = {
+      id: "",
+      node_id: nId,
+      name: poll.name || "Polling",
+      type: poll.type || "ping",
+      params: poll.params || "",
+      state: "unknown",
+      ...poll,
+    };
+    showAddPollingDialog = true;
+  };
 
   const reloadPollings = async () => {
     isLoadingPollings = true;
@@ -686,7 +756,54 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-2">
+          <!-- Header Quick Diagnostic Tools -->
+          <div class="flex items-center gap-1.5 mr-1 border-r border-slate-200 dark:border-slate-800 pr-2">
+            <!-- Ping Tool -->
+            <button
+              type="button"
+              title="PING"
+              onclick={handleOpenPing}
+              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer shadow-sm"
+            >
+              <Activity class="h-3.5 w-3.5 text-emerald-500" />
+              <span>PING</span>
+            </button>
+
+            <!-- MIB Browser -->
+            <button
+              type="button"
+              title="MIB Browser"
+              onclick={handleOpenMIBBrowser}
+              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/30 transition-all cursor-pointer shadow-sm"
+            >
+              <Eye class="h-3.5 w-3.5 text-teal-500" />
+              <span>MIB</span>
+            </button>
+
+            <!-- gNMI Tool -->
+            <button
+              type="button"
+              title="gNMI Tool"
+              onclick={handleOpenGNMITool}
+              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer shadow-sm"
+            >
+              <Radio class="h-3.5 w-3.5 text-cyan-500" />
+              <span>gNMI</span>
+            </button>
+
+            <!-- Wake-on-LAN -->
+            <button
+              type="button"
+              title="Wake-on-LAN"
+              onclick={handleWakeTargetNode}
+              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-sm"
+            >
+              <Power class="h-3.5 w-3.5 text-amber-500" />
+              <span>WOL</span>
+            </button>
+          </div>
+
           <!-- Maximize / Restore Toggle Button -->
           <button
             type="button"
@@ -765,6 +882,50 @@
                 {/if}
               </button>
             {/each}
+
+            <!-- Diagnostics Tools Group in Sidebar -->
+            <div class="pt-3">
+              <div
+                class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between"
+              >
+                <span>{$_('tools.title') || "診断ツール"}</span>
+                <Wrench class="h-3 w-3" />
+              </div>
+              <div class="grid grid-cols-2 gap-1.5 p-1">
+                <button
+                  type="button"
+                  onclick={handleOpenPing}
+                  class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-colors cursor-pointer"
+                >
+                  <Activity class="h-3 w-3 text-emerald-500 shrink-0" />
+                  <span class="truncate">PING</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={handleOpenMIBBrowser}
+                  class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/30 transition-colors cursor-pointer"
+                >
+                  <Eye class="h-3 w-3 text-teal-500 shrink-0" />
+                  <span class="truncate">MIB</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={handleOpenGNMITool}
+                  class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 transition-colors cursor-pointer"
+                >
+                  <Radio class="h-3 w-3 text-cyan-500 shrink-0" />
+                  <span class="truncate">gNMI</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={handleWakeTargetNode}
+                  class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-colors cursor-pointer"
+                >
+                  <Power class="h-3 w-3 text-amber-500 shrink-0" />
+                  <span class="truncate">WOL</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Node Status & Telemetry Summary Card -->
@@ -1988,4 +2149,41 @@
       onPollingChanged();
     }}
   />
+{/if}
+
+<!-- Diagnostic Tool Dialogs triggered from NodeDetailModal -->
+<PingDialog bind:show={showPingDialog} {node} />
+
+<MIBBrowserDialog
+  bind:show={showMIBBrowserDialog}
+  {node}
+  onAddPolling={handleAddPollingFromTool}
+/>
+
+<GNMIToolDialog
+  bind:show={showGNMIToolDialog}
+  {node}
+  onAddPolling={handleAddPollingFromTool}
+/>
+
+{#if showAddPollingDialog}
+  <PollingDialog
+    bind:show={showAddPollingDialog}
+    bind:polling={addPollingObj}
+    nodes={node ? [node] : []}
+    onSave={async () => {
+      await reloadPollings();
+      onPollingChanged();
+    }}
+  />
+{/if}
+
+<!-- Toast Notification for Wake-on-LAN Action -->
+{#if showWolToast}
+  <div
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-slate-900/95 dark:bg-slate-800/95 text-white shadow-2xl border border-slate-700/60 backdrop-blur-md text-xs font-medium transition-all"
+  >
+    <Power class="w-4 h-4 text-amber-400 shrink-0" />
+    <span>{wolToastMessage}</span>
+  </div>
 {/if}
