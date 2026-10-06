@@ -36,7 +36,6 @@
   } = $props();
 
   let searchQuery = $state("");
-  let statusFilter = $state("all");
   let currentPage = $state(1);
   let pageSize = $state(25);
   let sortColumn = $state<string | null>(null);
@@ -46,23 +45,13 @@
   let showLineDialog = $state(false);
   let selectedLine = $state<LineEnt | null>(null);
 
-  const orphanLinesCount = $derived(
-    lines.filter((l) => isLineOrphaned(l, nodes, networks)).length
-  );
-
   const filteredLines = $derived(
     lines.filter((l) => {
       const q = searchQuery.toLowerCase();
       const t1 = getTargetLabel(l.node_id1 || (l as any).NodeID1, nodes, networks).toLowerCase();
       const t2 = getTargetLabel(l.node_id2 || (l as any).NodeID2, nodes, networks).toLowerCase();
       const info = (l.info || (l as any).Info || "").toLowerCase();
-      const matchSearch = !q || t1.includes(q) || t2.includes(q) || info.includes(q);
-
-      const orphaned = isLineOrphaned(l, nodes, networks);
-      if (statusFilter === "orphan") {
-        return matchSearch && orphaned;
-      }
-      return matchSearch;
+      return !q || t1.includes(q) || t2.includes(q) || info.includes(q);
     })
   );
 
@@ -165,17 +154,6 @@
           class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
         />
       </div>
-
-      <select
-        bind:value={statusFilter}
-        onchange={() => (currentPage = 1)}
-        class="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none font-sans"
-      >
-        <option value="all">{$_('list.filter.allLines')} ({lines.length})</option>
-        {#if orphanLinesCount > 0}
-          <option value="orphan">{$_('list.filter.orphanOnly')} ({orphanLinesCount})</option>
-        {/if}
-      </select>
     </div>
 
     <div class="flex items-center gap-2">
