@@ -357,8 +357,8 @@
               <td class="py-1 px-2 text-slate-600 dark:text-slate-400 text-[11px]">
                 {formatTimeStr(p.last_time)}
               </td>
-              <td class="py-1 px-2 text-right font-sans">
-                <div class="flex items-center justify-end gap-1">
+              <td class="py-0 px-1 text-right font-sans">
+                <div class="flex items-center justify-end">
                   <button
                     onclick={() => handleViewPolling(p)}
                     class="rounded-lg p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"

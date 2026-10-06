@@ -246,8 +246,8 @@
                   </span>
                 {/if}
               </td>
-              <td class="py-1 px-2 text-right font-sans">
-                <div class="flex items-center justify-end gap-1">
+              <td class="py-0 px-1 text-right font-sans">
+                <div class="flex items-center justify-end">
                   <button
                     onclick={() => handleEditLine(l)}
                     class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"

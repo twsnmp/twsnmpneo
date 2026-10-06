@@ -297,8 +297,8 @@
                 {n.vendor || (n as any).Vendor || (n.mac ? getVendor(n.mac) : "") || "-"}
               </td>
               <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-sans truncate max-w-xs">{n.descr || "-"}</td>
-              <td class="py-1 px-2 text-right font-sans">
-                <div class="flex items-center justify-end gap-1">
+              <td class="py-0 px-1 text-right font-sans">
+                <div class="flex items-center justify-end">
                   <button
                     onclick={() => handleDetailNode(n)}
                     class="rounded-lg p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
