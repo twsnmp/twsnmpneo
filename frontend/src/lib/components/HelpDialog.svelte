@@ -222,7 +222,7 @@
             </p>
 
             <div class="pt-1 space-y-2 border-t border-slate-200/60 dark:border-slate-800/80">
-              {#each ($_(`help.pages.${selectedScreen}.tips`) as string[]) || [] as tip}
+              {#each (Array.isArray($_(`help.pages.${selectedScreen}.tips`)) ? $_(`help.pages.${selectedScreen}.tips`) : []) as tip}
                 <div class="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
                   <CheckCircle2 class="h-4 w-4 shrink-0 text-cyan-600 dark:text-cyan-400 mt-0.5" />
                   <span class="leading-tight">{tip}</span>
