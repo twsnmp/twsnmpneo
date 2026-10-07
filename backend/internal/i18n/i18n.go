@@ -245,6 +245,48 @@ var transMap = map[string]map[string]string{
 	"Impacted": {
 		"ja": "影響",
 	},
+	"admin privilege required to create users": {
+		"ja": "ユーザーの追加には管理者権限が必要です",
+	},
+	"admin privilege required to delete users": {
+		"ja": "ユーザーの削除には管理者権限が必要です",
+	},
+	"forbidden: cannot modify other users": {
+		"ja": "他のユーザーを変更する権限がありません",
+	},
+	"forbidden: only administrator can change roles": {
+		"ja": "ロールの変更には管理者権限が必要です",
+	},
+	"cannot demote last administrator": {
+		"ja": "最後の管理者を格下げすることはできません",
+	},
+	"cannot delete the only remaining user": {
+		"ja": "唯一のユーザーを削除することはできません",
+	},
+	"cannot delete the last administrator": {
+		"ja": "最後の管理者を削除することはできません",
+	},
+	"user already exists": {
+		"ja": "このユーザー名は既に存在します",
+	},
+	"user not found": {
+		"ja": "ユーザーが見つかりません",
+	},
+	"username and password are required": {
+		"ja": "ユーザー名とパスワードは必須です",
+	},
+	"permission denied: read-only user cannot perform write operations": {
+		"ja": "閲覧専用アカウントのため変更操作は許可されていません",
+	},
+	"invalid credentials": {
+		"ja": "ユーザー名またはパスワードが正しくありません",
+	},
+	"unauthorized": {
+		"ja": "認証が必要です",
+	},
+	"invalid or expired token": {
+		"ja": "トークンが無効または期限切れです",
+	},
 }
 
 func init() {

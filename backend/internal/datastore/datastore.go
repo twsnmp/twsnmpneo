@@ -164,7 +164,17 @@ type DataStore interface {
 	SaveCustomIcon(ctx context.Context, icon *IconEnt) error
 	SaveCustomIcons(ctx context.Context, icons []*IconEnt) error
 	DeleteCustomIcon(ctx context.Context, name string) error
+
+	// Users & Authentication
+	GetUser(ctx context.Context, user string) (*UserEnt, error)
+	ListUsers(ctx context.Context) ([]*UserEnt, error)
+	SaveUser(ctx context.Context, user *UserEnt) error
+	DeleteUser(ctx context.Context, user string) error
+	CountUsers(ctx context.Context) (int, error)
+	GetAuthSecret(ctx context.Context) ([]byte, error)
+	SaveAuthSecret(ctx context.Context, secret []byte) error
 }
+
 
 // AIResultEnt holds AI anomaly detection results for a polling.
 type AIResultEnt struct {

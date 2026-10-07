@@ -680,4 +680,30 @@ type IconEnt struct {
 	Image string `json:"Image,omitempty"` // Base64 Data URL (data:image/...)
 }
 
+// UserEnt represents an authenticable user in TWSNMP NEO.
+type UserEnt struct {
+	User         string `json:"user"`                    // Unique username/login ID
+	Name         string `json:"name"`                    // Display name
+	PasswordHash string `json:"password_hash,omitempty"` // bcrypt hash for persistence
+	Role         string `json:"role"`                    // "admin", "user", "readonly"
+	CreatedAt    int64  `json:"created_at"`              // Unix seconds
+	UpdatedAt    int64  `json:"updated_at"`              // Unix seconds
+}
+
+// ToPublic returns a copy of UserEnt with the PasswordHash cleared for API responses.
+func (u *UserEnt) ToPublic() *UserEnt {
+	if u == nil {
+		return nil
+	}
+	return &UserEnt{
+		User:      u.User,
+		Name:      u.Name,
+		Role:      u.Role,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
+}
+
+
+
 

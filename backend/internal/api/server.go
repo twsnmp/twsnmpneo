@@ -21,6 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
+	"github.com/twsnmp/twsnmpneo/backend/internal/auth"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/discover"
@@ -46,6 +47,7 @@ type Server struct {
 	mcpServer  *ai.MCPServer
 	pki        *pki.Manager
 	pkiServers *pkiServiceServers
+	authMgr    *auth.Manager
 }
 
 type ArpManager interface {
@@ -68,6 +70,7 @@ type Config struct {
 	Monitor        *monitor.Monitor
 	PollingManager *polling.Manager
 	Receivers      map[string]any
+	AuthManager    *auth.Manager
 }
 
 func NewServer(cfg Config) (*Server, error) {
@@ -78,6 +81,15 @@ func NewServer(cfg Config) (*Server, error) {
 	// Middlewares
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+
+	authMgr := cfg.AuthManager
+	if authMgr == nil && cfg.Store != nil {
+		var aErr error
+		authMgr, aErr = auth.NewManager(cfg.Store)
+		if aErr != nil {
+			return nil, fmt.Errorf("init auth manager: %w", aErr)
+		}
+	}
 
 	if cfg.ACMEBaseURL != "" && cfg.PKI == nil {
 		return nil, fmt.Errorf("ACME service requires a PKI manager")
@@ -108,6 +120,308 @@ func NewServer(cfg Config) (*Server, error) {
 
 	// API Group
 	apiGroup := e.Group("/api")
+
+	// Authentication middleware
+	apiGroup.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			path := c.Path()
+			reqPath := c.Request().URL.Path
+			// Exclude public endpoints
+			if path == "/api/login" || reqPath == "/api/login" ||
+				path == "/api/logout" || reqPath == "/api/logout" ||
+				path == "/api/health" || reqPath == "/api/health" ||
+				strings.HasPrefix(path, "/api/notify/oauth2") || strings.HasPrefix(reqPath, "/api/notify/oauth2") {
+				return next(c)
+			}
+			if authMgr == nil {
+				return next(c)
+			}
+
+			// 1. Check Bearer token in Authorization header
+			var tokenStr string
+			authHeader := c.Request().Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			}
+
+			// 2. Fallback to Cookie
+			if tokenStr == "" {
+				if cookie, err := c.Cookie(auth.SessionCookieName); err == nil && cookie.Value != "" {
+					tokenStr = cookie.Value
+				}
+			}
+
+			if tokenStr == "" {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			}
+
+			claims, err := authMgr.ValidateToken(tokenStr)
+			if err != nil {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
+			}
+
+			// Retrieve user from store
+			if cfg.Store != nil {
+				user, err := cfg.Store.GetUser(c.Request().Context(), claims.User)
+				if err != nil || user == nil {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "user not found"})
+				}
+				c.Set("user", user)
+
+				// Enforce read-only role restrictions
+				if user.Role == "readonly" {
+					method := c.Request().Method
+					if method == http.MethodPost || method == http.MethodPut || method == http.MethodDelete || method == http.MethodPatch {
+						// Allow non-mutating diagnostics and session operations
+						isAllowed := reqPath == "/api/logout" ||
+							strings.HasPrefix(reqPath, "/api/tools/ping") ||
+							strings.HasPrefix(reqPath, "/api/tools/snmp") ||
+							strings.HasPrefix(reqPath, "/api/tools/gnmi") ||
+							strings.HasPrefix(reqPath, "/api/ai/ask") ||
+							strings.HasPrefix(reqPath, "/api/ai/diagnose")
+						if !isAllowed {
+							return c.JSON(http.StatusForbidden, map[string]string{"error": "permission denied: read-only user cannot perform write operations"})
+						}
+					}
+				}
+			}
+
+			return next(c)
+		}
+	})
+
+	// Auth routes
+	apiGroup.POST("/login", func(c echo.Context) error {
+		if authMgr == nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "auth not initialized"})
+		}
+		var req struct {
+			User     string `json:"user"`
+			Password string `json:"password"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		}
+		user, token, err := authMgr.Authenticate(c.Request().Context(), req.User, req.Password)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+		}
+
+		c.SetCookie(&http.Cookie{
+			Name:     auth.SessionCookieName,
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			Secure:   c.IsTLS() || strings.EqualFold(c.Request().Header.Get("X-Forwarded-Proto"), "https"),
+			MaxAge:   int(auth.DefaultTokenDuration.Seconds()),
+		})
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"token": token,
+			"user":  user.ToPublic(),
+		})
+	})
+
+	apiGroup.POST("/logout", func(c echo.Context) error {
+		c.SetCookie(&http.Cookie{
+			Name:     auth.SessionCookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			MaxAge:   -1,
+			Expires:  time.Unix(0, 0),
+		})
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	apiGroup.GET("/me", func(c echo.Context) error {
+		u := c.Get("user")
+		if user, ok := u.(*datastore.UserEnt); ok && user != nil {
+			return c.JSON(http.StatusOK, user.ToPublic())
+		}
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	})
+
+	// User management routes
+	apiGroup.GET("/users", func(c echo.Context) error {
+		if cfg.Store == nil {
+			return c.JSON(http.StatusOK, []*datastore.UserEnt{})
+		}
+		caller, _ := c.Get("user").(*datastore.UserEnt)
+		if caller == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		}
+		if caller.Role != "admin" {
+			// Non-admin can only see their own profile in list
+			return c.JSON(http.StatusOK, []*datastore.UserEnt{caller.ToPublic()})
+		}
+		users, err := cfg.Store.ListUsers(c.Request().Context())
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		res := make([]*datastore.UserEnt, len(users))
+		for i, u := range users {
+			res[i] = u.ToPublic()
+		}
+		return c.JSON(http.StatusOK, res)
+	})
+
+	apiGroup.POST("/users", func(c echo.Context) error {
+		if cfg.Store == nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "store not available"})
+		}
+		caller, _ := c.Get("user").(*datastore.UserEnt)
+		if caller == nil || caller.Role != "admin" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "admin privilege required to create users"})
+		}
+		var req struct {
+			User     string `json:"user"`
+			Name     string `json:"name"`
+			Password string `json:"password"`
+			Role     string `json:"role"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		}
+		req.User = strings.TrimSpace(req.User)
+		req.Name = strings.TrimSpace(req.Name)
+		if req.User == "" || req.Password == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "username and password are required"})
+		}
+		if req.Role == "" {
+			req.Role = "user"
+		}
+		if req.Name == "" {
+			req.Name = req.User
+		}
+
+		existing, _ := cfg.Store.GetUser(c.Request().Context(), req.User)
+		if existing != nil {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "user already exists"})
+		}
+
+		hash, err := auth.HashPassword(req.Password)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
+		}
+
+		now := time.Now().Unix()
+		newUser := &datastore.UserEnt{
+			User:         req.User,
+			Name:         req.Name,
+			PasswordHash: hash,
+			Role:         req.Role,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if err := cfg.Store.SaveUser(c.Request().Context(), newUser); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, newUser.ToPublic())
+	})
+
+	apiGroup.PUT("/users/:user", func(c echo.Context) error {
+		if cfg.Store == nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "store not available"})
+		}
+		caller, _ := c.Get("user").(*datastore.UserEnt)
+		if caller == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		}
+		username := c.Param("user")
+		if caller.Role != "admin" && caller.User != username {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden: cannot modify other users"})
+		}
+
+		user, err := cfg.Store.GetUser(c.Request().Context(), username)
+		if err != nil || user == nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+
+		var req struct {
+			Name     string `json:"name"`
+			Password string `json:"password"`
+			Role     string `json:"role"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+		}
+
+		if req.Name != "" {
+			user.Name = strings.TrimSpace(req.Name)
+		}
+		if req.Password != "" {
+			hash, err := auth.HashPassword(req.Password)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
+			}
+			user.PasswordHash = hash
+		}
+		if req.Role != "" {
+			if caller.Role != "admin" && req.Role != user.Role {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden: only administrator can change roles"})
+			}
+			if user.Role == "admin" && req.Role != "admin" {
+				allUsers, _ := cfg.Store.ListUsers(c.Request().Context())
+				adminCount := 0
+				for _, u := range allUsers {
+					if u.Role == "admin" {
+						adminCount++
+					}
+				}
+				if adminCount <= 1 {
+					return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot demote last administrator"})
+				}
+			}
+			user.Role = req.Role
+		}
+
+		user.UpdatedAt = time.Now().Unix()
+		if err := cfg.Store.SaveUser(c.Request().Context(), user); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, user.ToPublic())
+	})
+
+	apiGroup.DELETE("/users/:user", func(c echo.Context) error {
+		if cfg.Store == nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "store not available"})
+		}
+		caller, _ := c.Get("user").(*datastore.UserEnt)
+		if caller == nil || caller.Role != "admin" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "admin privilege required to delete users"})
+		}
+		username := c.Param("user")
+		user, err := cfg.Store.GetUser(c.Request().Context(), username)
+		if err != nil || user == nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
+		}
+
+		totalUsers, _ := cfg.Store.CountUsers(c.Request().Context())
+		if totalUsers <= 1 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot delete the only remaining user"})
+		}
+
+		if user.Role == "admin" {
+			allUsers, _ := cfg.Store.ListUsers(c.Request().Context())
+			adminCount := 0
+			for _, u := range allUsers {
+				if u.Role == "admin" {
+					adminCount++
+				}
+			}
+			if adminCount <= 1 {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot delete the last administrator"})
+			}
+		}
+
+		if err := cfg.Store.DeleteUser(c.Request().Context(), username); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
 	if cfg.Store != nil {
 		registerGNMIToolRoutes(apiGroup, cfg.Store)
 	}
@@ -122,6 +436,7 @@ func NewServer(cfg Config) (*Server, error) {
 			"version": cfg.Version,
 		})
 	})
+
 
 	// System Information & Resource Monitor
 	apiGroup.GET("/system/info", func(c echo.Context) error {

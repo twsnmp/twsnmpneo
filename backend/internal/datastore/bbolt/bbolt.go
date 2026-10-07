@@ -21,25 +21,27 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"go.etcd.io/bbolt"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 )
 
 var (
-	bucketNodes      = []byte("nodes")
-	bucketLines      = []byte("lines")
-	bucketNetworks   = []byte("networks")
-	bucketItems      = []byte("items")
-	bucketPollings   = []byte("pollings")
-	bucketConfig     = []byte("config")
-	bucketEventLog   = []byte("eventlog")
-	bucketArp        = []byte("arp")
-	bucketOTelMetric = []byte("otelMetric")
-	bucketOTelTrace  = []byte("otelTrace")
-	bucketMqttStat   = []byte("mqttStat")
-	bucketPKICerts   = []byte("pkiCertificates")
+	bucketNodes       = []byte("nodes")
+	bucketLines       = []byte("lines")
+	bucketNetworks    = []byte("networks")
+	bucketItems       = []byte("items")
+	bucketPollings    = []byte("pollings")
+	bucketConfig      = []byte("config")
+	bucketEventLog    = []byte("eventlog")
+	bucketArp         = []byte("arp")
+	bucketOTelMetric  = []byte("otelMetric")
+	bucketOTelTrace   = []byte("otelTrace")
+	bucketMqttStat    = []byte("mqttStat")
+	bucketPKICerts    = []byte("pkiCertificates")
 	bucketCertMonitor = []byte("certMonitor")
 	bucketLogReport   = []byte("logReport")
 	bucketSensor      = []byte("sensor")
+	bucketUsers       = []byte("users")
 
 	keyMapConf           = []byte("mapConf")
 	keyNotifyConf        = []byte("notifyConf")
@@ -48,7 +50,9 @@ var (
 	keyDiscoverConf      = []byte("discoverConf")
 	keyNotifyOAuth2Token = []byte("notifyOAuth2Token")
 	keyCustomIcons       = []byte("customIcons")
+	keyAuthSecret        = []byte("authSecret")
 )
+
 
 // Store implements datastore.DataStore using bbolt.
 type Store struct {
@@ -121,12 +125,73 @@ func New(dbPath string) (*Store, error) {
 			bucketPKICerts,
 			bucketCertMonitor,
 			bucketSensor,
+			bucketUsers,
 		}
 		for _, b := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
 				return fmt.Errorf("create bucket %s: %w", string(b), err)
 			}
 		}
+
+		// Initialize default user if none exists
+		userBucket := tx.Bucket(bucketUsers)
+		if userBucket != nil {
+			var hasAdmin bool
+			var userCount int
+			_ = userBucket.ForEach(func(k, v []byte) error {
+				userCount++
+				var u datastore.UserEnt
+				if err := json.Unmarshal(v, &u); err == nil {
+					if u.Role == "admin" && len(u.PasswordHash) > 0 {
+						hasAdmin = true
+					}
+				}
+				return nil
+			})
+
+			// If no admin user exists, or no user exists at all, seed default twsnmp user
+			twsnmpData := userBucket.Get([]byte("twsnmp"))
+			if !hasAdmin || twsnmpData == nil || userCount == 0 {
+				hash, err := bcrypt.GenerateFromPassword([]byte("twsnmp"), bcrypt.DefaultCost)
+				if err != nil {
+					return fmt.Errorf("hash default password: %w", err)
+				}
+				now := time.Now().Unix()
+				defaultUser := datastore.UserEnt{
+					User:         "twsnmp",
+					Name:         "TWSNMP Administrator",
+					PasswordHash: string(hash),
+					Role:         "admin",
+					CreatedAt:    now,
+					UpdatedAt:    now,
+				}
+				data, err := json.Marshal(defaultUser)
+				if err != nil {
+					return fmt.Errorf("marshal default user: %w", err)
+				}
+				if err := userBucket.Put([]byte("twsnmp"), data); err != nil {
+					return fmt.Errorf("save default user: %w", err)
+				}
+			} else if twsnmpData != nil {
+				// Ensure twsnmp user has a valid password hash
+				var u datastore.UserEnt
+				if err := json.Unmarshal(twsnmpData, &u); err == nil {
+					if u.PasswordHash == "" || !strings.HasPrefix(u.PasswordHash, "$2") {
+						hash, err := bcrypt.GenerateFromPassword([]byte("twsnmp"), bcrypt.DefaultCost)
+						if err == nil {
+							u.PasswordHash = string(hash)
+							if u.Role == "" {
+								u.Role = "admin"
+							}
+							if data, err := json.Marshal(u); err == nil {
+								_ = userBucket.Put([]byte("twsnmp"), data)
+							}
+						}
+					}
+				}
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -2176,4 +2241,169 @@ func (s *Store) DeleteCertMonitor(ctx context.Context, id string) error {
 		return b.Delete([]byte(id))
 	})
 }
+
+// User & Authentication methods
+
+func (s *Store) GetUser(ctx context.Context, username string) (*datastore.UserEnt, error) {
+	if username == "" {
+		return nil, datastore.ErrInvalidParams
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	var u *datastore.UserEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketUsers)
+		if b == nil {
+			return datastore.ErrNotFound
+		}
+		v := b.Get([]byte(username))
+		if v == nil {
+			return datastore.ErrNotFound
+		}
+		u = &datastore.UserEnt{}
+		return json.Unmarshal(v, u)
+	})
+	return u, err
+}
+
+func (s *Store) ListUsers(ctx context.Context) ([]*datastore.UserEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	users := make([]*datastore.UserEnt, 0)
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketUsers)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			var u datastore.UserEnt
+			if err := json.Unmarshal(v, &u); err == nil {
+				users = append(users, &u)
+			}
+			return nil
+		})
+	})
+	return users, err
+}
+
+func (s *Store) SaveUser(ctx context.Context, u *datastore.UserEnt) error {
+	if u == nil || u.User == "" {
+		return datastore.ErrInvalidParams
+	}
+	now := time.Now().Unix()
+	if u.CreatedAt == 0 {
+		u.CreatedAt = now
+	}
+	u.UpdatedAt = now
+	data, err := json.Marshal(u)
+	if err != nil {
+		return fmt.Errorf("marshal user: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketUsers)
+		if b == nil {
+			var bErr error
+			b, bErr = tx.CreateBucketIfNotExists(bucketUsers)
+			if bErr != nil {
+				return bErr
+			}
+		}
+		return b.Put([]byte(u.User), data)
+	})
+}
+
+func (s *Store) DeleteUser(ctx context.Context, username string) error {
+	if username == "" {
+		return datastore.ErrInvalidParams
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketUsers)
+		if b == nil {
+			return nil
+		}
+		return b.Delete([]byte(username))
+	})
+}
+
+func (s *Store) CountUsers(ctx context.Context) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return 0, datastore.ErrDBNotOpen
+	}
+	count := 0
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketUsers)
+		if b != nil {
+			return b.ForEach(func(k, v []byte) error {
+				count++
+				return nil
+			})
+		}
+		return nil
+	})
+	return count, err
+}
+
+func (s *Store) GetAuthSecret(ctx context.Context) ([]byte, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	var secret []byte
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketConfig)
+		if b == nil {
+			return nil
+		}
+		v := b.Get(keyAuthSecret)
+		if v != nil {
+			secret = make([]byte, len(v))
+			copy(secret, v)
+		}
+		return nil
+	})
+	return secret, err
+}
+
+func (s *Store) SaveAuthSecret(ctx context.Context, secret []byte) error {
+	if len(secret) == 0 {
+		return datastore.ErrInvalidParams
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketConfig)
+		if b == nil {
+			var bErr error
+			b, bErr = tx.CreateBucketIfNotExists(bucketConfig)
+			if bErr != nil {
+				return bErr
+			}
+		}
+		return b.Put(keyAuthSecret, secret)
+	})
+}
+
 

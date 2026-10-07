@@ -588,6 +588,40 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 
 ---
 
+### 4.11 Authentication & Multi-User Management
+
+* **Authentication Architecture**:
+  - **Token & Session Management**: Modern JWT (HMAC-SHA256) session tokens issued upon successful credentials verification. Persisted securely in `HttpOnly`, `SameSite=Lax` cookie (`twsnmp_session`) with 24-hour default validity, while also supporting `Authorization: Bearer <token>` headers for automated API clients and scripts.
+  - **Cryptographic Signing Key**: Auth secret key is automatically generated and securely stored in bbolt (`authSecret` key in `users` bucket) across server restarts.
+  - **Password Security**: Stored using industry-standard `bcrypt` hashing (`golang.org/x/crypto/bcrypt`). Password hashes are stripped before serialization in user list and profile APIs via `ToPublic()` model mapping.
+  - **API Protection & Middleware**: All `/api/*` endpoints require valid JWT authentication, with explicit exemptions for `/api/login`, `/api/logout`, `/api/health`, and `/api/notify/oauth2/callback`.
+* **Multi-User Account Lifecycle & RBAC (Role-Based Access Control)**:
+  - **Initial Seeding**: Automatically seeds the default administrator account (`twsnmp:twsnmp`, role `admin`) on first initialization if the user bucket is empty or missing admin.
+  - **Role Definitions & Enforcement**:
+    1. **`admin` (Administrator / 管理者)**: Full administrative authority across all subsystems. Can add, edit, and delete user accounts, assign roles, modify system daemon/receiver configurations, manage CA/PKI certificates, and perform destructive resets on logs/reports.
+    2. **`user` (Operator / 一般運用者)**: Daily operational authority. Can discover devices, create/modify/delete nodes, lines, networks, pollings, and draw items, execute diagnostic tools (Ping, MIB browser, gNMI, WOL, AI assist), and update their own display name / password. Cannot manage other users or alter user roles (`403 Forbidden`).
+    3. **`readonly` (Read-Only / 閲覧者)**: Monitoring & auditing authority. Has full read access to topology maps, device details, real-time logs, telemetry charts, and analytics reports. All state-mutating requests (`POST`, `PUT`, `DELETE`, `PATCH` on nodes, pollings, configs, logs, etc.) are strictly rejected at the middleware level with `403 Forbidden` (non-mutating diagnostic queries such as ping/AI ask remain accessible).
+  - **Deletion & Demotion Protection**: Built-in safeguards prevent deleting the sole remaining user or deleting/demoting the last active administrator account.
+  - **Endpoints**:
+    - `POST /api/login`: Authenticate with username and password, setting session cookie and returning JWT + user profile.
+    - `POST /api/logout`: Invalidate session by clearing the session cookie.
+    - `GET /api/me`: Retrieve current authenticated user profile.
+    - `GET /api/users`: List registered user accounts (admin receives all users, non-admin receives only own profile).
+    - `POST /api/users`: Create a new user account (admin only, `403 Forbidden` otherwise).
+    - `PUT /api/users/:user`: Update display name, role, or reset password (admin or self for name/password; role modification requires admin).
+    - `DELETE /api/users/:user`: Delete a user account (admin only, `403 Forbidden` otherwise).
+* **Login View & Animated Welcome Screen (`LoginView.svelte`)**:
+  - Unauthenticated visitors are immediately presented with the full-page welcome login view.
+  - **Animated Mascot**: Features the iconic TWSNMP mascot cat (`logo.png`) rendered with keyframe entrance bounce/float animation and subtle glowing aura, faithfully evolving the welcome experience from TWSNMP FC / FK.
+  - **Credentials Form**: Sleek glassmorphic card with username and password inputs, password visibility toggle, animated loading spinner, and clear error alerts.
+  - **Theme & Language Accessibility**: Instant access to theme switcher (Dark/Light) and language toggle (JA/EN) on the login screen.
+* **User Management UI (`ConfigModal.svelte`)**:
+  - Integrated **ユーザー管理 / User Management** tab in the System Configuration modal.
+  - Searchable user table with username, display name, role badges, creation dates, and action controls.
+  - Modal dialog for adding new accounts and editing existing profiles / resetting passwords.
+
+---
+
 ## 5. Testing & Quality Policy
 
 * **Coverage Requirement**: Maintain at least 80% statement and branch coverage across all Go backend packages (`internal/polling`, `internal/datastore`, `internal/importer`, `internal/receiver`, `internal/api`, `internal/report`, `internal/pki`, `internal/discover`).

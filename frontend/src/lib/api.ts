@@ -323,6 +323,127 @@ export interface SystemInfo {
 
 const API_BASE = '/api';
 
+export interface UserEnt {
+  user: string;
+  name: string;
+  role: string;
+  created_at?: number;
+  updated_at?: number;
+}
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem('twsnmp_token');
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem('twsnmp_token', token);
+    } else {
+      localStorage.removeItem('twsnmp_token');
+    }
+  } catch {}
+}
+
+export function getAuthHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
+
+export async function login(user: string, password: string): Promise<{ token: string; user: UserEnt }> {
+  const res = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Login failed');
+  }
+  const data = await res.json();
+  if (data.token) {
+    setStoredToken(data.token);
+  }
+  return data;
+}
+
+export async function logout(): Promise<void> {
+  const headers = getAuthHeaders();
+  setStoredToken(null);
+  await fetch(`${API_BASE}/logout`, { method: 'POST', headers }).catch(() => {});
+}
+
+export async function fetchMe(): Promise<UserEnt | null> {
+  try {
+    const res = await fetch(`${API_BASE}/me`, {
+      headers: getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      setStoredToken(null);
+      return null;
+    }
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchUsers(): Promise<UserEnt[]> {
+  const res = await fetch(`${API_BASE}/users`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch users: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function createUser(data: { user: string; name?: string; password: string; role?: string }): Promise<UserEnt> {
+  const res = await fetch(`${API_BASE}/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create user');
+  }
+  return res.json();
+}
+
+export async function updateUser(user: string, data: { name?: string; password?: string; role?: string }): Promise<UserEnt> {
+  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to update user');
+  }
+  return res.json();
+}
+
+export async function deleteUser(user: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to delete user');
+  }
+}
+
+
 export interface PKIStatus {
   ready: boolean;
   commonName?: string;

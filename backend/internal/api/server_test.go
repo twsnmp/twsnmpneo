@@ -54,6 +54,38 @@ func setupTestAPIEnv(t *testing.T) (datastore.DataStore, *parquet.Store, *ai.MCP
 	return bStore, pqStore, mcpSvr, cleanup
 }
 
+type authedHandler struct {
+	handler http.Handler
+	token   string
+}
+
+func (a *authedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if a.token != "" && r.Header.Get("Authorization") == "" && !strings.HasPrefix(r.URL.Path, "/api/login") {
+		r.Header.Set("Authorization", "Bearer "+a.token)
+	}
+	a.handler.ServeHTTP(w, r)
+}
+
+func newAuthedEcho(t *testing.T, srv *api.Server) http.Handler {
+	t.Helper()
+	e := srv.GetEcho()
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"user":"twsnmp","password":"twsnmp"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, loginReq)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("test login failed: %d, body: %s", rec.Code, rec.Body.String())
+	}
+	var res struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &res)
+	return &authedHandler{
+		handler: e,
+		token:   res.Token,
+	}
+}
+
 func TestAPIServer_Endpoints(t *testing.T) {
 	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
 	defer cleanup()
@@ -70,7 +102,8 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Fatalf("create api server failed: %v", err)
 	}
 
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
+
 
 	// 1. GET /api/health
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
@@ -513,7 +546,7 @@ func TestAPIServer_OTelEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
 	ctx := context.Background()
 
 	// Pre-populate metric and trace
@@ -640,7 +673,7 @@ func TestAPIServer_MqttEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
 
 	// 1. GET /api/mqtt/stats
 	req := httptest.NewRequest(http.MethodGet, "/api/mqtt/stats", nil)
@@ -717,7 +750,7 @@ func TestIPAMAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create api server failed: %v", err)
 	}
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/ipam", nil)
 	rec := httptest.NewRecorder()
@@ -786,7 +819,7 @@ func TestAPIServer_MapAndLayoutEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
 
 	// 1. Test the all-node and per-node polling triggers.
 	req := httptest.NewRequest(http.MethodPost, "/api/polling/check-all", nil)
@@ -975,7 +1008,7 @@ func TestAPIServer_PollingDrawItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create api server: %v", err)
 	}
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
 
 	// 1. Create KPI Card (Type 11) for this polling
 	kpiPayload := `{
@@ -1107,7 +1140,7 @@ func TestAPIServer_MIBModuleEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create api server failed: %v", err)
 	}
-	e := srv.GetEcho()
+	e := newAuthedEcho(t, srv)
 
 	// 1. GET /api/mib/modules
 	req := httptest.NewRequest(http.MethodGet, "/api/mib/modules", nil)
@@ -1135,3 +1168,4 @@ func TestAPIServer_MIBModuleEndpoints(t *testing.T) {
 		t.Errorf("expected error deleting non-existent file, got 200")
 	}
 }
+
