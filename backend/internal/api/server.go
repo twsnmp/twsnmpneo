@@ -2309,13 +2309,18 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("invalid or unknown MIB object identifier: %s", req.OID)})
 			}
 
+			if req.Mode == "" {
+				req.Mode = "walk"
+			}
+
 			var vars []gosnmp.SnmpPDU
 			switch req.Mode {
-			case "walk", "table":
-				err = agent.Walk(targetOID, func(pdu gosnmp.SnmpPDU) error {
-					vars = append(vars, pdu)
-					return nil
-				})
+			case "get":
+				var packet *gosnmp.SnmpPacket
+				packet, err = agent.Get([]string{targetOID})
+				if err == nil {
+					vars = packet.Variables
+				}
 			case "getnext":
 				var packet *gosnmp.SnmpPacket
 				packet, err = agent.GetNext([]string{targetOID})
@@ -2323,11 +2328,10 @@ func NewServer(cfg Config) (*Server, error) {
 					vars = packet.Variables
 				}
 			default:
-				var packet *gosnmp.SnmpPacket
-				packet, err = agent.Get([]string{targetOID})
-				if err == nil {
-					vars = packet.Variables
-				}
+				err = agent.Walk(targetOID, func(pdu gosnmp.SnmpPDU) error {
+					vars = append(vars, pdu)
+					return nil
+				})
 			}
 			if err != nil {
 				return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})

@@ -2236,7 +2236,7 @@ export async function reloadMIBModules(): Promise<MIBModuleEnt[]> {
 export async function runSNMPTool(
   target: { nodeId?: string; networkId?: string },
   oid: string,
-  mode: "get" | "getnext" | "walk" | "table",
+  mode: "get" | "getnext" | "walk" | "table" = "walk",
   raw = false
 ): Promise<SNMPToolResult[]> {
   const res = await fetch(`${API_BASE}/tools/snmp`, {

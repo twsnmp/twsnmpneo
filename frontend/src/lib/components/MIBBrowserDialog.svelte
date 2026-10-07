@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     fetchMIBTree,
     runSNMPTool,
@@ -25,6 +25,9 @@
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown,
   } from "@lucide/svelte";
   import MIBTree from "./MIBTree.svelte";
 
@@ -42,9 +45,14 @@
 
   let nameOrOid = $state("");
   let history = $state<string[]>([]);
-  let mode = $state<"get" | "getnext" | "walk" | "table">("walk");
   let scalarOnly = $state(false);
   let rawData = $state(false);
+  let tableSearchQuery = $state("");
+  let sortColumn = $state<string | null>(null);
+  let sortAsc = $state(true);
+
+  let lastQueryIsTable = $state(false);
+  let lastQueryName = $state("");
 
   let isLoading = $state(false);
   let errorMessage = $state("");
@@ -53,6 +61,16 @@
   let copied = $state(false);
   let pageSize = $state(25);
   let currentPage = $state(1);
+
+  // Hover Tooltip state
+  let hoveredInfo = $state<{
+    name: string;
+    oid: string;
+    type?: string;
+    tooltip: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // MIB Tree Modal State
   let showMIBTreeModal = $state(false);
@@ -63,6 +81,8 @@
   const targetNodeId = $derived(node?.id || (node as any)?.ID || "");
   const targetNetworkId = $derived(network?.id || (network as any)?.ID || "");
 
+  const isTable = $derived(lastQueryIsTable);
+
   $effect(() => {
     if (show && (node || network)) {
       untrack(() => {
@@ -70,6 +90,11 @@
         results = [];
         selectedIndices = [];
         currentPage = 1;
+        tableSearchQuery = "";
+        sortColumn = null;
+        lastQueryIsTable = false;
+        lastQueryName = "";
+        hoveredInfo = null;
         nameOrOid = history[0] ?? "";
       });
     }
@@ -81,14 +106,20 @@
     errorMessage = "";
     selectedIndices = [];
     currentPage = 1;
+    tableSearchQuery = "";
+    sortColumn = null;
+    hoveredInfo = null;
     try {
       const q = nameOrOid.trim();
-      results = await runSNMPTool(
+      const res = await runSNMPTool(
         { nodeId: targetNodeId || undefined, networkId: targetNetworkId || undefined },
         q,
-        mode,
+        "walk",
         rawData
       );
+      results = res;
+      lastQueryName = q;
+      lastQueryIsTable = q.toLowerCase().endsWith("table");
       history = [q, ...history.filter((item) => item !== q)].slice(0, 10);
     } catch (e) {
       errorMessage = e instanceof Error ? e.message : String(e);
@@ -121,48 +152,167 @@
     }
   };
 
-  const copySelected = async () => {
-    const list = selectedIndices.length > 0 ? selectedIndices.map((i) => displayedResults[i]).filter((r) => r !== undefined) : results;
-    if (list.length === 0) return;
-    const lines = [`${$_("mib.name")}\t${$_("mib.oid")}\t${$_("mib.type")}\t${$_("mib.value")}`];
-    list.forEach((r) => {
-      lines.push(`${r.name || r.oid}\t${r.oid}\t${r.type}\t${r.value}`);
-    });
-    await navigator.clipboard.writeText(lines.join("\n"));
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
+  // Tooltip helper
+  const getTooltipForMIB = (r: SNMPToolResult) => {
+    const isJa = $locale === "ja" || (!$locale && typeof navigator !== "undefined" && navigator.language?.startsWith("ja"));
+    const mib = r.mib;
+    let desc = "";
+    if (mib) {
+      if (isJa) {
+        desc = mib.descriptionJa || mib.description || mib.descriptionEn || "";
+      } else {
+        desc = mib.descriptionEn || mib.description || "";
+      }
+    }
+    return desc || `OID: ${r.oid}`;
   };
 
-  const exportCSV = () => {
-    if (results.length === 0) return;
-    const lines = [`${$_("mib.name")},${$_("mib.oid")},${$_("mib.type")},${$_("mib.value")}`];
+  const handleMouseEnterRow = (e: MouseEvent, r: SNMPToolResult) => {
+    const tooltip = getTooltipForMIB(r);
+    hoveredInfo = {
+      name: r.name || r.oid,
+      oid: r.oid,
+      type: r.type,
+      tooltip,
+      x: e.clientX,
+      y: e.clientY,
+    };
+  };
+
+  const handleMouseMoveRow = (e: MouseEvent) => {
+    if (hoveredInfo) {
+      hoveredInfo = {
+        ...hoveredInfo,
+        x: e.clientX,
+        y: e.clientY,
+      };
+    }
+  };
+
+  const handleMouseLeaveRow = () => {
+    hoveredInfo = null;
+  };
+
+  // Table structure computation for Table MIB
+  const tableData = $derived.by(() => {
+    if (!isTable) {
+      return { columns: [], rows: [] as Record<string, any>[] };
+    }
+    const colNames: string[] = [];
+    const rowIndices: string[] = [];
+    const rowMap = new Map<string, Record<string, string>>();
+
     results.forEach((r) => {
-      const v = `"${r.value.replace(/"/g, '""')}"`;
-      lines.push(`"${r.name || r.oid}","${r.oid}",${r.type},${v}`);
+      const n = r.name || r.oid;
+      const dotIdx = n.indexOf(".");
+      if (dotIdx > 0) {
+        const base = n.substring(0, dotIdx);
+        const index = n.substring(dotIdx + 1);
+        if (index === "0") return;
+        if (!colNames.includes(base)) {
+          colNames.push(base);
+        }
+        if (!rowMap.has(index)) {
+          rowIndices.push(index);
+          rowMap.set(index, {});
+        }
+        rowMap.get(index)![base] = r.value;
+      }
     });
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mib_${targetName}_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
-  const handleCreatePolling = () => {
-    if (selectedIndices.length !== 1 || !onAddPolling) return;
-    const r = displayedResults[selectedIndices[0]];
+    const columns = ["Index", ...colNames];
+    const rows = rowIndices.map((idx, i) => {
+      const data = rowMap.get(idx) || {};
+      return {
+        Index: i + 1,
+        _rawIndex: idx,
+        ...data,
+      };
+    });
+
+    return { columns, rows };
+  });
+
+  const colMibMap = $derived.by(() => {
+    const map = new Map<string, SNMPToolResult>();
+    if (!isTable) return map;
+    for (const r of results) {
+      const n = r.name || r.oid;
+      const dot = n.indexOf(".");
+      const base = dot > 0 ? n.substring(0, dot) : n;
+      if (!map.has(base)) {
+        map.set(base, r);
+      }
+    }
+    return map;
+  });
+
+  const handleMouseEnterCol = (e: MouseEvent, col: string) => {
+    if (col === "Index") return;
+    const r = colMibMap.get(col);
     if (!r) return;
-    onAddPolling({
-      node_id: targetNodeId,
-      name: `SNMP ${r.name || r.oid}`,
-      type: "snmp",
-      params: r.name || r.oid,
-      state: "unknown",
-    });
-    show = false;
+    const tooltip = getTooltipForMIB(r);
+    let colOid = r.oid;
+    const dot = colOid.lastIndexOf(".");
+    if (dot > 0 && r.name && r.name.includes(".")) {
+      colOid = colOid.substring(0, dot);
+    }
+    hoveredInfo = {
+      name: col,
+      oid: colOid,
+      type: r.type,
+      tooltip,
+      x: e.clientX,
+      y: e.clientY,
+    };
   };
 
+  const displayedTableRows = $derived.by(() => {
+    if (!isTable) return [];
+    const q = tableSearchQuery.trim().toLowerCase();
+    if (!q) return tableData.rows;
+    return tableData.rows.filter((row) => {
+      return tableData.columns.some((col) => {
+        const val = row[col];
+        return val !== undefined && String(val).toLowerCase().includes(q);
+      });
+    });
+  });
+
+  const sortedTableRows = $derived.by(() => {
+    const list = [...displayedTableRows];
+    if (!sortColumn) return list;
+    return list.sort((a, b) => {
+      const valA = a[sortColumn!] ?? "";
+      const valB = b[sortColumn!] ?? "";
+      const numA = Number(valA);
+      const numB = Number(valB);
+      let cmp = 0;
+      if (!isNaN(numA) && !isNaN(numB) && valA !== "" && valB !== "") {
+        cmp = numA - numB;
+      } else {
+        cmp = String(valA).localeCompare(String(valB));
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+  });
+
+  const handleSort = (col: string) => {
+    if (sortColumn === col) {
+      sortAsc = !sortAsc;
+    } else {
+      sortColumn = col;
+      sortAsc = true;
+    }
+  };
+
+  const paginatedTableRows = $derived.by(() => {
+    if (pageSize === -1) return sortedTableRows;
+    const start = (currentPage - 1) * pageSize;
+    return sortedTableRows.slice(start, start + pageSize);
+  });
+
+  // Non-table list results
   const displayedResults = $derived.by(() => {
     let list = results;
     if (scalarOnly) {
@@ -174,14 +324,95 @@
     return list;
   });
 
-  const totalPages = $derived(
-    pageSize === -1 ? 1 : Math.max(1, Math.ceil(displayedResults.length / pageSize))
-  );
   const paginatedResults = $derived.by(() => {
     if (pageSize === -1) return displayedResults;
     const start = (currentPage - 1) * pageSize;
     return displayedResults.slice(start, start + pageSize);
   });
+
+  const currentTotalCount = $derived(isTable ? displayedTableRows.length : displayedResults.length);
+  const totalPages = $derived(
+    pageSize === -1 ? 1 : Math.max(1, Math.ceil(currentTotalCount / pageSize))
+  );
+
+  const copySelected = async () => {
+    if (isTable) {
+      const list = selectedIndices.length > 0
+        ? selectedIndices.map((i) => sortedTableRows[i]).filter(Boolean)
+        : sortedTableRows;
+      if (list.length === 0) return;
+      const lines = [tableData.columns.join("\t")];
+      list.forEach((r) => {
+        lines.push(tableData.columns.map((col) => r[col] ?? "").join("\t"));
+      });
+      await navigator.clipboard.writeText(lines.join("\n"));
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+      return;
+    }
+
+    const list = selectedIndices.length > 0
+      ? selectedIndices.map((i) => displayedResults[i]).filter(Boolean)
+      : displayedResults;
+    if (list.length === 0) return;
+    const lines = [`${$_("mib.name")}\t${$_("mib.oid")}\t${$_("mib.type")}\t${$_("mib.value")}`];
+    list.forEach((r) => {
+      lines.push(`${r.name || r.oid}\t${r.oid}\t${r.type}\t${r.value}`);
+    });
+    await navigator.clipboard.writeText(lines.join("\n"));
+    copied = true;
+    setTimeout(() => (copied = false), 2000);
+  };
+
+  const exportCSV = () => {
+    if (isTable) {
+      if (displayedTableRows.length === 0) return;
+      const lines = [tableData.columns.join(",")];
+      displayedTableRows.forEach((r) => {
+        const rowVals = tableData.columns.map((col) => {
+          const v = r[col] !== undefined ? String(r[col]) : "";
+          return `"${v.replace(/"/g, '""')}"`;
+        });
+        lines.push(rowVals.join(","));
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mib_${targetName}_${lastQueryName || nameOrOid.trim()}_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (results.length === 0) return;
+    const lines = [`${$_("mib.name")},${$_("mib.oid")},${$_("mib.type")},${$_("mib.value")}`];
+    results.forEach((r) => {
+      const v = `"${r.value.replace(/"/g, '""')}"`;
+      lines.push(`"${r.name || r.oid}","${r.oid}",${r.type},${v}`);
+    });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mib_${targetName}_${lastQueryName || nameOrOid.trim()}_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCreatePolling = () => {
+    if (selectedIndices.length !== 1 || !onAddPolling || isTable) return;
+    const r = displayedResults[selectedIndices[0]];
+    if (!r) return;
+    onAddPolling({
+      node_id: targetNodeId,
+      name: `SNMP ${r.name || r.oid}`,
+      type: "snmp",
+      params: r.name || r.oid,
+      state: "unknown",
+    });
+    show = false;
+  };
 </script>
 
 {#if show}
@@ -243,13 +474,6 @@
             {/each}
           </select>
 
-          <select bind:value={mode} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-            <option value="walk">SNMP Walk</option>
-            <option value="get">SNMP Get</option>
-            <option value="getnext">SNMP GetNext</option>
-            <option value="table">SNMP Table</option>
-          </select>
-
           <button
             type="button"
             disabled={isLoading || !nameOrOid.trim()}
@@ -285,25 +509,38 @@
 
         <!-- Options row -->
         <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4 flex-wrap">
             <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"
                 bind:checked={scalarOnly}
+                disabled={isTable}
                 onchange={() => { currentPage = 1; selectedIndices = []; }}
-                class="rounded text-teal-600 focus:ring-teal-500"
+                class="rounded text-teal-600 focus:ring-teal-500 disabled:opacity-40"
               />
-              {$_("mib.scalarOnly")}
+              <span class={isTable ? "opacity-40" : ""}>{$_("mib.scalarOnly")}</span>
             </label>
             <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-300">
               <input type="checkbox" bind:checked={rawData} class="rounded text-teal-600 focus:ring-teal-500" />
               {$_("mib.rawData")}
             </label>
-            <span class="text-slate-400">{$_("mib.resultCount", { values: { count: displayedResults.length } })}</span>
+            <span class="text-slate-400 font-mono">{$_("mib.resultCount", { values: { count: currentTotalCount } })}</span>
           </div>
 
-          <div class="flex items-center gap-2">
-            {#if selectedIndices.length === 1 && onAddPolling}
+          <div class="flex items-center gap-2 flex-wrap">
+            {#if isTable}
+              <div class="flex items-center gap-1.5 mr-2">
+                <span class="text-xs text-slate-500 dark:text-slate-400">{$_("common.search", { default: "検索" })}:</span>
+                <input
+                  type="text"
+                  bind:value={tableSearchQuery}
+                  placeholder="..."
+                  class="w-32 sm:w-44 rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-800 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+            {/if}
+
+            {#if !isTable && selectedIndices.length === 1 && onAddPolling}
               <button
                 type="button"
                 onclick={handleCreatePolling}
@@ -314,7 +551,7 @@
             {/if}
             <button
               type="button"
-              disabled={displayedResults.length === 0}
+              disabled={currentTotalCount === 0}
               onclick={copySelected}
               class="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
             >
@@ -325,7 +562,7 @@
             </button>
             <button
               type="button"
-              disabled={displayedResults.length === 0}
+              disabled={currentTotalCount === 0}
               onclick={exportCSV}
               class="flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
             >
@@ -344,42 +581,101 @@
         {/if}
 
         <div class="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
-          <table class="w-full text-left text-xs">
-            <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
-              <tr>
-                <th class="p-2 w-8 text-center">#</th>
-                <th class="p-2 font-mono">{$_("mib.objectNameOid")}</th>
-                <th class="p-2">{$_("mib.type")}</th>
-                <th class="p-2">{$_("mib.value")}</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-              {#each paginatedResults as r, pageIndex}
-                {@const idx = (currentPage - 1) * (pageSize === -1 ? displayedResults.length : pageSize) + pageIndex}
-                {@const isSelected = selectedIndices.includes(idx)}
-                <tr
-                  onclick={() => toggleSelect(idx, false)}
-                  class={`cursor-pointer transition-colors ${isSelected ? "bg-teal-50 dark:bg-teal-950/40" : "hover:bg-slate-50 dark:hover:bg-slate-900/60"}`}
-                >
-                  <td class="py-1 px-2 text-center text-slate-400 font-mono text-[10px]">{idx + 1}</td>
-                  <td class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300 break-all">
-                    <div class="font-medium text-slate-900 dark:text-slate-100">{r.name || r.oid}</div>
-                    {#if r.name && r.name !== r.oid}
-                      <div class="text-[10px] text-slate-400 dark:text-slate-500">{r.oid}</div>
-                    {/if}
-                  </td>
-                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{r.type}</td>
-                  <td class="py-1 px-2 font-mono break-all font-medium">{r.value}</td>
-                </tr>
-              {:else}
+          {#if isTable}
+            <!-- 2D Table Layout for Table MIBs -->
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <td colspan="4" class="p-6 text-center text-slate-500">
-                    {#if isLoading}{$_("mib.loading")}{:else}{$_("mib.noResults")}{/if}
-                  </td>
+                  {#each tableData.columns as col}
+                    <th
+                      onclick={() => handleSort(col)}
+                      onmouseenter={(e) => handleMouseEnterCol(e, col)}
+                      onmousemove={handleMouseMoveRow}
+                      onmouseleave={handleMouseLeaveRow}
+                      class="p-2 whitespace-nowrap font-semibold cursor-pointer select-none text-slate-700 hover:bg-slate-200 dark:text-slate-200 dark:hover:bg-slate-800 {col === 'Index' ? 'text-center w-14' : ''}"
+                    >
+                      <div class="flex items-center gap-1 {col === 'Index' ? 'justify-center' : ''}">
+                        <span>{col}</span>
+                        {#if sortColumn === col}
+                          {#if sortAsc}
+                            <ArrowUp class="h-3 w-3 text-teal-500" />
+                          {:else}
+                            <ArrowDown class="h-3 w-3 text-teal-500" />
+                          {/if}
+                        {:else}
+                          <ArrowUpDown class="h-3 w-3 opacity-30" />
+                        {/if}
+                      </div>
+                    </th>
+                  {/each}
                 </tr>
-              {/each}
-            </tbody>
-          </table>
+              </thead>
+              <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                {#each paginatedTableRows as row, pageIndex}
+                  {@const idx = (currentPage - 1) * (pageSize === -1 ? displayedTableRows.length : pageSize) + pageIndex}
+                  {@const isSelected = selectedIndices.includes(idx)}
+                  <tr
+                    onclick={() => toggleSelect(idx, false)}
+                    class={`cursor-pointer transition-colors ${isSelected ? "bg-teal-50 dark:bg-teal-950/40" : "hover:bg-slate-50 dark:hover:bg-slate-900/60"}`}
+                  >
+                    {#each tableData.columns as col}
+                      <td class="py-1.5 px-2 font-mono {col === 'Index' ? 'text-center text-slate-400 text-[10px]' : 'text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all'}">
+                        {row[col] ?? ""}
+                      </td>
+                    {/each}
+                  </tr>
+                {:else}
+                  <tr>
+                    <td colspan={Math.max(1, tableData.columns.length)} class="p-6 text-center text-slate-500">
+                      {#if isLoading}{$_("mib.loading")}{:else}{$_("mib.noResults")}{/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {:else}
+            <!-- Standard List Layout for Non-Table MIBs -->
+            <table class="w-full text-left text-xs">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
+                <tr>
+                  <th class="p-2 w-8 text-center">#</th>
+                  <th class="p-2 font-mono">{$_("mib.objectNameOid")}</th>
+                  <th class="p-2">{$_("mib.type")}</th>
+                  <th class="p-2">{$_("mib.value")}</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                {#each paginatedResults as r, pageIndex}
+                  {@const idx = (currentPage - 1) * (pageSize === -1 ? displayedResults.length : pageSize) + pageIndex}
+                  {@const isSelected = selectedIndices.includes(idx)}
+                  <tr
+                    onclick={() => toggleSelect(idx, false)}
+                    class={`cursor-pointer transition-colors ${isSelected ? "bg-teal-50 dark:bg-teal-950/40" : "hover:bg-slate-50 dark:hover:bg-slate-900/60"}`}
+                  >
+                    <td class="py-1 px-2 text-center text-slate-400 font-mono text-[10px]">{idx + 1}</td>
+                    <td
+                      class="py-1 px-2 font-mono text-slate-700 dark:text-slate-300 break-all"
+                      onmouseenter={(e) => handleMouseEnterRow(e, r)}
+                      onmousemove={handleMouseMoveRow}
+                      onmouseleave={handleMouseLeaveRow}
+                    >
+                      <div class="font-medium text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-help inline-block">
+                        {r.name || r.oid}
+                      </div>
+                    </td>
+                    <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{r.type}</td>
+                    <td class="py-1 px-2 font-mono break-all font-medium">{r.value}</td>
+                  </tr>
+                {:else}
+                  <tr>
+                    <td colspan="4" class="p-6 text-center text-slate-500">
+                      {#if isLoading}{$_("mib.loading")}{:else}{$_("mib.noResults")}{/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
         </div>
 
         <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-1 pt-3 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-400">
@@ -398,12 +694,12 @@
               </select>
             </label>
             <span class="font-mono text-[11px] text-slate-400">
-              {#if displayedResults.length > 0}
+              {#if currentTotalCount > 0}
                 {$_("report.paginationRange", {
                   values: {
-                    total: displayedResults.length.toLocaleString(),
-                    from: (currentPage - 1) * (pageSize === -1 ? displayedResults.length : pageSize) + 1,
-                    to: pageSize === -1 ? displayedResults.length : Math.min(currentPage * pageSize, displayedResults.length),
+                    total: currentTotalCount.toLocaleString(),
+                    from: (currentPage - 1) * (pageSize === -1 ? currentTotalCount : pageSize) + 1,
+                    to: pageSize === -1 ? currentTotalCount : Math.min(currentPage * pageSize, currentTotalCount),
                   },
                 })}
               {:else}
@@ -462,6 +758,23 @@
         </div>
       </div>
     </div>
+  </div>
+{/if}
+
+<!-- Hover Tooltip for MIB Object Info -->
+{#if hoveredInfo}
+  <div
+    class="pointer-events-none fixed z-[9999] max-w-lg rounded-xl border border-slate-700 bg-slate-900/95 p-3 text-xs text-slate-100 shadow-2xl backdrop-blur-md"
+    style="left: {Math.min(hoveredInfo.x + 16, (typeof window !== 'undefined' ? window.innerWidth - 420 : 500))}px; top: {Math.min(hoveredInfo.y + 16, (typeof window !== 'undefined' ? window.innerHeight - 260 : 500))}px;"
+  >
+    <div class="flex items-center gap-1.5 font-mono font-bold text-teal-400 pb-1 mb-1 border-b border-slate-700/80">
+      <FolderTree class="h-3.5 w-3.5 text-teal-400" />
+      <span>{hoveredInfo.name}</span>
+      <span class="text-slate-400 font-normal">({hoveredInfo.oid}{hoveredInfo.type ? `:${hoveredInfo.type}` : ""})</span>
+    </div>
+    {#if hoveredInfo.tooltip}
+      <pre class="font-sans whitespace-pre-wrap leading-relaxed text-slate-300 max-h-56 overflow-y-auto text-[11px] select-text">{hoveredInfo.tooltip}</pre>
+    {/if}
   </div>
 {/if}
 
