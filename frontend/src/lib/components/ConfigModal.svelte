@@ -2480,7 +2480,7 @@
                             </span>
                           {/if}
                         </td>
-                        <td class="py-1 px-2 text-center">
+                        <td class="py-0 px-1 text-center">
                           {#if isExt && fileName}
                             <button
                               type="button"
@@ -2630,20 +2630,20 @@
                       {@const codeVal = Number(ic.code ?? ic.Code ?? 0)}
                       {@const nameVal = ic.name || ic.Name || ""}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td class="p-3 text-center">
+                        <td class="px-2 py-1 text-center">
                           <span class="text-2xl text-cyan-500 dark:text-cyan-400 inline-block align-middle" style="font-family: 'Material Design Icons'">
                             {formatCodePreview(codeVal)}
                           </span>
                         </td>
-                        <td class="p-3 font-semibold text-slate-800 dark:text-slate-100 font-sans">
+                        <td class="px-2 py-1 font-semibold text-slate-800 dark:text-slate-100 font-sans">
                           {nameVal}
                         </td>
-                        <td class="p-3 text-slate-600 dark:text-slate-300">
+                        <td class="px-2 py-1 text-slate-600 dark:text-slate-300">
                           <span>{codeVal}</span>
                           <span class="ml-2 text-[11px] text-slate-400">(0x{codeVal.toString(16).toUpperCase()})</span>
                         </td>
-                        <td class="p-3 text-center">
-                          <div class="flex items-center justify-center gap-1.5 font-sans">
+                        <td class="px-1 py-0 text-center">
+                          <div class="flex items-center justify-center font-sans">
                             <button
                               type="button"
                               onclick={() => openEditIconDialog(ic)}
