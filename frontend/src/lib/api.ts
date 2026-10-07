@@ -2151,6 +2151,8 @@ export interface MIBInfoEnt {
   oid: string;
   type: string;
   description: string;
+  descriptionJa?: string;
+  descriptionEn?: string;
   units?: string;
   enum?: string;
 }

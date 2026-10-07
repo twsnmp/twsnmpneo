@@ -39,6 +39,7 @@
   import { allMdiIcons } from "../mdiIcons";
   import ImportMapModal from "./ImportMapModal.svelte";
   import ListPagination from "../views/list/ListPagination.svelte";
+  import MIBTree from "./MIBTree.svelte";
   import {
     X,
     Save,
@@ -360,7 +361,6 @@
   let mibFileInput = $state<HTMLInputElement | null>(null);
   let showMIBTreeModal = $state(false);
   let mibTreeData = $state<MIBTreeEnt[]>([]);
-  let mibTreeFilter = $state("");
   let mibSortColumn = $state<"index" | "type" | "name" | "file" | "status" | null>(null);
   let mibSortDirection = $state<"asc" | "desc">("asc");
   let mibPageSize = $state(25);
@@ -502,23 +502,6 @@
     const page = Math.min(Math.max(1, mibCurrentPage), totalPages);
     const start = (page - 1) * mibPageSize;
     return sortedMibModules.slice(start, start + mibPageSize);
-  });
-
-  const filteredTreeNodes = $derived.by(() => {
-    const rows: { name: string; oid: string; depth: number }[] = [];
-    const visit = (items: MIBTreeEnt[], depth: number) => {
-      for (const item of items) {
-        const needle = mibTreeFilter.trim().toLowerCase();
-        if (!needle || item.name.toLowerCase().includes(needle) || item.oid.includes(needle)) {
-          rows.push({ name: item.name, oid: item.oid, depth });
-        }
-        if (item.children?.length) {
-          visit(item.children, depth + 1);
-        }
-      }
-    };
-    visit(mibTreeData, 0);
-    return rows.slice(0, 500);
   });
 
   // Custom Icon Management state
@@ -3300,29 +3283,11 @@
           <X class="h-4 w-4" />
         </button>
       </header>
-      <div class="border-b border-slate-200 p-3 dark:border-slate-800">
-        <div class="relative">
-          <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            bind:value={mibTreeFilter}
-            placeholder={$_('mib.treeFilter')}
-            class="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </div>
-      </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-2">
-        {#each filteredTreeNodes as node (node.oid)}
-          <div
-            class="truncate rounded px-2.5 py-1 font-mono text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800/60"
-            style="padding-left: {8 + node.depth * 14}px"
-          >
-            <span class="font-semibold text-teal-600 dark:text-teal-400">{node.name}</span>
-            <span class="ml-2 text-slate-400">{node.oid}</span>
-          </div>
-        {:else}
-          <p class="p-4 text-center text-xs text-slate-500">{$_('mib.noTreeMatches')}</p>
-        {/each}
+      <div class="min-h-0 flex-1 overflow-hidden p-4">
+        <MIBTree
+          treeData={mibTreeData}
+          heightClass="h-[60vh]"
+        />
       </div>
     </div>
   </div>

@@ -26,6 +26,7 @@
     ChevronsLeft,
     ChevronsRight,
   } from "@lucide/svelte";
+  import MIBTree from "./MIBTree.svelte";
 
   let {
     show = $bindable(false),
@@ -56,7 +57,6 @@
   // MIB Tree Modal State
   let showMIBTreeModal = $state(false);
   let mibTreeData = $state<MIBTreeEnt[]>([]);
-  let mibTreeFilter = $state("");
 
   const targetName = $derived(node?.name || (node as any)?.Name || network?.name || (network as any)?.Name || "");
   const targetIP = $derived(node?.ip || (node as any)?.IP || network?.ip || (network as any)?.IP || "");
@@ -108,8 +108,8 @@
     }
   };
 
-  const selectTreeOid = (oid: string) => {
-    nameOrOid = oid;
+  const selectTreeName = (selectedName: string) => {
+    nameOrOid = selectedName;
     showMIBTreeModal = false;
   };
 
@@ -162,23 +162,6 @@
     });
     show = false;
   };
-
-  const filteredTreeNodes = $derived.by(() => {
-    const rows: { name: string; oid: string; depth: number }[] = [];
-    const visit = (items: MIBTreeEnt[], depth: number) => {
-      for (const item of items) {
-        const needle = mibTreeFilter.trim().toLowerCase();
-        if (!needle || item.name.toLowerCase().includes(needle) || item.oid.includes(needle)) {
-          rows.push({ name: item.name, oid: item.oid, depth });
-        }
-        if (item.children?.length) {
-          visit(item.children, depth + 1);
-        }
-      }
-    };
-    visit(mibTreeData, 0);
-    return rows.slice(0, 400);
-  });
 
   const displayedResults = $derived.by(() => {
     let list = results;
@@ -506,31 +489,12 @@
           <X class="h-4 w-4" />
         </button>
       </header>
-      <div class="border-b border-slate-200 p-3 dark:border-slate-800">
-        <div class="relative">
-          <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            bind:value={mibTreeFilter}
-            placeholder={$_("mib.treeFilter")}
-            class="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </div>
-      </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-2">
-        {#each filteredTreeNodes as node (node.oid)}
-          <button
-            type="button"
-            onclick={() => selectTreeOid(node.oid)}
-            class="block w-full truncate rounded px-2.5 py-1 text-left font-mono text-[11px] hover:bg-teal-50 dark:hover:bg-slate-800"
-            style="padding-left: {8 + node.depth * 14}px"
-          >
-            <span class="font-semibold text-teal-600 dark:text-teal-400">{node.name}</span>
-            <span class="ml-2 text-slate-400">{node.oid}</span>
-          </button>
-        {:else}
-          <p class="p-4 text-center text-xs text-slate-500">{$_("mib.noTreeMatches")}</p>
-        {/each}
+      <div class="min-h-0 flex-1 overflow-hidden p-4">
+        <MIBTree
+          treeData={mibTreeData}
+          onselect={selectTreeName}
+          heightClass="h-[60vh]"
+        />
       </div>
     </div>
   </div>

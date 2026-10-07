@@ -28,16 +28,18 @@ var conf embed.FS
 
 // MIBInfo stores metadata parsed from MIB definition files.
 type MIBInfo struct {
-	OID         string         `json:"oid"`
-	Status      string         `json:"status"`
-	Type        string         `json:"type"`
-	Enum        string         `json:"enum"`
-	Defval      string         `json:"defval"`
-	Units       string         `json:"units"`
-	Index       string         `json:"index"`
-	Description string         `json:"description"`
-	EnumMap     map[int]string `json:"enumMap,omitempty"`
-	Hint        string         `json:"hint"`
+	OID           string         `json:"oid"`
+	Status        string         `json:"status"`
+	Type          string         `json:"type"`
+	Enum          string         `json:"enum"`
+	Defval        string         `json:"defval"`
+	Units         string         `json:"units"`
+	Index         string         `json:"index"`
+	Description   string         `json:"description"`
+	DescriptionJa string         `json:"descriptionJa,omitempty"`
+	DescriptionEn string         `json:"descriptionEn,omitempty"`
+	EnumMap       map[int]string `json:"enumMap,omitempty"`
+	Hint          string         `json:"hint"`
 }
 
 // MIBTreeEnt represents a hierarchical node in the MIB Tree.
@@ -189,6 +191,7 @@ func Init(dataPath string) error {
 	checkMIBInfoMap()
 
 	// 5. Apply localized MIB-2 descriptions
+	setMIB2Descr("en")
 	setMIB2Descr("ja")
 
 	// 6. Build MIB Tree for browser
@@ -546,6 +549,9 @@ func checkMIBInfoMap() {
 			info.OID = noid
 			addList = append(addList, info)
 		}
+		if info.DescriptionEn == "" && info.Description != "" {
+			info.DescriptionEn = info.Description
+		}
 		if e, ok := MIBTypeMap[info.Type]; ok {
 			if info.Enum == "" {
 				info.Enum = e.Enum
@@ -565,9 +571,6 @@ func checkMIBInfoMap() {
 }
 
 func setMIB2Descr(lang string) {
-	if lang != "ja" {
-		lang = "en"
-	}
 	r, err := conf.Open("conf/mib2descr_" + lang + ".txt")
 	if err != nil {
 		return
@@ -585,7 +588,7 @@ func setMIB2Descr(lang string) {
 		m := rg.FindStringSubmatch(l)
 		if len(m) > 1 {
 			if name != "" && len(descr) > 0 {
-				replaceMIBDescr(name, descr)
+				replaceMIBDescr(name, descr, lang)
 			}
 			name = m[1]
 			descr = []string{}
@@ -595,17 +598,25 @@ func setMIB2Descr(lang string) {
 		}
 	}
 	if name != "" && len(descr) > 0 {
-		replaceMIBDescr(name, descr)
+		replaceMIBDescr(name, descr, lang)
 	}
 }
 
-func replaceMIBDescr(name string, descr []string) {
+func replaceMIBDescr(name string, descr []string, lang string) {
 	if MIBDB == nil {
 		return
 	}
 	oid := MIBDB.NameToOID(name)
 	if e, ok := MIBInfoMap[oid]; ok {
-		e.Description = strings.Join(descr, "\n")
+		text := strings.Join(descr, "\n")
+		if lang == "ja" {
+			e.DescriptionJa = text
+		} else {
+			e.DescriptionEn = text
+			if e.Description == "" {
+				e.Description = text
+			}
+		}
 		MIBInfoMap[oid] = e
 	}
 }
