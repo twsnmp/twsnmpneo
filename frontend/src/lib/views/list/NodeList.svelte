@@ -17,7 +17,7 @@
     ArrowUpDown,
   } from "@lucide/svelte";
   import { deleteNode, type NodeEnt, type PollingEnt } from "../../api";
-  import { getStateColor, getStateName } from "../../common";
+  import { getStateColor, getStateName, isImageIcon, getIconImage, getIconCode } from "../../common";
   import { getVendor } from "../reports/utils";
   import NodeDialog from "../../components/NodeDialog.svelte";
   import NodeDetailModal from "../../components/NodeDetailModal.svelte";
@@ -288,7 +288,9 @@
                 </span>
               </td>
               <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
-                <Laptop class="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span class="text-base text-cyan-500 dark:text-cyan-400 shrink-0 leading-none" style="font-family: 'Material Design Icons'">
+                  {getIconCode(n.icon)}
+                </span>
                 <span>{n.name}</span>
               </td>
               <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 font-semibold">{n.ip}</td>

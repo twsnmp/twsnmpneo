@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { iconList, addrModeList, snmpModeList } from "../common";
+  import { defaultIconList, getImageIconList, addrModeList, snmpModeList, getIconImage, getIconCode } from "../common";
   import { saveNode, type NodeEnt } from "../api";
   import { checkNodePos } from "../map/map";
   import { X, Save, Cpu, Shield, Key, Network, Globe } from "@lucide/svelte";
@@ -17,6 +17,7 @@
   let mac = $state("");
   let descr = $state("");
   let icon = $state("desktop");
+  let image = $state("");
   let addrMode = $state("ip");
   let autoAck = $state(false);
   let url = $state("");
@@ -50,6 +51,7 @@
           mac = node.mac || (node as any).MAC || "";
           descr = node.descr || (node as any).Descr || "";
           icon = node.icon || (node as any).Icon || "desktop";
+          image = node.image || (node as any).Image || "";
           addrMode = (node as any).addr_mode || (node as any).AddrMode || "ip";
           autoAck = (node as any).auto_ack ?? (node as any).AutoAck ?? false;
           url = (node as any).url || (node as any).URL || "";
@@ -77,6 +79,7 @@
           mac = node?.mac || (node as any)?.MAC || "";
           descr = node?.descr || (node as any)?.Descr || "";
           icon = node?.icon || (node as any)?.Icon || "desktop";
+          image = node?.image || (node as any)?.Image || "";
           addrMode = (node as any)?.addr_mode || (node as any)?.AddrMode || "ip";
           autoAck = (node as any)?.auto_ack ?? (node as any)?.AutoAck ?? false;
           url = (node as any)?.url || (node as any)?.URL || "";
@@ -108,6 +111,7 @@
       mac,
       descr,
       icon,
+      image,
       addr_mode: addrMode,
       auto_ack: autoAck,
       url,
@@ -224,15 +228,45 @@
 
             <div>
               <label for="node-icon" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.icon')}</label>
-              <select
-                id="node-icon"
-                bind:value={icon}
-                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
-              >
-                {#each iconList as ic}
-                  <option value={ic.value}>{$_('icons.' + ic.value, { default: ic.name })}</option>
-                {/each}
-              </select>
+              <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                  <span class="text-xl text-cyan-500 dark:text-cyan-400" style="font-family: 'Material Design Icons'">
+                    {getIconCode(icon)}
+                  </span>
+                </div>
+                <select
+                  id="node-icon"
+                  bind:value={icon}
+                  class="flex-1 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                >
+                  {#each defaultIconList as ic}
+                    <option value={ic.value}>{$_('icons.' + ic.value, { default: ic.name })}</option>
+                  {/each}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label for="node-image" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.image')}</label>
+              <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-center shrink-0 overflow-hidden shadow-inner p-1">
+                  {#if image && getIconImage(image)}
+                    <img src={getIconImage(image)} class="max-w-[28px] max-h-[28px] object-contain" alt="" />
+                  {:else}
+                    <span class="text-[10px] text-slate-400 font-mono">-</span>
+                  {/if}
+                </div>
+                <select
+                  id="node-image"
+                  bind:value={image}
+                  class="flex-1 rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none transition-colors"
+                >
+                  <option value="">{$_('node.imageNone')}</option>
+                  {#each getImageIconList() as imgIc}
+                    <option value={imgIc.name || imgIc.value}>{imgIc.name}</option>
+                  {/each}
+                </select>
+              </div>
             </div>
 
             <div>

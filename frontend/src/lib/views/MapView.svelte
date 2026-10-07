@@ -38,6 +38,7 @@
     fetchDrawItems,
     fetchEventLogs,
     fetchPollings,
+    fetchCustomIcons,
     deleteNode,
     deletePolling,
     saveNode,
@@ -59,7 +60,7 @@
     type EventLogEnt,
     type PollingEnt,
   } from "../api";
-  import { getStateColor } from "../common";
+  import { getStateColor, setCustomIcons } from "../common";
   import { _ } from "svelte-i18n";
   import {
     ZoomIn,
@@ -169,13 +170,14 @@
 
   const reloadAllData = async () => {
     try {
-      const [n, l, net, di, el, pl] = await Promise.all([
+      const [n, l, net, di, el, pl, icons] = await Promise.all([
         fetchNodes(),
         fetchLines(),
         fetchNetworks(),
         fetchDrawItems(),
         fetchEventLogs(),
         fetchPollings(),
+        fetchCustomIcons().catch(() => []),
       ]);
       nodes = n;
       lines = l;
@@ -183,6 +185,9 @@
       drawItems = di;
       eventLogs = el;
       pollings = pl;
+      if (icons && icons.length > 0) {
+        setCustomIcons(icons);
+      }
       await updateMAP();
     } catch (e) {
       console.error("Failed to load map data:", e);

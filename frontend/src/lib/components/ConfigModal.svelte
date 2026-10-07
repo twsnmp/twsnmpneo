@@ -351,7 +351,7 @@
   let customIcons = $state<IconEnt[]>([]);
   let iconLoading = $state(false);
   let iconFilter = $state("");
-  let iconSortColumn = $state<"name" | "code" | null>(null);
+  let iconSortColumn = $state<"name" | "type" | "code" | null>(null);
   let iconSortDirection = $state<"asc" | "desc">("asc");
   let iconPageSize = $state(10);
   let iconCurrentPage = $state(1);
@@ -359,6 +359,8 @@
   // Icon Dialog state
   let showIconDialog = $state(false);
   let editingIcon = $state<IconEnt | null>(null);
+  let dialogIconType = $state<"mdi" | "image">("mdi");
+  let dialogIconImage = $state("");
   let dialogMdiFilter = $state("");
   let dialogSelectedMdi = $state("access-point");
   let dialogIconName = $state("");
@@ -367,6 +369,7 @@
   let dialogParsedCode = $derived(parseIconCode(dialogIconCode));
 
   let iconFileInput = $state<HTMLInputElement | null>(null);
+  let imageFileInput = $state<HTMLInputElement | null>(null);
 
   const filteredMdiList = $derived.by(() => {
     const q = dialogMdiFilter.trim().toLowerCase();
@@ -424,6 +427,8 @@
 
   function openAddIconDialog() {
     editingIcon = null;
+    dialogIconType = "mdi";
+    dialogIconImage = "";
     dialogMdiFilter = "";
     dialogSelectedMdi = "access-point";
     dialogIconCode = 983043;
@@ -436,41 +441,100 @@
     editingIcon = item;
     const nameVal = item.name || item.Name || "";
     const codeVal = Number(item.code ?? item.Code ?? 0);
+    const typeVal = (item.type || item.Type || (item.image || item.Image ? "image" : "mdi")) as "mdi" | "image";
+    const imageVal = item.image || item.Image || "";
+    dialogIconType = typeVal;
+    dialogIconImage = imageVal;
     dialogIconName = nameVal;
     dialogIconCode = codeVal;
-    const found = allMdiIcons.find((m) => m.code === codeVal || m.name === nameVal);
-    dialogSelectedMdi = found ? found.name : "";
-    dialogMdiFilter = found ? found.name : "";
+    if (typeVal === "mdi") {
+      const found = allMdiIcons.find((m) => m.code === codeVal || m.name === nameVal);
+      dialogSelectedMdi = found ? found.name : "";
+      dialogMdiFilter = found ? found.name : "";
+    } else {
+      dialogSelectedMdi = "";
+      dialogMdiFilter = "";
+    }
     dialogIconError = "";
     showIconDialog = true;
   }
 
+  function handleImageFileSelected(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (!target.files || target.files.length === 0) return;
+    const file = target.files[0];
+    if (file.size > 2 * 1024 * 1024) {
+      dialogIconError = $_('config.iconImageSizeError');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      dialogIconImage = reader.result as string;
+      if (!dialogIconName) {
+        const base = file.name.replace(/\.[^/.]+$/, "");
+        dialogIconName = base;
+      }
+      dialogIconError = "";
+    };
+    reader.onerror = () => {
+      dialogIconError = $_('config.iconImageReadError');
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleSaveIcon() {
     const name = dialogIconName.trim();
-    const code = parseIconCode(dialogIconCode);
     if (!name) {
       dialogIconError = $_('config.iconName') + " is required";
       return;
     }
-    if (!code || code <= 0) {
-      dialogIconError = $_('config.iconCode') + " is required";
-      return;
-    }
-    try {
-      await saveCustomIcon({
-        id: editingIcon?.id || editingIcon?.ID,
-        name,
-        code,
-      });
-      showIconDialog = false;
-      await loadIcons();
-      saveMsg = $_('config.iconSaveSuccess');
-      setTimeout(() => (saveMsg = ""), 3000);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("twsnmp:reload-map"));
+    if (dialogIconType === "image") {
+      if (!dialogIconImage) {
+        dialogIconError = $_('config.iconSelectImageFile');
+        return;
       }
-    } catch (e: any) {
-      dialogIconError = e.message || String(e);
+      try {
+        await saveCustomIcon({
+          id: editingIcon?.id || editingIcon?.ID,
+          name,
+          code: 0,
+          type: "image",
+          image: dialogIconImage,
+        });
+        showIconDialog = false;
+        await loadIcons();
+        saveMsg = $_('config.iconSaveSuccess');
+        setTimeout(() => (saveMsg = ""), 3000);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("twsnmp:reload-map"));
+        }
+      } catch (e: any) {
+        dialogIconError = e.message || String(e);
+      }
+    } else {
+      const code = parseIconCode(dialogIconCode);
+      if (!code || code <= 0) {
+        dialogIconError = $_('config.iconCode') + " is required";
+        return;
+      }
+      try {
+        await saveCustomIcon({
+          id: editingIcon?.id || editingIcon?.ID,
+          name,
+          code,
+          type: "mdi",
+          image: "",
+        });
+        showIconDialog = false;
+        await loadIcons();
+        saveMsg = $_('config.iconSaveSuccess');
+        setTimeout(() => (saveMsg = ""), 3000);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("twsnmp:reload-map"));
+        }
+      } catch (e: any) {
+        dialogIconError = e.message || String(e);
+      }
     }
   }
 
@@ -500,10 +564,15 @@
       if (file.name.endsWith(".json")) {
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed)) {
-          list = parsed.map((item: any) => ({
-            name: item.name || item.Name || "",
-            code: parseIconCode(item.code ?? item.Code),
-          })).filter((x) => x.name && x.code);
+          list = parsed.map((item: any) => {
+            const isImg = item.type === "image" || item.Type === "image" || Boolean(item.image || item.Image);
+            return {
+              name: item.name || item.Name || "",
+              code: isImg ? 0 : parseIconCode(item.code ?? item.Code),
+              type: isImg ? "image" : "mdi",
+              image: item.image || item.Image || "",
+            };
+          }).filter((x) => x.name && (x.type === "image" ? Boolean(x.image) : Boolean(x.code)));
         }
       } else {
         const lines = text.split(/\r?\n/);
@@ -515,7 +584,7 @@
             const name = parts[0];
             const code = parseIconCode(parts[1]);
             if (name && code) {
-              list.push({ name, code });
+              list.push({ name, code, type: "mdi" });
             }
           }
         }
@@ -551,7 +620,7 @@
     URL.revokeObjectURL(url);
   }
 
-  function handleIconSort(col: "name" | "code") {
+  function handleIconSort(col: "name" | "type" | "code") {
     if (iconSortColumn === col) {
       iconSortDirection = iconSortDirection === "asc" ? "desc" : "asc";
     } else {
@@ -565,9 +634,10 @@
     if (!q) return customIcons;
     return customIcons.filter((ic) => {
       const name = (ic.name || ic.Name || "").toLowerCase();
+      const type = (ic.type || ic.Type || (ic.image || ic.Image ? "image" : "mdi")).toLowerCase();
       const code = String(ic.code ?? ic.Code ?? "");
       const hexCode = "0x" + (Number(ic.code ?? ic.Code ?? 0)).toString(16).toLowerCase();
-      return name.includes(q) || code.includes(q) || hexCode.includes(q);
+      return name.includes(q) || type.includes(q) || code.includes(q) || hexCode.includes(q);
     });
   });
 
@@ -580,6 +650,10 @@
         const na = a.name || a.Name || "";
         const nb = b.name || b.Name || "";
         return dir * na.localeCompare(nb, undefined, { numeric: true });
+      } else if (iconSortColumn === "type") {
+        const ta = a.type || a.Type || (a.image || a.Image ? "image" : "mdi");
+        const tb = b.type || b.Type || (b.image || b.Image ? "image" : "mdi");
+        return dir * ta.localeCompare(tb);
       } else if (iconSortColumn === "code") {
         const ca = Number(a.code ?? a.Code ?? 0);
         const cb = Number(b.code ?? b.Code ?? 0);
@@ -2610,6 +2684,18 @@
                           {/if}
                         </div>
                       </th>
+                      <th class="p-3 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleIconSort("type")}>
+                        <div class="flex items-center gap-1.5">
+                          <span>{$_('config.iconColType')}</span>
+                          {#if iconSortColumn === "type"}
+                            {#if iconSortDirection === "asc"}
+                              <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {:else}
+                              <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {/if}
+                          {/if}
+                        </div>
+                      </th>
                       <th class="p-3 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200" onclick={() => handleIconSort("code")}>
                         <div class="flex items-center gap-1.5">
                           <span>{$_('config.iconColCode')}</span>
@@ -2629,18 +2715,42 @@
                     {#each paginatedCustomIcons as ic (ic.id || ic.ID || ic.name || ic.Name)}
                       {@const codeVal = Number(ic.code ?? ic.Code ?? 0)}
                       {@const nameVal = ic.name || ic.Name || ""}
+                      {@const typeVal = ic.type || ic.Type || (ic.image || ic.Image ? "image" : "mdi")}
+                      {@const isImg = typeVal === "image" || Boolean(ic.image || ic.Image)}
+                      {@const imgVal = ic.image || ic.Image || ""}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         <td class="px-2 py-1 text-center">
-                          <span class="text-2xl text-cyan-500 dark:text-cyan-400 inline-block align-middle" style="font-family: 'Material Design Icons'">
-                            {formatCodePreview(codeVal)}
-                          </span>
+                          {#if isImg}
+                            <div class="w-8 h-8 mx-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5 flex items-center justify-center overflow-hidden">
+                              <img src={imgVal} class="max-w-full max-h-full object-contain" alt={nameVal} />
+                            </div>
+                          {:else}
+                            <span class="text-2xl text-cyan-500 dark:text-cyan-400 inline-block align-middle" style="font-family: 'Material Design Icons'">
+                              {formatCodePreview(codeVal)}
+                            </span>
+                          {/if}
                         </td>
                         <td class="px-2 py-1 font-semibold text-slate-800 dark:text-slate-100 font-sans">
                           {nameVal}
                         </td>
+                        <td class="px-2 py-1 font-sans">
+                          {#if isImg}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                              {$_('config.iconTypeImage')}
+                            </span>
+                          {:else}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                              {$_('config.iconTypeMdi')}
+                            </span>
+                          {/if}
+                        </td>
                         <td class="px-2 py-1 text-slate-600 dark:text-slate-300">
-                          <span>{codeVal}</span>
-                          <span class="ml-2 text-[11px] text-slate-400">(0x{codeVal.toString(16).toUpperCase()})</span>
+                          {#if isImg}
+                            <span class="text-[11px] text-slate-400 font-sans">{$_('config.iconTypeImage')}</span>
+                          {:else}
+                            <span>{codeVal}</span>
+                            <span class="ml-2 text-[11px] text-slate-400">(0x{codeVal.toString(16).toUpperCase()})</span>
+                          {/if}
                         </td>
                         <td class="px-1 py-0 text-center">
                           <div class="flex items-center justify-center font-sans">
@@ -2665,7 +2775,7 @@
                       </tr>
                     {:else}
                       <tr>
-                        <td colspan="4" class="py-10 px-4 text-center text-slate-400 font-sans">
+                        <td colspan="5" class="py-10 px-4 text-center text-slate-400 font-sans">
                           {#if iconLoading}
                             {$_('common.loading')}
                           {:else}
@@ -2816,80 +2926,167 @@
           </div>
         {/if}
 
+        <!-- Icon Type Selector Tab -->
         {#if !editingIcon}
-          <!-- Icon Filter Keyword -->
           <div>
-            <label for="dialog-icon-filter" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              {$_('config.iconFilterKeyword')}
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              {$_('config.iconType')}
             </label>
-            <div class="relative">
-              <Search class="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-              <input
-                id="dialog-icon-filter"
-                type="text"
-                bind:value={dialogMdiFilter}
-                placeholder={$_('config.iconFilterPlaceholder')}
-                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
-              />
+            <div class="flex rounded-xl bg-slate-100 dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onclick={() => { dialogIconType = "mdi"; }}
+                class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer {dialogIconType === 'mdi' ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+              >
+                {$_('config.iconTypeMdi')}
+              </button>
+              <button
+                type="button"
+                onclick={() => { dialogIconType = "image"; }}
+                class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer {dialogIconType === 'image' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+              >
+                {$_('config.iconTypeImage')}
+              </button>
             </div>
-          </div>
-
-          <!-- MDI Icon Selection Dropdown -->
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label for="dialog-icon-select" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {$_('config.iconSelect')} <span class="text-rose-500">*</span>
-              </label>
-              <span class="text-[11px] text-slate-400 font-mono">
-                {$_('config.iconMatchedCount', { values: { count: filteredMdiList.length } })}
-              </span>
-            </div>
-            <select
-              id="dialog-icon-select"
-              value={dialogSelectedMdi}
-              onchange={(e) => handleSelectMdi((e.target as HTMLSelectElement).value)}
-              class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none font-mono"
-            >
-              {#if filteredMdiList.length === 0}
-                <option value="" disabled>{$_('config.iconNoMatch')}</option>
-              {:else}
-                {#each filteredMdiList as mdi}
-                  <option value={mdi.name}>
-                    {mdi.name} (0x{mdi.code.toString(16).toUpperCase()})
-                  </option>
-                {/each}
-              {/if}
-            </select>
           </div>
         {/if}
 
-        <!-- Custom Icon Name -->
-        <div>
-          <label for="dialog-icon-name" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-            {$_('config.iconName')} <span class="text-rose-500">*</span>
-          </label>
-          <input
-            id="dialog-icon-name"
-            type="text"
-            bind:value={dialogIconName}
-            placeholder={$_('config.iconNamePlaceholder')}
-            class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
-          />
-        </div>
-
-        <!-- Live Glyph Preview -->
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-4 flex items-center gap-4">
-          <div class="w-16 h-16 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-4xl text-cyan-500 dark:text-cyan-400 shrink-0 shadow-inner">
-            <span style="font-family: 'Material Design Icons'">{formatCodePreview(dialogParsedCode)}</span>
-          </div>
-          <div class="space-y-1 min-w-0">
-            <div class="text-xs font-bold text-slate-800 dark:text-slate-200">
-              {dialogSelectedMdi || dialogIconName || $_('config.iconPreview')}
+        {#if dialogIconType === "mdi"}
+          {#if !editingIcon}
+            <!-- Icon Filter Keyword -->
+            <div>
+              <label for="dialog-icon-filter" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                {$_('config.iconFilterKeyword')}
+              </label>
+              <div class="relative">
+                <Search class="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  id="dialog-icon-filter"
+                  type="text"
+                  bind:value={dialogMdiFilter}
+                  placeholder={$_('config.iconFilterPlaceholder')}
+                  class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
+                />
+              </div>
             </div>
-            <div class="text-[11px] font-mono text-slate-500">10進数: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{dialogParsedCode || 0}</span></div>
-            <div class="text-[11px] font-mono text-slate-500">16進数: <span class="text-emerald-600 dark:text-emerald-400 font-bold">0x{(dialogParsedCode || 0).toString(16).toUpperCase()}</span></div>
+
+            <!-- MDI Icon Selection Dropdown -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="dialog-icon-select" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {$_('config.iconSelect')} <span class="text-rose-500">*</span>
+                </label>
+                <span class="text-[11px] text-slate-400 font-mono">
+                  {$_('config.iconMatchedCount', { values: { count: filteredMdiList.length } })}
+                </span>
+              </div>
+              <select
+                id="dialog-icon-select"
+                value={dialogSelectedMdi}
+                onchange={(e) => handleSelectMdi((e.target as HTMLSelectElement).value)}
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none font-mono"
+              >
+                {#if filteredMdiList.length === 0}
+                  <option value="" disabled>{$_('config.iconNoMatch')}</option>
+                {:else}
+                  {#each filteredMdiList as mdi}
+                    <option value={mdi.name}>
+                      {mdi.name} (0x{mdi.code.toString(16).toUpperCase()})
+                    </option>
+                  {/each}
+                {/if}
+              </select>
+            </div>
+          {/if}
+
+          <!-- Custom Icon Name -->
+          <div>
+            <label for="dialog-icon-name" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              {$_('config.iconName')} <span class="text-rose-500">*</span>
+            </label>
+            <input
+              id="dialog-icon-name"
+              type="text"
+              bind:value={dialogIconName}
+              placeholder={$_('config.iconNamePlaceholder')}
+              class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
+            />
           </div>
-        </div>
+
+          <!-- Live Glyph Preview -->
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-4 flex items-center gap-4">
+            <div class="w-16 h-16 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-4xl text-cyan-500 dark:text-cyan-400 shrink-0 shadow-inner">
+              <span style="font-family: 'Material Design Icons'">{formatCodePreview(dialogParsedCode)}</span>
+            </div>
+            <div class="space-y-1 min-w-0">
+              <div class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {dialogSelectedMdi || dialogIconName || $_('config.iconPreview')}
+              </div>
+              <div class="text-[11px] font-mono text-slate-500">10進数: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{dialogParsedCode || 0}</span></div>
+              <div class="text-[11px] font-mono text-slate-500">16進数: <span class="text-emerald-600 dark:text-emerald-400 font-bold">0x{(dialogParsedCode || 0).toString(16).toUpperCase()}</span></div>
+            </div>
+          </div>
+        {:else}
+          <!-- Image Icon Mode -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              {$_('config.iconSelectImageFile')} <span class="text-rose-500">*</span>
+            </label>
+            <div class="flex items-center gap-3">
+              <input
+                type="file"
+                bind:this={imageFileInput}
+                accept="image/*"
+                onchange={handleImageFileSelected}
+                class="hidden"
+              />
+              <button
+                type="button"
+                onclick={() => imageFileInput?.click()}
+                class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <FileUp class="h-4 w-4" />
+                {$_('config.iconSelectImageFile')}
+              </button>
+              <span class="text-[11px] text-slate-500 dark:text-slate-400">
+                PNG, JPG, SVG, WebP, GIF (Max 2MB)
+              </span>
+            </div>
+          </div>
+
+          <!-- Custom Icon Name -->
+          <div>
+            <label for="dialog-icon-name-img" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              {$_('config.iconName')} <span class="text-rose-500">*</span>
+            </label>
+            <input
+              id="dialog-icon-name-img"
+              type="text"
+              bind:value={dialogIconName}
+              placeholder={$_('config.iconNamePlaceholder')}
+              class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
+            />
+          </div>
+
+          <!-- Live Image Preview -->
+          <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-4 flex items-center gap-4">
+            <div class="w-16 h-16 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center shrink-0 shadow-inner overflow-hidden p-1">
+              {#if dialogIconImage}
+                <img src={dialogIconImage} class="max-w-full max-h-full object-contain" alt="Preview" />
+              {:else}
+                <Image class="h-8 w-8 text-slate-400" />
+              {/if}
+            </div>
+            <div class="space-y-1 min-w-0">
+              <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                {dialogIconName || $_('config.iconPreview')}
+              </div>
+              <div class="text-[11px] text-slate-500">
+                {dialogIconImage ? $_('config.iconTypeImage') : $_('config.iconDropImageHint')}
+              </div>
+            </div>
+          </div>
+        {/if}
       </div>
 
       <footer class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-3.5 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">

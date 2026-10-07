@@ -1055,7 +1055,10 @@ func (s *Store) GetCustomIcons(_ context.Context) ([]*datastore.IconEnt, error) 
 }
 
 func (s *Store) SaveCustomIcon(_ context.Context, icon *datastore.IconEnt) error {
-	if icon == nil || icon.Name == "" || icon.Code == 0 {
+	if icon == nil || icon.Name == "" {
+		return datastore.ErrInvalidParams
+	}
+	if icon.Type != "image" && icon.Image == "" && icon.Code == 0 {
 		return datastore.ErrInvalidParams
 	}
 	s.iconsMu.Lock()

@@ -1332,8 +1332,11 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := c.Bind(&icon); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
-			if icon.Name == "" || icon.Code == 0 {
-				return c.JSON(http.StatusBadRequest, map[string]string{"error": "name and code are required"})
+			if icon.Name == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "name is required"})
+			}
+			if icon.Type != "image" && icon.Image == "" && icon.Code == 0 {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "code or image is required"})
 			}
 			if err := cfg.Store.SaveCustomIcon(c.Request().Context(), &icon); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -1342,7 +1345,7 @@ func NewServer(cfg Config) (*Server, error) {
 				Time:  time.Now().UnixNano(),
 				Type:  "user",
 				Level: "info",
-				Event: fmt.Sprintf(i18n.Trans("Saved icon %s (%d)"), icon.Name, icon.Code),
+				Event: fmt.Sprintf(i18n.Trans("Saved icon %s"), icon.Name),
 			})
 			return c.JSON(http.StatusOK, &icon)
 		})

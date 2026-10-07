@@ -1,7 +1,7 @@
 import P5 from "p5";
 import { get } from "svelte/store";
 import { locale } from "svelte-i18n";
-import { getIconCode, getStateColor } from "../common";
+import { getIconCode, getStateColor, isImageIcon, getIconImage, setCustomIcons } from "../common";
 import {
   fetchNodes,
   saveNode,
@@ -18,6 +18,7 @@ import {
   fetchMapConf,
   saveMapConf,
   fetchBackImage,
+  fetchCustomIcons,
   updateNodePositions,
   type NodeEnt,
   type LineEnt,
@@ -252,6 +253,29 @@ export const updateMAP = async () => {
         networks[id] = net;
       }
     });
+
+    try {
+      const iconListRes = await fetchCustomIcons().catch(() => []);
+      if (iconListRes && iconListRes.length > 0) {
+        setCustomIcons(iconListRes);
+      }
+    } catch {
+      // ignore
+    }
+
+    for (const k in nodes) {
+      const imgKey = nodes[k].image || (nodes[k] as any).Image;
+      if (imgKey && !imageMap.has(imgKey) && _mapP5) {
+        const imgData = getIconImage(imgKey);
+        if (imgData) {
+          const img = _mapP5.loadImage(imgData, (loaded) => {
+            imageMap.set(imgKey, loaded);
+            mapRedraw = true;
+          });
+          imageMap.set(imgKey, img);
+        }
+      }
+    }
 
     try {
       backImage = await fetchBackImage();
@@ -1129,38 +1153,97 @@ const mapMain = (p5: P5) => {
       const isSelected = selectedNodes.includes(nid);
       const stColor = getStateColor(nstate);
 
-      if (isSelected) {
-        p5.stroke("#06b6d4");
-        p5.strokeWeight(2);
-        p5.fill(dark ? "rgba(15, 23, 42, 0.85)" : "rgba(243,244,246,0.85)");
-        const selW = iconSize + 20;
-        const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
-        p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
-      }
+      if (nimage) {
+        let img = imageMap.get(nimage);
+        if (!img && _mapP5) {
+          const imgData = getIconImage(nimage);
+          if (imgData) {
+            img = _mapP5.loadImage(imgData, (loaded) => {
+              imageMap.set(nimage, loaded);
+              mapRedraw = true;
+            });
+            imageMap.set(nimage, img);
+          }
+        }
+        if (img && img.width > 0) {
+          const iw = isSelected ? iconSize + 8 : iconSize;
+          const ih = (img.height * iw) / img.width;
+          const w = iw + 16;
+          const h = ih + 16 + fontSize + (showNodeInfo ? fontSize : 0);
+          if (isSelected) {
+            p5.stroke("#06b6d4");
+            p5.strokeWeight(2);
+            p5.fill(dark ? "rgba(15, 23, 42, 0.85)" : "rgba(243,244,246,0.85)");
+            p5.rect(-w / 2, -ih / 2 - 8, w, h, 6);
+          }
+          p5.tint(stColor);
+          p5.image(img, -iw / 2, -ih / 2, iw, ih);
+          p5.noTint();
 
-      if (nimage && imageMap.has(nimage)) {
-        const img = imageMap.get(nimage);
-        p5.tint(stColor);
-        p5.image(img, -iconSize / 2, -iconSize / 2, iconSize, iconSize);
-        p5.noTint();
+          // Node label
+          p5.textFont("Roboto, sans-serif");
+          p5.textAlign(p5.CENTER, p5.CENTER);
+          p5.textSize(fontSize);
+          p5.fill(dark ? 250 : 23);
+          p5.text(nname, 0, ih / 2 + 8 + fontSize / 2);
+
+          if (showNodeInfo && nip) {
+            p5.textSize(Math.max(fontSize - 2, 8));
+            p5.text(nip, 0, ih / 2 + 8 + fontSize + fontSize / 2);
+          }
+        } else {
+          // If image is still loading or unavailable, draw standard MDI icon
+          if (isSelected) {
+            p5.stroke("#06b6d4");
+            p5.strokeWeight(2);
+            p5.fill(dark ? "rgba(15, 23, 42, 0.85)" : "rgba(243,244,246,0.85)");
+            const selW = iconSize + 20;
+            const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
+            p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
+          }
+          p5.textFont("Material Design Icons");
+          p5.textAlign(p5.CENTER, p5.CENTER);
+          p5.textSize(iconSize);
+          p5.fill(stColor);
+          p5.text(icon, 0, 0);
+
+          p5.textFont("Roboto, sans-serif");
+          p5.textAlign(p5.CENTER, p5.CENTER);
+          p5.textSize(fontSize);
+          p5.fill(dark ? 250 : 23);
+          p5.text(nname, 0, iconSize / 2 + 8 + fontSize / 2);
+
+          if (showNodeInfo && nip) {
+            p5.textSize(Math.max(fontSize - 2, 8));
+            p5.text(nip, 0, iconSize / 2 + 8 + fontSize + fontSize / 2);
+          }
+        }
       } else {
+        if (isSelected) {
+          p5.stroke("#06b6d4");
+          p5.strokeWeight(2);
+          p5.fill(dark ? "rgba(15, 23, 42, 0.85)" : "rgba(243,244,246,0.85)");
+          const selW = iconSize + 20;
+          const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
+          p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
+        }
         p5.textFont("Material Design Icons");
         p5.textAlign(p5.CENTER, p5.CENTER);
         p5.textSize(iconSize);
         p5.fill(stColor);
         p5.text(icon, 0, 0);
-      }
 
-      // Node label
-      p5.textFont("Roboto, sans-serif");
-      p5.textAlign(p5.CENTER, p5.CENTER);
-      p5.textSize(fontSize);
-      p5.fill(dark ? 250 : 23);
-      p5.text(nname, 0, iconSize / 2 + 8 + fontSize / 2);
+        // Node label
+        p5.textFont("Roboto, sans-serif");
+        p5.textAlign(p5.CENTER, p5.CENTER);
+        p5.textSize(fontSize);
+        p5.fill(dark ? 250 : 23);
+        p5.text(nname, 0, iconSize / 2 + 8 + fontSize / 2);
 
-      if (showNodeInfo && nip) {
-        p5.textSize(Math.max(fontSize - 2, 8));
-        p5.text(nip, 0, iconSize / 2 + 8 + fontSize + fontSize / 2);
+        if (showNodeInfo && nip) {
+          p5.textSize(Math.max(fontSize - 2, 8));
+          p5.text(nip, 0, iconSize / 2 + 8 + fontSize + fontSize / 2);
+        }
       }
 
       p5.pop();

@@ -1155,12 +1155,16 @@ export interface IconEnt {
   id?: string;
   name: string;
   nameEn?: string;
-  code: number;
+  code?: number;
   icon?: string;
   value?: string;
+  type?: "mdi" | "image";
+  image?: string;
   ID?: string;
   Name?: string;
   Code?: number;
+  Type?: "mdi" | "image";
+  Image?: string;
 }
 
 export async function fetchCustomIcons(): Promise<IconEnt[]> {

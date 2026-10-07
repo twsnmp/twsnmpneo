@@ -66,35 +66,37 @@ export interface IconEnt {
   nameEn?: string;
   icon?: string;
   value: string;
-  code: number;
+  code?: number;
+  type?: 'mdi' | 'image';
+  image?: string;
 }
 
 export const defaultIconList: IconEnt[] = [
-  { name: 'デスクトップ', nameEn: 'Desktop', icon: 'mdi-monitor', value: 'desktop', code: 0xf0379 },
-  { name: 'デスクトップ (Classic)', nameEn: 'Desktop (Classic)', icon: 'mdi-desktop-classic', value: 'desktop-classic', code: 0xf07c0 },
-  { name: 'ノートPC', nameEn: 'Laptop', icon: 'mdi-laptop', value: 'laptop', code: 0xf0322 },
-  { name: 'タブレット', nameEn: 'Tablet', icon: 'mdi-tablet', value: 'tablet', code: 0xf04f6 },
-  { name: 'サーバー', nameEn: 'Server', icon: 'mdi-server', value: 'server', code: 0xf048b },
-  { name: 'ネットワーク機器', nameEn: 'Network Device', icon: 'mdi-ip-network', value: 'hdd', code: 0xf0a60 },
-  { name: 'IPデバイス', nameEn: 'IP Device', icon: 'mdi-ip-network', value: 'ip', code: 0xf0a60 },
-  { name: 'ネットワーク', nameEn: 'Network', icon: 'mdi-lan', value: 'network', code: 0xf0317 },
-  { name: 'Wi-Fi', nameEn: 'Wi-Fi', icon: 'mdi-wifi', value: 'wifi', code: 0xf05a9 },
-  { name: 'クラウド', nameEn: 'Cloud', icon: 'mdi-cloud', value: 'cloud', code: 0xf015f },
-  { name: 'プリンター', nameEn: 'Printer', icon: 'mdi-printer', value: 'printer', code: 0xf042a },
-  { name: 'スマホ / 携帯', nameEn: 'Smartphone / Mobile', icon: 'mdi-cellphone', value: 'cellphone', code: 0xf011c },
-  { name: 'ルーター', nameEn: 'Router', icon: 'mdi-router', value: 'router', code: 0xf11e2 },
-  { name: 'Webサーバー', nameEn: 'Web Server', icon: 'mdi-web', value: 'web', code: 0xf059f },
-  { name: 'データベース', nameEn: 'Database', icon: 'mdi-database', value: 'db', code: 0xf01bc },
-  { name: 'Wi-Fi AP', nameEn: 'Wi-Fi AP', icon: 'mdi-router-wireless', value: 'mdi-router-wireless', code: 0xf0469 },
-  { name: 'スイッチ', nameEn: 'Switch', icon: 'mdi-switch', value: 'switch', code: 0xf04e4 },
-  { name: 'NAS', nameEn: 'NAS', icon: 'mdi-nas', value: 'nas', code: 0xf08f3 },
-  { name: '監視カメラ', nameEn: 'Surveillance Camera', icon: 'mdi-cctv', value: 'camera', code: 0xf07ae },
-  { name: 'UPS', nameEn: 'UPS', icon: 'mdi-battery-charging', value: 'ups', code: 0xf0084 },
-  { name: 'セキュリティ', nameEn: 'Security', icon: 'mdi-security', value: 'security', code: 0xf0483 },
-  { name: 'Windows', nameEn: 'Windows', icon: 'mdi-microsoft-windows', value: 'windows', code: 0xf05b3 },
-  { name: 'Linux', nameEn: 'Linux', icon: 'mdi-linux', value: 'linux', code: 0xf033d },
-  { name: 'Raspberry Pi', nameEn: 'Raspberry Pi', icon: 'mdi-raspberry-pi', value: 'raspberrypi', code: 0xf043f },
-  { name: 'IoT / ボード', nameEn: 'IoT / Dev Board', icon: 'mdi-developer-board', value: 'iot', code: 0xf0697 },
+  { name: 'デスクトップ', nameEn: 'Desktop', icon: 'mdi-monitor', value: 'desktop', code: 0xf0379, type: 'mdi' },
+  { name: 'デスクトップ (Classic)', nameEn: 'Desktop (Classic)', icon: 'mdi-desktop-classic', value: 'desktop-classic', code: 0xf07c0, type: 'mdi' },
+  { name: 'ノートPC', nameEn: 'Laptop', icon: 'mdi-laptop', value: 'laptop', code: 0xf0322, type: 'mdi' },
+  { name: 'タブレット', nameEn: 'Tablet', icon: 'mdi-tablet', value: 'tablet', code: 0xf04f6, type: 'mdi' },
+  { name: 'サーバー', nameEn: 'Server', icon: 'mdi-server', value: 'server', code: 0xf048b, type: 'mdi' },
+  { name: 'ネットワーク機器', nameEn: 'Network Device', icon: 'mdi-ip-network', value: 'hdd', code: 0xf0a60, type: 'mdi' },
+  { name: 'IPデバイス', nameEn: 'IP Device', icon: 'mdi-ip-network', value: 'ip', code: 0xf0a60, type: 'mdi' },
+  { name: 'ネットワーク', nameEn: 'Network', icon: 'mdi-lan', value: 'network', code: 0xf0317, type: 'mdi' },
+  { name: 'Wi-Fi', nameEn: 'Wi-Fi', icon: 'mdi-wifi', value: 'wifi', code: 0xf05a9, type: 'mdi' },
+  { name: 'クラウド', nameEn: 'Cloud', icon: 'mdi-cloud', value: 'cloud', code: 0xf015f, type: 'mdi' },
+  { name: 'プリンター', nameEn: 'Printer', icon: 'mdi-printer', value: 'printer', code: 0xf042a, type: 'mdi' },
+  { name: 'スマホ / 携帯', nameEn: 'Smartphone / Mobile', icon: 'mdi-cellphone', value: 'cellphone', code: 0xf011c, type: 'mdi' },
+  { name: 'ルーター', nameEn: 'Router', icon: 'mdi-router', value: 'router', code: 0xf11e2, type: 'mdi' },
+  { name: 'Webサーバー', nameEn: 'Web Server', icon: 'mdi-web', value: 'web', code: 0xf059f, type: 'mdi' },
+  { name: 'データベース', nameEn: 'Database', icon: 'mdi-database', value: 'db', code: 0xf01bc, type: 'mdi' },
+  { name: 'Wi-Fi AP', nameEn: 'Wi-Fi AP', icon: 'mdi-router-wireless', value: 'mdi-router-wireless', code: 0xf0469, type: 'mdi' },
+  { name: 'スイッチ', nameEn: 'Switch', icon: 'mdi-switch', value: 'switch', code: 0xf04e4, type: 'mdi' },
+  { name: 'NAS', nameEn: 'NAS', icon: 'mdi-nas', value: 'nas', code: 0xf08f3, type: 'mdi' },
+  { name: '監視カメラ', nameEn: 'Surveillance Camera', icon: 'mdi-cctv', value: 'camera', code: 0xf07ae, type: 'mdi' },
+  { name: 'UPS', nameEn: 'UPS', icon: 'mdi-battery-charging', value: 'ups', code: 0xf0084, type: 'mdi' },
+  { name: 'セキュリティ', nameEn: 'Security', icon: 'mdi-security', value: 'security', code: 0xf0483, type: 'mdi' },
+  { name: 'Windows', nameEn: 'Windows', icon: 'mdi-microsoft-windows', value: 'windows', code: 0xf05b3, type: 'mdi' },
+  { name: 'Linux', nameEn: 'Linux', icon: 'mdi-linux', value: 'linux', code: 0xf033d, type: 'mdi' },
+  { name: 'Raspberry Pi', nameEn: 'Raspberry Pi', icon: 'mdi-raspberry-pi', value: 'raspberrypi', code: 0xf043f, type: 'mdi' },
+  { name: 'IoT / ボード', nameEn: 'IoT / Dev Board', icon: 'mdi-developer-board', value: 'iot', code: 0xf0697, type: 'mdi' },
 ];
 
 export const customIconList: IconEnt[] = [];
@@ -102,49 +104,99 @@ export const iconList: IconEnt[] = [...defaultIconList];
 
 const iconCodeMap = new Map<string, string>();
 const iconMap = new Map<string, string>();
+const iconImageMap = new Map<string, string>();
 
 function rebuildIconMaps() {
   iconMap.clear();
   iconCodeMap.clear();
+  iconImageMap.clear();
   iconList.length = 0;
   defaultIconList.forEach((e) => {
     iconList.push(e);
     if (e.icon) iconMap.set(e.value, e.icon);
-    iconCodeMap.set(e.value, String.fromCodePoint(e.code));
-    iconCodeMap.set(e.name, String.fromCodePoint(e.code));
+    if (e.code) {
+      iconCodeMap.set(e.value, String.fromCodePoint(e.code));
+      iconCodeMap.set(e.name, String.fromCodePoint(e.code));
+    }
   });
   customIconList.forEach((e) => {
     iconList.push(e);
     if (e.icon) iconMap.set(e.value, e.icon);
-    iconCodeMap.set(e.value, String.fromCodePoint(e.code));
-    iconCodeMap.set(e.name, String.fromCodePoint(e.code));
+    if (e.type === 'image' && e.image) {
+      iconImageMap.set(e.value, e.image);
+      iconImageMap.set(e.name, e.image);
+    } else if (e.code) {
+      iconCodeMap.set(e.value, String.fromCodePoint(e.code));
+      iconCodeMap.set(e.name, String.fromCodePoint(e.code));
+    }
   });
 }
 rebuildIconMaps();
 
-export function setCustomIcons(icons: Array<{ name?: string; Name?: string; code?: number; Code?: number; value?: string; icon?: string; nameEn?: string }>) {
+export function setCustomIcons(icons: Array<{
+  name?: string;
+  Name?: string;
+  code?: number;
+  Code?: number;
+  value?: string;
+  icon?: string;
+  nameEn?: string;
+  type?: 'mdi' | 'image';
+  Type?: 'mdi' | 'image';
+  image?: string;
+  Image?: string;
+}>) {
   customIconList.length = 0;
   icons.forEach((ic) => {
     const name = ic.name || ic.Name || '';
+    if (!name) return;
+    const type = (ic.type || ic.Type || (ic.image || ic.Image ? 'image' : 'mdi')) as 'mdi' | 'image';
+    const image = ic.image || ic.Image || '';
     const code = Number(ic.code ?? ic.Code ?? 0);
-    if (!name || !code) return;
+    if (type !== 'image' && !code) return;
     const value = ic.value || name;
     customIconList.push({
       name,
       nameEn: ic.nameEn || name,
       value,
-      code,
+      code: type === 'image' ? 0 : code,
+      type,
+      image,
       icon: ic.icon || '',
     });
   });
   rebuildIconMaps();
 }
 
+export const getImageIconList = (): IconEnt[] => {
+  return customIconList.filter(e => e.type === 'image');
+};
+
 export const getIconName = (val: string): string => {
   const isJa = (get(locale) || 'ja').startsWith('ja');
   const entry = iconList.find(e => e.value === val || e.name === val);
   if (!entry) return val;
   return isJa ? entry.name : (entry.nameEn || entry.name);
+};
+
+export const isImageIcon = (icon: string): boolean => {
+  if (!icon) return false;
+  if (icon.startsWith('data:image/')) return true;
+  if (iconImageMap.has(icon)) return true;
+  const entry = customIconList.find(e => e.value === icon || e.name === icon);
+  return Boolean(entry && entry.type === 'image' && entry.image);
+};
+
+export const getIconImage = (icon: string): string => {
+  if (!icon) return '';
+  if (icon.startsWith('data:image/')) return icon;
+  if (iconImageMap.has(icon)) return iconImageMap.get(icon)!;
+  const entry = customIconList.find(e => e.value === icon || e.name === icon);
+  if (entry && entry.image) {
+    iconImageMap.set(icon, entry.image);
+    return entry.image;
+  }
+  return '';
 };
 
 export const getIcon = (icon: string): string => {
