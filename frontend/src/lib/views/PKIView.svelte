@@ -17,6 +17,7 @@
     type PKISettings,
     type PKIStatus,
   } from "../api";
+  import { showConfirm } from "../stores/modalStore";
 
   let status = $state<PKIStatus | null>(null);
   let settings = $state<PKISettings | null>(null);
@@ -112,7 +113,13 @@
   };
 
   const resetCA = async () => {
-    if (!confirm($_("pki.confirmResetCA"))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'CAリセットの確認',
+      message: $_("pki.confirmResetCA"),
+      type: 'danger',
+      confirmText: $_('common.delete') || 'リセット',
+    });
+    if (!ok) return;
     submitting = true;
     error = "";
     try {
@@ -235,7 +242,13 @@
   };
 
   const revoke = async (cert: PKICertificate) => {
-    if (!confirm($_("pki.confirmRevoke"))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || '証明書失効の確認',
+      message: $_("pki.confirmRevoke"),
+      type: 'danger',
+      confirmText: $_('common.delete') || '失効',
+    });
+    if (!ok) return;
     error = "";
     try {
       await revokePKICertificate(cert.serial);

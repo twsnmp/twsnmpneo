@@ -11,6 +11,7 @@
     Sparkles,
     Loader2,
   } from "@lucide/svelte";
+  import AnimatedCatLogo from "../../components/common/AnimatedCatLogo.svelte";
   import { formatTimeStr, renderTimeMili, renderBytes, getStateColor } from "../../common";
   import { getLevelBadge, formatCounterData } from "./logUtils";
   import type { ColumnDef, LogCategory, LogItem } from "./types";
@@ -66,15 +67,12 @@
       <div class="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-500 animate-pulse w-full"></div>
     </div>
 
-    <!-- Centered Modal Loading Card -->
+    <!-- Centered Modal Loading Card with Animated Cat Logo -->
     <div
       class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/70 dark:bg-slate-950/75 backdrop-blur-[2px] transition-all animate-in fade-in duration-150"
     >
-      <div class="flex flex-col items-center gap-3.5 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-slate-900/95 shadow-2xl max-w-sm text-center">
-        <div class="relative flex items-center justify-center">
-          <div class="h-12 w-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
-          <Loader2 class="h-6 w-6 text-cyan-600 dark:text-cyan-400 absolute animate-spin" />
-        </div>
+      <div class="flex flex-col items-center gap-3 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-slate-900/95 shadow-2xl max-w-sm text-center">
+        <AnimatedCatLogo mode="loading" size="sm" />
         <div class="space-y-1">
           <div class="text-sm font-bold text-slate-800 dark:text-slate-100">
             {$_('log.searching')}

@@ -15,6 +15,7 @@
     type OTelTraceEnt,
     type OTelTraceDAGEnt,
   } from "../api";
+  import { showConfirm, showLoading, hideLoading } from "../stores/modalStore";
   import { formatTimeStr, renderTimeMili } from "../common";
   import {
     showOTelTrace,
@@ -661,15 +662,26 @@
 
   // Global Delete
   const handleDeleteAll = async () => {
-    if (!confirm($_('otel.confirmDeleteAll'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'OTelデータ全削除の確認',
+      message: $_('otel.confirmDeleteAll'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '全削除',
+    });
+    if (!ok) {
       return;
     }
+    showLoading({
+      title: $_('common.processing') || '処理中...',
+      message: $_('otel.deletingAll') || 'OTelデータをすべて削除しています...',
+    });
     loading = true;
     try {
       await deleteAllOTelData();
       await refresh();
     } finally {
       loading = false;
+      hideLoading();
     }
   };
 

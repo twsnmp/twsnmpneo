@@ -10,6 +10,7 @@
     askAI,
     type EventLogEnt,
   } from "../api";
+  import { showConfirm, showLoading, hideLoading, showAlert } from "../stores/modalStore";
   import LogFilterModal from "../components/LogFilterModal.svelte";
   import LogReportModal from "../components/LogReportModal.svelte";
   import LogAIDialog from "../components/LogAIDialog.svelte";
@@ -122,8 +123,24 @@
     }
   };
 
+  const getTabDisplayName = (tab: LogCategory): string => {
+    switch (tab) {
+      case "event": return "Event Log";
+      case "syslog": return "Syslog";
+      case "trap": return "SNMP TRAP";
+      case "netflow": return "NetFlow";
+      case "sflow": return sflowCounter ? "sflow (Counter)" : "sFlow";
+      case "arp": return "ARP Watch";
+      default: return String(tab).toUpperCase();
+    }
+  };
+
   const loadCurrentLogs = async () => {
     loading = true;
+    showLoading({
+      title: $_('log.searching') || 'ログ検索中...',
+      message: `${getTabDisplayName(activeTab)} ログを読み込んでいます...`,
+    });
     try {
       refreshCounts();
       const currentFilter = categoryFilters[activeTab];
@@ -162,6 +179,7 @@
       console.error(e);
     } finally {
       loading = false;
+      hideLoading();
     }
   };
 
@@ -312,9 +330,19 @@
 
   const handleDeleteAll = async () => {
     const confirmMsg = $_('log.deleteConfirm', { values: { type: activeTab.toUpperCase() } });
-    if (!confirm(confirmMsg)) {
+    const confirmed = await showConfirm({
+      title: $_('common.confirmDelete') || 'ログ削除の確認',
+      message: confirmMsg,
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!confirmed) {
       return;
     }
+    showLoading({
+      title: $_('common.processing') || '処理中...',
+      message: $_('log.deletingLogs') || `${activeTab.toUpperCase()} ログを削除しています...`,
+    });
     try {
       if (activeTab === "event") {
         await deleteEventLogs();
@@ -325,9 +353,15 @@
         await deleteParquetLogs(activeTab === "arp" ? "arplog" : activeTab);
       }
       chartZoomRange = null;
-      loadCurrentLogs();
-    } catch (e) {
-      alert(`${$_('log.deleteFailed')}: ${e}`);
+      await loadCurrentLogs();
+    } catch (e: any) {
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: `${$_('log.deleteFailed') || '削除に失敗しました'}: ${e?.message || e}`,
+        type: 'danger',
+      });
+    } finally {
+      hideLoading();
     }
   };
 

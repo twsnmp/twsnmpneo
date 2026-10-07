@@ -12,6 +12,7 @@
     type PollingEnt,
     type ParquetLogRecord,
   } from "../api";
+  import { showConfirm } from "../stores/modalStore";
   import { _ } from "svelte-i18n";
   import { renderBytes, renderTime, getStateColor } from "../common";
   import { showLogCountChart, resizeLogCountChart, disposeLogCountChart } from "../charts/logcount";
@@ -322,7 +323,13 @@
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm($_('mqtt.confirmDeleteSelected', { values: { count: selectedIds.size } }))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'トピック削除の確認',
+      message: $_('mqtt.confirmDeleteSelected', { values: { count: selectedIds.size } }),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
     const ids = Array.from(selectedIds);
     await deleteMqttStats(ids);
     await refreshStats();

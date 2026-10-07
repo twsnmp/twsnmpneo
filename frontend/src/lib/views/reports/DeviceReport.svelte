@@ -27,6 +27,7 @@
     type ArpEnt,
     type ParquetLogRecord,
   } from "../../api";
+  import { showConfirm, showAlert } from "../../stores/modalStore";
 
   let {
     searchQuery = "",
@@ -379,22 +380,42 @@
   });
 
   const handleResetArp = async () => {
-    if (!confirm($_("report.confirmResetArp"))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirm') || 'ARPテーブルリセット確認',
+      message: $_("report.confirmResetArp"),
+      type: 'warning',
+      confirmText: $_('common.reset') || 'リセット',
+    });
+    if (!ok) return;
     try {
       await resetArpTable();
       onRefresh();
     } catch (err: any) {
-      alert($_("report.alertResetFailed", { values: { error: err.message || err } }));
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: $_("report.alertResetFailed", { values: { error: err.message || err } }),
+        type: 'danger',
+      });
     }
   };
 
   const handleDeleteArp = async (ip: string, mac: string) => {
-    if (!confirm($_("report.confirmDeleteArp", { values: { ip, mac } }))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ARPエントリー削除の確認',
+      message: $_("report.confirmDeleteArp", { values: { ip, mac } }),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
     try {
       await deleteArpEntries([ip]);
       onRefresh();
     } catch (err: any) {
-      alert($_("report.alertDeleteFailed", { values: { error: err.message || err } }));
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: $_("report.alertDeleteFailed", { values: { error: err.message || err } }),
+        type: 'danger',
+      });
     }
   };
 

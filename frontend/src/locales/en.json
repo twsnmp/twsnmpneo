@@ -63,7 +63,11 @@
     "upload": "Upload",
     "view": "View",
     "reload": "Reload",
-    "retry": "Retry"
+    "retry": "Retry",
+    "processing": "Processing...",
+    "confirmDelete": "Confirm Deletion",
+    "confirmClear": "Confirm Clear",
+    "notice": "Notice"
   },
   "mib": {
     "dialogTitle": "MIB Browser",

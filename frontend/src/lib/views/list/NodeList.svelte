@@ -17,6 +17,7 @@
     ArrowUpDown,
   } from "@lucide/svelte";
   import { deleteNode, type NodeEnt, type PollingEnt } from "../../api";
+  import { showConfirm } from "../../stores/modalStore";
   import { getStateColor, getStateName, isImageIcon, getIconImage, getIconCode } from "../../common";
   import { getVendor } from "../reports/utils";
   import NodeDialog from "../../components/NodeDialog.svelte";
@@ -157,7 +158,13 @@
   };
 
   const handleDeleteNode = async (id: string) => {
-    if (confirm($_('list.confirmDelete.node'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ノード削除の確認',
+      message: $_('list.confirmDelete.node'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       await deleteNode(id);
       onRefresh();
     }

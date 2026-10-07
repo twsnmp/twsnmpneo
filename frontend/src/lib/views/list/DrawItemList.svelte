@@ -18,6 +18,7 @@
     type NodeEnt,
     type PollingEnt,
   } from "../../api";
+  import { showConfirm } from "../../stores/modalStore";
   import DrawItemDialog from "../../components/DrawItemDialog.svelte";
   import ListPagination from "./ListPagination.svelte";
   import {
@@ -125,7 +126,13 @@
   };
 
   const handleDeleteDrawItem = async (id: string) => {
-    if (confirm($_('list.confirmDelete.drawItem'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || '描画項目削除の確認',
+      message: $_('list.confirmDelete.drawItem'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       await deleteDrawItem(id);
       onRefresh();
     }

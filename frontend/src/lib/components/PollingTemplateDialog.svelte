@@ -91,7 +91,7 @@
     }
   };
 
-  const types = $derived(() => {
+  const types = $derived.by(() => {
     const set = new Set<string>();
     templates.forEach((t) => {
       if (t.Type) set.add(t.Type);
@@ -99,7 +99,7 @@
     return ["all", ...Array.from(set).sort()];
   });
 
-  const filteredTemplates = $derived(() => {
+  const filteredTemplates = $derived.by(() => {
     let list = templates.filter((t) => {
       if (selectedType !== "all" && t.Type !== selectedType) return false;
       if (!searchQuery.trim()) return true;
@@ -127,7 +127,7 @@
     return list;
   });
 
-  const totalCount = $derived(filteredTemplates().length);
+  const totalCount = $derived(filteredTemplates.length);
   const totalPages = $derived(
     pageSize === -1 ? 1 : Math.max(1, Math.ceil(totalCount / pageSize))
   );
@@ -135,8 +135,8 @@
     Math.min(Math.max(1, currentPage), totalPages)
   );
 
-  const paginatedTemplates = $derived(() => {
-    const list = filteredTemplates();
+  const paginatedTemplates = $derived.by(() => {
+    const list = filteredTemplates;
     if (pageSize === -1) return list;
     const start = (validCurrentPage - 1) * pageSize;
     return list.slice(start, start + pageSize);
@@ -408,7 +408,7 @@
               bind:value={selectedType}
               class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1.5 text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:outline-none cursor-pointer"
             >
-              {#each types() as t}
+              {#each types as t}
                 <option value={t}>
                   {t === "all" ? "すべて (All)" : renderPollingType(t)}
                 </option>
@@ -440,7 +440,7 @@
             <div class="flex justify-center items-center py-20 text-slate-400">
               {$_("common.loading") || "読み込み中..."}
             </div>
-          {:else if filteredTemplates().length === 0}
+          {:else if filteredTemplates.length === 0}
             <div class="text-center py-16 text-slate-400">
               {$_("AddPolling.NoMatches")}
             </div>
@@ -491,7 +491,7 @@
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {#each paginatedTemplates() as t}
+                  {#each paginatedTemplates as t}
                     <tr
                       class="cursor-pointer transition-all border-l-4 {selectedId === t.ID
                         ? 'border-l-blue-600 dark:border-l-blue-400 bg-blue-100/90 dark:bg-blue-600/30 text-blue-950 dark:text-blue-50 font-medium shadow-sm'

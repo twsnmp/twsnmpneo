@@ -21,6 +21,7 @@
     RmonEtherStatsEnt,
     NodeDiagnoseResult,
   } from "../api";
+  import { showConfirm } from "../stores/modalStore";
   import PollingDetailModal from "./PollingDetailModal.svelte";
   import PollingDialog from "./PollingDialog.svelte";
   import PingDialog from "./PingDialog.svelte";
@@ -216,7 +217,13 @@
   const handleDeletePolling = async (p: PollingEnt) => {
     const pName = p.name || (p as any).Name || "このポーリング";
     const msg = $_('pollingDetail.deleteConfirm') || `ポーリング「${pName}」を削除してもよろしいですか？`;
-    if (confirm(msg)) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ポーリング削除の確認',
+      message: msg,
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       try {
         const id = p.id || (p as any).ID || "";
         if (id) {

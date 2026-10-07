@@ -13,6 +13,7 @@
     ArrowUpDown,
   } from "@lucide/svelte";
   import { deleteLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../../api";
+  import { showConfirm } from "../../stores/modalStore";
   import { getStateColor, getStateName } from "../../common";
   import LineDialog from "../../components/LineDialog.svelte";
   import ListPagination from "./ListPagination.svelte";
@@ -106,7 +107,13 @@
   };
 
   const handleDeleteLine = async (id: string) => {
-    if (confirm($_('list.confirmDelete.line'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ライン削除の確認',
+      message: $_('list.confirmDelete.line'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       await deleteLine(id);
       onRefresh();
     }

@@ -17,6 +17,7 @@
     ArrowUpDown,
   } from "@lucide/svelte";
   import { deletePolling, type PollingEnt, type NodeEnt } from "../../api";
+  import { showConfirm } from "../../stores/modalStore";
   import {
     getStateColor,
     getStateName,
@@ -181,7 +182,13 @@
   };
 
   const handleDeletePolling = async (id: string) => {
-    if (confirm($_('list.confirmDelete.polling'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ポーリング削除の確認',
+      message: $_('list.confirmDelete.polling'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       await deletePolling(id);
       onRefresh();
     }

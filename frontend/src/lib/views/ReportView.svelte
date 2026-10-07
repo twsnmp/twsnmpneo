@@ -43,6 +43,7 @@
     type CertMonitorEnt,
     type MqttStatEnt,
   } from "../api";
+  import { showConfirm, showAlert } from "../stores/modalStore";
 
   import DeviceReport from "./reports/DeviceReport.svelte";
   import IpamReport from "./reports/IpamReport.svelte";
@@ -178,12 +179,22 @@
   });
 
   const handleResetArp = async () => {
-    if (!confirm($_("report.confirmResetArp"))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirm') || 'ARPテーブルリセット確認',
+      message: $_("report.confirmResetArp"),
+      type: 'warning',
+      confirmText: $_('common.reset') || 'リセット',
+    });
+    if (!ok) return;
     try {
       await resetArpTable();
       await loadData();
     } catch (err: any) {
-      alert($_("report.alertResetFailed", { values: { error: err.message || err } }));
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: $_("report.alertResetFailed", { values: { error: err.message || err } }),
+        type: 'danger',
+      });
     }
   };
 

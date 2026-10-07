@@ -12,6 +12,7 @@
   import LoginView from "./lib/views/LoginView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import HelpDialog from "./lib/components/HelpDialog.svelte";
+  import GlobalModalHost from "./lib/components/common/GlobalModalHost.svelte";
   import { fetchMapConf, fetchCustomIcons, fetchMe, logout, type UserEnt } from "./lib/api";
   import { setCustomIcons } from "./lib/common";
   import { _ } from "svelte-i18n";
@@ -305,4 +306,8 @@
     <span class="mdi mdi-monitor pointer-events-none fixed -top-[9999px] -left-[9999px] opacity-0" aria-hidden="true"></span>
   </div>
 {/if}
+
+<!-- Global Modal Host for Confirms, Loadings, and Alerts with Animated Cat -->
+<GlobalModalHost />
+
 

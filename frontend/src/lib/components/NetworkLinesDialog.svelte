@@ -1,5 +1,6 @@
 <script lang="ts">
   import { deleteLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../api";
+  import { showConfirm, showAlert } from "../stores/modalStore";
   import { getStateColor } from "../common";
   import { _ } from "svelte-i18n";
   import { X, Network, Edit3, Trash2, Link, Server, Laptop, Activity } from "@lucide/svelte";
@@ -88,12 +89,22 @@
   const handleDelete = async (line: LineEnt) => {
     const lineId = line.id || (line as any).ID;
     if (!lineId) return;
-    if (confirm($_('networkLines.deleteConfirm'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ライン削除の確認',
+      message: $_('networkLines.deleteConfirm'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       try {
         await deleteLine(lineId);
         onDeleteLine(lineId);
       } catch (e: any) {
-        alert("Error: " + (e.message || e));
+        showAlert({
+          title: $_('common.error') || 'エラー',
+          message: e?.message || e,
+          type: 'danger',
+        });
       }
     }
   };

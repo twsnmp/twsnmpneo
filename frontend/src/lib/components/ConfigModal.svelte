@@ -36,6 +36,7 @@
     type NotifyConfEnt,
   } from "../api";
   import { setCustomIcons } from "../common";
+  import { showConfirm } from "../stores/modalStore";
   import { allMdiIcons } from "../mdiIcons";
   import ImportMapModal from "./ImportMapModal.svelte";
   import ListPagination from "../views/list/ListPagination.svelte";
@@ -231,7 +232,13 @@
 
   const handleDeleteUser = async (u: UserEnt) => {
     const confirmMsg = `${u.user} (${u.name})\n` + ($_('users.confirmDelete', { values: { user: u.user } }) || "このユーザーを削除してもよろしいですか？");
-    if (!confirm(confirmMsg)) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ユーザー削除の確認',
+      message: confirmMsg,
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
 
     usersLoading = true;
     try {
@@ -422,7 +429,13 @@
   }
 
   async function handleDeleteMIB(filePath: string) {
-    if (!confirm($_("config.mibDeleteConfirm"))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'MIB削除の確認',
+      message: $_("config.mibDeleteConfirm"),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
     mibLoading = true;
     mibMsg = "";
     mibError = "";
@@ -697,7 +710,13 @@
 
   async function handleDeleteIcon(item: IconEnt) {
     const name = item.name || item.Name || "";
-    if (!confirm($_('config.iconDeleteConfirm', { values: { name } }))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'アイコン削除の確認',
+      message: $_('config.iconDeleteConfirm', { values: { name } }),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
     try {
       await deleteCustomIcon(name);
       await loadIcons();
@@ -1043,7 +1062,13 @@
   }
 
   async function handleDeleteGeoIP() {
-    if (!confirm($_('config.geoipConfirmDelete'))) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'GeoIP削除の確認',
+      message: $_('config.geoipConfirmDelete'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
     geoIPLoading = true;
     saveMsg = "";
     saveError = "";

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { saveLine, deleteLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../api";
+  import { showConfirm } from "../stores/modalStore";
   import { _ } from "svelte-i18n";
   import { X, Save, GitCommitHorizontal, Trash2, Network, Link, Unlink, Server, Laptop, Activity } from "@lucide/svelte";
 
@@ -159,7 +160,13 @@
 
   const handleDisconnect = async () => {
     if (line?.id) {
-      if (confirm($_('line.disconnectConfirm'))) {
+      const ok = await showConfirm({
+        title: $_('common.confirmDelete') || 'ライン切断の確認',
+        message: $_('line.disconnectConfirm'),
+        type: 'danger',
+        confirmText: $_('line.disconnect') || '切断',
+      });
+      if (ok) {
         try {
           await deleteLine(line.id);
           onDelete(line.id);

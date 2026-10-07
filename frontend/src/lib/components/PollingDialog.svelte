@@ -69,7 +69,7 @@
   const isEditing = $derived(id !== "");
 
   // Node display name for read-only mode when editing
-  const selectedNodeName = $derived(() => {
+  const selectedNodeName = $derived.by(() => {
     if (!isEditing) return "";
     const n = nodes.find((node: NodeEnt) => (node.id || node.ID) === nodeId);
     if (!n) return nodeId;
@@ -241,7 +241,7 @@
                 class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-slate-600 dark:text-slate-400 cursor-not-allowed"
                 title={$_("polling.nodeLockedHint")}
               >
-                {selectedNodeName()}
+                {selectedNodeName}
               </div>
             {:else}
               <select

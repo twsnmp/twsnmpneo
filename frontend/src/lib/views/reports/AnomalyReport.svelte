@@ -18,6 +18,7 @@
     type PollingEnt,
     type EventLogEnt,
   } from "../../api";
+  import { showConfirm, showAlert } from "../../stores/modalStore";
   import { getScoreColor, getScoreIcon, formatTimeStr } from "../../common";
   import AIReportModal from "./AIReportModal.svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
@@ -142,7 +143,13 @@
 
   const handleClearItem = async (item: AIListEnt) => {
     const confirmMsg = `ポーリング「${item.Polling}」(${item.Node}) の異常検知結果を削除しますか？`;
-    if (!confirm(confirmMsg)) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || '異常検知結果削除の確認',
+      message: confirmMsg,
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) return;
 
     loading = true;
     try {
@@ -151,7 +158,11 @@
       await onReload?.();
     } catch (e) {
       console.error("Failed to clear AI result:", e);
-      alert("削除に失敗しました");
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: "削除に失敗しました",
+        type: 'danger',
+      });
     } finally {
       loading = false;
     }

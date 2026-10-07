@@ -8,6 +8,7 @@
     type SystemInfo,
     type MonitorDataEnt,
   } from "../api";
+  import { showConfirm, showLoading, hideLoading } from "../stores/modalStore";
   import { _ } from "svelte-i18n";
   import { renderBytes, renderSpeed, renderPercent, formatTimeStr } from "../common";
   import {
@@ -131,9 +132,19 @@
 
   // Handle Backup
   const handleBackup = async () => {
-    if (!confirm($_('system.confirmBackup'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirm') || 'バックアップ確認',
+      message: $_('system.confirmBackup'),
+      type: 'warning',
+      confirmText: $_('system.backup') || 'バックアップ作成',
+    });
+    if (!ok) {
       return;
     }
+    showLoading({
+      title: $_('system.backup') || 'バックアップ',
+      message: 'システムバックアップを作成しています...',
+    });
     backupLoading = true;
     backupStatus = null;
     backupError = null;
@@ -150,6 +161,7 @@
       }, 7000);
     } finally {
       backupLoading = false;
+      hideLoading();
     }
   };
 

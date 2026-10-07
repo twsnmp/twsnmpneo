@@ -10,6 +10,7 @@
     type NetworkEnt,
     type PollingEnt,
   } from "../api";
+  import { showLoading, hideLoading } from "../stores/modalStore";
   import {
     X,
     FolderTree,
@@ -109,6 +110,10 @@
     tableSearchQuery = "";
     sortColumn = null;
     hoveredInfo = null;
+    showLoading({
+      title: $_('mib.dialogTitle') || 'MIBブラウザー',
+      message: `${targetName || targetIP} から MIB「${nameOrOid.trim()}」を取得中...`,
+    });
     try {
       const q = nameOrOid.trim();
       const res = await runSNMPTool(
@@ -125,16 +130,23 @@
       errorMessage = e instanceof Error ? e.message : String(e);
     } finally {
       isLoading = false;
+      hideLoading();
     }
   };
 
   const handleOpenMIBTree = async () => {
     showMIBTreeModal = true;
     if (mibTreeData.length === 0) {
+      showLoading({
+        title: $_('mib.treeTitle') || 'MIBツリー',
+        message: 'MIBツリー情報を読み込んでいます...',
+      });
       try {
         mibTreeData = await fetchMIBTree();
       } catch (e) {
         errorMessage = e instanceof Error ? e.message : String(e);
+      } finally {
+        hideLoading();
       }
     }
   };

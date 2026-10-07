@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NodeEnt, PollingEnt } from '$lib/api';
   import { saveNode, deleteNode } from '$lib/api';
+  import { showConfirm } from '../stores/modalStore';
   import { Server, Plus, Trash2, Edit2, CheckCircle, AlertTriangle, AlertCircle, HelpCircle } from '@lucide/svelte';
 
   let { nodes = [], pollings = [], onRefresh }: {
@@ -49,7 +50,13 @@
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this node?')) return;
+    const ok = await showConfirm({
+      title: 'ノード削除の確認',
+      message: 'このノードを削除してもよろしいですか？',
+      type: 'danger',
+      confirmText: '削除',
+    });
+    if (!ok) return;
     await deleteNode(id);
     if (onRefresh) onRefresh();
   }

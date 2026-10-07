@@ -37,6 +37,7 @@
     type MotionSensorDataEnt,
     type NodeEnt,
   } from "../../api";
+  import { showConfirm, showAlert } from "../../stores/modalStore";
 
   let {
     searchQuery = "",
@@ -111,12 +112,14 @@
       motion: { kind: "motionSensor", name: $_("report.tabMotion") || "人感センサー" },
     };
     const target = tabKindMap[activeTab];
-    if (
-      !confirm(
-        $_("report.confirmClearItem", { values: { name: target.name } }) ||
-          `${target.name}データを全消去しますか？`
-      )
-    ) {
+    const ok = await showConfirm({
+      title: $_('common.confirmClear') || 'データ消去の確認',
+      message: $_("report.confirmClearItem", { values: { name: target.name } }) ||
+        `${target.name}データを全消去しますか？`,
+      type: 'warning',
+      confirmText: $_('common.clear') || '消去',
+    });
+    if (!ok) {
       return;
     }
     try {
@@ -124,7 +127,11 @@
       await loadAll();
       onRefresh();
     } catch (err: any) {
-      alert($_("report.alertResetFailed", { values: { error: err.message || err } }));
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: $_("report.alertResetFailed", { values: { error: err.message || err } }),
+        type: 'danger',
+      });
     }
   }
 

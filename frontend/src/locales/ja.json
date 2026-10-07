@@ -63,7 +63,11 @@
     "upload": "アップロード",
     "view": "表示",
     "reload": "再読み込み",
-    "retry": "再試行"
+    "retry": "再試行",
+    "processing": "処理中...",
+    "confirmDelete": "削除の確認",
+    "confirmClear": "クリアの確認",
+    "notice": "お知らせ"
   },
   "mib": {
     "dialogTitle": "MIBブラウザー",

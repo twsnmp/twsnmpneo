@@ -37,6 +37,7 @@
     type BlueDeviceEnt,
     type NodeEnt,
   } from "../../api";
+  import { showConfirm, showAlert } from "../../stores/modalStore";
 
   let {
     searchQuery = "",
@@ -95,13 +96,15 @@
   };
 
   export async function handleClear(): Promise<void> {
-    if (
-      !confirm(
-        $_("report.confirmClearBluetooth") ||
-          $_("report.confirmClearItem", { values: { name: "Bluetoothデバイス" } }) ||
-          "Bluetoothデバイスのレポートデータを全消去しますか？"
-      )
-    ) {
+    const ok = await showConfirm({
+      title: $_('common.confirmClear') || 'データ消去の確認',
+      message: $_("report.confirmClearBluetooth") ||
+        $_("report.confirmClearItem", { values: { name: "Bluetoothデバイス" } }) ||
+        "Bluetoothデバイスのレポートデータを全消去しますか？",
+      type: 'warning',
+      confirmText: $_('common.clear') || '消去',
+    });
+    if (!ok) {
       return;
     }
     try {
@@ -109,7 +112,11 @@
       await loadAll();
       onRefresh();
     } catch (err: any) {
-      alert($_("report.alertResetFailed", { values: { error: err.message || err } }));
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: $_("report.alertResetFailed", { values: { error: err.message || err } }),
+        type: 'danger',
+      });
     }
   }
 

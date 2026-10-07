@@ -20,6 +20,7 @@
     type PollingEnt,
     type NodeEnt,
   } from "../../api";
+  import { showConfirm, showAlert } from "../../stores/modalStore";
   import PollingDialog from "../../components/PollingDialog.svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
 
@@ -264,14 +265,24 @@
   };
 
   const handleDeleteItem = async (item: any) => {
-    if (!confirm(`ポーリング「${item.pollingName}」(${item.target}:${item.port}) を削除しますか？`)) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ポーリング削除の確認',
+      message: `ポーリング「${item.pollingName}」(${item.target}:${item.port}) を削除しますか？`,
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (!ok) {
       return;
     }
     try {
       await deletePolling(item.id);
       await onReload?.();
     } catch (e: any) {
-      alert("削除に失敗しました: " + e.message);
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: "削除に失敗しました: " + (e?.message || e),
+        type: 'danger',
+      });
     }
   };
 

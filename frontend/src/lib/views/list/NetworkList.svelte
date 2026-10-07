@@ -12,6 +12,7 @@
     ArrowUpDown,
   } from "@lucide/svelte";
   import { deleteNetwork, type NetworkEnt } from "../../api";
+  import { showConfirm } from "../../stores/modalStore";
   import NetworkDialog from "../../components/NetworkDialog.svelte";
   import ListPagination from "./ListPagination.svelte";
   import { compareSortValues } from "./listUtils";
@@ -97,7 +98,13 @@
   };
 
   const handleDeleteNetwork = async (id: string) => {
-    if (confirm($_('list.confirmDelete.network'))) {
+    const ok = await showConfirm({
+      title: $_('common.confirmDelete') || 'ネットワーク削除の確認',
+      message: $_('list.confirmDelete.network'),
+      type: 'danger',
+      confirmText: $_('common.delete') || '削除',
+    });
+    if (ok) {
       await deleteNetwork(id);
       onRefresh();
     }

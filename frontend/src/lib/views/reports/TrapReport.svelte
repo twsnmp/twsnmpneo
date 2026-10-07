@@ -22,6 +22,7 @@
     type ParquetLogRecord,
     type NodeEnt,
   } from "../../api";
+  import { showConfirm, showAlert } from "../../stores/modalStore";
 
   let {
     trapLogs = [],
@@ -44,12 +45,22 @@
   };
 
   export const handleClear = async () => {
-    if (!confirm($_("report.confirmClearReport") || "レポートデータをクリアしますか？")) return;
+    const ok = await showConfirm({
+      title: $_('common.confirmClear') || 'レポートクリアの確認',
+      message: $_("report.confirmClearReport") || "レポートデータをクリアしますか？",
+      type: 'warning',
+      confirmText: $_('common.clear') || 'クリア',
+    });
+    if (!ok) return;
     try {
       await resetTrapStats();
       await refresh();
     } catch (e: any) {
-      alert(e.message || e);
+      showAlert({
+        title: $_('common.error') || 'エラー',
+        message: e?.message || e,
+        type: 'danger',
+      });
     }
   };
 
