@@ -26,6 +26,7 @@
     type NotifyConfEnt,
   } from "../api";
   import ImportMapModal from "./ImportMapModal.svelte";
+  import ListPagination from "../views/list/ListPagination.svelte";
   import {
     X,
     Save,
@@ -56,6 +57,9 @@
     RefreshCw,
     AlertTriangle,
     Search,
+    ArrowUp,
+    ArrowDown,
+    ArrowUpDown,
   } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
 
@@ -169,6 +173,19 @@
   let showMIBTreeModal = $state(false);
   let mibTreeData = $state<MIBTreeEnt[]>([]);
   let mibTreeFilter = $state("");
+  let mibSortColumn = $state<"index" | "type" | "name" | "file" | "status" | null>(null);
+  let mibSortDirection = $state<"asc" | "desc">("asc");
+  let mibPageSize = $state(25);
+  let mibCurrentPage = $state(1);
+
+  function handleMibSort(col: "index" | "type" | "name" | "file" | "status") {
+    if (mibSortColumn === col) {
+      mibSortDirection = mibSortDirection === "asc" ? "desc" : "asc";
+    } else {
+      mibSortColumn = col;
+      mibSortDirection = "asc";
+    }
+  }
 
   async function loadMIBModules() {
     mibLoading = true;
@@ -253,6 +270,50 @@
       const type = (m.type || m.Type || "").toLowerCase();
       return name.includes(q) || file.includes(q) || err.includes(q) || type.includes(q);
     });
+  });
+
+  const sortedMibModules = $derived.by(() => {
+    const indexed = filteredMibModules.map((m, originalIdx) => ({
+      mod: m,
+      originalIdx,
+    }));
+
+    if (!mibSortColumn || mibSortColumn === "index") {
+      if (mibSortColumn === "index" && mibSortDirection === "desc") {
+        return [...indexed].reverse().map((i) => i.mod);
+      }
+      return indexed.map((i) => i.mod);
+    }
+
+    const direction = mibSortDirection === "asc" ? 1 : -1;
+    return [...indexed].sort((a, b) => {
+      let valA = "";
+      let valB = "";
+      if (mibSortColumn === "type") {
+        valA = a.mod.type || a.mod.Type || "";
+        valB = b.mod.type || b.mod.Type || "";
+      } else if (mibSortColumn === "name") {
+        valA = a.mod.name || a.mod.Name || "";
+        valB = b.mod.name || b.mod.Name || "";
+      } else if (mibSortColumn === "file") {
+        valA = a.mod.file || a.mod.File || "";
+        valB = b.mod.file || b.mod.File || "";
+      } else if (mibSortColumn === "status") {
+        valA = a.mod.error || a.mod.Error || "OK";
+        valB = b.mod.error || b.mod.Error || "OK";
+      }
+      const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: "base" });
+      if (cmp !== 0) return direction * cmp;
+      return a.originalIdx - b.originalIdx;
+    }).map((i) => i.mod);
+  });
+
+  const paginatedMibModules = $derived.by(() => {
+    if (mibPageSize === -1) return sortedMibModules;
+    const totalPages = Math.max(1, Math.ceil(sortedMibModules.length / mibPageSize));
+    const page = Math.min(Math.max(1, mibCurrentPage), totalPages);
+    const start = (page - 1) * mibPageSize;
+    return sortedMibModules.slice(start, start + mibPageSize);
   });
 
   const filteredTreeNodes = $derived.by(() => {
@@ -1997,6 +2058,7 @@
                     <input
                       type="text"
                       bind:value={mibFilter}
+                      oninput={() => (mibCurrentPage = 1)}
                       placeholder={$_('config.mibSearch')}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     />
@@ -2012,21 +2074,108 @@
                 <table class="w-full min-w-[900px] whitespace-nowrap text-left text-xs">
                   <thead class="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                     <tr>
-                      <th class="p-3 w-10 text-center">#</th>
-                      <th class="p-3 w-28">{$_('config.mibType')}</th>
-                      <th class="p-3 w-48">{$_('config.mibName')}</th>
-                      <th class="p-3">{$_('config.mibFile')}</th>
-                      <th class="p-3 w-32">{$_('config.mibStatus')}</th>
+                      <th class="p-3 w-12 text-center" aria-sort={mibSortColumn === 'index' ? (mibSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button
+                          type="button"
+                          class="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+                          onclick={() => handleMibSort('index')}
+                        >
+                          <span>#</span>
+                          {#if mibSortColumn === 'index'}
+                            {#if mibSortDirection === 'asc'}
+                              <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {:else}
+                              <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {/if}
+                          {:else}
+                            <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                          {/if}
+                        </button>
+                      </th>
+                      <th class="p-3 w-28" aria-sort={mibSortColumn === 'type' ? (mibSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+                          onclick={() => handleMibSort('type')}
+                        >
+                          <span>{$_('config.mibType')}</span>
+                          {#if mibSortColumn === 'type'}
+                            {#if mibSortDirection === 'asc'}
+                              <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {:else}
+                              <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {/if}
+                          {:else}
+                            <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                          {/if}
+                        </button>
+                      </th>
+                      <th class="p-3 w-56" aria-sort={mibSortColumn === 'name' ? (mibSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+                          onclick={() => handleMibSort('name')}
+                        >
+                          <span>{$_('config.mibName')}</span>
+                          {#if mibSortColumn === 'name'}
+                            {#if mibSortDirection === 'asc'}
+                              <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {:else}
+                              <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {/if}
+                          {:else}
+                            <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                          {/if}
+                        </button>
+                      </th>
+                      <th class="p-3" aria-sort={mibSortColumn === 'file' ? (mibSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+                          onclick={() => handleMibSort('file')}
+                        >
+                          <span>{$_('config.mibFile')}</span>
+                          {#if mibSortColumn === 'file'}
+                            {#if mibSortDirection === 'asc'}
+                              <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {:else}
+                              <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {/if}
+                          {:else}
+                            <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                          {/if}
+                        </button>
+                      </th>
+                      <th class="p-3 w-32" aria-sort={mibSortColumn === 'status' ? (mibSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button
+                          type="button"
+                          class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+                          onclick={() => handleMibSort('status')}
+                        >
+                          <span>{$_('config.mibStatus')}</span>
+                          {#if mibSortColumn === 'status'}
+                            {#if mibSortDirection === 'asc'}
+                              <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {:else}
+                              <ArrowDown class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
+                            {/if}
+                          {:else}
+                            <ArrowUpDown class="h-2.5 w-2.5 text-slate-400 dark:text-slate-600" />
+                          {/if}
+                        </button>
+                      </th>
                       <th class="p-3 w-16 text-center">{$_('config.mibAction')}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
-                    {#each filteredMibModules as mod, idx}
+                    {#each paginatedMibModules as mod, idx}
                       {@const isExt = mod.type === "ext" || mod.Type === "ext"}
                       {@const hasErr = Boolean(mod.error || mod.Error)}
                       {@const fileName = mod.file || mod.File}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td class="py-1 px-2 text-center text-slate-400 text-[11px]">{idx + 1}</td>
+                        <td class="py-1 px-2 text-center text-slate-400 text-[11px]">
+                          {(mibPageSize === -1 ? 0 : (mibCurrentPage - 1) * mibPageSize) + idx + 1}
+                        </td>
                         <td class="py-1 px-2">
                           {#if isExt}
                             <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
@@ -2083,6 +2232,11 @@
                     {/each}
                   </tbody>
                 </table>
+                <ListPagination
+                  bind:pageSize={mibPageSize}
+                  bind:currentPage={mibCurrentPage}
+                  totalCount={sortedMibModules.length}
+                />
               </div>
             </div>
           {/if}
