@@ -2313,9 +2313,6 @@ func NewServer(cfg Config) (*Server, error) {
 			switch req.Mode {
 			case "walk", "table":
 				err = agent.Walk(targetOID, func(pdu gosnmp.SnmpPDU) error {
-					if len(vars) >= 2000 {
-						return fmt.Errorf("SNMP walk exceeded 2000 results")
-					}
 					vars = append(vars, pdu)
 					return nil
 				})
