@@ -328,13 +328,25 @@
   let notifyTestError = $state("");
 
   // AI / LLM configuration
-  let llmProvider = $state("gemini");
+  let llmProvider = $state("tensai");
   let llmBaseUrl = $state("http://localhost:11434");
-  let llmModel = $state("gemini-1.5-flash");
+  let llmModel = $state("qwen2.5-0.5b");
   let llmApiKey = $state("");
-  let mcpTransport = $state("stdio");
-  let mcpEndpoint = $state("");
-  let mcpToken = $state("");
+  let enableMCP = $state(true);
+  let mcpMode = $state("noauth");
+  let mcpFrom = $state("");
+
+  const tensaiPresetModels = [
+    { id: "qwen2.5-0.5b", name: "Qwen 2.5 0.5B Instruct (Fast / ~500MB)" },
+    { id: "qwen2.5-1.5b", name: "Qwen 2.5 1.5B Instruct (Balanced / ~980MB)" },
+    { id: "qwen2.5-coder-0.5b", name: "Qwen 2.5 Coder 0.5B (~500MB)" },
+    { id: "qwen2.5-coder-1.5b", name: "Qwen 2.5 Coder 1.5B (~980MB)" },
+    { id: "smollm2-360m", name: "SmolLM2 360M Instruct (Ultra-light / ~380MB)" },
+    { id: "smollm2-1.7b", name: "SmolLM2 1.7B Instruct (~1.1GB)" },
+    { id: "llama-3.2-1b", name: "Llama 3.2 1B Instruct (~750MB)" },
+    { id: "deepseek-r1-1.5b", name: "DeepSeek R1 Distill Qwen 1.5B (~1.1GB)" },
+    { id: "tinyllama", name: "TinyLlama 1.1B Chat (~670MB)" },
+  ];
 
   // Data Store
   let logFormat = $state("parquet");
@@ -865,13 +877,13 @@
         arpWatchRange = conf.ArpWatchRange ?? conf.arp_watch_range ?? "";
         arpTimeout = conf.ArpTimeout ?? conf.arp_timeout ?? 60;
 
-        llmProvider = conf.LLMProvider ?? conf.llm_provider ?? "gemini";
+        llmProvider = conf.LLMProvider ?? conf.llm_provider ?? "tensai";
         llmBaseUrl = conf.LLMBaseURL ?? conf.llm_base_url ?? "http://localhost:11434";
         llmModel = conf.LLMModel ?? conf.llm_model ?? "gemini-1.5-flash";
         llmApiKey = conf.LLMAPIKey ?? conf.llm_api_key ?? "";
-        mcpTransport = conf.MCPTransport ?? conf.mcp_transport ?? "stdio";
-        mcpEndpoint = conf.MCPEndpoint ?? conf.mcp_endpoint ?? "";
-        mcpToken = conf.MCPToken ?? conf.mcp_token ?? "";
+        enableMCP = conf.EnableMCP ?? (conf as any).enable_mcp ?? true;
+        mcpMode = conf.MCPMode ?? (conf as any).mcp_mode ?? "noauth";
+        mcpFrom = conf.MCPFrom ?? (conf as any).mcp_from ?? "";
         logFormat = conf.LogFormat ?? conf.log_format ?? "parquet";
         geoIPInfo = conf.GeoIPInfo ?? conf.geo_ip_info ?? "";
       }
@@ -1113,9 +1125,9 @@
         LLMBaseURL: llmBaseUrl,
         LLMModel: llmModel,
         LLMAPIKey: llmApiKey,
-        MCPTransport: mcpTransport,
-        MCPEndpoint: mcpEndpoint,
-        MCPToken: mcpToken,
+        EnableMCP: Boolean(enableMCP),
+        MCPMode: mcpMode,
+        MCPFrom: mcpFrom,
         LogFormat: logFormat,
       });
 
@@ -2291,26 +2303,86 @@
                     <select
                       id="llm-provider"
                       bind:value={llmProvider}
+                      onchange={() => {
+                        if (llmProvider === "tensai" && (!llmModel || llmModel.includes("gemini") || llmModel.includes("gpt") || llmModel.includes("claude"))) {
+                          llmModel = "qwen2.5-0.5b";
+                        } else if (llmProvider === "gemini" && (!llmModel || llmModel === "qwen2.5-0.5b")) {
+                          llmModel = "gemini-1.5-flash";
+                        } else if (llmProvider === "openai" && (!llmModel || llmModel === "qwen2.5-0.5b")) {
+                          llmModel = "gpt-4o-mini";
+                        } else if (llmProvider === "claude" && (!llmModel || llmModel === "qwen2.5-0.5b")) {
+                          llmModel = "claude-3-5-sonnet-20241022";
+                        } else if (llmProvider === "ollama" && (!llmModel || llmModel === "qwen2.5-0.5b")) {
+                          llmModel = "llama3";
+                        }
+                      }}
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
                     >
+                      <option value="none">{$_('config.aiProviderNone')}</option>
+                      <option value="tensai">{$_('config.aiTensai')}</option>
                       <option value="gemini">{$_('config.aiGeminiRecommended')}</option>
                       <option value="openai">{$_('config.aiOpenAI')}</option>
                       <option value="claude">{$_('config.aiClaude')}</option>
                       <option value="ollama">{$_('config.aiOllama')}</option>
                     </select>
                   </div>
-                  <div>
-                    <label for="llm-model" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiModel')}</label>
-                    <input
-                      id="llm-model"
-                      type="text"
-                      bind:value={llmModel}
-                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
-                    />
-                  </div>
+
+                  {#if llmProvider === "tensai"}
+                    <div>
+                      <label for="llm-model-tensai" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiTensaiModel')}</label>
+                      <div class="space-y-1.5">
+                        <select
+                          id="llm-model-tensai"
+                          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                          onchange={(e) => {
+                            const val = (e.target as HTMLSelectElement).value;
+                            if (val && val !== 'custom') {
+                              llmModel = val;
+                            }
+                          }}
+                          value={tensaiPresetModels.some(p => p.id === llmModel) ? llmModel : 'custom'}
+                        >
+                          {#each tensaiPresetModels as preset}
+                            <option value={preset.id}>{preset.name}</option>
+                          {/each}
+                          <option value="custom">{$_('config.aiTensaiCustom')}</option>
+                        </select>
+                        <input
+                          id="llm-model"
+                          type="text"
+                          bind:value={llmModel}
+                          placeholder="qwen2.5-0.5b"
+                          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  {:else if llmProvider && llmProvider !== "none"}
+                    <div>
+                      <label for="llm-model" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiModel')}</label>
+                      <input
+                        id="llm-model"
+                        type="text"
+                        bind:value={llmModel}
+                        class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
+                      />
+                    </div>
+                  {/if}
                 </div>
 
-                {#if llmProvider === "ollama"}
+                {#if llmProvider === "tensai"}
+                  <div class="p-3.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-900/50 text-xs text-cyan-800 dark:text-cyan-300 flex items-start gap-2.5">
+                    <Sparkles class="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+                    <div class="space-y-1">
+                      <p class="font-semibold">{$_('config.aiTensai')}</p>
+                      <p class="text-[11px] leading-relaxed text-cyan-700 dark:text-cyan-400">
+                        {$_('config.aiTensaiDesc')}
+                      </p>
+                      <p class="text-[11px] leading-relaxed text-cyan-600/90 dark:text-cyan-400/90">
+                        {$_('config.aiTensaiModelHelp')}
+                      </p>
+                    </div>
+                  </div>
+                {:else if llmProvider === "ollama"}
                   <div>
                     <label for="llm-url" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiOllamaUrl')}</label>
                     <input
@@ -2320,7 +2392,7 @@
                       class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
-                {:else}
+                {:else if llmProvider && llmProvider !== "none"}
                   <div>
                     <label for="llm-key" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiApiKey')}</label>
                     <input
@@ -2334,34 +2406,69 @@
                 {/if}
               </div>
 
+              <!-- MCP Server Settings -->
               <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-                  <Cpu class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
-                  {$_('config.mcpTitle')}
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label for="mcp-trans" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpTransport')}</label>
-                    <select
-                      id="mcp-trans"
-                      bind:value={mcpTransport}
-                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
-                    >
-                      <option value="stdio">{$_('config.mcpStdio')}</option>
-                      <option value="sse">{$_('config.mcpSse')}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="mcp-endpoint" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpEndpoint')}</label>
-                    <input
-                      id="mcp-endpoint"
-                      type="text"
-                      bind:value={mcpEndpoint}
-                      placeholder={mcpTransport === 'sse' ? 'http://localhost:8000/sse' : 'twsnmp-mcp'}
-                      class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
-                    />
-                  </div>
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Cpu class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+                    {$_('config.mcpTitle')}
+                  </h3>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" bind:checked={enableMCP} class="sr-only peer" />
+                    <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-cyan-600"></div>
+                    <span class="ml-2 text-xs font-medium text-slate-700 dark:text-slate-300">{$_('config.mcpEnable')}</span>
+                  </label>
                 </div>
+
+                {#if enableMCP}
+                  <div class="space-y-4">
+                    <!-- Endpoint Display -->
+                    <div>
+                      <span class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpEndpoint')}</span>
+                      <div class="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readonly
+                          value="/api/mcp"
+                          class="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/60 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:outline-none select-all"
+                        />
+                      </div>
+                      <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {$_('config.mcpEndpointDesc')}
+                      </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <!-- Auth Mode -->
+                      <div>
+                        <label for="mcp-mode" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpMode')}</label>
+                        <select
+                          id="mcp-mode"
+                          bind:value={mcpMode}
+                          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                        >
+                          <option value="noauth">{$_('config.mcpModeNoAuth')}</option>
+                          <option value="auth">{$_('config.mcpModeAuth')}</option>
+                        </select>
+                      </div>
+
+                      <!-- Client IP Filter (mcpFrom) -->
+                      <div>
+                        <label for="mcp-from" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mcpFrom')}</label>
+                        <input
+                          id="mcp-from"
+                          type="text"
+                          bind:value={mcpFrom}
+                          placeholder={$_('config.mcpFromPlaceholder')}
+                          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                      {$_('config.mcpFromHelp')}
+                    </p>
+                  </div>
+                {/if}
               </div>
             </div>
 

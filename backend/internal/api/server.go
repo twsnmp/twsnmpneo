@@ -130,6 +130,7 @@ func NewServer(cfg Config) (*Server, error) {
 			if path == "/api/login" || reqPath == "/api/login" ||
 				path == "/api/logout" || reqPath == "/api/logout" ||
 				path == "/api/health" || reqPath == "/api/health" ||
+				(cfg.MCPServer != nil && cfg.MCPServer.Mode() != "auth" && (strings.HasPrefix(path, "/api/mcp") || strings.HasPrefix(reqPath, "/api/mcp"))) ||
 				strings.HasPrefix(path, "/api/notify/oauth2") || strings.HasPrefix(reqPath, "/api/notify/oauth2") {
 				return next(c)
 			}
@@ -495,9 +496,20 @@ func NewServer(cfg Config) (*Server, error) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
 	})
 
-	// MCP Endpoint
+	// MCP Endpoint (Streamable HTTP JSON-RPC)
 	if cfg.MCPServer != nil {
-		apiGroup.Any("/mcp*", echo.WrapHandler(cfg.MCPServer))
+		mcpHandler := func(c echo.Context) error {
+			if !cfg.MCPServer.IsEnabled() {
+				return c.NoContent(http.StatusNotFound)
+			}
+			if !cfg.MCPServer.CheckFromAddress(c.Request().RemoteAddr, c.RealIP()) {
+				return echo.ErrUnauthorized
+			}
+			cfg.MCPServer.ServeHTTP(c.Response().Writer, c.Request())
+			return nil
+		}
+		apiGroup.Any("/mcp", mcpHandler)
+		apiGroup.Any("/mcp/*", mcpHandler)
 	}
 
 	// AI Assistant Endpoints
@@ -1629,6 +1641,9 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			if err := cfg.Store.SaveMapConf(c.Request().Context(), &conf); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if cfg.MCPServer != nil {
+				cfg.MCPServer.UpdateConf(&conf)
 			}
 			conf.GeoIPInfo = datastore.GetGeoIPInfo()
 			return c.JSON(http.StatusOK, &conf)

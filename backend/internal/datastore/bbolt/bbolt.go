@@ -270,6 +270,12 @@ func (s *Store) loadCache() error {
 					if _, hasOTel := rawMap["EnableOTel"]; !hasOTel {
 						s.mapConf.EnableOTel = true
 					}
+					if _, hasMCP := rawMap["EnableMCP"]; !hasMCP {
+						s.mapConf.EnableMCP = true
+					}
+					if s.mapConf.MCPMode == "" {
+						s.mapConf.MCPMode = "noauth"
+					}
 					if s.mapConf.ReportDays <= 0 {
 						s.mapConf.ReportDays = 30
 					}
@@ -453,6 +459,8 @@ func (s *Store) initDefaultMapConf() {
 		EnableArpWatch:  true,
 		EnableOTel:      true,
 		OTelRetention:   24,
+		EnableMCP:       true,
+		MCPMode:         "noauth",
 		ReportDays:      30,
 		ReportLimit:     10000,
 		ScoreThreshold:  35.0,

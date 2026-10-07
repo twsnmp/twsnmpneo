@@ -468,14 +468,12 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 
 * **Multi-LLM Orchestration**: Integrated `tensai` supporting OpenAI, Google Gemini, Anthropic Claude, and local Ollama instances.
 * **MCP Server Implementation**:
-  - Standard JSON-RPC 2.0 tools over SSE and Stdio.
-  - Tools:
-    - `get_system_status`: CPU, memory, uptime, receiver packet stats.
-    - `list_nodes`: List all managed devices, IPs, MACs, and states.
-    - `get_node_detail`: Properties, ports, MIB trees, polling history.
-    - `get_active_alerts`: Active high/low alarm events.
-    - `query_logs`: Columnar filter scan across Syslog, Trap, and NetFlow Parquet files.
-    - `diagnose_node`: Run automated ping and diagnostic probes on demand.
+  - Standard JSON-RPC 2.0 tools and prompts over modern **Streamable HTTP** (`/api/mcp`) with IP whitelist (`-mcpFrom`) and optional JWT authentication (`-mcpMode auth|noauth`).
+  - **Comprehensive Tools (22+ tools)**:
+    - **Map & Network**: `get_node_list`, `add_node`, `update_node`, `get_network_list`, `get_polling_list`, `get_polling_log`, `get_polling_log_data`, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`, `get_system_status`, `diagnose_node`.
+    - **Reports & Analytics**: `get_sensor_list`, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`.
+    - **Logs & Diagnostics**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `get_ip_address_info`, `get_mac_address_info`.
+  - **MCP Prompts**: Full suite of 19 interactive prompt templates for node inspection, poller queries, ping, SNMP walk, log search, and IP/MAC info retrieval.
 * **UI AI Assist Dialogs**:
   - `LogAIDialog`: Submit log selections to LLM for root cause hypothesis and remediation suggestions.
   - `AIPollingAssistDialog`: Analyze SNMP MIB trees and automatically suggest optimal monitoring pollers.

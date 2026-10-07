@@ -306,13 +306,6 @@ func main() {
 		}
 	}()
 
-	// Initialize MCP Server
-	mcpServer := ai.NewMCPServer(ai.MCPConfig{
-		Store:    store,
-		LogStore: pqStore,
-		Version:  version,
-	})
-
 	// Initialize System Resource Monitor
 	sysMon := monitor.New(monitor.Config{
 		DataDir:  *dataDir,
@@ -324,6 +317,14 @@ func main() {
 	// Start Notify Manager
 	notify.Start(ctx, store, sysMon)
 
+	// Initialize MCP Server (configured via MapConf)
+	mcpServer := ai.NewMCPServer(ai.MCPConfig{
+		Store:    store,
+		LogStore: pqStore,
+		Monitor:  sysMon,
+		Version:  version,
+	})
+
 	// Receiver info map for UI
 	receiversInfo := map[string]any{
 		"syslog":  map[string]any{"port": fmt.Sprintf("UDP :%d / TCP :%d", sUDP, sTCP), "status": "running"},
@@ -332,7 +333,7 @@ func main() {
 		"sflow":   map[string]any{"port": fmt.Sprintf("UDP :%d", sfPort), "status": "running"},
 		"otel":    map[string]any{"port": fmt.Sprintf("HTTP :%d (OTLP)", oPort), "status": "running"},
 		"mqtt":    map[string]any{"port": fmt.Sprintf("TCP :%d", mPort), "status": "running"},
-		"mcp":     map[string]any{"port": "SSE /api/mcp/sse", "status": "running"},
+		"mcp":     map[string]any{"port": "Streamable HTTP /api/mcp", "status": "running"},
 		"arp":     map[string]any{"status": "running", "range": arpWatchRange},
 	}
 

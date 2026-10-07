@@ -1246,10 +1246,12 @@ export interface MapConfEnt {
   LLMBaseURL?: string;
   LLMModel?: string;
   LLMAPIKey?: string;
+  EnableMCP?: boolean;
+  MCPMode?: string;
+  MCPFrom?: string;
   MCPTransport?: string;
   MCPEndpoint?: string;
   MCPToken?: string;
-  MCPFrom?: string;
   LogFormat?: string;
   GeoIPInfo?: string;
   [key: string]: any;

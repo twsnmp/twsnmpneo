@@ -280,11 +280,13 @@ type MapConfEnt struct {
 	EnableOTel     bool   `json:"EnableOTel"`
 	EnableMqtt     bool   `json:"EnableMqtt"`
 	MqttToSyslog   bool   `json:"Mqtt2Syslog"`
-	MCPTransport   string `json:"MCPTransport"`
-	MCPEndpoint    string `json:"MCPEndpoint"`
-	MCPToken       string `json:"MCPToken"`
-	MCPFrom        string  `json:"MCPFrom"`
-	IconSize       int     `json:"IconSize"`
+	EnableMCP      bool   `json:"EnableMCP"`
+	MCPMode        string `json:"MCPMode"`
+	MCPFrom        string `json:"MCPFrom"`
+	MCPTransport   string `json:"MCPTransport,omitempty"`
+	MCPEndpoint    string `json:"MCPEndpoint,omitempty"`
+	MCPToken       string `json:"MCPToken,omitempty"`
+	IconSize       int    `json:"IconSize"`
 	MapSize        int     `json:"MapSize"`
 	ArpWatchRange  string  `json:"ArpWatchRange"`
 	ArpTimeout     int     `json:"ArpTimeout"`

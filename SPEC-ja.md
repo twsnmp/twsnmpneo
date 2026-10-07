@@ -48,7 +48,8 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
      - Apache Parquet 列指向圧縮保存による超高速クエリ、全カラムソート、詳細フィルタ、1万件取得、ページネーション、件数バッジ常時表示、受信推移グラフ連動、総合レポートモーダル (`LogReportModal`)。
   8. **ネイティブ AI & MCP (Model Context Protocol) 統合**:
      - `tensai` によるマルチLLM（Gemini, OpenAI, Claude, Ollama）オーケストレーション。
-     - SSE / Stdio 経由でシステムメトリクス、トポロジー、ログ、診断ツールを外部AIエージェントに公開するビルトイン MCP サーバー。
+     - **Streamable HTTP (`/api/mcp`)** による最新の双方向トランスポート、IPホワイトリスト制限（`-mcpFrom`）、および JWT 認証（`-mcpMode auth|noauth`）を完備したビルトイン MCP サーバー。
+     - 全22種類以上のツール群（Map/Node/Polling/Ping/SNMP/MIB、レポート・センサー・IPAM・Wi-Fi・Bluetooth・証明書・リソースモニター、イベントログ・Syslog・Trap・IP/MAC情報）および19種の Prompt テンプレートを提供。
      - インラインAI支援ダイアログ（ログ原因分析、ポーリング生成支援、ノード診断）。
   9. **シングルバイナリ配布**:
      - Svelte 5 でビルドされたフロントエンド資産を Go の `embed.FS` で単一実行ファイルに完全内包。
@@ -64,7 +65,7 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
   * **Apache Parquet**: Syslog、SNMP TRAP、NetFlow/IPFIX、sFlow、MQTT、ポーリング時系列ログ（列指向圧縮、高速フィルタ、容量・日数指定による安全な自動ローテーション）
 * **AI & Agent 統合**:
   * `tensai`: マルチLLMクライアント（Gemini, OpenAI, Claude, Ollama）
-  * 内蔵 **MCP サーバー** (`github.com/modelcontextprotocol/go-sdk`): SSE および Stdio による診断・トポロジー・ログツール群の提供
+  * 内蔵 **MCP サーバー** (`github.com/modelcontextprotocol/go-sdk`): Streamable HTTP (`/api/mcp`) による診断・トポロジー・ログツール群およびプロンプトの提供
 * **内蔵プロトコルレシーバー & サーバー**:
   * Syslog (UDP, TCP, TLS / RFC3164, RFC5424)
   * SNMP TRAP (v1, v2c, v3) + MIB OID 名前解決

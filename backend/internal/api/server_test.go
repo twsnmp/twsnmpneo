@@ -281,7 +281,7 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	}
 
 	// 6. Map Conf: GET, POST
-	confPayload := `{"MapName":"Test Network Map","LLMProvider":"local","LLMModel":"tensai-1"}`
+	confPayload := `{"MapName":"Test Network Map","LLMProvider":"local","LLMModel":"tensai-1","EnableMCP":true}`
 	req = httptest.NewRequest(http.MethodPost, "/api/map/conf", strings.NewReader(confPayload))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()

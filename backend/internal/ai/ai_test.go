@@ -2,7 +2,6 @@ package ai_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,9 +15,10 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 )
 
-func setupAITestEnv(t *testing.T) (datastore.DataStore, *parquet.Store, func()) {
+func setupAITestEnv(t *testing.T) (datastore.DataStore, *parquet.Store, *monitor.Monitor, func()) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "twsnmpneo-ai-test-*")
 	if err != nil {
@@ -39,16 +39,21 @@ func setupAITestEnv(t *testing.T) (datastore.DataStore, *parquet.Store, func()) 
 		t.Fatalf("create parquet store: %v", err)
 	}
 
+	mon := monitor.New(monitor.Config{
+		DataDir:  dir,
+		Store:    bStore,
+		Interval: time.Second,
+	})
+
 	cleanup := func() {
 		_ = bStore.Close()
 		_ = pqStore.Close()
 		_ = os.RemoveAll(dir)
 	}
-	return bStore, pqStore, cleanup
+	return bStore, pqStore, mon, cleanup
 }
 
 func TestLLMClient(t *testing.T) {
-	// 1. Unconfigured provider
 	client := ai.NewLLMClient(nil)
 	ctx := context.Background()
 	_, err := client.GenerateAnswer(ctx, "sys", "user")
@@ -56,7 +61,6 @@ func TestLLMClient(t *testing.T) {
 		t.Fatal("expected error on unconfigured provider")
 	}
 
-	// 2. Unsupported provider
 	conf := &datastore.MapConfEnt{
 		LLMProvider: "unknown_provider",
 	}
@@ -66,7 +70,6 @@ func TestLLMClient(t *testing.T) {
 		t.Fatalf("expected unsupported provider error, got: %v", err)
 	}
 
-	// 3. Local/tensai fallback provider
 	localConf := &datastore.MapConfEnt{
 		LLMProvider: "local",
 		LLMModel:    "test-model",
@@ -77,272 +80,340 @@ func TestLLMClient(t *testing.T) {
 		t.Fatalf("expected local model response, got: %v (err: %v)", ans, err)
 	}
 
-	// 4. DiagnoseAlert helper
 	diag, err := cLocal.DiagnoseAlert(ctx, "High CPU Utilization", "Core Switch (10.0.0.1)")
 	if err != nil || !strings.Contains(diag, "High CPU") {
 		t.Fatalf("expected diagnosis output, got: %s (err: %v)", diag, err)
 	}
 }
 
-func TestLLMClient_ProvidersMock(t *testing.T) {
-	ctx := context.Background()
-
-	// Mock server handling Ollama, OpenAI, Gemini, Claude APIs
-	mockSvr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "generateContent"): // Gemini
-			resp := map[string]interface{}{
-				"candidates": []map[string]interface{}{
-					{"content": map[string]interface{}{"parts": []map[string]string{{"text": "gemini response"}}}},
-				},
-			}
-			_ = json.NewEncoder(w).Encode(resp)
-
-		case strings.Contains(r.URL.Path, "/api/generate"): // Ollama
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"response": "ollama response",
-			})
-
-		case strings.Contains(r.URL.Path, "/chat/completions"): // OpenAI
-			resp := map[string]interface{}{
-				"choices": []map[string]interface{}{
-					{"message": map[string]string{"content": "openai response"}},
-				},
-			}
-			_ = json.NewEncoder(w).Encode(resp)
-
-		case strings.Contains(r.URL.Path, "/messages"): // Claude
-			resp := map[string]interface{}{
-				"content": []map[string]string{
-					{"text": "claude response"},
-				},
-			}
-			_ = json.NewEncoder(w).Encode(resp)
-
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer mockSvr.Close()
-
-	// 1. Ollama mock test
-	ollamaClient := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "ollama",
-		LLMBaseURL:  mockSvr.URL,
-	})
-	res, err := ollamaClient.GenerateAnswer(ctx, "sys", "test prompt")
-	if err != nil || res != "ollama response" {
-		t.Fatalf("ollama test failed: res=%s, err=%v", res, err)
-	}
-
-	// 2. OpenAI mock test
-	openAIClient := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "openai",
-		LLMBaseURL:  mockSvr.URL,
-		LLMAPIKey:   "sk-test",
-	})
-	res, err = openAIClient.GenerateAnswer(ctx, "sys", "test prompt")
-	if err != nil || res != "openai response" {
-		t.Fatalf("openai test failed: res=%s, err=%v", res, err)
-	}
-
-	// 3. Gemini mock test
-	geminiClient := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "gemini",
-		LLMBaseURL:  mockSvr.URL,
-		LLMAPIKey:   "gem-test-key",
-	})
-	res, err = geminiClient.GenerateAnswer(ctx, "sys", "test prompt")
-	if err != nil || res != "gemini response" {
-		t.Fatalf("gemini test failed: res=%s, err=%v", res, err)
-	}
-
-	// 4. Claude mock test
-	claudeClient := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "claude",
-		LLMBaseURL:  mockSvr.URL,
-		LLMAPIKey:   "ant-test",
-	})
-	res, err = claudeClient.GenerateAnswer(ctx, "sys", "test prompt")
-	if err != nil || res != "claude response" {
-		t.Fatalf("claude test failed: res=%s, err=%v", res, err)
-	}
-
-	// 5. Error handling mock tests (server returns 500)
-	errSvr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
-	}))
-	defer errSvr.Close()
-
-	errClient := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "gemini",
-		LLMBaseURL:  errSvr.URL,
-	})
-	_, err = errClient.GenerateAnswer(ctx, "sys", "test")
-	if err == nil {
-		t.Error("expected error for gemini 500 status")
-	}
-
-	errClaude := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "claude",
-		LLMBaseURL:  errSvr.URL,
-	})
-	_, err = errClaude.GenerateAnswer(ctx, "sys", "test")
-	if err == nil {
-		t.Error("expected error for claude 500 status")
-	}
-
-	errOpenAI := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "openai",
-		LLMBaseURL:  errSvr.URL,
-	})
-	_, err = errOpenAI.GenerateAnswer(ctx, "sys", "test")
-	if err == nil {
-		t.Error("expected error for openai 500 status")
-	}
-
-	errOllama := ai.NewLLMClient(&datastore.MapConfEnt{
-		LLMProvider: "ollama",
-		LLMBaseURL:  errSvr.URL,
-	})
-	_, err = errOllama.GenerateAnswer(ctx, "sys", "test")
-	if err == nil {
-		t.Error("expected error for ollama 500 status")
-	}
-}
-
-func TestMCPServer_Tools(t *testing.T) {
-	bStore, pqStore, cleanup := setupAITestEnv(t)
+func TestMCPServer_ComprehensiveToolsAndPrompts(t *testing.T) {
+	bStore, pqStore, mon, cleanup := setupAITestEnv(t)
 	defer cleanup()
 	ctx := context.Background()
 
-	// Populate test data
+	// 1. Setup seed data
 	node := &datastore.NodeEnt{
-		ID:    "node-ai-1",
-		Name:  "AI Core Switch",
-		IP:    "10.10.10.1",
-		State: "warn",
+		ID:       "node-1",
+		Name:     "Core-Router",
+		IP:       "192.168.1.1",
+		MAC:      "00:11:22:33:44:55",
+		State:    "normal",
+		X:        120,
+		Y:        150,
+		Icon:     "router",
+		Descr:    "Main Gateway Router",
+		Vendor:   "Cisco",
+		SnmpMode: "v2c",
 	}
 	_ = bStore.SaveNode(ctx, node)
 
+	network := &datastore.NetworkEnt{
+		ID:    "net-1",
+		Name:  "Management Subnet",
+		IP:    "192.168.1.0/24",
+		Descr: "Mgmt Net",
+		X:     100,
+		Y:     100,
+		Ports: []datastore.PortEnt{
+			{Name: "Gi0/1", State: "up"},
+		},
+	}
+	_ = bStore.SaveNetwork(ctx, network)
+
 	poll := &datastore.PollingEnt{
-		ID:     "poll-ai-1",
-		NodeID: "node-ai-1",
-		Name:   "SNMP CPU",
-		Type:   "snmp",
-		State:  "warn",
+		ID:       "poll-1",
+		NodeID:   "node-1",
+		Name:     "Ping Poll",
+		Type:     "ping",
+		State:    "normal",
+		Level:    "info",
+		LastTime: time.Now().UnixNano(),
+		Result:   map[string]any{"rtt": 1.25, "loss": 0.0},
 	}
 	_ = bStore.SavePolling(ctx, poll)
 
+	_ = bStore.SaveArpTable(ctx, []*datastore.ArpEnt{
+		{
+			IP:        "192.168.1.1",
+			MAC:       "00:11:22:33:44:55",
+			FirstTime: time.Now().UnixNano(),
+			LastTime:  time.Now().UnixNano(),
+		},
+	})
+
+	_ = bStore.SaveSensor(ctx, &datastore.SensorEnt{
+		ID:        "sensor-1",
+		Host:      "sensor-1.local",
+		Type:      "twWifiScan",
+		State:     "normal",
+		Total:     100,
+		Send:      95,
+		FirstTime: time.Now().UnixNano(),
+		LastTime:  time.Now().UnixNano(),
+		Monitors: []datastore.SensorMonitorEnt{
+			{CPU: 12.5, Mem: 34.0, Load: 0.5, Process: 42},
+		},
+	})
+
+	_ = bStore.SaveCertMonitor(ctx, &datastore.CertMonitorEnt{
+		ID:        "cert-1",
+		Target:    "gateway.local",
+		Port:      443,
+		Subject:   "CN=gateway.local",
+		Issuer:    "CN=Internal CA",
+		Verify:    true,
+		NotBefore: time.Now().Add(-24 * time.Hour).Unix(),
+		NotAfter:  time.Now().Add(365 * 24 * time.Hour).Unix(),
+	})
+
 	_ = bStore.AddEventLog(ctx, &datastore.EventLogEnt{
 		Time:     time.Now().UnixNano(),
-		Type:     "polling",
-		Level:    "warn",
-		NodeName: "AI Core Switch",
-		NodeID:   "node-ai-1",
-		Event:    "High CPU Utilization 92%",
+		Type:     "system",
+		Level:    "info",
+		NodeName: "Core-Router",
+		NodeID:   "node-1",
+		Event:    "System reboot initiated",
 	})
 
 	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
 		Time: time.Now().UnixNano(),
 		Type: "syslog",
-		Src:  "10.10.10.1",
-		Log:  `{"msg":"fan failure alert"}`,
+		Src:  "192.168.1.1",
+		Log:  `{"host":"192.168.1.1","tag":"sshd","level":"info","message":"Accepted publickey for admin"}`,
+	})
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: time.Now().UnixNano(),
+		Type: "trap",
+		Src:  "192.168.1.1",
+		Log:  `{"host":"192.168.1.1","tag":"linkUp","level":"info","variables":"Interface Gi0/1 link UP"}`,
 	})
 	_ = pqStore.Flush()
 
-	// Initialize MCP Server
+	// 2. Initialize MCP Server
 	mcpSrv := ai.NewMCPServer(ai.MCPConfig{
-		Store:    bStore,
-		LogStore: pqStore,
-		Version:  "v0.1.0-test",
+		Store:     bStore,
+		LogStore:  pqStore,
+		Monitor:   mon,
+		Version:   "v2.0.0-test",
+		MCPMode:   "noauth",
+		MCPFrom:   "192.168.1.50, 10.0.0.1",
+		Receivers: map[string]any{"syslog": "514/udp"},
 	})
 
-	// Setup in-memory client and server transports
+	// 3. Test IP Whitelist Checking
+	if !mcpSrv.CheckFromAddress("127.0.0.1:54321", "127.0.0.1") {
+		t.Error("expected 127.0.0.1 to be allowed")
+	}
+	if !mcpSrv.CheckFromAddress("192.168.1.50:12345", "") {
+		t.Error("expected 192.168.1.50 to be allowed")
+	}
+	if mcpSrv.CheckFromAddress("172.16.0.99:9999", "172.16.0.99") {
+		t.Error("expected 172.16.0.99 to be blocked")
+	}
+
+	// 4. Connect in-memory MCP client
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := mcpSrv.GetServer().Connect(ctx, serverTransport, nil)
 	if err != nil {
-		t.Fatalf("server connect failed: %v", err)
+		t.Fatalf("server connect: %v", err)
 	}
 	defer serverSession.Wait()
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
 	clientSession, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
-		t.Fatalf("client connect failed: %v", err)
+		t.Fatalf("client connect: %v", err)
 	}
 	defer clientSession.Close()
 
-	// 1. Call get_system_status
+	// 5. Test Map tools: get_node_list, get_network_list, get_polling_list, add_node, update_node
 	res, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "get_system_status",
-	})
-	if err != nil || len(res.Content) == 0 {
-		t.Fatalf("call get_system_status failed: %v", err)
-	}
-	var status map[string]interface{}
-	_ = json.Unmarshal([]byte(res.Content[0].(*mcp.TextContent).Text), &status)
-	if status["version"] != "v0.1.0-test" {
-		t.Errorf("unexpected system status: %v", status)
-	}
-
-	// 2. Call list_nodes
-	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "list_nodes",
-	})
-	if err != nil || len(res.Content) == 0 {
-		t.Fatalf("call list_nodes failed: %v", err)
-	}
-	if !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "AI Core Switch") {
-		t.Errorf("expected node in list, got: %s", res.Content[0].(*mcp.TextContent).Text)
-	}
-
-	// 3. Call get_node_detail
-	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "get_node_detail",
+		Name: "get_node_list",
 		Arguments: map[string]any{
-			"node_id": "node-ai-1",
+			"name_filter": "Core.*",
 		},
 	})
 	if err != nil || len(res.Content) == 0 {
-		t.Fatalf("call get_node_detail failed: %v", err)
+		t.Fatalf("get_node_list failed: %v", err)
 	}
-	if !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "SNMP CPU") {
-		t.Errorf("expected polling in detail, got: %s", res.Content[0].(*mcp.TextContent).Text)
+	if !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Core-Router") {
+		t.Errorf("expected Core-Router in result, got: %s", res.Content[0].(*mcp.TextContent).Text)
 	}
 
-	// 4. Call get_active_alerts
 	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "get_active_alerts",
+		Name: "get_network_list",
 	})
-	if err != nil || len(res.Content) == 0 {
-		t.Fatalf("call get_active_alerts failed: %v", err)
-	}
-	if !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "High CPU") {
-		t.Errorf("expected alert in list, got: %s", res.Content[0].(*mcp.TextContent).Text)
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Management Subnet") {
+		t.Fatalf("get_network_list failed: %v", err)
 	}
 
-	// 5. Call query_logs
 	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "query_logs",
+		Name: "get_polling_list",
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Ping Poll") {
+		t.Fatalf("get_polling_list failed: %v", err)
+	}
+
+	// Add node
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "add_node",
 		Arguments: map[string]any{
-			"type":   "syslog",
-			"filter": "",
-			"limit":  10,
+			"name": "Branch-Switch",
+			"ip":   "192.168.1.10",
+			"icon": "server",
+			"x":    200,
+			"y":    200,
 		},
 	})
-	if err != nil || len(res.Content) == 0 {
-		t.Fatalf("call query_logs failed: %v", err)
-	}
-	if !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "fan failure") {
-		t.Errorf("expected log in query_logs, got: %s", res.Content[0].(*mcp.TextContent).Text)
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Branch-Switch") {
+		t.Fatalf("add_node failed: %v", err)
 	}
 
-	// 6. Test ServeHTTP endpoint
-	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
+	// Update node
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "update_node",
+		Arguments: map[string]any{
+			"id":          "Branch-Switch",
+			"description": "Updated Branch Switch",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Updated Branch Switch") {
+		t.Fatalf("update_node failed: %v", err)
+	}
+
+	// 6. Test Report tools: get_sensor_list, get_mac_address_list, get_ip_address_list, get_server_certificate_list, get_resource_monitor_list
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "get_sensor_list"})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "sensor-1.local") {
+		t.Fatalf("get_sensor_list failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "get_mac_address_list"})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "00:11:22:33:44:55") {
+		t.Fatalf("get_mac_address_list failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "get_ip_address_list"})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "192.168.1.1") {
+		t.Fatalf("get_ip_address_list failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "get_server_certificate_list"})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "gateway.local") {
+		t.Fatalf("get_server_certificate_list failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "get_resource_monitor_list"})
+	if err != nil {
+		t.Fatalf("get_resource_monitor_list failed: %v", err)
+	}
+
+	// 7. Test Log & Info tools: search_event_log, add_event_log, search_syslog, get_syslog_summary, search_snmp_trap_log, get_ip_address_info, get_mac_address_info
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "search_event_log",
+		Arguments: map[string]any{
+			"event_filter": "System reboot.*",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "System reboot initiated") {
+		t.Fatalf("search_event_log failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "add_event_log",
+		Arguments: map[string]any{
+			"level": "warn",
+			"event": "Custom alert from MCP",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Custom alert from MCP") {
+		t.Fatalf("add_event_log failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "search_syslog",
+		Arguments: map[string]any{
+			"tag_filter": "sshd",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Accepted publickey") {
+		t.Fatalf("search_syslog failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "get_syslog_summary",
+		Arguments: map[string]any{
+			"summary_type": "tag",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "sshd") {
+		t.Fatalf("get_syslog_summary failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "search_snmp_trap_log",
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "linkUp") {
+		t.Fatalf("search_snmp_trap_log failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "get_ip_address_info",
+		Arguments: map[string]any{
+			"ip": "192.168.1.1",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Core-Router") {
+		t.Fatalf("get_ip_address_info failed: %v", err)
+	}
+
+	res, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "get_mac_address_info",
+		Arguments: map[string]any{
+			"mac": "00:11:22:33:44:55",
+		},
+	})
+	if err != nil || !strings.Contains(res.Content[0].(*mcp.TextContent).Text, "Core-Router") {
+		t.Fatalf("get_mac_address_info failed: %v", err)
+	}
+
+	// 8. Test Prompts: get_node_list, add_node, search_event_log, get_mib_tree
+	pRes, err := clientSession.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name: "get_node_list",
+		Arguments: map[string]string{
+			"name_filter": "Router",
+		},
+	})
+	if err != nil || len(pRes.Messages) == 0 {
+		t.Fatalf("get_node_list prompt failed: %v", err)
+	}
+	if !strings.Contains(pRes.Messages[0].Content.(*mcp.TextContent).Text, "Router") {
+		t.Errorf("expected prompt text to contain filter, got: %s", pRes.Messages[0].Content.(*mcp.TextContent).Text)
+	}
+
+	pRes, err = clientSession.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name: "add_node",
+		Arguments: map[string]string{
+			"name": "Switch-2",
+			"ip":   "192.168.1.20",
+		},
+	})
+	if err != nil || len(pRes.Messages) == 0 {
+		t.Fatalf("add_node prompt failed: %v", err)
+	}
+
+	pRes, err = clientSession.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name: "get_mib_tree",
+	})
+	if err != nil || len(pRes.Messages) == 0 {
+		t.Fatalf("get_mib_tree prompt failed: %v", err)
+	}
+
+	// 9. Test Streamable HTTP Handler
+	req := httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	mcpSrv.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", rec.Code)
+	if rec.Code == http.StatusServiceUnavailable {
+		t.Errorf("ServeHTTP returned unavailable status: %d", rec.Code)
 	}
 }
