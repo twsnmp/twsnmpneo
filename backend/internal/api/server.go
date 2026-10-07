@@ -1319,6 +1319,63 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, &conf)
 		})
 
+		// Custom Icons
+		apiGroup.GET("/icons", func(c echo.Context) error {
+			icons, err := cfg.Store.GetCustomIcons(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, icons)
+		})
+		apiGroup.POST("/icons", func(c echo.Context) error {
+			var icon datastore.IconEnt
+			if err := c.Bind(&icon); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if icon.Name == "" || icon.Code == 0 {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "name and code are required"})
+			}
+			if err := cfg.Store.SaveCustomIcon(c.Request().Context(), &icon); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf(i18n.Trans("Saved icon %s (%d)"), icon.Name, icon.Code),
+			})
+			return c.JSON(http.StatusOK, &icon)
+		})
+		apiGroup.POST("/icons/batch", func(c echo.Context) error {
+			var icons []*datastore.IconEnt
+			if err := c.Bind(&icons); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveCustomIcons(c.Request().Context(), icons); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf(i18n.Trans("Updated %d icons"), len(icons)),
+			})
+			return c.JSON(http.StatusOK, icons)
+		})
+		apiGroup.DELETE("/icons/:name", func(c echo.Context) error {
+			name := c.Param("name")
+			if err := cfg.Store.DeleteCustomIcon(c.Request().Context(), name); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "user",
+				Level: "info",
+				Event: fmt.Sprintf(i18n.Trans("Deleted icon %s"), name),
+			})
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+
 		// Auto Layout endpoints
 		apiGroup.POST("/map/autolayout", func(c echo.Context) error {
 			var req struct {

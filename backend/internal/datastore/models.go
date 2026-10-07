@@ -671,3 +671,11 @@ type SensorMonitorEnt struct {
 	RxSpeed float64 `json:"RxSpeed"`
 }
 
+// IconEnt represents a custom icon definition with name and unicode code.
+type IconEnt struct {
+	ID   string `json:"ID,omitempty"`
+	Name string `json:"Name"`
+	Code int    `json:"Code"`
+}
+
+

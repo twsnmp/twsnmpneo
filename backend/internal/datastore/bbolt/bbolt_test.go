@@ -655,4 +655,72 @@ func TestStore_DiscoverConf(t *testing.T) {
 	}
 }
 
+func TestStore_CustomIcons(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Initial list should be empty
+	icons, err := store.GetCustomIcons(ctx)
+	if err != nil {
+		t.Fatalf("get custom icons failed: %v", err)
+	}
+	if len(icons) != 0 {
+		t.Fatalf("expected 0 icons, got %d", len(icons))
+	}
+
+	// Save single custom icon
+	ic1 := &datastore.IconEnt{
+		Name: "test",
+		Code: 983043,
+	}
+	if err := store.SaveCustomIcon(ctx, ic1); err != nil {
+		t.Fatalf("save custom icon failed: %v", err)
+	}
+
+	icons, err = store.GetCustomIcons(ctx)
+	if err != nil {
+		t.Fatalf("get custom icons after save failed: %v", err)
+	}
+	if len(icons) != 1 || icons[0].Name != "test" || icons[0].Code != 983043 {
+		t.Fatalf("unexpected custom icons: %+v", icons)
+	}
+
+	// Update existing icon
+	ic1Updated := &datastore.IconEnt{
+		Name: "test",
+		Code: 983044,
+	}
+	if err := store.SaveCustomIcon(ctx, ic1Updated); err != nil {
+		t.Fatalf("update custom icon failed: %v", err)
+	}
+	icons, _ = store.GetCustomIcons(ctx)
+	if len(icons) != 1 || icons[0].Code != 983044 {
+		t.Fatalf("expected updated icon code 983044, got: %+v", icons)
+	}
+
+	// Batch save
+	batch := []*datastore.IconEnt{
+		{Name: "wifi-ap", Code: 984169},
+		{Name: "cctv", Code: 984998},
+	}
+	if err := store.SaveCustomIcons(ctx, batch); err != nil {
+		t.Fatalf("batch save custom icons failed: %v", err)
+	}
+	icons, _ = store.GetCustomIcons(ctx)
+	if len(icons) != 2 {
+		t.Fatalf("expected 2 custom icons from batch, got %d", len(icons))
+	}
+
+	// Delete icon
+	if err := store.DeleteCustomIcon(ctx, "wifi-ap"); err != nil {
+		t.Fatalf("delete custom icon failed: %v", err)
+	}
+	icons, _ = store.GetCustomIcons(ctx)
+	if len(icons) != 1 || icons[0].Name != "cctv" {
+		t.Fatalf("expected 1 custom icon remaining (cctv), got %+v", icons)
+	}
+}
+
+
 

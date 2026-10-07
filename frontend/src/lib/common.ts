@@ -61,7 +61,15 @@ export const snmpModeList = [
   { name: 'SNMPv1', value: 'v1' },
 ];
 
-export const iconList = [
+export interface IconEnt {
+  name: string;
+  nameEn?: string;
+  icon?: string;
+  value: string;
+  code: number;
+}
+
+export const defaultIconList: IconEnt[] = [
   { name: 'デスクトップ', nameEn: 'Desktop', icon: 'mdi-monitor', value: 'desktop', code: 0xf0379 },
   { name: 'デスクトップ (Classic)', nameEn: 'Desktop (Classic)', icon: 'mdi-desktop-classic', value: 'desktop-classic', code: 0xf07c0 },
   { name: 'ノートPC', nameEn: 'Laptop', icon: 'mdi-laptop', value: 'laptop', code: 0xf0322 },
@@ -89,28 +97,75 @@ export const iconList = [
   { name: 'IoT / ボード', nameEn: 'IoT / Dev Board', icon: 'mdi-developer-board', value: 'iot', code: 0xf0697 },
 ];
 
-export const getIconName = (val: string): string => {
-  const isJa = (get(locale) || 'ja').startsWith('ja');
-  const entry = iconList.find(e => e.value === val);
-  if (!entry) return val;
-  return isJa ? entry.name : (entry.nameEn || entry.name);
-};
+export const customIconList: IconEnt[] = [];
+export const iconList: IconEnt[] = [...defaultIconList];
 
 const iconCodeMap = new Map<string, string>();
 const iconMap = new Map<string, string>();
 
-iconList.forEach((e) => {
-  iconMap.set(e.value, e.icon);
-  iconCodeMap.set(e.value, String.fromCodePoint(e.code));
-});
+function rebuildIconMaps() {
+  iconMap.clear();
+  iconCodeMap.clear();
+  iconList.length = 0;
+  defaultIconList.forEach((e) => {
+    iconList.push(e);
+    if (e.icon) iconMap.set(e.value, e.icon);
+    iconCodeMap.set(e.value, String.fromCodePoint(e.code));
+    iconCodeMap.set(e.name, String.fromCodePoint(e.code));
+  });
+  customIconList.forEach((e) => {
+    iconList.push(e);
+    if (e.icon) iconMap.set(e.value, e.icon);
+    iconCodeMap.set(e.value, String.fromCodePoint(e.code));
+    iconCodeMap.set(e.name, String.fromCodePoint(e.code));
+  });
+}
+rebuildIconMaps();
+
+export function setCustomIcons(icons: Array<{ name?: string; Name?: string; code?: number; Code?: number; value?: string; icon?: string; nameEn?: string }>) {
+  customIconList.length = 0;
+  icons.forEach((ic) => {
+    const name = ic.name || ic.Name || '';
+    const code = Number(ic.code ?? ic.Code ?? 0);
+    if (!name || !code) return;
+    const value = ic.value || name;
+    customIconList.push({
+      name,
+      nameEn: ic.nameEn || name,
+      value,
+      code,
+      icon: ic.icon || '',
+    });
+  });
+  rebuildIconMaps();
+}
+
+export const getIconName = (val: string): string => {
+  const isJa = (get(locale) || 'ja').startsWith('ja');
+  const entry = iconList.find(e => e.value === val || e.name === val);
+  if (!entry) return val;
+  return isJa ? entry.name : (entry.nameEn || entry.name);
+};
 
 export const getIcon = (icon: string): string => {
+  if (!icon) return 'mdi-comment-question-outline';
   return iconMap.get(icon) || 'mdi-comment-question-outline';
 };
 
 export const getIconCode = (icon: string): string => {
-  return iconCodeMap.get(icon) || String.fromCodePoint(0xf0379);
+  if (!icon) return String.fromCodePoint(0xf0379);
+  if (iconCodeMap.has(icon)) return iconCodeMap.get(icon)!;
+  const num = parseInt(icon, icon.startsWith('0x') || icon.startsWith('0X') ? 16 : 10);
+  if (!isNaN(num) && num > 0) {
+    try {
+      return String.fromCodePoint(num);
+    } catch {
+      // fallback
+    }
+  }
+  return iconCodeMap.get('desktop') || String.fromCodePoint(0xf0379);
 };
+
 
 export const formatTime = (date: any, format = '{yyyy}/{MM}/{dd} {HH}:{mm}:{ss}') => {
   try {

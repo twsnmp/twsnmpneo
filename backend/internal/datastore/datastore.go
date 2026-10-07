@@ -158,6 +158,12 @@ type DataStore interface {
 	DeleteLogReportData(ctx context.Context, kind string, ids []string) error
 	// ResetLogReportData removes every entity of the kind. Kind "" removes all kinds.
 	ResetLogReportData(ctx context.Context, kind string) error
+
+	// Custom Icons
+	GetCustomIcons(ctx context.Context) ([]*IconEnt, error)
+	SaveCustomIcon(ctx context.Context, icon *IconEnt) error
+	SaveCustomIcons(ctx context.Context, icons []*IconEnt) error
+	DeleteCustomIcon(ctx context.Context, name string) error
 }
 
 // AIResultEnt holds AI anomaly detection results for a polling.

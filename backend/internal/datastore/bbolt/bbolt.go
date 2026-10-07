@@ -47,6 +47,7 @@ var (
 	keyBackImage         = []byte("backImage")
 	keyDiscoverConf      = []byte("discoverConf")
 	keyNotifyOAuth2Token = []byte("notifyOAuth2Token")
+	keyCustomIcons       = []byte("customIcons")
 )
 
 // Store implements datastore.DataStore using bbolt.
@@ -72,6 +73,9 @@ type Store struct {
 	backImage    datastore.BackImageEnt
 	discoverConf datastore.DiscoverConfEnt
 	confMu       sync.RWMutex
+
+	customIcons []*datastore.IconEnt
+	iconsMu     sync.RWMutex
 
 	// Notify OAuth2 token (in-memory cache)
 	notifyOAuth2Token *oauth2.Token
@@ -244,6 +248,13 @@ func (s *Store) loadCache() error {
 				var t oauth2.Token
 				if err := json.Unmarshal(v, &t); err == nil {
 					s.notifyOAuth2Token = &t
+				}
+			}
+			// Load Custom Icons
+			if v := b.Get(keyCustomIcons); v != nil {
+				var icons []*datastore.IconEnt
+				if err := json.Unmarshal(v, &icons); err == nil {
+					s.customIcons = icons
 				}
 			}
 		}
@@ -1026,6 +1037,92 @@ func (s *Store) SaveDiscoverConf(_ context.Context, conf *datastore.DiscoverConf
 	s.confMu.Unlock()
 	return nil
 }
+
+// --- Custom Icon Operations ---
+
+func (s *Store) GetCustomIcons(_ context.Context) ([]*datastore.IconEnt, error) {
+	s.iconsMu.RLock()
+	defer s.iconsMu.RUnlock()
+	if s.customIcons == nil {
+		return []*datastore.IconEnt{}, nil
+	}
+	res := make([]*datastore.IconEnt, len(s.customIcons))
+	for i, ic := range s.customIcons {
+		cp := *ic
+		res[i] = &cp
+	}
+	return res, nil
+}
+
+func (s *Store) SaveCustomIcon(_ context.Context, icon *datastore.IconEnt) error {
+	if icon == nil || icon.Name == "" || icon.Code == 0 {
+		return datastore.ErrInvalidParams
+	}
+	s.iconsMu.Lock()
+	defer s.iconsMu.Unlock()
+	found := false
+	for i, ic := range s.customIcons {
+		if strings.EqualFold(ic.Name, icon.Name) || (icon.ID != "" && ic.ID == icon.ID) {
+			s.customIcons[i] = icon
+			found = true
+			break
+		}
+	}
+	if !found {
+		if icon.ID == "" {
+			icon.ID = datastore.GenerateID()
+		}
+		s.customIcons = append(s.customIcons, icon)
+	}
+	data, err := json.Marshal(s.customIcons)
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(bucketConfig).Put(keyCustomIcons, data)
+	})
+}
+
+func (s *Store) SaveCustomIcons(_ context.Context, icons []*datastore.IconEnt) error {
+	s.iconsMu.Lock()
+	defer s.iconsMu.Unlock()
+	if icons == nil {
+		icons = []*datastore.IconEnt{}
+	}
+	for _, ic := range icons {
+		if ic.ID == "" {
+			ic.ID = datastore.GenerateID()
+		}
+	}
+	s.customIcons = icons
+	data, err := json.Marshal(s.customIcons)
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(bucketConfig).Put(keyCustomIcons, data)
+	})
+}
+
+func (s *Store) DeleteCustomIcon(_ context.Context, nameOrID string) error {
+	s.iconsMu.Lock()
+	defer s.iconsMu.Unlock()
+	newIcons := make([]*datastore.IconEnt, 0, len(s.customIcons))
+	for _, ic := range s.customIcons {
+		if !strings.EqualFold(ic.Name, nameOrID) && ic.ID != nameOrID {
+			newIcons = append(newIcons, ic)
+		}
+	}
+	s.customIcons = newIcons
+	data, err := json.Marshal(s.customIcons)
+	if err != nil {
+		return err
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(bucketConfig).Put(keyCustomIcons, data)
+	})
+}
+
 
 // --- Event Log Operations ---
 

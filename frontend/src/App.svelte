@@ -11,7 +11,8 @@
   import PKIView from "./lib/views/PKIView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import HelpDialog from "./lib/components/HelpDialog.svelte";
-  import { fetchMapConf } from "./lib/api";
+  import { fetchMapConf, fetchCustomIcons } from "./lib/api";
+  import { setCustomIcons } from "./lib/common";
   import { _ } from "svelte-i18n";
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
   import logoUrl from "./assets/logo.png";
@@ -47,8 +48,12 @@
 
   const refreshConf = async () => {
     try {
-      const conf = await fetchMapConf();
+      const [conf, icons] = await Promise.all([
+        fetchMapConf().catch(() => null),
+        fetchCustomIcons().catch(() => []),
+      ]);
       if (conf?.MapName) mapName = conf.MapName;
+      if (icons) setCustomIcons(icons);
     } catch {
       // default
     }

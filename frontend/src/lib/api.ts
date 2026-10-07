@@ -1151,6 +1151,52 @@ export async function saveMapConf(conf: Partial<MapConfEnt>): Promise<MapConfEnt
   return res.json();
 }
 
+export interface IconEnt {
+  id?: string;
+  name: string;
+  nameEn?: string;
+  code: number;
+  icon?: string;
+  value?: string;
+  ID?: string;
+  Name?: string;
+  Code?: number;
+}
+
+export async function fetchCustomIcons(): Promise<IconEnt[]> {
+  const res = await fetch(`${API_BASE}/icons`);
+  if (!res.ok) throw new Error(`Fetch icons failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function saveCustomIcon(icon: Partial<IconEnt>): Promise<IconEnt> {
+  const res = await fetch(`${API_BASE}/icons`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(icon),
+  });
+  if (!res.ok) throw new Error(`Save icon failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function saveCustomIcons(icons: Partial<IconEnt>[]): Promise<IconEnt[]> {
+  const res = await fetch(`${API_BASE}/icons/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(icons),
+  });
+  if (!res.ok) throw new Error(`Batch save icons failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteCustomIcon(name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/icons/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Delete icon failed: ${res.statusText}`);
+}
+
+
 export interface NotifyConfEnt {
   Provider?: string;
   MailServer?: string;
