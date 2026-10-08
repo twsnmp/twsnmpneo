@@ -3,7 +3,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "sh -c 'COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo dev); go build -tags dev -ldflags \"-X main.version=v0.1.0 -X main.commit=$COMMIT\" -o ../bin/twsnmpneo ./cmd/twsnmpneo'"
+cmd = "sh -c 'COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo dev); GOEXPERIMENT=simd go build -tags \"dev,wgpu24\" -ldflags \"-X main.version=v0.1.0 -X main.commit=$COMMIT\" -o ../bin/twsnmpneo ./cmd/twsnmpneo'"
 bin = "../bin/twsnmpneo"
 full_bin = "../bin/twsnmpneo --datadir ../data --debug"
 include_ext = ["go"]

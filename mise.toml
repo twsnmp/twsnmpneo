@@ -4,6 +4,9 @@ node = "22"
 pnpm = "latest"
 air = "latest"
 
+[env]
+GOEXPERIMENT = "simd"
+
 [tasks.dev-frontend]
 description = "Launch frontend development server with HMR (Vite)"
 dir = "frontend"
@@ -17,7 +20,7 @@ run = "npm run build && mkdir -p ../backend/web && rm -rf ../backend/web/dist &&
 [tasks.test-backend]
 description = "Run backend unit tests with race detection"
 dir = "backend"
-run = "go test -race -v ./..."
+run = "go test -tags wgpu24 -race -v ./..."
 
 [tasks.build]
 description = "Compile release binary bundling frontend assets with version and git commit"
@@ -43,7 +46,7 @@ while [ "$#" -gt 0 ]; do
 done
 echo "Building TWSNMP NEO (Version: ${VERSION}, Commit: ${COMMIT})..."
 mkdir -p ../bin
-go build -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
+go build -tags wgpu24 -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
 '''
 
 [tasks.build-debug]
@@ -69,7 +72,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 mkdir -p ../bin
-go build -tags dev -ldflags "-X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
+go build -tags "dev,wgpu24" -ldflags "-X main.version=${VERSION} -X main.commit=${COMMIT}" -o ../bin/twsnmpneo ./cmd/twsnmpneo
 '''
 
 [tasks.run-debug]
@@ -81,3 +84,4 @@ run = "air -c .air.toml"
 [tasks.run-direct]
 description = "Execute debug binary directly without live reload"
 run = "./bin/twsnmpneo --datadir ./data --debug"
+

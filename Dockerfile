@@ -13,7 +13,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # Stage 2: Build Backend Go binary
-FROM golang:1.23-alpine AS backend-builder
+FROM golang:1.27-alpine AS backend-builder
 WORKDIR /app/backend
 
 RUN apk add --no-cache git ca-certificates tzdata
@@ -29,7 +29,10 @@ ARG VERSION=v0.1.0
 ARG COMMIT=none
 ARG DATE=unknown
 
+ENV GOEXPERIMENT=simd
+
 RUN CGO_ENABLED=0 go build \
+    -tags wgpu24 \
     -trimpath \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
     -o /twsnmpneo ./cmd/twsnmpneo
