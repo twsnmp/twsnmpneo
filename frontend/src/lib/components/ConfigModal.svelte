@@ -768,7 +768,7 @@
             return {
               name: item.name || item.Name || "",
               code: isImg ? 0 : parseIconCode(item.code ?? item.Code),
-              type: isImg ? "image" : "mdi",
+              type: (isImg ? "image" : "mdi") as IconEnt["type"],
               image: item.image || item.Image || "",
             };
           }).filter((x) => x.name && (x.type === "image" ? Boolean(x.image) : Boolean(x.code)));
