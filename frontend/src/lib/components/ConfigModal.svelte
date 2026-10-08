@@ -34,11 +34,16 @@
     type MIBModuleEnt,
     type MIBTreeEnt,
     type NotifyConfEnt,
+    fetchLocalModels,
+    fetchAIHardwareStatus,
+    type ModelInfo,
+    type AIHardwareStatus,
   } from "../api";
   import { setCustomIcons } from "../common";
   import { showConfirm } from "../stores/modalStore";
   import { allMdiIcons } from "../mdiIcons";
   import ImportMapModal from "./ImportMapModal.svelte";
+  import ModelManagerDialog from "./ModelManagerDialog.svelte";
   import ListPagination from "../views/list/ListPagination.svelte";
   import MIBTree from "./MIBTree.svelte";
   import {
@@ -343,6 +348,24 @@
   let enableMCP = $state(true);
   let mcpMode = $state("noauth");
   let mcpFrom = $state("");
+
+  let showModelManager = $state(false);
+  let localAIModels = $state<ModelInfo[]>([]);
+  let aiHardware = $state<AIHardwareStatus | null>(null);
+
+  async function loadLocalAIInfo() {
+    try {
+      localAIModels = (await fetchLocalModels()) || [];
+      aiHardware = await fetchAIHardwareStatus();
+      if (llmProvider === "tensai") {
+        if (localAIModels.length > 0 && (!llmModel || !localAIModels.some(m => m.name === llmModel))) {
+          llmModel = localAIModels[0].name;
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
 
   const tensaiPresetModels = [
     { id: "qwen2.5-0.5b", name: "Qwen 2.5 0.5B Instruct (Fast / ~500MB)" },
@@ -888,6 +911,7 @@
         mcpFrom = conf.MCPFrom ?? (conf as any).mcp_from ?? "";
         logFormat = conf.LogFormat ?? conf.log_format ?? "parquet";
         geoIPInfo = conf.GeoIPInfo ?? conf.geo_ip_info ?? "";
+        await loadLocalAIInfo();
       }
 
       const nConf = await fetchNotifyConf().catch(() => null);
@@ -2336,32 +2360,55 @@
                   </div>
 
                   {#if llmProvider === "tensai"}
-                    <div>
-                      <label for="llm-model-tensai" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiTensaiModel')}</label>
-                      <div class="space-y-1.5">
-                        <select
-                          id="llm-model-tensai"
-                          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
-                          onchange={(e) => {
-                            const val = (e.target as HTMLSelectElement).value;
-                            if (val && val !== 'custom') {
-                              llmModel = val;
-                            }
-                          }}
-                          value={tensaiPresetModels.some(p => p.id === llmModel) ? llmModel : 'custom'}
+                    <div class="space-y-1.5">
+                      <div class="flex items-center justify-between">
+                        <label for="llm-model-tensai" class="block text-xs font-semibold text-slate-600 dark:text-slate-400">
+                          {$_('config.aiTensaiModel')}
+                        </label>
+                        {#if aiHardware}
+                          <div class="flex items-center gap-1.5 text-[11px]">
+                            <span class="text-slate-400">{$_('config.aiHardware')}:</span>
+                            {#if aiHardware.acceleration === "GPU"}
+                              <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">GPU</span>
+                            {:else if aiHardware.acceleration && aiHardware.acceleration.includes("SIMD")}
+                              <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">SIMD</span>
+                            {:else}
+                              <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">CPU</span>
+                            {/if}
+                          </div>
+                        {/if}
+                      </div>
+
+                      <div class="flex gap-2 items-center">
+                        <div class="flex-1">
+                          {#if localAIModels.length > 0}
+                            <select
+                              id="llm-model-tensai"
+                              bind:value={llmModel}
+                              class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+                            >
+                              {#each localAIModels as m}
+                                <option value={m.name}>{m.name} ({m.size_human})</option>
+                              {/each}
+                            </select>
+                          {:else}
+                            <button
+                              type="button"
+                              onclick={() => (showModelManager = true)}
+                              class="w-full text-left px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/30 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors"
+                            >
+                              {$_('config.aiNoLocalModel')}
+                            </button>
+                          {/if}
+                        </div>
+                        <button
+                          type="button"
+                          onclick={() => (showModelManager = true)}
+                          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm transition-all shrink-0 cursor-pointer"
                         >
-                          {#each tensaiPresetModels as preset}
-                            <option value={preset.id}>{preset.name}</option>
-                          {/each}
-                          <option value="custom">{$_('config.aiTensaiCustom')}</option>
-                        </select>
-                        <input
-                          id="llm-model"
-                          type="text"
-                          bind:value={llmModel}
-                          placeholder="qwen2.5-0.5b"
-                          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
-                        />
+                          <Cpu class="w-3.5 h-3.5" />
+                          <span>{$_('config.aiManageModels')}</span>
+                        </button>
                       </div>
                     </div>
                   {:else if llmProvider && llmProvider !== "none"}
@@ -3676,6 +3723,13 @@
     </div>
   </div>
 {/if}
+
+<ModelManagerDialog
+  bind:show={showModelManager}
+  onmodelsChanged={loadLocalAIInfo}
+  onclose={loadLocalAIInfo}
+/>
+
 
 
 

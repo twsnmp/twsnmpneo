@@ -3269,5 +3269,133 @@ export async function resetTrapStats(): Promise<void> {
   }
 }
 
+// Local LLM & GPU Hardware Types & APIs
+export interface AIHardwareStatus {
+  acceleration: string;
+  detail: string;
+  model_dir: string;
+  lib_dir: string;
+  wgpu_lib_path: string;
+  has_gpu_lib: boolean;
+}
+
+export interface ModelInfo {
+  name: string;
+  path: string;
+  size: number;
+  size_human: string;
+  mod_time: string;
+  type: string;
+}
+
+export interface PresetModelInfo {
+  name: string;
+  url: string;
+  description: string;
+  size: string;
+  params: string;
+}
+
+export interface DownloadProgressInfo {
+  downloading: boolean;
+  target?: string;
+  downloaded: number;
+  total: number;
+  percent: number;
+  downloaded_human: string;
+  total_human: string;
+  error?: string;
+}
+
+export interface AIDownloadStatus {
+  model: DownloadProgressInfo;
+  gpu: DownloadProgressInfo;
+}
+
+export async function fetchAIHardwareStatus(): Promise<AIHardwareStatus> {
+  const res = await fetch(`${API_BASE}/ai/hardware`);
+  if (!res.ok) {
+    throw new Error(`Fetch hardware status failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function fetchLocalModels(): Promise<ModelInfo[]> {
+  const res = await fetch(`${API_BASE}/ai/models`);
+  if (!res.ok) {
+    throw new Error(`Fetch local models failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function fetchModelPresets(): Promise<PresetModelInfo[]> {
+  const res = await fetch(`${API_BASE}/ai/models/presets`);
+  if (!res.ok) {
+    throw new Error(`Fetch model presets failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function downloadModel(target: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/ai/models/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Download model failed: ${res.statusText}`);
+  }
+}
+
+export async function cancelModelDownload(): Promise<void> {
+  const res = await fetch(`${API_BASE}/ai/models/cancel`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Cancel model download failed: ${res.statusText}`);
+  }
+}
+
+export async function deleteLocalModel(name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/ai/models/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Delete local model failed: ${res.statusText}`);
+  }
+}
+
+export async function downloadGPULibrary(): Promise<void> {
+  const res = await fetch(`${API_BASE}/ai/hardware/download-gpu`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Download GPU library failed: ${res.statusText}`);
+  }
+}
+
+export async function cancelGPUDownload(): Promise<void> {
+  const res = await fetch(`${API_BASE}/ai/hardware/cancel-gpu`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Cancel GPU download failed: ${res.statusText}`);
+  }
+}
+
+export async function fetchAIDownloadStatus(): Promise<AIDownloadStatus> {
+  const res = await fetch(`${API_BASE}/ai/download/status`);
+  if (!res.ok) {
+    throw new Error(`Fetch download status failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+
 
 

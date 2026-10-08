@@ -526,7 +526,7 @@ func NewServer(cfg Config) (*Server, error) {
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			client := ai.NewLLMClient(conf)
+			client := ai.NewLLMClient(conf, cfg.DataDir)
 			ans, err := client.GenerateAnswer(c.Request().Context(), req.System, req.Prompt)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -546,12 +546,92 @@ func NewServer(cfg Config) (*Server, error) {
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			client := ai.NewLLMClient(conf)
+			client := ai.NewLLMClient(conf, cfg.DataDir)
 			diag, err := client.DiagnoseAlert(c.Request().Context(), req.AlertEvent, req.NodeContext)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, map[string]string{"diagnosis": diag})
+		})
+
+		// Local LLM Model & GPU Hardware Management
+		apiGroup.GET("/ai/hardware", func(c echo.Context) error {
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			return c.JSON(http.StatusOK, mgr.GetHardwareStatus())
+		})
+
+		apiGroup.GET("/ai/models", func(c echo.Context) error {
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			models, err := mgr.ListModels()
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if models == nil {
+				models = []ai.ModelInfo{}
+			}
+			return c.JSON(http.StatusOK, models)
+		})
+
+		apiGroup.GET("/ai/models/presets", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, ai.PresetModelMetadata)
+		})
+
+		apiGroup.POST("/ai/models/download", func(c echo.Context) error {
+			var req struct {
+				Target string `json:"target"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if req.Target == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "target cannot be empty"})
+			}
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			if err := mgr.StartModelDownload(req.Target); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "download started"})
+		})
+
+		apiGroup.POST("/ai/models/cancel", func(c echo.Context) error {
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			if err := mgr.CancelModelDownload(); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "cancelled"})
+		})
+
+		apiGroup.DELETE("/ai/models/:name", func(c echo.Context) error {
+			name := c.Param("name")
+			if name == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "model name required"})
+			}
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			if err := mgr.DeleteModel(name); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+		})
+
+		apiGroup.POST("/ai/hardware/download-gpu", func(c echo.Context) error {
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			if err := mgr.StartGPUDownload(); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "gpu download started"})
+		})
+
+		apiGroup.POST("/ai/hardware/cancel-gpu", func(c echo.Context) error {
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			if err := mgr.CancelGPUDownload(); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"status": "cancelled"})
+		})
+
+		apiGroup.GET("/ai/download/status", func(c echo.Context) error {
+			mgr := ai.GetDownloadManager(cfg.DataDir)
+			return c.JSON(http.StatusOK, mgr.GetStatus())
 		})
 
 		// AI Anomaly Detection Endpoints

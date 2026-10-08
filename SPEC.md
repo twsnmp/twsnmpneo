@@ -466,7 +466,14 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 
 ### 4.9 AI & MCP (Model Context Protocol) Integration
 
-* **Multi-LLM Orchestration**: Integrated `tensai` supporting OpenAI, Google Gemini, Anthropic Claude, and local Ollama instances.
+* **Multi-LLM Orchestration & Embedded Local LLM (`tensai`)**:
+  - Unified multi-provider support: Google Gemini, OpenAI, Anthropic Claude, Ollama, and fully offline embedded local LLM (`tensai`).
+  - **Local LLM Model & GPU Acceleration Management (`ModelManagerDialog.svelte`)**:
+    - Models and native libraries (`wgpu-native`) are stored strictly within the datastore directory (`<datadir>/models` and `<datadir>/lib`) selected at startup, isolating instances without shared directories.
+    - One-click preset model download (Qwen 2.5, SmolLM2, Llama 3.2, DeepSeek R1, TinyLlama) and custom Hugging Face GGUF repository/URL downloads.
+    - Full local model inventory with file sizes, modification dates, and interactive deletion from the GUI.
+    - WebGPU native dynamic library installer and active backend detector (GPU Metal/Vulkan/D3D12, SIMD AVX2, or Pure Go CPU fallback).
+    - Dedicated REST APIs: `GET /api/ai/hardware`, `GET /api/ai/models`, `GET /api/ai/models/presets`, `POST /api/ai/models/download`, `POST /api/ai/models/cancel`, `DELETE /api/ai/models/:name`, `POST /api/ai/hardware/download-gpu`, `POST /api/ai/hardware/cancel-gpu`, and `GET /api/ai/download/status`.
 * **MCP Server Implementation**:
   - Standard JSON-RPC 2.0 tools and prompts over modern **Streamable HTTP** (`/api/mcp`) with IP whitelist (`-mcpFrom`) and optional JWT authentication (`-mcpMode auth|noauth`).
   - **Comprehensive Tools (22+ tools)**:

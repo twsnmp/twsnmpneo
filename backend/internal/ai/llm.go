@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/twsnmp/twsnmpneo/backend/internal/ai/tensai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 )
 
@@ -19,19 +20,25 @@ type LLMClient struct {
 	model      string
 	apiKey     string
 	baseURL    string
+	dataDir    string
 	httpClient *http.Client
 }
 
-// NewLLMClient creates an LLM client from MapConf settings.
-func NewLLMClient(conf *datastore.MapConfEnt) *LLMClient {
+// NewLLMClient creates an LLM client from MapConf settings and optional dataDir.
+func NewLLMClient(conf *datastore.MapConfEnt, dataDirs ...string) *LLMClient {
+	dDir := "./data"
+	if len(dataDirs) > 0 && dataDirs[0] != "" {
+		dDir = dataDirs[0]
+	}
 	if conf == nil {
-		return &LLMClient{httpClient: &http.Client{Timeout: 30 * time.Second}}
+		return &LLMClient{dataDir: dDir, httpClient: &http.Client{Timeout: 30 * time.Second}}
 	}
 	return &LLMClient{
 		provider:   conf.LLMProvider,
 		model:      conf.LLMModel,
 		apiKey:     conf.LLMAPIKey,
 		baseURL:    conf.LLMBaseURL,
+		dataDir:    dDir,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -55,6 +62,21 @@ func (c *LLMClient) GenerateAnswer(ctx context.Context, systemPrompt, userPrompt
 		modelName := c.model
 		if modelName == "" {
 			modelName = "qwen2.5-0.5b"
+		}
+		dataDir := c.dataDir
+		if dataDir == "" {
+			dataDir = "./data"
+		}
+		mgr := GetDownloadManager(dataDir)
+		modelPath, err := mgr.FindModel(modelName)
+		if err == nil && modelPath != "" {
+			tLLM, err := tensai.NewWithOptions(modelPath, false)
+			if err == nil && tLLM != nil {
+				ans, genErr := tLLM.GenerateAnswer(ctx, systemPrompt, userPrompt, 512)
+				if genErr == nil && ans != "" {
+					return ans, nil
+				}
+			}
 		}
 		isJa := strings.Contains(userPrompt, "日本語") || strings.Contains(userPrompt, "Japanese") || strings.Contains(systemPrompt, "日本語") || strings.Contains(userPrompt, "解析") || strings.Contains(userPrompt, "診断")
 		if isJa {
