@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -46,6 +47,8 @@ func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, "/bin/sh", "-c", cmdStr)
+	curPath := os.Getenv("PATH")
+	cmd.Env = append(os.Environ(), "PATH=./cmd:"+curPath)
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf

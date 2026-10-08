@@ -480,6 +480,18 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+// GetDataDir returns the directory containing the database and related assets.
+func (s *Store) GetDataDir() string {
+	if s.path == "" {
+		return "."
+	}
+	fi, err := os.Stat(s.path)
+	if err == nil && fi.IsDir() {
+		return s.path
+	}
+	return filepath.Dir(s.path)
+}
+
 // Generate unique ID
 func makeID() string {
 	b := make([]byte, 8)

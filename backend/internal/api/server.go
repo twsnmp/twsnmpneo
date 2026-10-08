@@ -1885,18 +1885,69 @@ func NewServer(cfg Config) (*Server, error) {
 			})
 		})
 
+		findImageFile := func(name string) string {
+			dirs := []string{}
+			if cfg.DataDir != "" {
+				dirs = append(dirs, cfg.DataDir)
+			}
+			if cfg.Store != nil {
+				if sd := cfg.Store.GetDataDir(); sd != "" {
+					dirs = append(dirs, sd)
+				}
+			}
+			dirs = append(dirs, "./data", ".")
+
+			for _, d := range dirs {
+				p := filepath.Join(d, "images", name)
+				if _, err := os.Stat(p); err == nil {
+					return p
+				}
+				// Fallback search for backimage_map
+				if strings.Contains(name, "japanesemap") || strings.Contains(name, "backimage") {
+					for _, fallback := range []string{"backimage_map.png", "backimage_map.jpg"} {
+						fbPath := filepath.Join(d, "images", fallback)
+						if _, err := os.Stat(fbPath); err == nil {
+							return fbPath
+						}
+					}
+				}
+			}
+			return ""
+		}
+
 		apiGroup.GET("/map/image/:name", func(c echo.Context) error {
 			name := filepath.Base(c.Param("name"))
-			targetDir := cfg.DataDir
-			if targetDir == "" {
-				targetDir = "./data"
-			}
-			path := filepath.Join(targetDir, "images", name)
-			if _, err := os.Stat(path); err != nil {
+			path := findImageFile(name)
+			if path == "" {
 				return c.NoContent(http.StatusNotFound)
 			}
 			return c.File(path)
 		})
+
+		// Legacy TWSNMP FC & raw image binary endpoints
+		getRawBackImage := func(c echo.Context) error {
+			// Try finding configured backImage path first
+			if bi, err := cfg.Store.GetBackImage(c.Request().Context()); err == nil && bi != nil && bi.Path != "" {
+				p := findImageFile(filepath.Base(bi.Path))
+				if p != "" {
+					return c.File(p)
+				}
+			}
+			// Try finding any backimage_map in images/
+			p := findImageFile("backimage_map.png")
+			if p != "" {
+				return c.File(p)
+			}
+			p = findImageFile("backimage_map.jpg")
+			if p != "" {
+				return c.File(p)
+			}
+			return c.NoContent(http.StatusNotFound)
+		}
+
+		e.GET("/backimage", getRawBackImage)
+		apiGroup.GET("/conf/backimage", getRawBackImage)
+		apiGroup.GET("/map/backimage/raw", getRawBackImage)
 
 		// Map Import endpoint
 		apiGroup.POST("/map/import", func(c echo.Context) error {

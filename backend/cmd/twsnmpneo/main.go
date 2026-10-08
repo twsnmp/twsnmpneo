@@ -21,6 +21,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
+	"github.com/twsnmp/twsnmpneo/backend/internal/importer"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 	"github.com/twsnmp/twsnmpneo/backend/internal/notify"
@@ -79,6 +80,12 @@ func main() {
 		shutdownTimeout = flag.Int("shutdown-timeout", 5, "Graceful shutdown fallback timeout in seconds")
 		debug           = flag.Bool("debug", false, "Enable debug logging")
 		verFlag         = flag.Bool("version", false, "Show version and exit")
+
+		// Migration flags
+		importFC       = flag.String("import-fc", "", "Path to legacy TWSNMP FC data directory or twsnmpfc.db to import and compact")
+		importEvents   = flag.Bool("import-events", true, "Import event logs during TWSNMP FC migration")
+		forceImport    = flag.Bool("force", false, "Force overwrite of target database during migration")
+		runAfterImport = flag.Bool("run-after-import", false, "Start TWSNMP NEO server after completing migration")
 	)
 	flag.Parse()
 	explicitFlags := make(map[string]bool)
@@ -103,6 +110,66 @@ func main() {
 		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
+
+	// Handle TWSNMP FC migration mode if -import-fc is specified
+	if *importFC != "" {
+		fmt.Println("============================================================")
+		fmt.Println("  TWSNMP FC -> TWSNMP NEO Migration & Compaction")
+		fmt.Println("============================================================")
+		fmt.Printf("Source Path:      %s\n", *importFC)
+		fmt.Printf("Destination Path: %s\n\n", *dataDir)
+
+		ctx := context.Background()
+		report, err := importer.RunFCMigration(ctx, *importFC, *dataDir, importer.Options{
+			ImportEventLogs: *importEvents,
+			Force:           *forceImport,
+		})
+		if err != nil {
+			fmt.Printf("Error during migration: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("[Database Compaction & Extraction]")
+		fmt.Printf("  Source DB Size:     %.2f MB (%s)\n", float64(report.SourceDBSize)/(1024*1024), filepath.Base(report.SourceDB))
+		fmt.Printf("  Target DB Size:     %.2f MB (%s)\n", float64(report.DestDBSize)/(1024*1024), filepath.Base(report.DestDB))
+		if report.SizeReductionPct > 0 {
+			fmt.Printf("  Size Reduced:       %.2f%%\n", report.SizeReductionPct)
+		}
+
+		fmt.Println("\n[Imported Entities]")
+		fmt.Printf("  Nodes:              %d\n", report.NodesImported)
+		fmt.Printf("  Lines:              %d\n", report.LinesImported)
+		fmt.Printf("  Networks:           %d\n", report.NwsImported)
+		fmt.Printf("  Draw Items:         %d\n", report.ItemsImported)
+		fmt.Printf("  Pollings:           %d\n", report.PollsImported)
+		fmt.Printf("  Users:              %d\n", report.UsersImported)
+		if *importEvents {
+			fmt.Printf("  Event Logs:         %d\n", report.EventsImported)
+		}
+		fmt.Println("  System Configs:     Migrated (mapConf, notifyConf, locConf, backImage, customIcons)")
+
+		if len(report.FilesCopied) > 0 {
+			fmt.Println("\n[Asset Files Copied]")
+			for _, f := range report.FilesCopied {
+				fmt.Printf("  - %s\n", f)
+			}
+		}
+
+		if len(report.Warnings) > 0 {
+			fmt.Println("\n[Warnings]")
+			for _, w := range report.Warnings {
+				fmt.Printf("  ! %s\n", w)
+			}
+		}
+
+		fmt.Println("\nStatus: Migration Completed Successfully.")
+		fmt.Println("============================================================")
+
+		if !*runAfterImport {
+			os.Exit(0)
+		}
+		fmt.Println("\nStarting TWSNMP NEO server...")
+	}
 
 	slog.Info("Starting TWSNMP NEO",
 		"version", version,

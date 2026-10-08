@@ -217,9 +217,14 @@ export const updateMAP = async () => {
   if (_mapP5 && (_mapP5.width !== mapSizeX || _mapP5.height !== mapSizeY)) {
     _mapP5.resizeCanvas(mapSizeX, mapSizeY);
   }
-  const z = mapConf.IconSize || 3;
-  iconSize = 8 + z * 8;
-  fontSize = 6 + z * 2;
+  const z = mapConf?.IconSize ?? (mapConf?.icon_size ?? 24);
+  if (z <= 5) {
+    iconSize = 8 + z * 8;
+    fontSize = 6 + z * 2;
+  } else {
+    iconSize = z;
+    fontSize = (mapConf as any)?.FontSize || (mapConf as any)?.font_size || Math.max(10, Math.min(16, Math.round(z * 0.45)));
+  }
 
   try {
     const nodeList = await fetchNodes();
@@ -279,16 +284,44 @@ export const updateMAP = async () => {
 
     try {
       backImage = await fetchBackImage();
+      // If backImage has no path but mapConf has BackImage metadata, fallback
+      if (!backImage?.Path && (mapConf as any)?.BackImage?.Path) {
+        backImage = (mapConf as any).BackImage;
+      }
       if (backImage?.Path) {
         if ((backImage.Path !== lastBackImagePath || !_backImage) && _mapP5) {
           lastBackImagePath = backImage.Path;
-          const imgUrl = backImage.Path.startsWith("/")
-            ? `${backImage.Path}?t=${Date.now()}`
-            : backImage.Path;
-          _mapP5.loadImage(imgUrl, (img) => {
-            _backImage = img;
-            mapRedraw = true;
-          });
+          let imgUrl = backImage.Path;
+          if (!imgUrl.startsWith("http") && !imgUrl.startsWith("/") && !imgUrl.startsWith("data:")) {
+            imgUrl = `/api/map/image/${imgUrl}`;
+          } else if (imgUrl === "/backimage") {
+            imgUrl = `/api/map/image/backimage_map.png`;
+          }
+          imgUrl = `${imgUrl}?t=${Date.now()}`;
+          _mapP5.loadImage(
+            imgUrl,
+            (img) => {
+              _backImage = img;
+              mapRedraw = true;
+            },
+            () => {
+              if (_mapP5) {
+                _mapP5.loadImage(
+                  `/api/map/backimage/raw?t=${Date.now()}`,
+                  (fallbackImg) => {
+                    _backImage = fallbackImg;
+                    mapRedraw = true;
+                  },
+                  () => {
+                    _mapP5?.loadImage(`/backimage?t=${Date.now()}`, (fcImg) => {
+                      _backImage = fcImg;
+                      mapRedraw = true;
+                    });
+                  }
+                );
+              }
+            }
+          );
         } else {
           // Path unchanged, but position/size might have changed
           mapRedraw = true;

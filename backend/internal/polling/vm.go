@@ -89,6 +89,24 @@ func SetupOttoVM(pe *datastore.PollingEnt, vm *otto.Otto, fields map[string]inte
 		return otto.Value{}
 	})
 
+	// saveReport(type, object): Saves reporting data (e.g., env monitor, user login)
+	_ = vm.Set("saveReport", func(call otto.FunctionCall) otto.Value {
+		if len(call.ArgumentList) != 2 ||
+			!call.Argument(0).IsString() ||
+			!call.Argument(1).IsObject() {
+			return otto.FalseValue()
+		}
+		if o, err := call.Argument(1).Export(); err == nil {
+			if m, ok := o.(map[string]interface{}); ok {
+				for k, v := range m {
+					fields["report_"+k] = v
+				}
+				return otto.TrueValue()
+			}
+		}
+		return otto.FalseValue()
+	})
+
 	// Historical values: inject previous Result keys as <key>_last
 	if pe.Result != nil && len(pe.Result) > 0 {
 		for k, v := range pe.Result {

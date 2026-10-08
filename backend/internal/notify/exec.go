@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +33,11 @@ func (m *Manager) checkExecCmd() {
 		return true
 	})
 	if execLevel != lastExecLevel {
-		err := ExecNotifyCmd(conf.ExecCmd, execLevel)
+		var dataDir string
+		if m != nil && m.store != nil {
+			dataDir = m.store.GetDataDir()
+		}
+		err := ExecNotifyCmdWithDir(dataDir, conf.ExecCmd, execLevel)
 		if err != nil {
 			slog.Error("exec notify command error", "error", err)
 			m.addEventLog("low", fmt.Sprintf(i18n.Trans("Exec notify command err=%v"), err))
@@ -40,9 +46,17 @@ func (m *Manager) checkExecCmd() {
 	}
 }
 
-// ExecNotifyCmd executes the notification command with the given level.
+// ExecNotifyCmd executes the notification command with the given level using default manager's dir.
 func ExecNotifyCmd(c string, level int) error {
-	// 連続する空白や前後の空白も適切に分割するために strings.Fields を推奨
+	var dataDir string
+	if defaultManager != nil && defaultManager.store != nil {
+		dataDir = defaultManager.store.GetDataDir()
+	}
+	return ExecNotifyCmdWithDir(dataDir, c, level)
+}
+
+// ExecNotifyCmdWithDir executes the notification command resolving files in dataDir/cmd.
+func ExecNotifyCmdWithDir(dataDir string, c string, level int) error {
 	cl := strings.Fields(c)
 	if len(cl) == 0 {
 		return fmt.Errorf("notify ExecCmd is empty")
@@ -59,12 +73,37 @@ func ExecNotifyCmd(c string, level int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// 可変長引数（cl[1:]...）は要素が空でも安全に展開できるため分岐は不要
-	cmd := exec.CommandContext(ctx, cl[0], cl[1:]...)
+	cmdName := cl[0]
+	// Check if script or executable exists in dataDir/cmd or ./cmd
+	var targetCmd string
+	if dataDir != "" {
+		p := filepath.Join(dataDir, "cmd", cmdName)
+		if _, err := os.Stat(p); err == nil {
+			targetCmd = p
+		}
+	}
+	if targetCmd == "" {
+		p := filepath.Join("cmd", cmdName)
+		if _, err := os.Stat(p); err == nil {
+			targetCmd = p
+		}
+	}
 
-	// timeout.KillAfter (5秒) の代替:
-	// コンテキストキャンセル後、あるいはプロセス終了後のI/Oパイプ待ちの上限時間
+	var cmd *exec.Cmd
+	if targetCmd != "" {
+		if strings.HasSuffix(targetCmd, ".sh") {
+			fullCmd := targetCmd + " " + strings.Join(cl[1:], " ")
+			cmd = exec.CommandContext(ctx, "/bin/sh", "-c", fullCmd)
+		} else {
+			cmd = exec.CommandContext(ctx, targetCmd, cl[1:]...)
+		}
+	} else if strings.HasSuffix(cmdName, ".sh") {
+		fullCmd := cmdName + " " + strings.Join(cl[1:], " ")
+		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", fullCmd)
+	} else {
+		cmd = exec.CommandContext(ctx, cmdName, cl[1:]...)
+	}
+
 	cmd.WaitDelay = 5 * time.Second
-
 	return cmd.Run()
 }

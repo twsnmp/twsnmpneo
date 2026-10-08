@@ -69,12 +69,16 @@ func ApplyExtractor(extractor string, text string, vm *otto.Otto, fields map[str
 		return nil
 
 	default:
-		// Custom grok pattern
+		// Grok pattern matching
 		g, err := grok.NewWithConfig(&grok.Config{NamedCapturesOnly: true})
 		if err != nil {
 			return fmt.Errorf("grok init error: %w", err)
 		}
-		if err := g.AddPattern("TWSNMP", extractor); err != nil {
+		pattern := extractor
+		if pat, ok := defaultGrokPatterns[extractor]; ok {
+			pattern = pat
+		}
+		if err := g.AddPattern("TWSNMP", pattern); err != nil {
 			return fmt.Errorf("grok pattern error: %w", err)
 		}
 		values, err := g.Parse("%{TWSNMP}", text)
@@ -91,6 +95,22 @@ func ApplyExtractor(extractor string, text string, vm *otto.Otto, fields map[str
 		}
 		return nil
 	}
+}
+
+var defaultGrokPatterns = map[string]string{
+	"DEVICE":         `mac=%{MAC:mac}.+ip=%{IP:ip}`,
+	"DEVICER":        `ip=%{IP:ip}.+mac=%{MAC:mac}`,
+	"WELFFLOW":       `src=%{IP:src}:%{BASE10NUM:sport}:.+dst=%{IP:dst}:%{BASE10NUM:dport}:.+proto=%{WORD:prot}.+sent=%{BASE10NUM:sent}.+rcvd=%{BASE10NUM:rcvd}.+spkt=%{BASE10NUM:spkt}.+rpkt=%{BASE10NUM:rpkt}`,
+	"OPENWEATHER":    `"weather":.+"main":\s*"%{WORD:weather}".+"main":.+"temp":\s*%{BASE10NUM:temp}.+"feels_like":\s*%{BASE10NUM:feels_like}.+"temp_min":\s*%{BASE10NUM:temp_min}.+"temp_max":\s*%{BASE10NUM:temp_max}.+"pressure":\s*%{BASE10NUM:pressure}.+"humidity":\s*%{BASE10NUM:humidity}.+"wind":\s*{"speed":\s*%{BASE10NUM:wind}`,
+	"UPTIME":         `load average: %{BASE10NUM:load1m}, %{BASE10NUM:load5m}, %{BASE10NUM:load15m}`,
+	"SSHLOGIN":       `%{NOTSPACE:stat} (password|publickey) for( invalid user | )%{USER:user} from %{IP:client}`,
+	"TWPCAP_STATS":   `type=Stats,total=%{BASE10NUM:total},count=%{BASE10NUM:count},ps=%{BASE10NUM:ps}`,
+	"TWPCAP_IPTOMAC": `type=IPToMAC,ip=%{IP:ip},mac=%{MAC:mac},count=%{BASE10NUM:count},change=%{BASE10NUM:chnage},dhcp=%{BASE10NUM:dhcp}`,
+	"TWPCAP_DNS":     `type=DNS,sv=%{IP:sv},DNSType=%{WORD:dnsType},Name=%{IPORHOST:name},count=%{BASE10NUM:count},change=%{BASE10NUM:chnage},lcl=%{IP:lastIP},lMAC=%{MAC:lastMAC}`,
+	"TWPCAP_DHCP":    `type=DHCP,sv=%{IP:sv},count=%{BASE10NUM:count},offer=%{BASE10NUM:offer},ack=%{BASE10NUM:ack},nak=%{BASE10NUM:nak}`,
+	"TWPCAP_NTP":     `type=NTP,sv=%{IP:sv},count=%{BASE10NUM:count},change=%{BASE10NUM:change},lcl=%{IP:client},version=%{BASE10NUM:version},stratum=%{BASE10NUM:stratum},refid=%{WORD:refid}`,
+	"TWPCAP_RADIUS":  `type=RADIUS,cl=%{IP:client},sv=%{IP:server},count=%{BASE10NUM:count},req=%{BASE10NUM:request},accept=%{BASE10NUM:accept},reject=%{BASE10NUM:reject},challenge=%{BASE10NUM:challenge}`,
+	"TWPCAP_TLSFlow": `type=TLSFlow,cl=%{IP:client},sv=%{IP:server},serv=%{WORD:service},count=%{BASE10NUM:count},handshake=%{BASE10NUM:handshake},alert=%{BASE10NUM:alert},minver=%{DATA:minver},maxver=%{DATA:maxver},cipher=%{DATA:cipher},ft=`,
 }
 
 // RegisterBodyHelpers registers getBody, jsonpath, and goquery helpers on Otto VM for string payloads.

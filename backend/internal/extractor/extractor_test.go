@@ -86,3 +86,26 @@ func TestApplyExtractor_Grok(t *testing.T) {
 		t.Fatalf("expected grok variables in VM")
 	}
 }
+
+func TestApplyExtractor_OpenWeather(t *testing.T) {
+	vm := otto.New()
+	fields := make(map[string]interface{})
+	sampleJSON := `{"weather":[{"id":800,"main":"Clear"}],"main":{"temp":28.5,"feels_like":29.1,"temp_min":27.0,"temp_max":30.0,"pressure":1012,"humidity":65},"wind":{"speed":3.5}}`
+	err := extractor.ApplyExtractor("OPENWEATHER", sampleJSON, vm, fields)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if fields["temp"] != "28.5" || fields["humidity"] != "65" || fields["pressure"] != "1012" {
+		t.Fatalf("unexpected extracted fields: %+v", fields)
+	}
+
+	val, err := vm.Run("temp * 1.0 < 35.0 && humidity * 1.0 == 65")
+	if err != nil {
+		t.Fatalf("script run error: %v", err)
+	}
+	pass, _ := val.ToBoolean()
+	if !pass {
+		t.Fatalf("expected OpenWeather calculation in VM")
+	}
+}

@@ -28,6 +28,7 @@ func GenerateID() string {
 type DataStore interface {
 	// Lifecycle
 	Close() error
+	GetDataDir() string
 
 	// Nodes
 	GetNode(ctx context.Context, id string) (*NodeEnt, error)

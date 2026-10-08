@@ -88,17 +88,40 @@ func (p *MQTTPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	}
 	_ = conn.Close()
 
+	topicStr := pe.MqttTopic
+	if topicStr == "" && pe.Filter != "" {
+		topicStr = pe.Filter
+	}
+	if topicStr == "" && pe.Result != nil {
+		if t, ok := pe.Result["topic"].(string); ok {
+			topicStr = t
+		}
+	}
+
+	payloadStr := ""
+	if pe.Result != nil {
+		if p, ok := pe.Result["payload"].(string); ok {
+			payloadStr = p
+		}
+	}
+
 	fields := map[string]interface{}{
 		"rtt":      float64(rtt.Nanoseconds()),
 		"lastTime": float64(time.Now().UnixNano()),
-		"topic":    pe.MqttTopic,
+		"topic":    topicStr,
+		"payload":  payloadStr,
 	}
 
 	vm := otto.New()
 	SetupOttoVM(pe, vm, fields)
-	extractor.RegisterBodyHelpers("", vm)
+	extractor.RegisterBodyHelpers(payloadStr, vm)
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))
-	_ = vm.Set("topic", pe.MqttTopic)
+	_ = vm.Set("topic", topicStr)
+	_ = vm.Set("payload", payloadStr)
+
+	if pe.Extractor != "" && payloadStr != "" {
+		_ = extractor.ApplyExtractor(pe.Extractor, payloadStr, vm, fields)
+	}
 
 	if pe.Script == "" {
 		return &Result{

@@ -323,6 +323,29 @@ TWSNMP NEO のすべての画面・コンポーネント開発において、統
 
 ---
 
+### 4.12 レガシーデータストアマイグレーション (TWSNMP FC -> TWSNMP NEO)
+
+* **CLI マイグレーション機能 (`-import-fc`)**:
+  - TWSNMP FC のデータストアを抽出し、クリーンにコンパクションした TWSNMP NEO データストアへ自動変換・移行する。
+  - **CLI フラグ**:
+    - `-import-fc <path>`: 移行元 TWSNMP FC のデータディレクトリパスまたは `twsnmpfc.db` パス。
+    - `-datadir <path>`: 移行先 TWSNMP NEO のデータディレクトリパス (デフォルト: `./data`)。
+    - `-import-events`: 過去のイベントログの移行有無 (デフォルト: `true`)。
+    - `-force`: 移行先に `twsnmpneo.db` が既に存在する場合に強制上書きする。
+    - `-run-after-import`: マイグレーション完了後、そのまま TWSNMP NEO サービスを起動する。
+* **DB コンパクション & 抽出移行**:
+  - 肥大化した bbolt DB ファイルの直接コピーではなく、有効な設定・エンティティ（`config`, `nodes`, `lines`, `networks`, `items`, `pollings`, `users`, `eventlog`）のみを抽出し、新規に最適化された `twsnmpneo.db` を再構築。
+  - マップ設定のログ保存形式を自動的に `parquet` に移行。
+  - DB サイズ削減率（%）および移行レポートをコンソールに出力。
+* **アセットファイルの自動コピー**:
+  - カスタムアイコンおよび背景画像 (`icons/` / `images/` -> `images/`) の自動コピー。
+  - GeoIP データベース (`geoip.mmdb`) の自動コピー。
+  - ユーザー定義 MIB (`mib.txt`, `extmibs/`) の自動コピー。
+  - カスタム監視/通知スクリプト (`cmd/`) の実行権限 (`0755`) 保持自動コピー。
+  - 内蔵化・不要ファイル (`yasumi.txt`, `services.txt`, `mac-vendors-export.csv`, `tlsparams.csv`, `polling.json`, `mail_*.html`, `cert.pem`, `key.pem`) の自動除外。
+
+---
+
 ## 5. テスト & 品質保証方針
 
 * **テストカバレッジ**: Go バックエンドの全主要パッケージ（`polling`, `datastore`, `importer`, `receiver`, `api`, `report`, `pki`, `discover`, `topology`）において C1カバレッジ（分岐網羅）80%以上を維持する。

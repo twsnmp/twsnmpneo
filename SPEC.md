@@ -627,6 +627,29 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 
 ---
 
+### 4.12 Legacy DataStore Migration (TWSNMP FC -> TWSNMP NEO)
+
+* **CLI Migration Engine (`-import-fc`)**:
+  - Automatically migrates, transforms, and compacts legacy TWSNMP FC data stores into clean TWSNMP NEO data stores.
+  - **Flags**:
+    - `-import-fc <path>`: Source path pointing to legacy TWSNMP FC data directory or `twsnmpfc.db`.
+    - `-datadir <path>`: Target destination path for TWSNMP NEO data directory (default: `./data`).
+    - `-import-events`: Import historical event logs (default: `true`).
+    - `-force`: Force overwrite if destination `twsnmpneo.db` already exists.
+    - `-run-after-import`: Automatically launch TWSNMP NEO server upon migration completion.
+* **Database Compaction & Extraction**:
+  - Rather than copying swollen bbolt files, extracts only valid entities (`config`, `nodes`, `lines`, `networks`, `items`, `pollings`, `users`, `eventlog`) and constructs a fresh, optimized `twsnmpneo.db`.
+  - Automatically converts `LogFormat` to `"parquet"` in map configuration.
+  - Computes and displays DB size reduction statistics upon completion.
+* **Asset Copying**:
+  - Automatically copies custom node/map images (`icons/` / `images/` -> `images/`).
+  - Automatically copies GeoIP databases (`geoip.mmdb`).
+  - Automatically copies user-defined MIBs (`mib.txt`, `extmibs/`).
+  - Automatically copies custom scripts (`cmd/`) preserving executable permissions (`0755`).
+  - Omits built-in / deprecated files (`yasumi.txt`, `services.txt`, `mac-vendors-export.csv`, `tlsparams.csv`, `polling.json`, `mail_*.html`, `cert.pem`, `key.pem`).
+
+---
+
 ## 5. Testing & Quality Policy
 
 * **Coverage Requirement**: Maintain at least 80% statement and branch coverage across all Go backend packages (`internal/polling`, `internal/datastore`, `internal/importer`, `internal/receiver`, `internal/api`, `internal/report`, `internal/pki`, `internal/discover`).
