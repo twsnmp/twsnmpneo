@@ -263,11 +263,11 @@
     <table class="w-full min-w-[550px] whitespace-nowrap text-left text-xs">
       <thead class="bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
         <tr>
-          <th class="p-3">{$_('users.colUsername') || 'ユーザー名'}</th>
-          <th class="p-3">{$_('users.colDisplayName') || '表示名'}</th>
-          <th class="p-3">{$_('users.colRole') || '権限'}</th>
-          <th class="p-3">{$_('users.colCreatedAt') || '作成日時'}</th>
-          <th class="p-3 text-center w-28">{$_('common.actions') || '操作'}</th>
+          <th class="px-2 py-1">{$_('users.colUsername') || 'ユーザー名'}</th>
+          <th class="px-2 py-1">{$_('users.colDisplayName') || '表示名'}</th>
+          <th class="px-2 py-1">{$_('users.colRole') || '権限'}</th>
+          <th class="px-2 py-1">{$_('users.colCreatedAt') || '作成日時'}</th>
+          <th class="px-2 py-1 text-center w-28">{$_('common.actions') || '操作'}</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
@@ -291,12 +291,12 @@
           {:else}
             {#each filteredUsers as u (u.user)}
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="p-3 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <td class="px-2 py-1 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <UserCircle2 class="h-4 w-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                   <span>{u.user}</span>
                 </td>
-                <td class="p-3">{u.name || '-'}</td>
-                <td class="p-3">
+                <td class="px-2 py-1">{u.name || '-'}</td>
+                <td class="px-2 py-1">
                   {#if u.role === 'admin'}
                     <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60">
                       <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
@@ -314,10 +314,10 @@
                     </span>
                   {/if}
                 </td>
-                <td class="p-3 text-[11px] text-slate-500 dark:text-slate-400">
+                <td class="px-2 py-1 text-[11px] text-slate-500 dark:text-slate-400">
                   {u.created_at ? new Date(u.created_at * 1000).toLocaleString() : '-'}
                 </td>
-                <td class="p-3 text-center">
+                <td class="px-2 py-1 text-center">
                   <div class="flex items-center justify-center gap-1.5">
                     {#if !currentUser || currentUser.role === 'admin' || currentUser.user === u.user}
                       <button
