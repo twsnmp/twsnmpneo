@@ -51,9 +51,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Ensure embedded web assets directory exists
+        working-directory: backend
+        run: mkdir -p web/dist && touch web/dist/index.html
+
       - name: Run Backend Tests with Race Detection
         working-directory: backend
         run: go test -tags wgpu24 -v -race -cover -skip '^(TestDoPing_Loopback|TestDoPing_NonExistent|TestResolveHostname|TestPingPoller|TestDiscover_SkipNonExistentIP)$' ./internal/...
+
 
       - name: Build Backend Binary
         working-directory: backend

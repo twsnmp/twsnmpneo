@@ -35,10 +35,10 @@ go.work.sum
 bin/
 data/
 backend/dist/
-backend/web/dist/*
-!backend/web/dist/.gitkeep
+backend/web/dist/
 frontend/dist/
 node_modules/
 frontend/node_modules/
 backend/tmp/
+
 
