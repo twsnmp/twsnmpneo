@@ -14,8 +14,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install mise
-        uses: jdx/mise-action@v2
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install Frontend Dependencies
         working-directory: frontend
@@ -36,18 +45,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
 
       - name: Ensure embedded web assets directory exists
         working-directory: backend
@@ -56,7 +58,6 @@ jobs:
       - name: Run Backend Tests with Race Detection
         working-directory: backend
         run: go test -tags wgpu24 -v -race -cover -skip '^(TestDoPing_Loopback|TestDoPing_NonExistent|TestResolveHostname|TestPingPoller|TestDiscover_SkipNonExistentIP)$' ./internal/...
-
 
       - name: Build Backend Binary
         working-directory: backend
