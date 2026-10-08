@@ -63,7 +63,6 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
-          GOEXPERIMENT: simd
         run: |
           VERSION="${{ inputs.version || github.ref_name }}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then

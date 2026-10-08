@@ -32,8 +32,6 @@ jobs:
   test-backend:
     name: Backend Unit Tests & Race Detection
     runs-on: ubuntu-latest
-    env:
-      GOEXPERIMENT: simd
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

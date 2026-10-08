@@ -159,6 +159,7 @@ func TestArpWatchServer_DetectionAndLogging(t *testing.T) {
 	}
 
 	// 3. Change update: MAC changed!
+	time.Sleep(10 * time.Millisecond)
 	server.updateArpTable(ctx, "192.168.1.1", "00:99:88:77:66:55")
 	_ = pqStore.Flush()
 	logs3, _ := pqStore.Query(ctx, parquet.LogFilter{Type: "arplog", Limit: 10})

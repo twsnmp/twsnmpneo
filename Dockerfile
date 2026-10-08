@@ -29,8 +29,6 @@ ARG VERSION=v0.1.0
 ARG COMMIT=none
 ARG DATE=unknown
 
-ENV GOEXPERIMENT=simd
-
 RUN CGO_ENABLED=0 go build \
     -tags wgpu24 \
     -trimpath \

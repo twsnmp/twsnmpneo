@@ -4,9 +4,6 @@ node = "22"
 pnpm = "latest"
 air = "latest"
 
-[env]
-GOEXPERIMENT = "simd"
-
 [tasks.dev-frontend]
 description = "Launch frontend development server with HMR (Vite)"
 dir = "frontend"
