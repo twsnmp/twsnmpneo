@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -74,9 +75,10 @@ func main() {
 		netflowPort = flag.Int("netflow-port", 0, "NetFlow UDP port (0 to disable or default 2055)")
 		sflowPort   = flag.Int("sflow-port", 0, "sFlow UDP port (0 to disable or default 6343)")
 		otelPort    = flag.Int("otel-port", 0, "OpenTelemetry OTLP HTTP port (0 to disable or default 4318)")
-		mqttPort    = flag.Int("mqtt-port", 0, "MQTT broker port (0 to disable or default 1883)")
-		debug       = flag.Bool("debug", false, "Enable debug logging")
-		verFlag     = flag.Bool("version", false, "Show version and exit")
+		mqttPort        = flag.Int("mqtt-port", 0, "MQTT broker port (0 to disable or default 1883)")
+		shutdownTimeout = flag.Int("shutdown-timeout", 5, "Graceful shutdown fallback timeout in seconds")
+		debug           = flag.Bool("debug", false, "Enable debug logging")
+		verFlag         = flag.Bool("version", false, "Show version and exit")
 	)
 	flag.Parse()
 	explicitFlags := make(map[string]bool)
@@ -203,6 +205,8 @@ func main() {
 		}
 	}
 
+	var wg sync.WaitGroup
+
 	// Initialize Polling Manager
 	pollMgr := polling.NewManager(polling.Config{
 		Store:        store,
@@ -210,7 +214,9 @@ func main() {
 		WorkerCount:  10,
 		PollInterval: 1 * time.Second,
 	})
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := pollMgr.Start(ctx); err != nil {
 			slog.Error("Polling manager error", "error", err)
 		}
@@ -300,7 +306,9 @@ func main() {
 		ArpWatchRange:  arpWatchRange,
 		ArpTimeout:     arpTimeout,
 	})
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := recvMgr.Start(ctx); err != nil {
 			slog.Error("Receiver manager error", "error", err)
 		}
@@ -361,7 +369,9 @@ func main() {
 
 	// Start server in background
 	serverErr := make(chan error, 1)
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := server.Start(ctx); err != nil {
 			serverErr <- err
 		}
@@ -376,9 +386,23 @@ func main() {
 	}
 
 	slog.Info("Shutting down TWSNMP NEO gracefully...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	timeout := time.Duration(*shutdownTimeout) * time.Second
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
 
-	<-shutdownCtx.Done()
+	shutdownDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(shutdownDone)
+	}()
+
+	select {
+	case <-shutdownDone:
+		slog.Info("All services stopped gracefully.")
+	case <-time.After(timeout):
+		slog.Warn("Graceful shutdown timed out, forcing exit.", "timeout", timeout)
+	}
+
 	slog.Info("TWSNMP NEO stopped.")
 }
