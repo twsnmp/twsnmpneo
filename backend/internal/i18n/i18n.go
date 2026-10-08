@@ -29,6 +29,12 @@ var transMap = map[string]map[string]string{
 	"TWSNMP NEO %s started (Web port: %d)": {
 		"ja": "TWSNMP NEO %s サービスを起動しました (Webポート: %d)",
 	},
+	"re check polling:": {
+		"ja": "ポーリング再確認:",
+	},
+	"re check polling: %s": {
+		"ja": "ポーリング再確認: %s",
+	},
 	"Start polling node %s (%s)": {
 		"ja": "ノード %s (%s) のポーリングを開始しました",
 	},

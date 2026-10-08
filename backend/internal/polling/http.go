@@ -152,18 +152,32 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		fields["sha256"] = nh
 		oldHash := ""
 		if pe.Result != nil {
-			if oh, ok := pe.Result["sha256"].(string); ok {
+			if oh, ok := pe.Result["sha256"].(string); ok && oh != "" {
 				oldHash = oh
 			}
 		}
-		if oldHash != "" && oldHash != nh {
+		if oldHash == "" {
+			fields["first_sha256"] = nh
+			fields["last_sha256"] = nh
+		} else {
 			fields["last_sha256"] = oldHash
-			return &Result{
-				State:   failureState(pe.Level),
-				RTT:     rtt,
-				Message: fmt.Sprintf("http body hash changed: %s -> %s", oldHash[:8], nh[:8]),
-				Fields:  fields,
-			}, nil
+			if pe.Result != nil {
+				if fh, ok := pe.Result["first_sha256"].(string); ok && fh != "" {
+					fields["first_sha256"] = fh
+				} else {
+					fields["first_sha256"] = oldHash
+				}
+			} else {
+				fields["first_sha256"] = oldHash
+			}
+			if pe.Script == "" && oldHash != nh {
+				return &Result{
+					State:   failureState(pe.Level),
+					RTT:     rtt,
+					Message: fmt.Sprintf("http body hash changed: %s -> %s", oldHash[:8], nh[:8]),
+					Fields:  fields,
+				}, nil
+			}
 		}
 	}
 

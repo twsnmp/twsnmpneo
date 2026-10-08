@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -738,5 +739,257 @@ func TestUnsupportedPollingModes(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckNodeAndCheckAll(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  2,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:    "test-node-recheck",
+		Name:  "RecheckNode",
+		IP:    "127.0.0.1",
+		State: polling.StateHigh,
+	}
+	_ = store.SaveNode(ctx, node)
+
+	// Polling 1: High state
+	poll1 := &datastore.PollingEnt{
+		ID:      "poll-high",
+		NodeID:  node.ID,
+		Name:    "Ping High",
+		Type:    "ping",
+		Mode:    "",
+		Params:  "127.0.0.1",
+		Level:   "high",
+		State:   polling.StateHigh,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, poll1)
+
+	// Polling 2: Normal state
+	poll2 := &datastore.PollingEnt{
+		ID:      "poll-normal",
+		NodeID:  node.ID,
+		Name:    "Ping Normal",
+		Type:    "ping",
+		Mode:    "",
+		Params:  "127.0.0.1",
+		Level:   "high",
+		State:   polling.StateNormal,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, poll2)
+
+	// Polling 3: Off level
+	poll3 := &datastore.PollingEnt{
+		ID:      "poll-off",
+		NodeID:  node.ID,
+		Name:    "Ping Off",
+		Type:    "ping",
+		Mode:    "",
+		Params:  "127.0.0.1",
+		Level:   "off",
+		State:   polling.StateHigh,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, poll3)
+
+	// Test CheckNode
+	count, err := mgr.CheckNode(ctx, node.ID)
+	if err != nil {
+		t.Fatalf("CheckNode returned error: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 polling to be checked, got %d", count)
+	}
+
+	// Verify poll1 was reset to unknown
+	savedP1, _ := store.GetPolling(ctx, poll1.ID)
+	if savedP1.State != polling.StateUnknown {
+		t.Fatalf("expected poll1 state to be unknown, got %s", savedP1.State)
+	}
+	if savedP1.NextTime != 0 {
+		t.Fatalf("expected poll1 NextTime to be 0, got %d", savedP1.NextTime)
+	}
+
+	// Verify poll2 (normal) was NOT touched
+	savedP2, _ := store.GetPolling(ctx, poll2.ID)
+	if savedP2.State != polling.StateNormal {
+		t.Fatalf("expected poll2 state to stay normal, got %s", savedP2.State)
+	}
+
+	// Verify poll3 (off) was NOT touched
+	savedP3, _ := store.GetPolling(ctx, poll3.ID)
+	if savedP3.State != polling.StateHigh {
+		t.Fatalf("expected poll3 state to stay high (off), got %s", savedP3.State)
+	}
+
+	// Verify node was reset to unknown
+	savedNode, _ := store.GetNode(ctx, node.ID)
+	if savedNode.State != polling.StateUnknown {
+		t.Fatalf("expected node state to be unknown, got %s", savedNode.State)
+	}
+
+	// Verify event log was generated
+	var foundRecheckLog bool
+	store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
+		if l.Type == "user" && l.NodeID == node.ID && strings.Contains(l.Event, "Ping High") {
+			foundRecheckLog = true
+			return false
+		}
+		return true
+	})
+	if !foundRecheckLog {
+		t.Fatalf("expected to find user event log for re-check")
+	}
+
+	// Test CheckAll with another polling in repair state
+	node2 := &datastore.NodeEnt{
+		ID:    "test-node-checkall",
+		Name:  "CheckAllNode",
+		IP:    "127.0.0.1",
+		State: polling.StateRepair,
+	}
+	_ = store.SaveNode(ctx, node2)
+
+	poll4 := &datastore.PollingEnt{
+		ID:      "poll-checkall-repair",
+		NodeID:  node2.ID,
+		Name:    "Ping CheckAll Repair",
+		Type:    "ping",
+		Mode:    "",
+		Params:  "127.0.0.1",
+		Level:   "high",
+		State:   polling.StateRepair,
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, poll4)
+
+	allCount := mgr.CheckAll(ctx)
+	if allCount < 1 {
+		t.Fatalf("expected at least 1 polling checked by CheckAll, got %d", allCount)
+	}
+
+	// Give background poller a moment to execute
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify poll4 transitioned from repair -> unknown -> normal via immediate check
+	savedP4, _ := store.GetPolling(ctx, poll4.ID)
+	if savedP4.State != polling.StateNormal {
+		t.Fatalf("expected poll4 state to become normal after immediate check, got %s", savedP4.State)
+	}
+
+	savedNode2, _ := store.GetNode(ctx, node2.ID)
+	if savedNode2.State != polling.StateNormal {
+		t.Fatalf("expected node2 state to become normal after immediate check, got %s", savedNode2.State)
+	}
+	var foundAllRecheckLog bool
+	store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
+		if l.Type == "user" && l.NodeID == node2.ID && strings.Contains(l.Event, "Ping CheckAll Repair") {
+			foundAllRecheckLog = true
+			return false
+		}
+		return true
+	})
+	if !foundAllRecheckLog {
+		t.Fatalf("expected to find user event log for CheckAll re-check")
+	}
+}
+
+func TestHTTPHashPollingScript(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	var responseBody string = "Version 1.0.0"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(responseBody))
+	}))
+	defer ts.Close()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  2,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:    "test-node-http-hash",
+		Name:  "HTTPHashNode",
+		IP:    "127.0.0.1",
+		State: polling.StateUnknown,
+	}
+	_ = store.SaveNode(ctx, node)
+
+	poll := &datastore.PollingEnt{
+		ID:      "poll-http-hash",
+		NodeID:  node.ID,
+		Name:    "WebサイトHASH値監視",
+		Type:    "http",
+		Mode:    "hash",
+		Params:  ts.URL,
+		Script:  "last_sha256 == sha256",
+		Level:   "high",
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, poll)
+
+	// Run 1: First check -> last_sha256 is defined and matches sha256 -> StateNormal
+	res1, err := mgr.ExecuteOne(ctx, poll)
+	if err != nil {
+		t.Fatalf("run 1 ExecuteOne error: %v", err)
+	}
+	if res1.State != polling.StateNormal {
+		t.Fatalf("expected run 1 state normal, got %s (message: %s, fields: %v)", res1.State, res1.Message, res1.Fields)
+	}
+	if errVal, ok := res1.Fields["error"]; ok {
+		t.Fatalf("expected no error field in run 1, got %v", errVal)
+	}
+
+	// Run 2: Second check (content unchanged) -> last_sha256 == sha256 -> StateNormal
+	res2, err := mgr.ExecuteOne(ctx, poll)
+	if err != nil {
+		t.Fatalf("run 2 ExecuteOne error: %v", err)
+	}
+	if res2.State != polling.StateNormal {
+		t.Fatalf("expected run 2 state normal, got %s (message: %s, fields: %v)", res2.State, res2.Message, res2.Fields)
+	}
+	if errVal, ok := res2.Fields["error"]; ok {
+		t.Fatalf("expected no error field in run 2, got %v", errVal)
+	}
+
+	// Change response content
+	responseBody = "Version 2.0.0 (Modified)"
+
+	// Run 3: Third check (content changed) -> last_sha256 != sha256 -> StateHigh
+	res3, err := mgr.ExecuteOne(ctx, poll)
+	if err != nil {
+		t.Fatalf("run 3 ExecuteOne error: %v", err)
+	}
+	if res3.State != polling.StateHigh {
+		t.Fatalf("expected run 3 state high on content change, got %s (fields: %v)", res3.State, res3.Fields)
+	}
+
+	// Run 4: Fourth check (content stable at version 2) -> last_sha256 == sha256 -> StateNormal
+	res4, err := mgr.ExecuteOne(ctx, poll)
+	if err != nil {
+		t.Fatalf("run 4 ExecuteOne error: %v", err)
+	}
+	if res4.State != polling.StateNormal {
+		t.Fatalf("expected run 4 state normal when stable, got %s (fields: %v)", res4.State, res4.Fields)
+	}
+}
+
+
 
 

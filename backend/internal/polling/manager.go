@@ -337,7 +337,7 @@ func (m *Manager) checkAndSchedule(ctx context.Context) {
 	}
 }
 
-// CheckAll queues all pollings to execute immediately on demand.
+// CheckAll resets all pollings in non-normal state to 'unknown' and queues them to execute immediately.
 func (m *Manager) CheckAll(ctx context.Context) int {
 	if m.store == nil {
 		return 0
@@ -347,10 +347,34 @@ func (m *Manager) CheckAll(ctx context.Context) int {
 		return 0
 	}
 	count := 0
+	now := time.Now().UnixNano()
 	for _, p := range pollings {
-		if p.Level == "off" {
+		if p.Level == "off" || p.State == StateNormal {
 			continue
 		}
+		p.State = StateUnknown
+		p.NextTime = 0
+		_ = m.store.SavePolling(ctx, p)
+
+		node, _ := m.store.GetNode(ctx, p.NodeID)
+		nodeName := p.NodeID
+		if node != nil {
+			nodeName = node.Name
+			if node.State != StateUnknown {
+				node.State = StateUnknown
+				_ = m.store.SaveNode(ctx, node)
+			}
+		}
+
+		_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:     now,
+			Type:     "user",
+			Level:    "info",
+			NodeID:   p.NodeID,
+			NodeName: nodeName,
+			Event:    i18n.Trans("re check polling:") + p.Name,
+		})
+
 		if _, busy := m.inFlight.Load(p.ID); busy {
 			continue
 		}
@@ -362,7 +386,7 @@ func (m *Manager) CheckAll(ctx context.Context) int {
 	return count
 }
 
-// CheckNode queues all active pollings for a node to execute immediately.
+// CheckNode resets all non-normal pollings of a node to 'unknown' and queues them to execute immediately.
 func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 	if m.store == nil {
 		return 0, fmt.Errorf("polling manager has no datastore")
@@ -370,15 +394,37 @@ func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 	if nodeID == "" {
 		return 0, fmt.Errorf("node id is required")
 	}
+	node, err := m.store.GetNode(ctx, nodeID)
+	if err != nil || node == nil {
+		return 0, fmt.Errorf("node not found")
+	}
+
+	node.State = StateUnknown
+	_ = m.store.SaveNode(ctx, node)
+
 	pollings, err := m.store.ListPollings(ctx)
 	if err != nil {
 		return 0, err
 	}
 	count := 0
+	now := time.Now().UnixNano()
 	for _, p := range pollings {
-		if p.NodeID != nodeID || p.Level == "off" {
+		if p.NodeID != nodeID || p.Level == "off" || p.State == StateNormal {
 			continue
 		}
+		p.State = StateUnknown
+		p.NextTime = 0
+		_ = m.store.SavePolling(ctx, p)
+
+		_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:     now,
+			Type:     "user",
+			Level:    "info",
+			NodeID:   node.ID,
+			NodeName: node.Name,
+			Event:    i18n.Trans("re check polling:") + p.Name,
+		})
+
 		if _, busy := m.inFlight.Load(p.ID); busy {
 			continue
 		}
@@ -387,6 +433,11 @@ func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 			_, _ = m.ExecuteOne(context.Background(), task)
 		}(p)
 	}
+
+	if count == 0 {
+		m.updateNodeState(ctx, node)
+	}
+
 	return count, nil
 }
 
