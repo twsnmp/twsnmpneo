@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Stage 1: Build Frontend SPA
-FROM node:22-alpine AS frontend-builder
+# Stage 1: Build Frontend SPA (Runs natively on host builder platform)
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -12,8 +12,8 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY frontend/ ./
 RUN pnpm run build
 
-# Stage 2: Build Backend Go binary
-FROM golang:1.27-alpine AS backend-builder
+# Stage 2: Build Backend Go binary (Runs natively using Go's fast cross-compiler)
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS backend-builder
 WORKDIR /app/backend
 
 RUN apk add --no-cache git ca-certificates tzdata
@@ -25,11 +25,13 @@ COPY backend/ ./
 # Copy built static assets into backend/web/dist for go:embed
 COPY --from=frontend-builder /app/backend/web/dist ./web/dist
 
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=v0.1.0
 ARG COMMIT=none
 ARG DATE=unknown
 
-RUN CGO_ENABLED=0 go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -tags wgpu24 \
     -trimpath \
     -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
