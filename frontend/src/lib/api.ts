@@ -357,8 +357,34 @@ export function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
+export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const token = getStoredToken();
+  const headers = new Headers(init?.headers || {});
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+  });
+
+  if (response.status === 401) {
+    const urlStr = typeof input === 'string' ? input : (input instanceof Request ? input.url : input.toString());
+    if (!urlStr.includes('/api/login')) {
+      setStoredToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('twsnmp:unauthorized'));
+      }
+    }
+  }
+
+  return response;
+}
+
 export async function login(user: string, password: string): Promise<{ token: string; user: UserEnt }> {
-  const res = await fetch(`${API_BASE}/login`, {
+  const res = await apiFetch(`${API_BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user, password }),
@@ -377,12 +403,12 @@ export async function login(user: string, password: string): Promise<{ token: st
 export async function logout(): Promise<void> {
   const headers = getAuthHeaders();
   setStoredToken(null);
-  await fetch(`${API_BASE}/logout`, { method: 'POST', headers }).catch(() => {});
+  await apiFetch(`${API_BASE}/logout`, { method: 'POST', headers }).catch(() => {});
 }
 
 export async function fetchMe(): Promise<UserEnt | null> {
   try {
-    const res = await fetch(`${API_BASE}/me`, {
+    const res = await apiFetch(`${API_BASE}/me`, {
       headers: getAuthHeaders(),
     });
     if (res.status === 401) {
@@ -397,7 +423,7 @@ export async function fetchMe(): Promise<UserEnt | null> {
 }
 
 export async function fetchUsers(): Promise<UserEnt[]> {
-  const res = await fetch(`${API_BASE}/users`, {
+  const res = await apiFetch(`${API_BASE}/users`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
@@ -407,7 +433,7 @@ export async function fetchUsers(): Promise<UserEnt[]> {
 }
 
 export async function createUser(data: { user: string; name?: string; password: string; role?: string }): Promise<UserEnt> {
-  const res = await fetch(`${API_BASE}/users`, {
+  const res = await apiFetch(`${API_BASE}/users`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(data),
@@ -420,7 +446,7 @@ export async function createUser(data: { user: string; name?: string; password: 
 }
 
 export async function updateUser(user: string, data: { name?: string; password?: string; role?: string }): Promise<UserEnt> {
-  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user)}`, {
+  const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(user)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(data),
@@ -433,7 +459,7 @@ export async function updateUser(user: string, data: { name?: string; password?:
 }
 
 export async function deleteUser(user: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/users/${encodeURIComponent(user)}`, {
+  const res = await apiFetch(`${API_BASE}/users/${encodeURIComponent(user)}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -489,7 +515,7 @@ export interface PKICAOptions {
 
 async function pkiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const endpoint = `${API_BASE}/pki${path}`;
-  const response = await fetch(endpoint, init);
+  const response = await apiFetch(endpoint, init);
   if (!response.ok) {
     let message = response.statusText;
     try {
@@ -569,7 +595,7 @@ export function revokePKICertificate(serial: string): Promise<void> {
 }
 
 export async function downloadPKICertificate(serial: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/pki/certificates/${encodeURIComponent(serial)}/download`);
+  const response = await apiFetch(`${API_BASE}/pki/certificates/${encodeURIComponent(serial)}/download`);
   if (!response.ok) throw new Error(`Certificate download failed: ${response.statusText}`);
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
@@ -884,38 +910,38 @@ export function normalizeEventLog(raw: any): EventLogEnt {
 }
 
 export async function fetchHealth(): Promise<SystemHealth> {
-  const res = await fetch(`${API_BASE}/health`);
+  const res = await apiFetch(`${API_BASE}/health`);
   if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function fetchSystemInfo(): Promise<SystemInfo> {
-  const res = await fetch(`${API_BASE}/system/info`);
+  const res = await apiFetch(`${API_BASE}/system/info`);
   if (!res.ok) throw new Error(`Fetch system info failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function fetchMonitorData(): Promise<MonitorDataEnt[]> {
-  const res = await fetch(`${API_BASE}/system/monitor`);
+  const res = await apiFetch(`${API_BASE}/system/monitor`);
   if (!res.ok) throw new Error(`Fetch monitor data failed: ${res.statusText}`);
   const list = await res.json();
   return Array.isArray(list) ? list : [];
 }
 
 export async function updateMonitorData(): Promise<MonitorDataEnt> {
-  const res = await fetch(`${API_BASE}/system/monitor/update`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/system/monitor/update`, { method: 'POST' });
   if (!res.ok) throw new Error(`Update monitor data failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function execBackup(): Promise<{ file: string; size: number; time: string }> {
-  const res = await fetch(`${API_BASE}/system/backup`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/system/backup`, { method: 'POST' });
   if (!res.ok) throw new Error(`Backup failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function fetchNodes(): Promise<NodeEnt[]> {
-  const res = await fetch(`${API_BASE}/nodes`);
+  const res = await apiFetch(`${API_BASE}/nodes`);
   if (!res.ok) throw new Error(`Fetch nodes failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeNode);
@@ -931,14 +957,14 @@ export interface ArpEnt {
 }
 
 export async function fetchArpTable(): Promise<ArpEnt[]> {
-  const res = await fetch(`${API_BASE}/arp`);
+  const res = await apiFetch(`${API_BASE}/arp`);
   if (!res.ok) throw new Error(`Fetch ARP table failed: ${res.statusText}`);
   const list = await res.json();
   return Array.isArray(list) ? list : [];
 }
 
 export async function deleteArpEntries(ips: string[]): Promise<any> {
-  const res = await fetch(`${API_BASE}/arp`, {
+  const res = await apiFetch(`${API_BASE}/arp`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ips }),
@@ -948,7 +974,7 @@ export async function deleteArpEntries(ips: string[]): Promise<any> {
 }
 
 export async function resetArpTable(): Promise<any> {
-  const res = await fetch(`${API_BASE}/arp?all=true`, {
+  const res = await apiFetch(`${API_BASE}/arp?all=true`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`Reset ARP table failed: ${res.statusText}`);
@@ -982,7 +1008,7 @@ export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
     GNMIUser: node.gnmi_user || node.GNMIUser || '',
     GNMIPassword: node.gnmi_password || node.GNMIPassword || '',
   };
-  const res = await fetch(`${API_BASE}/nodes`, {
+  const res = await apiFetch(`${API_BASE}/nodes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -993,12 +1019,12 @@ export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
 }
 
 export async function deleteNode(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/nodes/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/nodes/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete node failed: ${res.statusText}`);
 }
 
 export async function fetchLines(): Promise<LineEnt[]> {
-  const res = await fetch(`${API_BASE}/lines`);
+  const res = await apiFetch(`${API_BASE}/lines`);
   if (!res.ok) throw new Error(`Fetch lines failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeLine);
@@ -1019,7 +1045,7 @@ export async function saveLine(line: Partial<LineEnt>): Promise<LineEnt> {
     Info: line.info || line.Info || '',
     Port: line.port || line.Port || '',
   };
-  const res = await fetch(`${API_BASE}/lines`, {
+  const res = await apiFetch(`${API_BASE}/lines`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1030,13 +1056,13 @@ export async function saveLine(line: Partial<LineEnt>): Promise<LineEnt> {
 }
 
 export async function deleteLine(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/lines/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/lines/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete line failed: ${res.statusText}`);
 }
 
 export async function fetchNeighbors(id: string): Promise<FindNeighborNetworksAndLinesResp> {
   const cleanId = id.trim();
-  const res = await fetch(`${API_BASE}/topology/neighbors/${cleanId}`);
+  const res = await apiFetch(`${API_BASE}/topology/neighbors/${cleanId}`);
   if (!res.ok) throw new Error(`Fetch neighbors failed: ${res.statusText}`);
   const data = await res.json();
   return {
@@ -1064,7 +1090,7 @@ export async function connectLines(lines: Partial<LineEnt>[]): Promise<{ connect
     Info: line.info || line.Info || '',
     Port: line.port || line.Port || '',
   }));
-  const res = await fetch(`${API_BASE}/topology/connect-lines`, {
+  const res = await apiFetch(`${API_BASE}/topology/connect-lines`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1074,7 +1100,7 @@ export async function connectLines(lines: Partial<LineEnt>[]): Promise<{ connect
 }
 
 export async function fetchNetworks(): Promise<NetworkEnt[]> {
-  const res = await fetch(`${API_BASE}/networks`);
+  const res = await apiFetch(`${API_BASE}/networks`);
   if (!res.ok) throw new Error(`Fetch networks failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeNetwork);
@@ -1112,7 +1138,7 @@ export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt>
     LLDP: (net as any).lldp ?? (net as any).LLDP ?? false,
     Ports: ports,
   };
-  const res = await fetch(`${API_BASE}/networks`, {
+  const res = await apiFetch(`${API_BASE}/networks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1123,26 +1149,26 @@ export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt>
 }
 
 export async function deleteNetwork(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/networks/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/networks/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete network failed: ${res.statusText}`);
 }
 
 export async function refreshNetworkPorts(id: string): Promise<NetworkEnt> {
-  const res = await fetch(`${API_BASE}/networks/${id}/ports`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/networks/${id}/ports`, { method: 'POST' });
   if (!res.ok) throw new Error(`Refresh network ports failed: ${res.statusText}`);
   const saved = await res.json();
   return normalizeNetwork(saved);
 }
 
 export async function fetchDrawItems(): Promise<DrawItemEnt[]> {
-  const res = await fetch(`${API_BASE}/drawitems`);
+  const res = await apiFetch(`${API_BASE}/drawitems`);
   if (!res.ok) throw new Error(`Fetch draw items failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeDrawItem);
 }
 
 export async function fetchDrawItem(id: string): Promise<DrawItemEnt> {
-  const res = await fetch(`${API_BASE}/drawitems/${encodeURIComponent(id)}`);
+  const res = await apiFetch(`${API_BASE}/drawitems/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`Fetch draw item failed: ${res.statusText}`);
   const item = await res.json();
   return normalizeDrawItem(item);
@@ -1169,7 +1195,7 @@ export async function saveDrawItem(item: Partial<DrawItemEnt>): Promise<DrawItem
     Values: item.values ?? item.Values ?? [],
     FormattedText: item.formatted_text ?? item.FormattedText ?? '',
   };
-  const res = await fetch(`${API_BASE}/drawitems`, {
+  const res = await apiFetch(`${API_BASE}/drawitems`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1181,7 +1207,7 @@ export async function saveDrawItem(item: Partial<DrawItemEnt>): Promise<DrawItem
 
 export async function copyDrawItem(id: string): Promise<DrawItemEnt> {
   try {
-    const res = await fetch(`${API_BASE}/drawitems/${encodeURIComponent(id)}/copy`, { method: 'POST' });
+    const res = await apiFetch(`${API_BASE}/drawitems/${encodeURIComponent(id)}/copy`, { method: 'POST' });
     if (res.ok) {
       const item = await res.json();
       return normalizeDrawItem(item);
@@ -1209,7 +1235,7 @@ export async function copyDrawItem(id: string): Promise<DrawItemEnt> {
 }
 
 export async function deleteDrawItem(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/drawitems/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/drawitems/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete draw item failed: ${res.statusText}`);
 }
 
@@ -1258,14 +1284,14 @@ export interface MapConfEnt {
 }
 
 export async function fetchMapConf(): Promise<MapConfEnt> {
-  const res = await fetch(`${API_BASE}/map/conf`);
+  const res = await apiFetch(`${API_BASE}/map/conf`);
   if (!res.ok) throw new Error(`Fetch map conf failed: ${res.statusText}`);
   return res.json();
 }
 export const getMapConf = fetchMapConf;
 
 export async function saveMapConf(conf: Partial<MapConfEnt>): Promise<MapConfEnt> {
-  const res = await fetch(`${API_BASE}/map/conf`, {
+  const res = await apiFetch(`${API_BASE}/map/conf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(conf),
@@ -1291,13 +1317,13 @@ export interface IconEnt {
 }
 
 export async function fetchCustomIcons(): Promise<IconEnt[]> {
-  const res = await fetch(`${API_BASE}/icons`);
+  const res = await apiFetch(`${API_BASE}/icons`);
   if (!res.ok) throw new Error(`Fetch icons failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function saveCustomIcon(icon: Partial<IconEnt>): Promise<IconEnt> {
-  const res = await fetch(`${API_BASE}/icons`, {
+  const res = await apiFetch(`${API_BASE}/icons`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(icon),
@@ -1307,7 +1333,7 @@ export async function saveCustomIcon(icon: Partial<IconEnt>): Promise<IconEnt> {
 }
 
 export async function saveCustomIcons(icons: Partial<IconEnt>[]): Promise<IconEnt[]> {
-  const res = await fetch(`${API_BASE}/icons/batch`, {
+  const res = await apiFetch(`${API_BASE}/icons/batch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(icons),
@@ -1317,7 +1343,7 @@ export async function saveCustomIcons(icons: Partial<IconEnt>[]): Promise<IconEn
 }
 
 export async function deleteCustomIcon(name: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/icons/${encodeURIComponent(name)}`, {
+  const res = await apiFetch(`${API_BASE}/icons/${encodeURIComponent(name)}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`Delete icon failed: ${res.statusText}`);
@@ -1348,13 +1374,13 @@ export interface NotifyConfEnt {
 }
 
 export async function fetchNotifyConf(): Promise<NotifyConfEnt> {
-  const res = await fetch(`${API_BASE}/notify/conf`);
+  const res = await apiFetch(`${API_BASE}/notify/conf`);
   if (!res.ok) throw new Error(`Fetch notify conf failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function saveNotifyConf(conf: NotifyConfEnt): Promise<NotifyConfEnt> {
-  const res = await fetch(`${API_BASE}/notify/conf`, {
+  const res = await apiFetch(`${API_BASE}/notify/conf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(conf),
@@ -1364,7 +1390,7 @@ export async function saveNotifyConf(conf: NotifyConfEnt): Promise<NotifyConfEnt
 }
 
 export async function testNotifyMail(conf: NotifyConfEnt): Promise<{ status: string }> {
-  const res = await fetch(`${API_BASE}/notify/test/mail`, {
+  const res = await apiFetch(`${API_BASE}/notify/test/mail`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(conf),
@@ -1377,7 +1403,7 @@ export async function testNotifyMail(conf: NotifyConfEnt): Promise<{ status: str
 }
 
 export async function testNotifyWebhook(conf: NotifyConfEnt): Promise<{ status: string }> {
-  const res = await fetch(`${API_BASE}/notify/test/webhook`, {
+  const res = await apiFetch(`${API_BASE}/notify/test/webhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(conf),
@@ -1390,7 +1416,7 @@ export async function testNotifyWebhook(conf: NotifyConfEnt): Promise<{ status: 
 }
 
 export async function startNotifyOAuth2(): Promise<{ url: string }> {
-  const res = await fetch(`${API_BASE}/notify/oauth2/start`, {
+  const res = await apiFetch(`${API_BASE}/notify/oauth2/start`, {
     method: 'POST',
   });
   if (!res.ok) {
@@ -1401,7 +1427,7 @@ export async function startNotifyOAuth2(): Promise<{ url: string }> {
 }
 
 export async function deleteNotifyOAuth2Token(): Promise<{ status: string }> {
-  const res = await fetch(`${API_BASE}/notify/oauth2/token`, {
+  const res = await apiFetch(`${API_BASE}/notify/oauth2/token`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`Delete OAuth2 token failed: ${res.statusText}`);
@@ -1409,7 +1435,7 @@ export async function deleteNotifyOAuth2Token(): Promise<{ status: string }> {
 }
 
 export async function fetchNotifyOAuth2Status(): Promise<{ hasToken: boolean }> {
-  const res = await fetch(`${API_BASE}/notify/oauth2/status`);
+  const res = await apiFetch(`${API_BASE}/notify/oauth2/status`);
   if (!res.ok) throw new Error(`Fetch OAuth2 status failed: ${res.statusText}`);
   return res.json();
 }
@@ -1417,7 +1443,7 @@ export async function fetchNotifyOAuth2Status(): Promise<{ hasToken: boolean }> 
 export async function uploadGeoIP(file: File): Promise<any> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/conf/geoip`, {
+  const res = await apiFetch(`${API_BASE}/conf/geoip`, {
     method: 'POST',
     body: formData,
   });
@@ -1429,7 +1455,7 @@ export async function uploadGeoIP(file: File): Promise<any> {
 }
 
 export async function deleteGeoIP(): Promise<any> {
-  const res = await fetch(`${API_BASE}/conf/geoip`, {
+  const res = await apiFetch(`${API_BASE}/conf/geoip`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`Delete GeoIP DB failed: ${res.statusText}`);
@@ -1437,7 +1463,7 @@ export async function deleteGeoIP(): Promise<any> {
 }
 
 export async function fetchPollings(): Promise<PollingEnt[]> {
-  const res = await fetch(`${API_BASE}/pollings`);
+  const res = await apiFetch(`${API_BASE}/pollings`);
   if (!res.ok) throw new Error(`Fetch pollings failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizePolling);
@@ -1474,7 +1500,7 @@ export async function savePolling(poll: Partial<PollingEnt>): Promise<PollingEnt
   if (poll.LastTime !== undefined || poll.last_time !== undefined) {
     payload.LastTime = poll.LastTime ?? poll.last_time;
   }
-  const res = await fetch(`${API_BASE}/pollings`, {
+  const res = await apiFetch(`${API_BASE}/pollings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1485,7 +1511,7 @@ export async function savePolling(poll: Partial<PollingEnt>): Promise<PollingEnt
 }
 
 export async function deletePolling(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/pollings/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/pollings/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete polling failed: ${res.statusText}`);
 }
 
@@ -1505,7 +1531,7 @@ export interface PollingTemplateEnt {
 
 export async function fetchPollingTemplates(lang = ''): Promise<PollingTemplateEnt[]> {
   const q = lang ? `?lang=${encodeURIComponent(lang)}` : '';
-  const res = await fetch(`${API_BASE}/polling/templates${q}`);
+  const res = await apiFetch(`${API_BASE}/polling/templates${q}`);
   if (!res.ok) throw new Error(`Fetch polling templates failed: ${res.statusText}`);
   const list = await res.json();
   return Array.isArray(list) ? list : [];
@@ -1513,13 +1539,13 @@ export async function fetchPollingTemplates(lang = ''): Promise<PollingTemplateE
 
 export async function fetchPollingTemplate(id: number, lang = ''): Promise<PollingTemplateEnt> {
   const q = lang ? `?lang=${encodeURIComponent(lang)}` : '';
-  const res = await fetch(`${API_BASE}/polling/template/${id}${q}`);
+  const res = await apiFetch(`${API_BASE}/polling/template/${id}${q}`);
   if (!res.ok) throw new Error(`Fetch polling template failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function generateAutoPollings(nodeID: string, templateID: number, lang = ''): Promise<PollingEnt[]> {
-  const res = await fetch(`${API_BASE}/polling/auto`, {
+  const res = await apiFetch(`${API_BASE}/polling/auto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nodeID, templateID, lang }),
@@ -1530,7 +1556,7 @@ export async function generateAutoPollings(nodeID: string, templateID: number, l
 }
 
 export async function fetchAutoGrok(testData: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/polling/autogrok`, {
+  const res = await apiFetch(`${API_BASE}/polling/autogrok`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ testData }),
@@ -1564,14 +1590,14 @@ export async function fetchEventLogs(filter?: EventLogQueryFilter): Promise<Even
     if (filter.limit) params.set('limit', String(filter.limit));
   }
   const queryStr = params.toString();
-  const res = await fetch(`${API_BASE}/logs/events${queryStr ? '?' + queryStr : ''}`);
+  const res = await apiFetch(`${API_BASE}/logs/events${queryStr ? '?' + queryStr : ''}`);
   if (!res.ok) throw new Error(`Fetch event logs failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeEventLog);
 }
 
 export async function deleteEventLogs(): Promise<void> {
-  const res = await fetch(`${API_BASE}/logs/events`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/logs/events`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete event logs failed: ${res.statusText}`);
 }
 
@@ -1617,25 +1643,25 @@ export async function queryParquetLogs(typeOrFilter: string | ParquetLogQueryFil
     if (typeOrFilter) params.set('type', typeOrFilter);
     if (filterStr) params.set('filter', filterStr);
   }
-  const res = await fetch(`${API_BASE}/logs/query?${params.toString()}`);
+  const res = await apiFetch(`${API_BASE}/logs/query?${params.toString()}`);
   if (!res.ok) throw new Error(`Query parquet logs failed: ${res.statusText}`);
   const list = await res.json();
   return (Array.isArray(list) ? list : []).map(normalizeParquetLog);
 }
 
 export async function deleteParquetLogs(logType: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/logs/query?type=${encodeURIComponent(logType)}`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/logs/query?type=${encodeURIComponent(logType)}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Delete parquet logs failed: ${res.statusText}`);
 }
 
 export async function getLogCounts(): Promise<Record<string, number>> {
-  const res = await fetch(`${API_BASE}/logs/counts`);
+  const res = await apiFetch(`${API_BASE}/logs/counts`);
   if (!res.ok) return {};
   return res.json();
 }
 
 export async function askAI(prompt: string, system = ''): Promise<string> {
-  const res = await fetch(`${API_BASE}/ai/ask`, {
+  const res = await apiFetch(`${API_BASE}/ai/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, system }),
@@ -1649,7 +1675,7 @@ export async function askAI(prompt: string, system = ''): Promise<string> {
 }
 
 export async function diagnoseAlert(alertEvent: string, nodeContext: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/ai/diagnose`, {
+  const res = await apiFetch(`${API_BASE}/ai/diagnose`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ alert_event: alertEvent, node_context: nodeContext }),
@@ -1674,7 +1700,7 @@ export interface PingResult {
 }
 
 export async function execPing(ip: string, size = 64, ttl = 64): Promise<PingResult> {
-  const res = await fetch(`${API_BASE}/tools/ping`, {
+  const res = await apiFetch(`${API_BASE}/tools/ping`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ip, size, ttl }),
@@ -1684,7 +1710,7 @@ export async function execPing(ip: string, size = 64, ttl = 64): Promise<PingRes
 }
 
 export async function sendWol(mac: string, ip = '255.255.255.255', nodeId = ''): Promise<{ status: string }> {
-  const res = await fetch(`${API_BASE}/tools/wol`, {
+  const res = await apiFetch(`${API_BASE}/tools/wol`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mac, ip, node_id: nodeId }),
@@ -1794,7 +1820,7 @@ export interface OTelLogEnt {
 // OTel API Functions
 export async function fetchOTelMetrics(): Promise<OTelMetricEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/otel/metrics`);
+    const res = await apiFetch(`${API_BASE}/otel/metrics`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -1806,7 +1832,7 @@ export async function fetchOTelMetrics(): Promise<OTelMetricEnt[]> {
 export async function fetchOTelMetricDetail(host: string, service: string, scope: string, name: string): Promise<OTelMetricEnt | null> {
   try {
     const params = new URLSearchParams({ host, service, scope, name });
-    const res = await fetch(`${API_BASE}/otel/metrics/detail?${params}`);
+    const res = await apiFetch(`${API_BASE}/otel/metrics/detail?${params}`);
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -1817,7 +1843,7 @@ export async function fetchOTelMetricDetail(host: string, service: string, scope
 export async function deleteOTelMetric(host: string, service: string, scope: string, name: string): Promise<boolean> {
   try {
     const params = new URLSearchParams({ host, service, scope, name });
-    const res = await fetch(`${API_BASE}/otel/metrics?${params}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_BASE}/otel/metrics?${params}`, { method: 'DELETE' });
     return res.ok;
   } catch {
     return false;
@@ -1826,7 +1852,7 @@ export async function deleteOTelMetric(host: string, service: string, scope: str
 
 export async function fetchOTelTraceBuckets(): Promise<string[]> {
   try {
-    const res = await fetch(`${API_BASE}/otel/traces/buckets`);
+    const res = await apiFetch(`${API_BASE}/otel/traces/buckets`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -1846,7 +1872,7 @@ export async function fetchOTelTraces(buckets?: string[], limit = 5000): Promise
     if (limit) {
       params.set('limit', String(limit));
     }
-    const res = await fetch(`${API_BASE}/otel/traces?${params}`);
+    const res = await apiFetch(`${API_BASE}/otel/traces?${params}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -1858,7 +1884,7 @@ export async function fetchOTelTraces(buckets?: string[], limit = 5000): Promise
 export async function fetchOTelTraceDetail(bucket: string, traceId: string): Promise<OTelTraceEnt | null> {
   try {
     const params = new URLSearchParams({ bucket, traceId });
-    const res = await fetch(`${API_BASE}/otel/traces/detail?${params}`);
+    const res = await apiFetch(`${API_BASE}/otel/traces/detail?${params}`);
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -1868,7 +1894,7 @@ export async function fetchOTelTraceDetail(bucket: string, traceId: string): Pro
 
 export async function fetchOTelDAG(buckets?: string[]): Promise<OTelTraceDAGEnt> {
   try {
-    const res = await fetch(`${API_BASE}/otel/traces/dag`, {
+    const res = await apiFetch(`${API_BASE}/otel/traces/dag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ buckets: buckets || [] }),
@@ -1892,7 +1918,7 @@ export async function fetchOTelLogs(params: { filter?: string; src?: string; sta
     if (params.start) q.set('start', String(params.start));
     if (params.end) q.set('end', String(params.end));
     if (params.limit) q.set('limit', String(params.limit));
-    const res = await fetch(`${API_BASE}/otel/logs?${q}`);
+    const res = await apiFetch(`${API_BASE}/otel/logs?${q}`);
     if (!res.ok) return [];
     const data = await res.json();
     return (Array.isArray(data) ? data : []).map(normalizeParquetLog);
@@ -1902,7 +1928,7 @@ export async function fetchOTelLogs(params: { filter?: string; src?: string; sta
 }
 
 export async function deleteAllOTelData(): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/otel/all`, { method: 'DELETE' });
+  const res = await apiFetch(`${API_BASE}/otel/all`, { method: 'DELETE' });
   return res.ok;
 }
 
@@ -1922,7 +1948,7 @@ export interface MqttStatEnt {
 
 export async function fetchMqttStats(): Promise<MqttStatEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/mqtt/stats`);
+    const res = await apiFetch(`${API_BASE}/mqtt/stats`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -1933,7 +1959,7 @@ export async function fetchMqttStats(): Promise<MqttStatEnt[]> {
 
 export async function deleteMqttStats(ids: string[]): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/mqtt/stats`, {
+    const res = await apiFetch(`${API_BASE}/mqtt/stats`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
@@ -1946,7 +1972,7 @@ export async function deleteMqttStats(ids: string[]): Promise<boolean> {
 
 export async function deleteAllMqttStats(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/mqtt/stats/all`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_BASE}/mqtt/stats/all`, { method: 'DELETE' });
     return res.ok;
   } catch {
     return false;
@@ -1968,7 +1994,7 @@ export async function fetchMqttLogs(params: {
     if (params.start) q.set('start', String(params.start));
     if (params.end) q.set('end', String(params.end));
     if (params.limit) q.set('limit', String(params.limit));
-    const res = await fetch(`${API_BASE}/logs/query?${q}`);
+    const res = await apiFetch(`${API_BASE}/logs/query?${q}`);
     if (!res.ok) return [];
     const data = await res.json();
     return (Array.isArray(data) ? data : []).map(normalizeParquetLog);
@@ -1979,7 +2005,7 @@ export async function fetchMqttLogs(params: {
 
 export async function deleteMqttLogs(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/logs/query?type=mqtt`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_BASE}/logs/query?type=mqtt`, { method: 'DELETE' });
     return res.ok;
   } catch {
     return false;
@@ -2014,7 +2040,7 @@ export interface IPAMReportResp {
 
 export async function fetchIPAM(): Promise<IPAMReportResp> {
   try {
-    const res = await fetch(`${API_BASE}/ipam`);
+    const res = await apiFetch(`${API_BASE}/ipam`);
     if (!res.ok) {
       return { Ranges: [], TotalRanges: 0, TotalSize: 0, TotalUsed: 0, TotalUsage: 0 };
     }
@@ -2105,7 +2131,7 @@ export interface NodeHostResourceResp {
 
 export async function fetchNodePorts(nodeId: string): Promise<NodePortsResp> {
   try {
-    const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/ports`);
+    const res = await apiFetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/ports`);
     if (!res.ok) {
       return { supported: false, error: `HTTP ${res.status}` };
     }
@@ -2117,7 +2143,7 @@ export async function fetchNodePorts(nodeId: string): Promise<NodePortsResp> {
 
 export async function fetchNodeHostResource(nodeId: string): Promise<NodeHostResourceResp> {
   try {
-    const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/hostresource`);
+    const res = await apiFetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/hostresource`);
     if (!res.ok) {
       return { supported: false, error: `HTTP ${res.status}` };
     }
@@ -2136,13 +2162,13 @@ export interface BackImageEnt {
 }
 
 export async function checkAllPollings(): Promise<{ status: string; count: number }> {
-  const res = await fetch(`${API_BASE}/polling/check-all`, { method: "POST" });
+  const res = await apiFetch(`${API_BASE}/polling/check-all`, { method: "POST" });
   if (!res.ok) throw new Error(`Check all pollings failed: ${res.statusText}`);
   return await res.json();
 }
 
 export async function checkNodePollings(nodeId: string): Promise<{ status: string; count: number }> {
-  const res = await fetch(`${API_BASE}/polling/check/${encodeURIComponent(nodeId)}`, { method: "POST" });
+  const res = await apiFetch(`${API_BASE}/polling/check/${encodeURIComponent(nodeId)}`, { method: "POST" });
   if (!res.ok) throw new Error(`Check node pollings failed: ${res.statusText}`);
   return res.json();
 }
@@ -2184,13 +2210,13 @@ export interface MIBModuleEnt {
 }
 
 export async function fetchMIBTree(): Promise<MIBTreeEnt[]> {
-  const res = await fetch(`${API_BASE}/mib/tree`);
+  const res = await apiFetch(`${API_BASE}/mib/tree`);
   if (!res.ok) throw new Error(`Fetch MIB tree failed: ${res.statusText}`);
   return res.json();
 }
 
 export async function fetchMIBModules(): Promise<MIBModuleEnt[]> {
-  const res = await fetch(`${API_BASE}/mib/modules`);
+  const res = await apiFetch(`${API_BASE}/mib/modules`);
   if (!res.ok) throw new Error(`Fetch MIB modules failed: ${res.statusText}`);
   return res.json();
 }
@@ -2198,7 +2224,7 @@ export async function fetchMIBModules(): Promise<MIBModuleEnt[]> {
 export async function uploadMIBModule(file: File): Promise<MIBModuleEnt[]> {
   const fd = new FormData();
   fd.append("file", file);
-  const res = await fetch(`${API_BASE}/mib/upload`, {
+  const res = await apiFetch(`${API_BASE}/mib/upload`, {
     method: "POST",
     body: fd,
   });
@@ -2210,7 +2236,7 @@ export async function uploadMIBModule(file: File): Promise<MIBModuleEnt[]> {
 }
 
 export async function deleteMIBModule(file: string): Promise<MIBModuleEnt[]> {
-  const res = await fetch(`${API_BASE}/mib/modules`, {
+  const res = await apiFetch(`${API_BASE}/mib/modules`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file }),
@@ -2223,7 +2249,7 @@ export async function deleteMIBModule(file: string): Promise<MIBModuleEnt[]> {
 }
 
 export async function reloadMIBModules(): Promise<MIBModuleEnt[]> {
-  const res = await fetch(`${API_BASE}/mib/reload`, {
+  const res = await apiFetch(`${API_BASE}/mib/reload`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -2239,7 +2265,7 @@ export async function runSNMPTool(
   mode: "get" | "getnext" | "walk" | "table" = "walk",
   raw = false
 ): Promise<SNMPToolResult[]> {
-  const res = await fetch(`${API_BASE}/tools/snmp`, {
+  const res = await apiFetch(`${API_BASE}/tools/snmp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ node_id: target.nodeId, network_id: target.networkId, oid, mode, raw }),
@@ -2252,7 +2278,7 @@ export async function runSNMPTool(
 }
 
 export async function checkNetwork(id: string): Promise<NetworkEnt> {
-  const res = await fetch(`${API_BASE}/networks/${encodeURIComponent(id)}/check`, { method: "POST" });
+  const res = await apiFetch(`${API_BASE}/networks/${encodeURIComponent(id)}/check`, { method: "POST" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || `Network check failed: ${res.statusText}`);
@@ -2273,7 +2299,7 @@ export interface GNMIValueEnt {
 }
 
 export async function fetchGNMICapabilities(nodeId: string): Promise<GNMICapabilitiesEnt> {
-  const res = await fetch(`${API_BASE}/tools/gnmi/capabilities`, {
+  const res = await apiFetch(`${API_BASE}/tools/gnmi/capabilities`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ node_id: nodeId }),
@@ -2286,7 +2312,7 @@ export async function fetchGNMICapabilities(nodeId: string): Promise<GNMICapabil
 }
 
 export async function runGNMIGet(nodeId: string, path: string, encoding: string): Promise<GNMIValueEnt[]> {
-  const res = await fetch(`${API_BASE}/tools/gnmi/get`, {
+  const res = await apiFetch(`${API_BASE}/tools/gnmi/get`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ node_id: nodeId, path, encoding }),
@@ -2299,7 +2325,7 @@ export async function runGNMIGet(nodeId: string, path: string, encoding: string)
 }
 
 export async function updateNodePositions(positions: { ID: string; X: number; Y: number }[]): Promise<any> {
-  const res = await fetch(`${API_BASE}/nodes/positions`, {
+  const res = await apiFetch(`${API_BASE}/nodes/positions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(positions),
@@ -2308,7 +2334,7 @@ export async function updateNodePositions(positions: { ID: string; X: number; Y:
 }
 
 export async function applyAutoLayout(mode: number): Promise<{ count: number; hasUndo: boolean }> {
-  const res = await fetch(`${API_BASE}/map/autolayout`, {
+  const res = await apiFetch(`${API_BASE}/map/autolayout`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mode }),
@@ -2317,24 +2343,24 @@ export async function applyAutoLayout(mode: number): Promise<{ count: number; ha
 }
 
 export async function undoAutoLayout(): Promise<{ count: number; hasUndo: boolean }> {
-  const res = await fetch(`${API_BASE}/map/autolayout/undo`, {
+  const res = await apiFetch(`${API_BASE}/map/autolayout/undo`, {
     method: "POST",
   });
   return await res.json();
 }
 
 export async function checkUndoAutoLayout(): Promise<{ hasUndo: boolean }> {
-  const res = await fetch(`${API_BASE}/map/autolayout/undo`);
+  const res = await apiFetch(`${API_BASE}/map/autolayout/undo`);
   return await res.json();
 }
 
 export async function fetchBackImage(): Promise<BackImageEnt> {
-  const res = await fetch(`${API_BASE}/map/backimage`);
+  const res = await apiFetch(`${API_BASE}/map/backimage`);
   return await res.json();
 }
 
 export async function saveBackImage(bi: BackImageEnt): Promise<BackImageEnt> {
-  const res = await fetch(`${API_BASE}/map/backimage`, {
+  const res = await apiFetch(`${API_BASE}/map/backimage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(bi),
@@ -2343,7 +2369,7 @@ export async function saveBackImage(bi: BackImageEnt): Promise<BackImageEnt> {
 }
 
 export async function deleteBackImage(): Promise<any> {
-  const res = await fetch(`${API_BASE}/map/backimage`, {
+  const res = await apiFetch(`${API_BASE}/map/backimage`, {
     method: "DELETE",
   });
   return await res.json();
@@ -2352,7 +2378,7 @@ export async function deleteBackImage(): Promise<any> {
 export async function uploadBackImage(file: File): Promise<{ path: string }> {
   const fd = new FormData();
   fd.append("image", file);
-  const res = await fetch(`${API_BASE}/map/backimage/upload`, {
+  const res = await apiFetch(`${API_BASE}/map/backimage/upload`, {
     method: "POST",
     body: fd,
   });
@@ -2365,7 +2391,7 @@ export async function importMapData(data: {
   networks?: any[];
   drawItems?: any[];
 }): Promise<any> {
-  const res = await fetch(`${API_BASE}/map/import`, {
+  const res = await apiFetch(`${API_BASE}/map/import`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -2417,12 +2443,12 @@ export interface DiscoverStat {
 }
 
 export async function getDiscoverConf(): Promise<DiscoverConfEnt> {
-  const res = await fetch(`${API_BASE}/discover/conf`);
+  const res = await apiFetch(`${API_BASE}/discover/conf`);
   return await res.json();
 }
 
 export async function saveDiscoverConf(conf: DiscoverConfEnt): Promise<DiscoverConfEnt> {
-  const res = await fetch(`${API_BASE}/discover/conf`, {
+  const res = await apiFetch(`${API_BASE}/discover/conf`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(conf),
@@ -2431,7 +2457,7 @@ export async function saveDiscoverConf(conf: DiscoverConfEnt): Promise<DiscoverC
 }
 
 export async function startDiscover(conf: DiscoverConfEnt): Promise<{ ok: boolean }> {
-  const res = await fetch(`${API_BASE}/discover/start`, {
+  const res = await apiFetch(`${API_BASE}/discover/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(conf),
@@ -2440,19 +2466,19 @@ export async function startDiscover(conf: DiscoverConfEnt): Promise<{ ok: boolea
 }
 
 export async function stopDiscover(): Promise<{ ok: boolean }> {
-  const res = await fetch(`${API_BASE}/discover/stop`, {
+  const res = await apiFetch(`${API_BASE}/discover/stop`, {
     method: "POST",
   });
   return await res.json();
 }
 
 export async function getDiscoverStats(): Promise<DiscoverStat> {
-  const res = await fetch(`${API_BASE}/discover/stat`);
+  const res = await apiFetch(`${API_BASE}/discover/stat`);
   return await res.json();
 }
 
 export async function getDiscoverAddressRange(): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/discover/ranges`);
+  const res = await apiFetch(`${API_BASE}/discover/ranges`);
   return await res.json();
 }
 
@@ -2490,7 +2516,7 @@ export interface NodeRmonResp {
 
 export async function fetchNodeRmon(nodeId: string): Promise<NodeRmonResp> {
   try {
-    const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/rmon`);
+    const res = await apiFetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/rmon`);
     if (!res.ok) {
       return { supported: false, error: res.statusText, stats: [] };
     }
@@ -2545,7 +2571,7 @@ export interface NodeDiagnoseResult {
 }
 
 export async function diagnoseNode(nodeId: string): Promise<NodeDiagnoseResult> {
-  const res = await fetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/diagnose`, {
+  const res = await apiFetch(`${API_BASE}/nodes/${encodeURIComponent(nodeId)}/diagnose`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -2573,7 +2599,7 @@ export interface CertMonitorEnt {
 
 export async function fetchCertMonitors(): Promise<CertMonitorEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/cert_monitors`);
+    const res = await apiFetch(`${API_BASE}/cert_monitors`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -2583,7 +2609,7 @@ export async function fetchCertMonitors(): Promise<CertMonitorEnt[]> {
 }
 
 export async function saveCertMonitor(ent: Partial<CertMonitorEnt>): Promise<CertMonitorEnt> {
-  const res = await fetch(`${API_BASE}/cert_monitors`, {
+  const res = await apiFetch(`${API_BASE}/cert_monitors`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(ent),
@@ -2593,14 +2619,14 @@ export async function saveCertMonitor(ent: Partial<CertMonitorEnt>): Promise<Cer
 }
 
 export async function deleteCertMonitor(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/cert_monitors/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`${API_BASE}/cert_monitors/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Delete cert monitor failed: ${res.statusText}`);
 }
 
 export async function checkCertMonitors(): Promise<CertMonitorEnt[]> {
-  const res = await fetch(`${API_BASE}/cert_monitors/check`, {
+  const res = await apiFetch(`${API_BASE}/cert_monitors/check`, {
     method: "POST",
   });
   if (!res.ok) throw new Error(`Check cert monitors failed: ${res.statusText}`);
@@ -2617,7 +2643,7 @@ export interface LocConfEnt {
 
 export async function fetchLocConf(): Promise<LocConfEnt> {
   try {
-    const res = await fetch(`${API_BASE}/conf/loc`);
+    const res = await apiFetch(`${API_BASE}/conf/loc`);
     if (!res.ok) throw new Error();
     return await res.json();
   } catch {
@@ -2632,7 +2658,7 @@ export async function fetchLocConf(): Promise<LocConfEnt> {
 
 export async function saveLocConf(conf: LocConfEnt): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/conf/loc`, {
+    const res = await apiFetch(`${API_BASE}/conf/loc`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(conf),
@@ -2659,7 +2685,7 @@ export interface AIResultEnt {
 }
 
 export async function fetchAIList(): Promise<AIListEnt[]> {
-  const res = await fetch(`${API_BASE}/ai/list`);
+  const res = await apiFetch(`${API_BASE}/ai/list`);
   if (!res.ok) {
     throw new Error(`Failed to fetch AI list: ${res.statusText}`);
   }
@@ -2667,7 +2693,7 @@ export async function fetchAIList(): Promise<AIListEnt[]> {
 }
 
 export async function fetchAIResult(id: string): Promise<AIResultEnt> {
-  const res = await fetch(`${API_BASE}/ai/result/${encodeURIComponent(id)}`);
+  const res = await apiFetch(`${API_BASE}/ai/result/${encodeURIComponent(id)}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch AI result: ${res.statusText}`);
   }
@@ -2675,7 +2701,7 @@ export async function fetchAIResult(id: string): Promise<AIResultEnt> {
 }
 
 export async function deleteAIResult(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/ai/result/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`${API_BASE}/ai/result/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -2684,7 +2710,7 @@ export async function deleteAIResult(id: string): Promise<void> {
 }
 
 export async function recheckAI(): Promise<AIListEnt[]> {
-  const res = await fetch(`${API_BASE}/ai/recheck`, {
+  const res = await apiFetch(`${API_BASE}/ai/recheck`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -2948,7 +2974,7 @@ export interface WinTaskEnt {
 
 export async function fetchLogReport<T = any>(kind: string): Promise<T[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`);
+    const res = await apiFetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -2958,7 +2984,7 @@ export async function fetchLogReport<T = any>(kind: string): Promise<T[]> {
 }
 
 export async function resetLogReport(kind: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`, {
+  const res = await apiFetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -2967,7 +2993,7 @@ export async function resetLogReport(kind: string): Promise<void> {
 }
 
 export async function deleteLogReportItem(kind: string, id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -2976,7 +3002,7 @@ export async function deleteLogReportItem(kind: string, id: string): Promise<voi
 }
 
 export async function updateLogReportName(kind: string, id: string, name: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/log/name`, {
+  const res = await apiFetch(`${API_BASE}/report/log/name`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ Kind: kind, ID: id, Name: name }),
@@ -3026,7 +3052,7 @@ export interface SensorEnt {
 
 export async function fetchSensors(): Promise<SensorEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/sensors`);
+    const res = await apiFetch(`${API_BASE}/report/sensors`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -3037,7 +3063,7 @@ export async function fetchSensors(): Promise<SensorEnt[]> {
 
 export async function fetchSensorStats(id: string): Promise<SensorStatsEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/sensor/stats/${encodeURIComponent(id)}`);
+    const res = await apiFetch(`${API_BASE}/report/sensor/stats/${encodeURIComponent(id)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -3048,7 +3074,7 @@ export async function fetchSensorStats(id: string): Promise<SensorStatsEnt[]> {
 
 export async function fetchSensorMonitors(id: string): Promise<SensorMonitorEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/sensor/monitors/${encodeURIComponent(id)}`);
+    const res = await apiFetch(`${API_BASE}/report/sensor/monitors/${encodeURIComponent(id)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -3058,7 +3084,7 @@ export async function fetchSensorMonitors(id: string): Promise<SensorMonitorEnt[
 }
 
 export async function deleteSensor(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/sensor/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`${API_BASE}/report/sensor/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -3067,7 +3093,7 @@ export async function deleteSensor(id: string): Promise<void> {
 }
 
 export async function toggleSensor(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/sensor/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`${API_BASE}/report/sensor/${encodeURIComponent(id)}`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -3191,7 +3217,7 @@ export interface TrapStatsSummary {
 
 export async function fetchFlowReport(): Promise<FlowEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/flow`);
+    const res = await apiFetch(`${API_BASE}/report/flow`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -3202,7 +3228,7 @@ export async function fetchFlowReport(): Promise<FlowEnt[]> {
 
 export async function fetchServerReport(): Promise<ServerEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/server`);
+    const res = await apiFetch(`${API_BASE}/report/server`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -3213,7 +3239,7 @@ export async function fetchServerReport(): Promise<ServerEnt[]> {
 
 export async function fetchFumbleReport(): Promise<FumbleEnt[]> {
   try {
-    const res = await fetch(`${API_BASE}/report/fumble`);
+    const res = await apiFetch(`${API_BASE}/report/fumble`);
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -3223,7 +3249,7 @@ export async function fetchFumbleReport(): Promise<FumbleEnt[]> {
 }
 
 export async function resetFlowReport(): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/flow`, {
+  const res = await apiFetch(`${API_BASE}/report/flow`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -3233,7 +3259,7 @@ export async function resetFlowReport(): Promise<void> {
 
 export async function fetchSyslogStats(): Promise<SyslogStatsSummary | null> {
   try {
-    const res = await fetch(`${API_BASE}/report/syslog/stats`);
+    const res = await apiFetch(`${API_BASE}/report/syslog/stats`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -3242,7 +3268,7 @@ export async function fetchSyslogStats(): Promise<SyslogStatsSummary | null> {
 }
 
 export async function resetSyslogStats(): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/syslog/stats`, {
+  const res = await apiFetch(`${API_BASE}/report/syslog/stats`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -3252,7 +3278,7 @@ export async function resetSyslogStats(): Promise<void> {
 
 export async function fetchTrapStats(): Promise<TrapStatsSummary | null> {
   try {
-    const res = await fetch(`${API_BASE}/report/trap/stats`);
+    const res = await apiFetch(`${API_BASE}/report/trap/stats`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -3261,7 +3287,7 @@ export async function fetchTrapStats(): Promise<TrapStatsSummary | null> {
 }
 
 export async function resetTrapStats(): Promise<void> {
-  const res = await fetch(`${API_BASE}/report/trap/stats`, {
+  const res = await apiFetch(`${API_BASE}/report/trap/stats`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -3313,7 +3339,7 @@ export interface AIDownloadStatus {
 }
 
 export async function fetchAIHardwareStatus(): Promise<AIHardwareStatus> {
-  const res = await fetch(`${API_BASE}/ai/hardware`);
+  const res = await apiFetch(`${API_BASE}/ai/hardware`);
   if (!res.ok) {
     throw new Error(`Fetch hardware status failed: ${res.statusText}`);
   }
@@ -3321,7 +3347,7 @@ export async function fetchAIHardwareStatus(): Promise<AIHardwareStatus> {
 }
 
 export async function fetchLocalModels(): Promise<ModelInfo[]> {
-  const res = await fetch(`${API_BASE}/ai/models`);
+  const res = await apiFetch(`${API_BASE}/ai/models`);
   if (!res.ok) {
     throw new Error(`Fetch local models failed: ${res.statusText}`);
   }
@@ -3329,7 +3355,7 @@ export async function fetchLocalModels(): Promise<ModelInfo[]> {
 }
 
 export async function fetchModelPresets(): Promise<PresetModelInfo[]> {
-  const res = await fetch(`${API_BASE}/ai/models/presets`);
+  const res = await apiFetch(`${API_BASE}/ai/models/presets`);
   if (!res.ok) {
     throw new Error(`Fetch model presets failed: ${res.statusText}`);
   }
@@ -3337,7 +3363,7 @@ export async function fetchModelPresets(): Promise<PresetModelInfo[]> {
 }
 
 export async function downloadModel(target: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/ai/models/download`, {
+  const res = await apiFetch(`${API_BASE}/ai/models/download`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ target }),
@@ -3349,7 +3375,7 @@ export async function downloadModel(target: string): Promise<void> {
 }
 
 export async function cancelModelDownload(): Promise<void> {
-  const res = await fetch(`${API_BASE}/ai/models/cancel`, {
+  const res = await apiFetch(`${API_BASE}/ai/models/cancel`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -3359,7 +3385,7 @@ export async function cancelModelDownload(): Promise<void> {
 }
 
 export async function deleteLocalModel(name: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/ai/models/${encodeURIComponent(name)}`, {
+  const res = await apiFetch(`${API_BASE}/ai/models/${encodeURIComponent(name)}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -3369,7 +3395,7 @@ export async function deleteLocalModel(name: string): Promise<void> {
 }
 
 export async function downloadGPULibrary(): Promise<void> {
-  const res = await fetch(`${API_BASE}/ai/hardware/download-gpu`, {
+  const res = await apiFetch(`${API_BASE}/ai/hardware/download-gpu`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -3379,7 +3405,7 @@ export async function downloadGPULibrary(): Promise<void> {
 }
 
 export async function cancelGPUDownload(): Promise<void> {
-  const res = await fetch(`${API_BASE}/ai/hardware/cancel-gpu`, {
+  const res = await apiFetch(`${API_BASE}/ai/hardware/cancel-gpu`, {
     method: "POST",
   });
   if (!res.ok) {
@@ -3389,7 +3415,7 @@ export async function cancelGPUDownload(): Promise<void> {
 }
 
 export async function fetchAIDownloadStatus(): Promise<AIDownloadStatus> {
-  const res = await fetch(`${API_BASE}/ai/download/status`);
+  const res = await apiFetch(`${API_BASE}/ai/download/status`);
   if (!res.ok) {
     throw new Error(`Fetch download status failed: ${res.statusText}`);
   }
