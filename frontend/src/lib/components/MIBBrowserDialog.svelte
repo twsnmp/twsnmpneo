@@ -233,13 +233,13 @@
     });
 
     const columns = ["Index", ...colNames];
-    const rows = rowIndices.map((idx, i) => {
+    const rows: Record<string, any>[] = rowIndices.map((idx, i) => {
       const data = rowMap.get(idx) || {};
       return {
         Index: i + 1,
         _rawIndex: idx,
         ...data,
-      };
+      } as Record<string, any>;
     });
 
     return { columns, rows };

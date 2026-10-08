@@ -296,7 +296,7 @@
               </td>
               <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">
                 <span class="text-base text-cyan-500 dark:text-cyan-400 shrink-0 leading-none" style="font-family: 'Material Design Icons'">
-                  {getIconCode(n.icon)}
+                  {getIconCode(n.icon || "")}
                 </span>
                 <span>{n.name}</span>
               </td>

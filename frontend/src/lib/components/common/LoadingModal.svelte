@@ -4,7 +4,16 @@
   import AnimatedCatLogo from './AnimatedCatLogo.svelte';
   import { Loader2, X } from '@lucide/svelte';
 
-  const state = $derived(modalStore.loadingState);
+  type LoadingModalState = {
+    show: boolean;
+    title?: string;
+    message?: string;
+    cancelable?: boolean;
+    onCancel?: () => void;
+    cancelText?: string;
+  };
+
+  const state = $derived(modalStore.loadingState as LoadingModalState);
 
   const handleCancel = () => {
     if (state.onCancel) {
