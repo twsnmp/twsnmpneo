@@ -102,7 +102,7 @@
     currentUser = null;
   };
 
-  onMount(async () => {
+  onMount(() => {
     const savedTheme = localStorage.getItem("twsnmp_theme");
     if (savedTheme === "light") {
       isDark = false;
@@ -112,7 +112,7 @@
       document.documentElement.classList.add("dark");
     }
 
-    await checkAuth();
+    void checkAuth();
 
     // Listen for unauthorized events to smoothly redirect to login
     const onUnauthorized = () => {
