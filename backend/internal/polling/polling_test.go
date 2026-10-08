@@ -745,6 +745,12 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	}))
+	defer ts.Close()
+
 	mgr := polling.NewManager(polling.Config{
 		Store:        store,
 		LogStore:     pqStore,
@@ -764,10 +770,10 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 	poll1 := &datastore.PollingEnt{
 		ID:      "poll-high",
 		NodeID:  node.ID,
-		Name:    "Ping High",
-		Type:    "ping",
+		Name:    "HTTP High",
+		Type:    "http",
 		Mode:    "",
-		Params:  "127.0.0.1",
+		Params:  ts.URL,
 		Level:   "high",
 		State:   polling.StateHigh,
 		PollInt: 60,
@@ -778,10 +784,10 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 	poll2 := &datastore.PollingEnt{
 		ID:      "poll-normal",
 		NodeID:  node.ID,
-		Name:    "Ping Normal",
-		Type:    "ping",
+		Name:    "HTTP Normal",
+		Type:    "http",
 		Mode:    "",
-		Params:  "127.0.0.1",
+		Params:  ts.URL,
 		Level:   "high",
 		State:   polling.StateNormal,
 		PollInt: 60,
@@ -792,10 +798,10 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 	poll3 := &datastore.PollingEnt{
 		ID:      "poll-off",
 		NodeID:  node.ID,
-		Name:    "Ping Off",
-		Type:    "ping",
+		Name:    "HTTP Off",
+		Type:    "http",
 		Mode:    "",
-		Params:  "127.0.0.1",
+		Params:  ts.URL,
 		Level:   "off",
 		State:   polling.StateHigh,
 		PollInt: 60,
@@ -811,15 +817,6 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 		t.Fatalf("expected 1 polling to be checked, got %d", count)
 	}
 
-	// Verify poll1 was reset to unknown
-	savedP1, _ := store.GetPolling(ctx, poll1.ID)
-	if savedP1.State != polling.StateUnknown {
-		t.Fatalf("expected poll1 state to be unknown, got %s", savedP1.State)
-	}
-	if savedP1.NextTime != 0 {
-		t.Fatalf("expected poll1 NextTime to be 0, got %d", savedP1.NextTime)
-	}
-
 	// Verify poll2 (normal) was NOT touched
 	savedP2, _ := store.GetPolling(ctx, poll2.ID)
 	if savedP2.State != polling.StateNormal {
@@ -832,16 +829,25 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 		t.Fatalf("expected poll3 state to stay high (off), got %s", savedP3.State)
 	}
 
-	// Verify node was reset to unknown
+	// Give background poller a moment to execute poll1
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify poll1 was executed and transitioned to normal
+	savedP1, _ := store.GetPolling(ctx, poll1.ID)
+	if savedP1.State != polling.StateNormal {
+		t.Fatalf("expected poll1 state to become normal after immediate check, got %s", savedP1.State)
+	}
+
+	// Verify node was updated to normal
 	savedNode, _ := store.GetNode(ctx, node.ID)
-	if savedNode.State != polling.StateUnknown {
-		t.Fatalf("expected node state to be unknown, got %s", savedNode.State)
+	if savedNode.State != polling.StateNormal {
+		t.Fatalf("expected node state to be normal, got %s", savedNode.State)
 	}
 
 	// Verify event log was generated
 	var foundRecheckLog bool
 	store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
-		if l.Type == "user" && l.NodeID == node.ID && strings.Contains(l.Event, "Ping High") {
+		if l.Type == "user" && l.NodeID == node.ID && strings.Contains(l.Event, "HTTP High") {
 			foundRecheckLog = true
 			return false
 		}
@@ -863,10 +869,10 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 	poll4 := &datastore.PollingEnt{
 		ID:      "poll-checkall-repair",
 		NodeID:  node2.ID,
-		Name:    "Ping CheckAll Repair",
-		Type:    "ping",
+		Name:    "HTTP CheckAll Repair",
+		Type:    "http",
 		Mode:    "",
-		Params:  "127.0.0.1",
+		Params:  ts.URL,
 		Level:   "high",
 		State:   polling.StateRepair,
 		PollInt: 60,
@@ -893,7 +899,7 @@ func TestCheckNodeAndCheckAll(t *testing.T) {
 	}
 	var foundAllRecheckLog bool
 	store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
-		if l.Type == "user" && l.NodeID == node2.ID && strings.Contains(l.Event, "Ping CheckAll Repair") {
+		if l.Type == "user" && l.NodeID == node2.ID && strings.Contains(l.Event, "HTTP CheckAll Repair") {
 			foundAllRecheckLog = true
 			return false
 		}
