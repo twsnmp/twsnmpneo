@@ -82,12 +82,13 @@ func New(cfg Config) *Monitor {
 // Start begins periodic background resource monitoring.
 func (m *Monitor) Start(ctx context.Context) {
 	slog.Info("Starting system resource monitor", "interval", m.interval)
-	// Initial collection
-	m.UpdateNow()
 
 	ticker := time.NewTicker(m.interval)
 	go func() {
 		defer ticker.Stop()
+		// Initial collection asynchronously so startup is not blocked
+		m.UpdateNow()
+
 		i := 0
 		for {
 			select {
