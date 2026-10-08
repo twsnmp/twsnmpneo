@@ -53,9 +53,6 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm run build
-          mkdir -p ../backend/web
-          rm -rf ../backend/web/dist
-          cp -r dist ../backend/web/dist
 
       - name: Compile Backend Binary
         working-directory: backend
