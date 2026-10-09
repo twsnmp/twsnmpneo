@@ -1,7 +1,11 @@
 # syntax=docker/dockerfile:1
 
+ARG NODE_IMAGE=mirror.gcr.io/library/node:22-alpine
+ARG GO_IMAGE=mirror.gcr.io/library/golang:alpine
+ARG BASE_IMAGE=mirror.gcr.io/library/alpine:3.20
+
 # Stage 1: Build Frontend SPA (Runs natively on host builder platform)
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS frontend-builder
 WORKDIR /app/frontend
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -13,7 +17,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # Stage 2: Build Backend Go binary (Runs natively using Go's fast cross-compiler)
-FROM --platform=$BUILDPLATFORM golang:alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS backend-builder
 WORKDIR /app/backend
 
 RUN apk add --no-cache git ca-certificates tzdata
@@ -38,7 +42,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -o /twsnmpneo ./cmd/twsnmpneo
 
 # Stage 3: Minimal Runtime
-FROM alpine:3.20
+FROM ${BASE_IMAGE}
 RUN apk add --no-cache ca-certificates tzdata
 
 # Create data directory for bbolt db, parquet columnar logs, and private PKI
