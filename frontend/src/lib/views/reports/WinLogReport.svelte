@@ -106,13 +106,13 @@
 
   export async function handleClear(): Promise<void> {
     const tabKindMap: Record<TabType, { kind: string; name: string }> = {
-      eventid: { kind: "winEventID", name: "イベントID" },
-      logon: { kind: "winLogon", name: "ログオン" },
-      account: { kind: "winAccount", name: "アカウント操作" },
-      kerberos: { kind: "winKerberos", name: "Kerberos" },
-      privilege: { kind: "winPrivilege", name: "特権利用" },
-      process: { kind: "winProcess", name: "プロセス" },
-      task: { kind: "winTask", name: "タスク" },
+      eventid: { kind: "winEventID", name: $_("report.winTabEventID") || "Event ID" },
+      logon: { kind: "winLogon", name: $_("report.winTabLogon") || "ログオン" },
+      account: { kind: "winAccount", name: $_("report.winTabAccount") || "アカウント操作" },
+      kerberos: { kind: "winKerberos", name: $_("report.winTabKerberos") || "Kerberos" },
+      privilege: { kind: "winPrivilege", name: $_("report.winTabPrivilege") || "特権利用" },
+      process: { kind: "winProcess", name: $_("report.winTabProcess") || "プロセス" },
+      task: { kind: "winTask", name: $_("report.winTabTask") || "タスク" },
     };
     const target = tabKindMap[activeTab];
     const ok = await showConfirm({
@@ -251,7 +251,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'eventid' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <Terminal class="w-3.5 h-3.5" />
-      <span>Event ID ({eventIDs.length})</span>
+      <span>{$_("report.winTabEventID")} ({eventIDs.length})</span>
     </button>
     <button
       type="button"
@@ -259,7 +259,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'logon' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <KeyRound class="w-3.5 h-3.5" />
-      <span>ログオン ({logons.length})</span>
+      <span>{$_("report.winTabLogon")} ({logons.length})</span>
     </button>
     <button
       type="button"
@@ -267,7 +267,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'account' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <Users class="w-3.5 h-3.5" />
-      <span>アカウント操作 ({accounts.length})</span>
+      <span>{$_("report.winTabAccount")} ({accounts.length})</span>
     </button>
     <button
       type="button"
@@ -275,7 +275,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'kerberos' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <Lock class="w-3.5 h-3.5" />
-      <span>Kerberos ({kerberosList.length})</span>
+      <span>{$_("report.winTabKerberos")} ({kerberosList.length})</span>
     </button>
     <button
       type="button"
@@ -283,7 +283,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'privilege' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <ShieldAlert class="w-3.5 h-3.5" />
-      <span>特権利用 ({privileges.length})</span>
+      <span>{$_("report.winTabPrivilege")} ({privileges.length})</span>
     </button>
     <button
       type="button"
@@ -291,7 +291,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'process' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <Cpu class="w-3.5 h-3.5" />
-      <span>プロセス ({processes.length})</span>
+      <span>{$_("report.winTabProcess")} ({processes.length})</span>
     </button>
     <button
       type="button"
@@ -299,7 +299,7 @@
       class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'task' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
     >
       <CalendarClock class="w-3.5 h-3.5" />
-      <span>タスク ({tasks.length})</span>
+      <span>{$_("report.winTabTask")} ({tasks.length})</span>
     </button>
   </div>
 
@@ -309,13 +309,13 @@
       <div class="flex items-center gap-2">
         <Terminal class="w-4 h-4 text-cyan-500" />
         <span class="text-sm font-bold text-slate-800 dark:text-slate-100">
-          {#if activeTab === "eventid"}Windows Event ID 集計
-          {:else if activeTab === "logon"}ログオン / ログオフ監視
-          {:else if activeTab === "account"}ユーザーアカウント操作監査
-          {:else if activeTab === "kerberos"}Kerberos 認証チケット監査
-          {:else if activeTab === "privilege"}特権昇格・特権操作監査
-          {:else if activeTab === "process"}プロセス生成・実行監視
-          {:else}タスクスケジュール実行監視{/if}
+          {#if activeTab === "eventid"}{$_("report.winTitleEventID")}
+          {:else if activeTab === "logon"}{$_("report.winTitleLogon")}
+          {:else if activeTab === "account"}{$_("report.winTitleAccount")}
+          {:else if activeTab === "kerberos"}{$_("report.winTitleKerberos")}
+          {:else if activeTab === "privilege"}{$_("report.winTitlePrivilege")}
+          {:else if activeTab === "process"}{$_("report.winTitleProcess")}
+          {:else}{$_("report.winTitleTask")}{/if}
         </span>
         <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 font-mono text-slate-600 dark:text-slate-300">
           {currentList.length}
@@ -329,56 +329,56 @@
           <tr>
             <th class="py-2.5 px-3 w-8"></th>
             {#if activeTab === "eventid"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Provider")}>プロバイダー</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("EventID")}>Event ID</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Channel")}>チャネル</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Level")}>重要度</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>件数</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Provider")}>{$_("report.winColProvider")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("EventID")}>{$_("report.winColEventID")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Channel")}>{$_("report.winColChannel")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Level")}>{$_("report.winColLevel")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColCount")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {:else if activeTab === "logon"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Target")}>ターゲット (アカウント)</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("IP")}>接続元IP</th>
-              <th class="py-2.5 px-3 text-right font-bold text-emerald-500">Logon</th>
-              <th class="py-2.5 px-3 text-right font-bold text-rose-500">Failed</th>
-              <th class="py-2.5 px-3 text-right">Logoff</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Score")}>信用スコア</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Target")}>{$_("report.winColTargetAccount")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("IP")}>{$_("report.winColSrcIp")}</th>
+              <th class="py-2.5 px-3 text-right font-bold text-emerald-500">{$_("report.winColLogon")}</th>
+              <th class="py-2.5 px-3 text-right font-bold text-rose-500">{$_("report.winColFailed")}</th>
+              <th class="py-2.5 px-3 text-right">{$_("report.winColLogoff")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Score")}>{$_("report.winColTrustScore")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {:else if activeTab === "account"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Target")}>対象アカウント</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Subject")}>実行ユーザー</th>
-              <th class="py-2.5 px-3 text-right">変更 / パスワード / その他</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>総件数</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Target")}>{$_("report.winColTarget")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Subject")}>{$_("report.winColSubject")}</th>
+              <th class="py-2.5 px-3 text-right">{$_("report.winColEditPassOther")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColTotalCount")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {:else if activeTab === "kerberos"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Target")}>ユーザー</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Service")}>サービス</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("TicketType")}>種別</th>
-              <th class="py-2.5 px-3 text-right font-bold text-rose-500">失敗</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Score")}>信用スコア</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Target")}>{$_("report.winColUser")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Service")}>{$_("report.winColService")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("TicketType")}>{$_("report.winColTicketType")}</th>
+              <th class="py-2.5 px-3 text-right font-bold text-rose-500">{$_("report.winColFailed")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Score")}>{$_("report.winColTrustScore")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {:else if activeTab === "privilege"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Subject")}>特権実行ユーザー</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>行使回数</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Subject")}>{$_("report.winColPrivUser")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColPrivCount")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {:else if activeTab === "process"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Process")}>プロセス名 / コマンド</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastSubject")}>実行者</th>
-              <th class="py-2.5 px-3">親プロセス</th>
-              <th class="py-2.5 px-3 text-right">起動 / 終了</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>回数</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Process")}>{$_("report.winColProcessName")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastSubject")}>{$_("report.winColExecutor")}</th>
+              <th class="py-2.5 px-3">{$_("report.winColParentProcess")}</th>
+              <th class="py-2.5 px-3 text-right">{$_("report.winColStartExit")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColTimes")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {:else if activeTab === "task"}
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("TaskName")}>タスク名</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>コンピューター</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Subject")}>実行アカウント</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>実行回数</th>
-              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>最終確認</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("TaskName")}>{$_("report.winColTaskName")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Computer")}>{$_("report.winColComputer")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Subject")}>{$_("report.winColExecAccount")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColExecCount")}</th>
+              <th class="py-2.5 px-3 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.winColLastTime")}</th>
             {/if}
           </tr>
         </thead>
@@ -488,16 +488,16 @@
                   <td colspan="9" class="p-4 space-y-3">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                       <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <div class="text-[11px] font-bold text-slate-400 uppercase">識別ID</div>
+                        <div class="text-[11px] font-bold text-slate-400 uppercase">{$_("report.winDetailId")}</div>
                         <div class="font-mono text-slate-800 dark:text-slate-200 text-[11px] break-all">{item.ID}</div>
                       </div>
                       <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                        <div class="text-[11px] font-bold text-slate-400 uppercase">初回検知日時</div>
+                        <div class="text-[11px] font-bold text-slate-400 uppercase">{$_("report.winDetailFirstSeen")}</div>
                         <div class="font-mono text-slate-800 dark:text-slate-200">{formatTimeStr((item as any).FirstTime)}</div>
                       </div>
                       {#if activeTab === "logon" && (item as WinLogonEnt).LogonType}
                         <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
-                          <div class="text-[11px] font-bold text-slate-400 uppercase">ログオン種別内訳</div>
+                          <div class="text-[11px] font-bold text-slate-400 uppercase">{$_("report.winDetailLogonType")}</div>
                           <div class="font-mono text-slate-800 dark:text-slate-200 text-[11px]">
                             {JSON.stringify((item as WinLogonEnt).LogonType)}
                           </div>

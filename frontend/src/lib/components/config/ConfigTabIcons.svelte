@@ -428,11 +428,13 @@
           bind:value={iconPageSize}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
         >
-          <option value={10}>10 件表示</option>
-          <option value={25}>25 件表示</option>
-          <option value={50}>50 件表示</option>
-          <option value={100}>100 件表示</option>
-          <option value={-1}>すべて表示</option>
+          {#each [10, 25, 50, 100, -1] as size}
+            {#if size === -1}
+              <option value={-1}>{$_('common.showAll')}</option>
+            {:else}
+              <option value={size}>{$_('common.showCount', { values: { count: size } })}</option>
+            {/if}
+          {/each}
         </select>
         <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
           {$_('config.iconTotalCount')}: <span class="font-bold text-slate-800 dark:text-slate-200">{filteredCustomIcons.length}</span> / {customIcons.length}
@@ -700,8 +702,8 @@
               <div class="text-xs font-bold text-slate-800 dark:text-slate-200">
                 {dialogSelectedMdi || dialogIconName || $_('config.iconPreview')}
               </div>
-              <div class="text-[11px] font-mono text-slate-500">10進数: <span class="text-cyan-600 dark:text-cyan-400 font-bold">{dialogParsedCode || 0}</span></div>
-              <div class="text-[11px] font-mono text-slate-500">16進数: <span class="text-emerald-600 dark:text-emerald-400 font-bold">0x{(dialogParsedCode || 0).toString(16).toUpperCase()}</span></div>
+              <div class="text-[11px] font-mono text-slate-500">{$_('config.iconDecimal')} <span class="text-cyan-600 dark:text-cyan-400 font-bold">{dialogParsedCode || 0}</span></div>
+              <div class="text-[11px] font-mono text-slate-500">{$_('config.iconHex')} <span class="text-emerald-600 dark:text-emerald-400 font-bold">0x{(dialogParsedCode || 0).toString(16).toUpperCase()}</span></div>
             </div>
           </div>
         {:else}

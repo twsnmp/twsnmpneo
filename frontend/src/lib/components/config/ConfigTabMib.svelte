@@ -280,11 +280,13 @@
           bind:value={mibPageSize}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
         >
-          <option value={10}>10 件表示</option>
-          <option value={25}>25 件表示</option>
-          <option value={50}>50 件表示</option>
-          <option value={100}>100 件表示</option>
-          <option value={-1}>すべて表示</option>
+          {#each [10, 25, 50, 100, -1] as size}
+            {#if size === -1}
+              <option value={-1}>{$_('common.showAll')}</option>
+            {:else}
+              <option value={size}>{$_('common.showCount', { values: { count: size } })}</option>
+            {/if}
+          {/each}
         </select>
         <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
           {$_('config.mibTotalModules')}: <span class="font-bold text-slate-800 dark:text-slate-200">{filteredMibModules.length}</span> / {mibModules.length}
