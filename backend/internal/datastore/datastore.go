@@ -174,6 +174,16 @@ type DataStore interface {
 	CountUsers(ctx context.Context) (int, error)
 	GetAuthSecret(ctx context.Context) ([]byte, error)
 	SaveAuthSecret(ctx context.Context, secret []byte) error
+
+	// PKI (Private Certificate Authority)
+	GetPKIConf(ctx context.Context) (*PKIConfEnt, error)
+	SavePKIConf(ctx context.Context, conf *PKIConfEnt) error
+	ListPKICerts(ctx context.Context) ([]*PKICertEnt, error)
+	GetPKICert(ctx context.Context, id string) (*PKICertEnt, error)
+	SavePKICert(ctx context.Context, cert *PKICertEnt) error
+	DeletePKICert(ctx context.Context, id string) error
+	DeleteAllPKICerts(ctx context.Context) error
+	ForEachPKICert(fn func(*PKICertEnt) bool)
 }
 
 

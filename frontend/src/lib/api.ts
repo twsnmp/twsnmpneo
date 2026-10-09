@@ -470,140 +470,144 @@ export async function deleteUser(user: string): Promise<void> {
 }
 
 
-export interface PKIStatus {
-  ready: boolean;
-  commonName?: string;
-  expiresAt?: number;
-  certificate?: string;
+export interface CreateCAReq {
+  RootCAKeyType: string;
+  Name: string;
+  SANs: string;
+  AcmePort: number;
+  HttpBaseURL: string;
+  AcmeBaseURL: string;
+  HttpPort: number;
+  RootCATerm: number;
+  CrlInterval: number;
+  CertTerm: number;
 }
 
-export interface PKICAOptions {
-  commonName: string;
-  organization: string;
-  sans: string[];
-  keyType: string;
-  validYears: number;
-  acmeBaseURL: string;
-  httpBaseURL: string;
-  crlIntervalHours: number;
-  certValidityHours: number;
-  httpPort: number;
-  acmePort: number;
+export interface CSRReqEnt {
+  KeyType: string;
+  CommonName: string;
+  OrganizationalUnit: string;
+  Organization: string;
+  Locality: string;
+  Province: string;
+  Country: string;
+  Sans: string;
 }
 
-export interface PKISettings extends PKICAOptions {
-  enableHTTP: boolean;
-  enableACME: boolean;
+export interface PKIControlEnt {
+  AcmeBaseURL: string;
+  EnableAcme: boolean;
+  EnableHttp: boolean;
+  AcmeStatus: string;
+  HttpStatus: string;
+  CrlInterval: number;
+  CertTerm: number;
 }
 
-export interface PKICertificate {
-  serial: string;
-  subject: string;
-  type: string;
-  certPEM: string;
-  createdAt: number;
-  expiresAt: number;
-  revokedAt?: number;
+export interface PKICertEnt {
+  Status: string;
+  ID: string;
+  Subject: string;
+  Node: string;
+  Created: number;
+  Revoked: number;
+  Expire: number;
+  Type: string;
 }
 
-export interface PKICAOptions {
-  commonName: string;
-  organization: string;
-  keyType: string;
-  validYears: number;
+export async function fetchHasCA(): Promise<boolean> {
+  const res = await apiFetch(`${API_BASE}/pki/hasCA`);
+  if (!res.ok) return false;
+  return await res.json();
 }
 
-async function pkiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const endpoint = `${API_BASE}/pki${path}`;
-  const response = await apiFetch(endpoint, init);
-  if (!response.ok) {
-    let message = response.statusText;
-    try {
-      const body = await response.json();
-      if (typeof body.error === 'string') message = body.error;
-    } catch {
-      // Keep the HTTP status text when the server does not return JSON.
-    }
-    throw new Error(`${endpoint}: ${message || `request failed with HTTP ${response.status}`}`);
-  }
-  if (response.status === 204) return undefined as T;
-  if (!response.headers.get('content-type')?.includes('application/json')) {
-    throw new Error(`${endpoint} returned a non-JSON response (HTTP ${response.status}); the server may need to be updated and restarted.`);
-  }
-  try {
-    return await response.json();
-  } catch (cause) {
-    throw new Error(`${endpoint} returned invalid JSON (HTTP ${response.status}).`, { cause });
-  }
+export async function fetchCreateCADefault(): Promise<CreateCAReq> {
+  const res = await apiFetch(`${API_BASE}/pki/createCA`);
+  if (!res.ok) throw new Error(`Fetch createCA default failed: ${res.statusText}`);
+  return await res.json();
 }
 
-export function fetchPKIStatus(): Promise<PKIStatus> {
-  return pkiRequest<PKIStatus>('/status');
-}
-
-export function fetchPKISettings(): Promise<PKISettings> {
-  return pkiRequest<PKISettings>('/settings');
-}
-
-export function fetchPKICertificates(): Promise<PKICertificate[]> {
-  return pkiRequest<PKICertificate[]>('/certificates');
-}
-
-export function initializePKICA(options: PKICAOptions): Promise<PKIStatus> {
-  return pkiRequest<PKIStatus>('/ca', {
+export async function createCA(req: CreateCAReq): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/pki/createCA`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(options),
+    body: JSON.stringify(req),
   });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `Create CA failed: ${res.statusText}`);
+  }
 }
 
-export function updatePKISettings(settings: PKISettings): Promise<PKISettings> {
-  return pkiRequest<PKISettings>('/settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
+export async function destroyCA(): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/pki/destroyCA`, {
+    method: 'POST',
   });
+  if (!res.ok) throw new Error(`Destroy CA failed: ${res.statusText}`);
 }
 
-export function resetPKICA(): Promise<void> {
-  return pkiRequest<void>('/ca', { method: 'DELETE' });
+export async function fetchPKICerts(): Promise<PKICertEnt[]> {
+  const res = await apiFetch(`${API_BASE}/pki/certs`);
+  if (!res.ok) return [];
+  return await res.json();
 }
 
-export function issuePKICertificateFromCSR(csrPEM: string): Promise<PKICertificate> {
-  return pkiRequest<PKICertificate>('/certificates/csr', {
+export async function createCSR(req: CSRReqEnt): Promise<Blob> {
+  const res = await apiFetch(`${API_BASE}/pki/createCSR`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ csrPEM }),
+    body: JSON.stringify(req),
   });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `Create CSR failed: ${res.statusText}`);
+  }
+  return await res.blob();
 }
 
-export function createPKICertificate(request: {
-  commonName: string;
-  dnsNames: string[];
-  ipAddresses: string[];
-  validDays: number;
-}): Promise<PKICertificate> {
-  return pkiRequest<PKICertificate>('/certificates', {
+export async function createCRT(file: File): Promise<Blob> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await apiFetch(`${API_BASE}/pki/createCRT`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `Create Certificate failed: ${res.statusText}`);
+  }
+  return await res.blob();
+}
+
+export async function revokeCert(id: string): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/pki/revoke/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`Revoke certificate failed: ${res.statusText}`);
+}
+
+export async function exportCert(id: string): Promise<Blob> {
+  const res = await apiFetch(`${API_BASE}/pki/cert/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Export certificate failed: ${res.statusText}`);
+  return await res.blob();
+}
+
+export async function fetchPKIControl(): Promise<PKIControlEnt> {
+  const res = await apiFetch(`${API_BASE}/pki/control`);
+  if (!res.ok) throw new Error(`Fetch PKI control failed: ${res.statusText}`);
+  return await res.json();
+}
+
+export async function updatePKIControl(req: PKIControlEnt): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/pki/control`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
+    body: JSON.stringify(req),
   });
-}
-
-export function revokePKICertificate(serial: string): Promise<void> {
-  return pkiRequest<void>(`/certificates/${encodeURIComponent(serial)}`, { method: 'DELETE' });
-}
-
-export async function downloadPKICertificate(serial: string): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/pki/certificates/${encodeURIComponent(serial)}/download`);
-  if (!response.ok) throw new Error(`Certificate download failed: ${response.statusText}`);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${serial}.pem`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `Update PKI control failed: ${res.statusText}`);
+  }
 }
 
 export function normalizeNode(raw: any): NodeEnt {

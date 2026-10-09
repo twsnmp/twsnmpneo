@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
-	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -38,6 +37,7 @@ var (
 	bucketOTelTrace   = []byte("otelTrace")
 	bucketMqttStat    = []byte("mqttStat")
 	bucketPKICerts    = []byte("pkiCertificates")
+	bucketCerts       = []byte("certs")
 	bucketCertMonitor = []byte("certMonitor")
 	bucketLogReport   = []byte("logReport")
 	bucketSensor      = []byte("sensor")
@@ -51,6 +51,7 @@ var (
 	keyNotifyOAuth2Token = []byte("notifyOAuth2Token")
 	keyCustomIcons       = []byte("customIcons")
 	keyAuthSecret        = []byte("authSecret")
+	keyPKIConf           = []byte("pkiConf")
 )
 
 
@@ -123,6 +124,7 @@ func New(dbPath string) (*Store, error) {
 			bucketOTelTrace,
 			bucketMqttStat,
 			bucketPKICerts,
+			bucketCerts,
 			bucketCertMonitor,
 			bucketSensor,
 			bucketUsers,
@@ -2104,64 +2106,171 @@ func (s *Store) CleanOldMqttStats(_ context.Context, days int) error {
 	})
 }
 
-func (s *Store) ListPKICertificates() ([]*pki.Certificate, error) {
+// PKI (Private Certificate Authority) methods
+
+func (s *Store) GetPKIConf(ctx context.Context) (*datastore.PKIConfEnt, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
 	}
-	certificates := make([]*pki.Certificate, 0)
+	conf := datastore.DefaultPKIConf()
 	err := s.db.View(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket(bucketPKICerts)
-		if bucket == nil {
-			return fmt.Errorf("PKI certificate bucket not found")
+		b := tx.Bucket(bucketConfig)
+		if b == nil {
+			return nil
 		}
-		return bucket.ForEach(func(_, value []byte) error {
-			var cert pki.Certificate
+		v := b.Get(keyPKIConf)
+		if v == nil {
+			return nil
+		}
+		return json.Unmarshal(v, &conf)
+	})
+	return &conf, err
+}
+
+func (s *Store) SavePKIConf(ctx context.Context, conf *datastore.PKIConfEnt) error {
+	if conf == nil {
+		return datastore.ErrInvalidParams
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	v, err := json.Marshal(conf)
+	if err != nil {
+		return fmt.Errorf("marshal pkiConf: %w", err)
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketConfig)
+		if b == nil {
+			return fmt.Errorf("config bucket not found")
+		}
+		return b.Put(keyPKIConf, v)
+	})
+}
+
+func (s *Store) ListPKICerts(ctx context.Context) ([]*datastore.PKICertEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
+	}
+	certs := make([]*datastore.PKICertEnt, 0)
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCerts)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(_, value []byte) error {
+			var cert datastore.PKICertEnt
 			if err := json.Unmarshal(value, &cert); err != nil {
-				return fmt.Errorf("decode PKI certificate: %w", err)
+				return nil
 			}
-			certificates = append(certificates, &cert)
+			certs = append(certs, &cert)
 			return nil
 		})
 	})
-	return certificates, err
+	return certs, err
 }
 
-func (s *Store) SavePKICertificate(cert *pki.Certificate) error {
-	if cert == nil || cert.Serial == "" {
-		return datastore.ErrInvalidParams
+func (s *Store) GetPKICert(ctx context.Context, id string) (*datastore.PKICertEnt, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return nil, datastore.ErrDBNotOpen
 	}
-	value, err := json.Marshal(cert)
+	var cert datastore.PKICertEnt
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCerts)
+		if b == nil {
+			return datastore.ErrNotFound
+		}
+		v := b.Get([]byte(id))
+		if v == nil {
+			return datastore.ErrNotFound
+		}
+		return json.Unmarshal(v, &cert)
+	})
 	if err != nil {
-		return fmt.Errorf("encode PKI certificate: %w", err)
+		return nil, err
+	}
+	return &cert, nil
+}
+
+func (s *Store) SavePKICert(ctx context.Context, cert *datastore.PKICertEnt) error {
+	if cert == nil || cert.ID == "" {
+		return datastore.ErrInvalidParams
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
+	v, err := json.Marshal(cert)
+	if err != nil {
+		return fmt.Errorf("marshal cert: %w", err)
+	}
 	return s.db.Update(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket(bucketPKICerts)
-		if bucket == nil {
-			return fmt.Errorf("PKI certificate bucket not found")
+		b := tx.Bucket(bucketCerts)
+		if b == nil {
+			return fmt.Errorf("certs bucket not found")
 		}
-		return bucket.Put([]byte(strings.ToLower(cert.Serial)), value)
+		return b.Put([]byte(cert.ID), v)
 	})
 }
 
-func (s *Store) DeleteAllPKICertificates() error {
+func (s *Store) DeletePKICert(ctx context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
 	return s.db.Update(func(tx *bbolt.Tx) error {
-		if err := tx.DeleteBucket(bucketPKICerts); err != nil && err != bbolt.ErrBucketNotFound {
+		b := tx.Bucket(bucketCerts)
+		if b == nil {
+			return nil
+		}
+		return b.Delete([]byte(id))
+	})
+}
+
+func (s *Store) DeleteAllPKICerts(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		if err := tx.DeleteBucket(bucketCerts); err != nil && err != bbolt.ErrBucketNotFound {
 			return err
 		}
-		_, err := tx.CreateBucket(bucketPKICerts)
+		_, err := tx.CreateBucket(bucketCerts)
 		return err
+	})
+}
+
+func (s *Store) ForEachPKICert(fn func(*datastore.PKICertEnt) bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return
+	}
+	_ = s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketCerts)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(_, value []byte) error {
+			var cert datastore.PKICertEnt
+			if err := json.Unmarshal(value, &cert); err == nil {
+				if !fn(&cert) {
+					return fmt.Errorf("stop")
+				}
+			}
+			return nil
+		})
 	})
 }
 

@@ -217,15 +217,12 @@ func main() {
 	}
 
 	// Initialize Private PKI
-	pkiDir := filepath.Join(*dataDir, "pki")
-	pkiMgr, err := pki.New(pki.Config{
-		DataDir:   pkiDir,
-		CertStore: store,
-	})
+	pkiMgr, err := pki.New(store)
 	if err != nil {
 		slog.Error("Failed to initialize Private PKI", "error", err)
 		os.Exit(1)
 	}
+	defer pkiMgr.Stop()
 
 	// Setup context with graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -273,6 +270,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
+	_ = pkiMgr.Start(ctx, &wg)
 
 	// Initialize Polling Manager
 	pollMgr := polling.NewManager(polling.Config{

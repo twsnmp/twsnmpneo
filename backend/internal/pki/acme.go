@@ -1,957 +1,893 @@
 package pki
 
 import (
-	"bytes"
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
-	"mime"
+	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
-	"net/url"
-	"sort"
+	"path"
 	"strings"
 	"sync"
 	"time"
 
+	jose "github.com/go-jose/go-jose/v4"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 )
 
-const (
-	acmeMaxRequestBytes = 1 << 20
-	acmeMaxNonces       = 10000
-	acmeMaxAccounts     = 10000
-	acmeMaxOrders       = 5000
-	acmeMaxIdentifiers  = 20
-	acmeNonceLifetime   = 10 * time.Minute
+var (
+	acmeAccMap   = make(map[string]*account)
+	acmeOrderMap = make(map[string]*order)
+	acmeAuthzMap = make(map[string]*authorization)
+	acmeCertMap  = make(map[string]*acmeCertificate)
+	acmeMapMu    sync.RWMutex
 )
 
-// ACMEConfig controls the bounded RFC 8555 service registered on an Echo instance.
-// BaseURL must be the externally visible absolute URL prefix for this ACME directory.
-// ChallengeValidator is optional; without it all offered challenges remain unsupported
-// and are rejected rather than being marked valid.
-type ACMEConfig struct {
-	BaseURL            string
-	TermsOfService     string
-	ChallengeValidator func(context.Context, ACMEChallenge) error
+// GetAcmeServerStatus returns the status of the ACME server.
+func (m *Manager) GetAcmeServerStatus() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.lastAcmeServerErr != nil {
+		return fmt.Sprintf("error %v", m.lastAcmeServerErr)
+	} else if m.acmeServerRunning {
+		return fmt.Sprintf("running port=%d", m.conf.AcmePort)
+	}
+	return "stopped"
 }
 
-// ACMEChallenge contains the material an integration needs to independently validate
-// an ACME challenge. Returning nil from the configured validator asserts that the
-// identifier control proof has actually been verified.
-type ACMEChallenge struct {
-	Type             string
-	Identifier       string
-	Token            string
-	KeyAuthorization string
+// StartAcmeServer starts the ACME HTTPS server.
+func (m *Manager) StartAcmeServer() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.acmeServer != nil {
+		return
+	}
+	if !m.IsCAValid() {
+		slog.Warn("Cannot start ACME server before Root CA is initialized")
+		return
+	}
+
+	if err := m.createAcmeServerCertificateLocked(); err != nil {
+		slog.Error("Failed to create ACME server certificate", "error", err)
+		m.lastAcmeServerErr = err
+		return
+	}
+
+	m.lastAcmeServerErr = nil
+	m.acmeServerRunning = true
+	m.acmeServer = echo.New()
+	m.acmeServer.HideBanner = true
+	m.acmeServer.HidePort = true
+
+	port := m.conf.AcmePort
+	if m.store != nil {
+		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "pki",
+			Level: "info",
+			Event: fmt.Sprintf(i18n.Trans("Started ACME server on port %d"), port),
+		})
+	}
+	go m.acmeServerFunc(m.acmeServer, port)
 }
 
-type acmeAccount struct {
-	ID       string
-	Key      crypto.PublicKey
-	Thumb    string
-	Contact  []string
-	Status   string
-	OrderIDs []string
+// StopAcmeServer stops the ACME server.
+func (m *Manager) StopAcmeServer() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stopAcmeServerLocked()
 }
 
-type acmeIdentifier struct {
+func (m *Manager) stopAcmeServerLocked() {
+	if m.acmeServer == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer func() {
+		cancel()
+		m.acmeServer = nil
+		m.lastAcmeServerErr = nil
+		m.acmeServerRunning = false
+	}()
+	if err := m.acmeServer.Shutdown(ctx); err != nil {
+		slog.Warn("PKI ACME server shutdown error", "error", err)
+	}
+	if m.store != nil {
+		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "pki",
+			Level: "info",
+			Event: i18n.Trans("Stopped ACME server"),
+		})
+	}
+}
+
+func (m *Manager) createAcmeServerCertificateLocked() error {
+	if m.conf.AcmeServerCert != "" && m.conf.AcmeServerKey != "" {
+		return nil
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return err
+	}
+	publicKey := &key.PublicKey
+	ca, err := x509.ParseCertificate(m.rootCACertificate)
+	if err != nil {
+		return err
+	}
+	sn := m.getSerial()
+	tmp := &x509.Certificate{
+		SerialNumber: big.NewInt(sn),
+		Subject: pkix.Name{
+			CommonName: m.conf.Name + " ACME Server",
+		},
+		NotBefore:             time.Now().UTC(),
+		NotAfter:              time.Now().AddDate(m.conf.RootCATerm, 0, 0).UTC(),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		IsCA:                  false,
+		BasicConstraintsValid: true,
+		CRLDistributionPoints: []string{},
+		OCSPServer:            []string{},
+	}
+	for _, san := range strings.Split(m.conf.SANs, ",") {
+		san = strings.TrimSpace(san)
+		if san == "" {
+			continue
+		}
+		baseURL := fmt.Sprintf("http://%s:%d", san, m.conf.HTTPPort)
+		if ip := net.ParseIP(san); ip == nil {
+			tmp.DNSNames = append(tmp.DNSNames, san)
+		} else {
+			tmp.IPAddresses = append(tmp.IPAddresses, ip)
+		}
+		tmp.CRLDistributionPoints = append(tmp.CRLDistributionPoints, baseURL+"/crl")
+		tmp.OCSPServer = append(tmp.OCSPServer, baseURL+"/ocsp")
+	}
+	if strings.HasPrefix(m.conf.HTTPBaseURL, "http://") {
+		baseURL := strings.TrimRight(m.conf.HTTPBaseURL, "/")
+		tmp.CRLDistributionPoints = append(tmp.CRLDistributionPoints, baseURL+"/crl")
+		tmp.OCSPServer = append(tmp.OCSPServer, baseURL+"/ocsp")
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, tmp, ca, publicKey, m.rootCAPrivateKey)
+	if err != nil {
+		return err
+	}
+	b, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	m.conf.AcmeServerCert = string(makePEM(cert, "CERTIFICATE"))
+	m.conf.AcmeServerKey = string(makePEM(b, "EC PRIVATE KEY"))
+
+	if m.store != nil {
+		_ = m.store.SavePKIConf(context.Background(), &m.conf)
+		_ = m.store.SavePKICert(context.Background(), &datastore.PKICertEnt{
+			ID:          fmt.Sprintf("%x", sn),
+			Subject:     tmp.Subject.String(),
+			Created:     time.Now().UnixNano(),
+			Expire:      tmp.NotAfter.UnixNano(),
+			Certificate: m.conf.AcmeServerCert,
+			Type:        "system",
+		})
+	}
+	return nil
+}
+
+// ACME Models
+
+type meta struct {
+	TermsOfService          string   `json:"termsOfService,omitempty"`
+	Website                 string   `json:"website,omitempty"`
+	CaaIdentities           []string `json:"caaIdentities,omitempty"`
+	ExternalAccountRequired bool     `json:"externalAccountRequired,omitempty"`
+}
+
+type directory struct {
+	NewNonce   string `json:"newNonce"`
+	NewAccount string `json:"newAccount"`
+	NewOrder   string `json:"newOrder"`
+	RevokeCert string `json:"revokeCert"`
+	KeyChange  string `json:"keyChange"`
+	Meta       *meta  `json:"meta,omitempty"`
+}
+
+type externalAccountBinding struct {
+	Protected string `json:"protected"`
+	Payload   string `json:"payload"`
+	Sig       string `json:"signature"`
+}
+
+type newAccountRequest struct {
+	Contact                []string                `json:"contact"`
+	OnlyReturnExisting     bool                    `json:"onlyReturnExisting"`
+	TermsOfServiceAgreed   bool                    `json:"termsOfServiceAgreed"`
+	ExternalAccountBinding *externalAccountBinding `json:"externalAccountBinding,omitempty"`
+}
+
+type account struct {
+	ID                     string           `json:"-"`
+	Key                    *jose.JSONWebKey `json:"-"`
+	Contact                []string         `json:"contact,omitempty"`
+	Status                 string           `json:"status"`
+	OrdersURL              string           `json:"orders"`
+	ExternalAccountBinding interface{}      `json:"externalAccountBinding,omitempty"`
+	LocationPrefix         string           `json:"-"`
+	ProvisionerID          string           `json:"-"`
+	ProvisionerName        string           `json:"-"`
+}
+
+type acmeCertificate struct {
+	ID          string
+	AccountID   string
+	OrderID     string
+	Certificate []byte
+}
+
+type identifier struct {
 	Type  string `json:"type"`
 	Value string `json:"value"`
 }
 
-type acmeChallengeRecord struct {
-	ID         string
-	AccountID  string
-	AuthzID    string
-	Identifier acmeIdentifier
-	Type       string
-	Token      string
-	Status     string
-	Error      map[string]string `json:"error,omitempty"`
+type newOrderRequest struct {
+	Identifiers []identifier `json:"identifiers"`
+	NotBefore   time.Time    `json:"notBefore,omitempty"`
+	NotAfter    time.Time    `json:"notAfter,omitempty"`
 }
 
-type acmeAuthorization struct {
-	ID         string
-	AccountID  string
-	Identifier acmeIdentifier
-	Status     string
-	Expires    time.Time
-	Challenges []string
+type subproblem struct {
+	Type       string      `json:"type"`
+	Detail     string      `json:"detail"`
+	Identifier *identifier `json:"identifier,omitempty"`
 }
 
-type acmeOrder struct {
-	ID             string
-	AccountID      string
-	Identifiers    []acmeIdentifier
-	Status         string
-	Expires        time.Time
-	Authorization  []string
-	FinalizeURL    string
-	CertificateURL string
-	Serial         string
+type acmeError struct {
+	Type        string       `json:"type"`
+	Detail      string       `json:"detail"`
+	Subproblems []subproblem `json:"subproblems,omitempty"`
+	Err         error        `json:"-"`
+	Status      int          `json:"-"`
 }
 
-type acmeService struct {
-	manager *Manager
-	baseURL string
-	terms   string
-	check   func(context.Context, ACMEChallenge) error
-
-	mu          sync.Mutex
-	closed      bool
-	accounts    map[string]*acmeAccount
-	thumbprints map[string]string
-	orders      map[string]*acmeOrder
-	authzs      map[string]*acmeAuthorization
-	challenges  map[string]*acmeChallengeRecord
-	nonces      map[string]time.Time
+type order struct {
+	ID                string       `json:"id"`
+	AccountID         string       `json:"-"`
+	ProvisionerID     string       `json:"-"`
+	Status            string       `json:"status"`
+	ExpiresAt         time.Time    `json:"expires"`
+	Identifiers       []identifier `json:"identifiers"`
+	NotBefore         time.Time    `json:"notBefore"`
+	NotAfter          time.Time    `json:"notAfter"`
+	Error             *acmeError   `json:"error,omitempty"`
+	AuthorizationIDs  []string     `json:"-"`
+	AuthorizationURLs []string     `json:"authorizations"`
+	FinalizeURL       string       `json:"finalize"`
+	CertificateID     string       `json:"-"`
+	CertificateURL    string       `json:"certificate,omitempty"`
 }
 
-// ACMERegistration is the lifecycle handle returned by RegisterACME.
-// Its in-memory account/order state ends when the process stops; certificates and
-// revocations themselves are persisted by the supplied PKI Manager.
-type ACMERegistration struct {
-	service *acmeService
+type authorization struct {
+	ID          string       `json:"-"`
+	AccountID   string       `json:"-"`
+	Token       string       `json:"-"`
+	Fingerprint string       `json:"-"`
+	Identifier  identifier   `json:"identifier"`
+	Status      string       `json:"status"`
+	Challenges  []*challenge `json:"challenges"`
+	Wildcard    bool         `json:"wildcard"`
+	ExpiresAt   time.Time    `json:"expires"`
+	Error       *acmeError   `json:"error,omitempty"`
 }
 
-// RegisterACME adds the ACME directory and protocol endpoints to Echo and returns
-// a handle that can be closed during application shutdown. BaseURL must match the
-// externally advertised scheme, host, and optional path prefix exactly.
-func RegisterACME(e *echo.Echo, manager *Manager, cfg ACMEConfig) (*ACMERegistration, error) {
-	if e == nil || manager == nil {
-		return nil, fmt.Errorf("echo instance and PKI manager are required")
+type challenge struct {
+	ID              string     `json:"-"`
+	AccountID       string     `json:"-"`
+	AuthorizationID string     `json:"-"`
+	Value           string     `json:"-"`
+	Type            string     `json:"type"`
+	Status          string     `json:"status"`
+	Token           string     `json:"token"`
+	ValidatedAt     string     `json:"validated,omitempty"`
+	URL             string     `json:"url"`
+	Target          string     `json:"target,omitempty"`
+	Error           *acmeError `json:"error,omitempty"`
+	Payload         []byte     `json:"-"`
+	PayloadFormat   string     `json:"-"`
+}
+
+type finalizeRequest struct {
+	CSR string `json:"csr"`
+	csr *x509.CertificateRequest
+}
+
+type revokeReqest struct {
+	Certificate string `json:"certificate"`
+	ReasonCode  *int   `json:"reason,omitempty"`
+}
+
+func (m *Manager) acmeServerFunc(e *echo.Echo, port int) {
+	e.Use(middleware.Recover())
+	e.Use(middleware.Logger())
+
+	e.GET("/directory", func(c echo.Context) error {
+		baseURL := strings.TrimRight(m.conf.AcmeBaseURL, "/")
+		d := directory{
+			NewNonce:   baseURL + "/new-nonce",
+			NewAccount: baseURL + "/new-account",
+			NewOrder:   baseURL + "/new-order",
+			RevokeCert: baseURL + "/revoke-cert",
+			KeyChange:  baseURL + "/key-change",
+		}
+		return c.JSON(http.StatusOK, d)
+	})
+	e.HEAD("/new-nonce", func(c echo.Context) error {
+		m.addACMEHeader(c)
+		return c.NoContent(http.StatusOK)
+	})
+	e.GET("/new-nonce", func(c echo.Context) error {
+		m.addACMEHeader(c)
+		return c.NoContent(http.StatusNoContent)
+	})
+	e.POST("/new-account", func(c echo.Context) error {
+		m.addACMEHeader(c)
+		jws, err := getJWS(c, m.conf.AcmeBaseURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		jwk := extractJWK(jws)
+		if jwk == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "jwk not found"})
+		}
+		payload, err := jws.Verify(jwk)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		var nar newAccountRequest
+		if err := json.Unmarshal(payload, &nar); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		baseURL := strings.TrimRight(m.conf.AcmeBaseURL, "/")
+		acc := &account{
+			ID:        jwk.KeyID,
+			Key:       jwk,
+			Status:    "valid",
+			Contact:   nar.Contact,
+			OrdersURL: baseURL + "/account/" + jwk.KeyID + "/orders",
+		}
+		acmeMapMu.Lock()
+		acmeAccMap[acc.ID] = acc
+		acmeMapMu.Unlock()
+
+		c.Response().Header().Add("Location", baseURL+"/account/"+acc.ID)
+		return c.JSON(http.StatusCreated, acc)
+	})
+	e.POST("/new-order", func(c echo.Context) error {
+		baseURL := strings.TrimRight(m.conf.AcmeBaseURL, "/")
+		m.addACMEHeader(c)
+		jws, err := getJWS(c, m.conf.AcmeBaseURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		acc, err := lookupJWKAndAccount(jws)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		payload, err := jws.Verify(acc.Key)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		var nor newOrderRequest
+		if err := json.Unmarshal(payload, &nor); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		now := time.Now().UTC().Truncate(time.Second)
+		o := &order{
+			ID:                createNonce(),
+			AccountID:         acc.ID,
+			Status:            "pending",
+			Identifiers:       nor.Identifiers,
+			ExpiresAt:         now.Add(time.Hour * 24),
+			AuthorizationIDs:  make([]string, len(nor.Identifiers)),
+			AuthorizationURLs: make([]string, len(nor.Identifiers)),
+			NotBefore:         nor.NotBefore,
+			NotAfter:          nor.NotAfter,
+		}
+		for i, iden := range o.Identifiers {
+			azID := createNonce()
+			chTypes := []string{}
+			switch iden.Type {
+			case "ip":
+				chTypes = append(chTypes, "http-01", "tls-alpn-01")
+			case "dns":
+				chTypes = append(chTypes, "dns-01")
+				if !strings.HasPrefix(iden.Value, "*.") {
+					chTypes = append(chTypes, "http-01", "tls-alpn-01")
+				}
+			}
+			az := &authorization{
+				ID:         azID,
+				AccountID:  acc.ID,
+				Identifier: iden,
+				ExpiresAt:  o.ExpiresAt,
+				Status:     "pending",
+				Challenges: []*challenge{},
+				Token:      createNonce(),
+			}
+			for _, chType := range chTypes {
+				chID := createNonce()
+				az.Challenges = append(az.Challenges,
+					&challenge{
+						ID:              chID,
+						AccountID:       acc.ID,
+						AuthorizationID: azID,
+						Type:            chType,
+						Value:           iden.Value,
+						Token:           az.Token,
+						Status:          "pending",
+						URL:             baseURL + "/challenge/" + azID + "/" + chID,
+					})
+			}
+			o.AuthorizationIDs[i] = az.ID
+			o.AuthorizationURLs[i] = baseURL + "/authz/" + azID
+			acmeMapMu.Lock()
+			acmeAuthzMap[az.ID] = az
+			acmeMapMu.Unlock()
+		}
+		o.FinalizeURL = baseURL + "/order/" + o.ID + "/finalize"
+		acmeMapMu.Lock()
+		acmeOrderMap[o.ID] = o
+		acmeMapMu.Unlock()
+
+		c.Response().Header().Add("Location", baseURL+"/order/"+o.ID)
+		return c.JSON(http.StatusCreated, o)
+	})
+
+	e.POST("/challenge/:azID/:chID", func(c echo.Context) error {
+		baseURL := strings.TrimRight(m.conf.AcmeBaseURL, "/")
+		m.addACMEHeader(c)
+		jws, err := getJWS(c, m.conf.AcmeBaseURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		azID := c.Param("azID")
+		chID := c.Param("chID")
+		acc, err := lookupJWKAndAccount(jws)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		acmeMapMu.RLock()
+		az, ok := acmeAuthzMap[azID]
+		acmeMapMu.RUnlock()
+		if !ok || az.AccountID != acc.ID {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "authorization not found"})
+		}
+
+		var ch *challenge
+		for _, cand := range az.Challenges {
+			if cand.ID == chID {
+				ch = cand
+				break
+			}
+		}
+		if ch == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "challenge not found"})
+		}
+
+		switch ch.Type {
+		case "http-01":
+			if err := http01Validate(acc, ch); err != nil {
+				return c.JSON(http.StatusBadRequest, err)
+			}
+		case "tls-alpn-01":
+			if err := tlsalpn01Validate(acc, ch); err != nil {
+				return c.JSON(http.StatusBadRequest, err)
+			}
+		case "dns-01":
+			if err := dns01Validate(acc, ch); err != nil {
+				return c.JSON(http.StatusBadRequest, err)
+			}
+		default:
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "unsupported challenge type"})
+		}
+
+		ch.Status = "valid"
+		c.Response().Header().Add("Location", baseURL+"/challenge/"+az.ID+"/"+chID)
+		c.Response().Header().Add("Link", fmt.Sprintf("<%s/authz/%s>;rel=up", baseURL, az.ID))
+		return c.JSON(http.StatusOK, ch)
+	})
+
+	e.POST("/order/:id/finalize", func(c echo.Context) error {
+		baseURL := strings.TrimRight(m.conf.AcmeBaseURL, "/")
+		m.addACMEHeader(c)
+		jws, err := getJWS(c, m.conf.AcmeBaseURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		id := c.Param("id")
+		acc, err := lookupJWKAndAccount(jws)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		acmeMapMu.RLock()
+		o, ok := acmeOrderMap[id]
+		acmeMapMu.RUnlock()
+		if !ok || o.AccountID != acc.ID {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "order not found"})
+		}
+
+		payload, err := jws.Verify(acc.Key)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		var fr finalizeRequest
+		if err := json.Unmarshal(payload, &fr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		csrBytes, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(fr.CSR, "="))
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		m.mu.Lock()
+		cert, certID, err := m.createCertificateFromCSR(csrBytes, "acme", map[string]string{
+			"AccountID":  o.AccountID,
+			"OrderID":    o.ID,
+			"RemoteAddr": c.RealIP(),
+		})
+		rootCertPEM := m.conf.RootCACert
+		m.mu.Unlock()
+
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		pemCert := string(makePEM(cert, "CERTIFICATE")) + "\n" + rootCertPEM
+		acmeMapMu.Lock()
+		acmeCertMap[certID] = &acmeCertificate{
+			ID:          certID,
+			OrderID:     o.ID,
+			AccountID:   o.AccountID,
+			Certificate: []byte(pemCert),
+		}
+		o.Status = "valid"
+		o.CertificateID = certID
+		o.CertificateURL = baseURL + "/certificate/" + o.CertificateID
+		acmeMapMu.Unlock()
+
+		c.Response().Header().Add("Location", baseURL+"/order/"+id)
+		return c.JSON(http.StatusOK, o)
+	})
+
+	e.POST("/certificate/:id", func(c echo.Context) error {
+		m.addACMEHeader(c)
+		jws, err := getJWS(c, m.conf.AcmeBaseURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		id := c.Param("id")
+		acc, err := lookupJWKAndAccount(jws)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		acmeMapMu.RLock()
+		cert, ok := acmeCertMap[id]
+		acmeMapMu.RUnlock()
+		if !ok || cert.AccountID != acc.ID {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "certificate not found"})
+		}
+		return c.Blob(http.StatusOK, "application/pem-certificate-chain", cert.Certificate)
+	})
+
+	e.POST("/revoke-cert", func(c echo.Context) error {
+		m.addACMEHeader(c)
+		jws, err := getJWS(c, m.conf.AcmeBaseURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		var jwk *jose.JSONWebKey
+		var acc *account
+		if canExtractJWKFrom(jws) {
+			jwk = extractJWK(jws)
+			if jwk == nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "missing jwk"})
+			}
+		} else {
+			acc, err = lookupJWKAndAccount(jws)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, err)
+			}
+			jwk = acc.Key
+		}
+		payload, err := jws.Verify(jwk)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		var rvr revokeReqest
+		if err := json.Unmarshal(payload, &rvr); err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+
+		certBytes, err := base64.RawURLEncoding.DecodeString(rvr.Certificate)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		certToBeRevoked, err := x509.ParseCertificate(certBytes)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, err)
+		}
+		serial := certToBeRevoked.SerialNumber.Int64()
+		id := fmt.Sprintf("%x", serial)
+
+		if m.store != nil {
+			cert, _ := m.store.GetPKICert(context.Background(), id)
+			if cert == nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "cert not found"})
+			}
+			if acc != nil {
+				accID, ok := cert.Info["AccountID"]
+				if !ok || acc.ID != accID {
+					return c.JSON(http.StatusBadRequest, map[string]string{"error": "not certificate owner"})
+				}
+			} else {
+				if _, err := jws.Verify(certToBeRevoked.PublicKey); err != nil {
+					return c.JSON(http.StatusBadRequest, err)
+				}
+			}
+			_ = m.RevokeCert(id)
+		}
+		return c.NoContent(http.StatusOK)
+	})
+
+	certPair, err := tls.X509KeyPair([]byte(m.conf.AcmeServerCert), []byte(m.conf.AcmeServerKey))
+	if err != nil {
+		slog.Error("PKI ACME parse keypair error", "error", err)
+		return
 	}
-	base, err := validateACMEBaseURL(cfg.BaseURL)
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: e,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{certPair},
+			MinVersion:   tls.VersionTLS12,
+		},
+	}
+
+	if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+		m.mu.Lock()
+		m.lastAcmeServerErr = err
+		m.acmeServerRunning = false
+		m.mu.Unlock()
+		slog.Error("PKI ACME server failed to start", "port", port, "error", err)
+	}
+}
+
+func (m *Manager) addACMEHeader(c echo.Context) {
+	baseURL := strings.TrimRight(m.conf.AcmeBaseURL, "/")
+	c.Response().Header().Add("Replay-Nonce", createNonce())
+	c.Response().Header().Add("Link", baseURL+"/directory/index")
+	c.Response().Header().Add(echo.HeaderCacheControl, "no-store")
+}
+
+func getJWS(c echo.Context, baseURL string) (*jose.JSONWebSignature, error) {
+	b, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return nil, err
 	}
-	s := &acmeService{
-		manager: manager, baseURL: base, terms: cfg.TermsOfService, check: cfg.ChallengeValidator,
-		accounts: make(map[string]*acmeAccount), thumbprints: make(map[string]string),
-		orders: make(map[string]*acmeOrder), authzs: make(map[string]*acmeAuthorization),
-		challenges: make(map[string]*acmeChallengeRecord), nonces: make(map[string]time.Time),
-	}
-	prefix := strings.TrimRight(mustParseURL(base).Path, "/")
-	if prefix == "/" {
-		prefix = ""
-	}
-	register := func(method, path string, handler echo.HandlerFunc) {
-		e.Add(method, prefix+path, s.withNonce(handler))
-	}
-	register(http.MethodGet, "/directory", s.directory)
-	register(http.MethodGet, "/new-nonce", s.newNonce)
-	register(http.MethodHead, "/new-nonce", s.newNonce)
-	register(http.MethodPost, "/new-account", s.newAccount)
-	register(http.MethodPost, "/new-order", s.newOrder)
-	register(http.MethodPost, "/account/:id", s.account)
-	register(http.MethodPost, "/orders/:id", s.accountOrders)
-	register(http.MethodPost, "/order/:id", s.order)
-	register(http.MethodPost, "/authz/:id", s.authorization)
-	register(http.MethodPost, "/challenge/:id", s.challenge)
-	register(http.MethodPost, "/finalize/:id", s.finalize)
-	register(http.MethodPost, "/cert/:id", s.certificate)
-	register(http.MethodPost, "/revoke-cert", s.revokeCertificate)
-	return &ACMERegistration{service: s}, nil
-}
-
-// Close prevents future stateful requests. Echo owns the listener and must be shut
-// down by the application using Echo.Shutdown.
-func (r *ACMERegistration) Close() error {
-	if r == nil || r.service == nil {
-		return nil
-	}
-	r.service.mu.Lock()
-	defer r.service.mu.Unlock()
-	r.service.closed = true
-	return nil
-}
-
-func validateACMEBaseURL(value string) (string, error) {
-	u, err := url.Parse(strings.TrimRight(value, "/"))
-	if err != nil || u.Scheme != "https" || u.Host == "" ||
-		u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", fmt.Errorf("ACME BaseURL must be an absolute https URL without credentials, query, or fragment")
-	}
-	if u.RawPath != "" || strings.Contains(u.Path, "//") || strings.ContainsAny(u.Path, "\r\n") {
-		return "", fmt.Errorf("invalid ACME BaseURL path")
-	}
-	return strings.TrimRight(u.String(), "/"), nil
-}
-
-func mustParseURL(value string) *url.URL {
-	u, _ := url.Parse(value)
-	return u
-}
-
-func (s *acmeService) url(path string) string { return s.baseURL + path }
-
-func (s *acmeService) withNonce(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		nonce, err := s.issueNonce()
-		if err == nil {
-			c.Response().Header().Set("Replay-Nonce", nonce)
-			c.Response().Header().Set("Cache-Control", "no-store")
-		}
-		err = next(c)
-		if problem, ok := err.(*acmeProblemError); ok {
-			c.Response().Header().Set(echo.HeaderContentType, "application/problem+json")
-			return c.JSON(problem.status, problem.body)
-		}
-		return err
-	}
-}
-
-type acmeProblemError struct {
-	status int
-	body   map[string]any
-}
-
-func (e *acmeProblemError) Error() string {
-	return fmt.Sprint(e.body["detail"])
-}
-
-func (s *acmeService) issueNonce() (string, error) {
-	b := make([]byte, 24)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return "", err
-	}
-	nonce := base64.RawURLEncoding.EncodeToString(b)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cleanNoncesLocked()
-	if s.closed {
-		return "", errors.New("ACME service is closed")
-	}
-	if len(s.nonces) >= acmeMaxNonces {
-		return "", fmt.Errorf("ACME nonce capacity reached")
-	}
-	s.nonces[nonce] = time.Now().Add(acmeNonceLifetime)
-	return nonce, nil
-}
-
-func (s *acmeService) cleanNoncesLocked() {
-	now := time.Now()
-	for nonce, expires := range s.nonces {
-		if !expires.After(now) {
-			delete(s.nonces, nonce)
-		}
-	}
-}
-
-func (s *acmeService) consumeNonce(nonce string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cleanNoncesLocked()
-	if s.closed {
-		return false
-	}
-	expires, ok := s.nonces[nonce]
-	if !ok || !expires.After(time.Now()) {
-		return false
-	}
-	delete(s.nonces, nonce)
-	return true
-}
-
-func (s *acmeService) readJWS(c echo.Context, path string) (parsedACMEJWS, error) {
-	if c.Request().Method != http.MethodPost {
-		return parsedACMEJWS{}, acmeProblem(http.StatusMethodNotAllowed, "malformed", "ACME requests must use POST")
-	}
-	mediaType, _, mediaErr := mime.ParseMediaType(c.Request().Header.Get(echo.HeaderContentType))
-	if mediaErr != nil || mediaType != "application/jose+json" {
-		return parsedACMEJWS{}, acmeProblem(http.StatusUnsupportedMediaType, "malformed", "Content-Type must be application/jose+json")
-	}
-	body, err := io.ReadAll(http.MaxBytesReader(c.Response(), c.Request().Body, acmeMaxRequestBytes))
+	jws, err := jose.ParseSigned(string(b), []jose.SignatureAlgorithm{jose.ES256, jose.ES384, jose.RS256})
 	if err != nil {
-		return parsedACMEJWS{}, acmeProblem(http.StatusRequestEntityTooLarge, "malformed", "request body exceeds the ACME size limit")
+		return nil, err
 	}
-	jws, err := decodeACMEJWS(body, s.url(path))
-	if err != nil {
-		return parsedACMEJWS{}, acmeProblem(http.StatusBadRequest, "malformed", err.Error())
+	if err := checkJWS(jws, baseURL); err != nil {
+		return nil, err
 	}
 	return jws, nil
 }
 
-func (s *acmeService) authenticate(c echo.Context, path string, newAccount bool) (*acmeAccount, parsedACMEJWS, error) {
-	jws, err := s.readJWS(c, path)
+func checkJWS(jws *jose.JSONWebSignature, baseURL string) error {
+	if len(jws.Signatures) == 0 {
+		return fmt.Errorf("request body does not contain a signature")
+	}
+	if len(jws.Signatures) > 1 {
+		return fmt.Errorf("request body contains more than one signature")
+	}
+	sig := jws.Signatures[0]
+	uh := sig.Unprotected
+	if uh.KeyID != "" || uh.JSONWebKey != nil || uh.Algorithm != "" || uh.Nonce != "" || len(uh.ExtraHeaders) > 0 {
+		return fmt.Errorf("unprotected header must not be used")
+	}
+	hdr := sig.Protected
+	if hdr.Nonce == "" {
+		return fmt.Errorf("invalid nonce")
+	}
+	if jwsURL, ok := hdr.ExtraHeaders["url"].(string); !ok || !strings.HasPrefix(jwsURL, baseURL) {
+		return fmt.Errorf("jws missing url protected header")
+	}
+	if hdr.JSONWebKey != nil && hdr.KeyID != "" {
+		return fmt.Errorf("jwk and kid are mutually exclusive")
+	}
+	if hdr.JSONWebKey == nil && hdr.KeyID == "" {
+		return fmt.Errorf("either jwk or kid must be defined in jws protected header")
+	}
+	return nil
+}
+
+func extractJWK(jws *jose.JSONWebSignature) *jose.JSONWebKey {
+	jwk := jws.Signatures[0].Protected.JSONWebKey
+	if jwk == nil || !jwk.Valid() {
+		return nil
+	}
+	kid, err := keyToID(jwk)
+	if err == nil {
+		jwk.KeyID = kid
+	}
+	return jwk
+}
+
+func lookupJWKAndAccount(jws *jose.JSONWebSignature) (*account, error) {
+	kid := jws.Signatures[0].Protected.KeyID
+	if kid == "" {
+		return nil, fmt.Errorf("jws missing keyid")
+	}
+	kid = path.Base(kid)
+	acmeMapMu.RLock()
+	acc, ok := acmeAccMap[kid]
+	acmeMapMu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("no account for %s", kid)
+	}
+	return acc, nil
+}
+
+func keyToID(jwk *jose.JSONWebKey) (string, error) {
+	kid, err := jwk.Thumbprint(crypto.SHA256)
 	if err != nil {
-		return nil, parsedACMEJWS{}, err
-	}
-	var account *acmeAccount
-	if newAccount {
-		if jws.protected.KID != "" {
-			return nil, parsedACMEJWS{}, acmeProblem(http.StatusBadRequest, "malformed", "new-account requires a JWK protected header")
-		}
-	} else {
-		if jws.protected.KID == "" {
-			return nil, parsedACMEJWS{}, acmeProblem(http.StatusBadRequest, "malformed", "this endpoint requires an account kid")
-		}
-		id, err := s.accountIDFromURL(jws.protected.KID)
-		if err != nil {
-			return nil, parsedACMEJWS{}, acmeProblem(http.StatusUnauthorized, "unauthorized", "unknown account key identifier")
-		}
-		s.mu.Lock()
-		account = s.accounts[id]
-		s.mu.Unlock()
-		if account == nil {
-			return nil, parsedACMEJWS{}, acmeProblem(http.StatusUnauthorized, "unauthorized", "unknown account")
-		}
-		if !validACMEAlgorithm(jws.protected.Alg, account.Key) {
-			return nil, parsedACMEJWS{}, acmeProblem(http.StatusBadRequest, "badSignatureAlgorithm", "unsupported JWS algorithm")
-		}
-		if err := verifyACMESignature(jws.protected.Alg, account.Key, jws.input, jws.signature); err != nil {
-			return nil, parsedACMEJWS{}, acmeProblem(http.StatusUnauthorized, "unauthorized", "JWS signature verification failed")
-		}
-	}
-	if !s.consumeNonce(jws.protected.Nonce) {
-		return nil, parsedACMEJWS{}, acmeProblem(http.StatusBadRequest, "badNonce", "JWS nonce is invalid, expired, or already used")
-	}
-	return account, jws, nil
-}
-
-func (s *acmeService) accountIDFromURL(value string) (string, error) {
-	u, err := url.Parse(value)
-	if err != nil || u.Scheme != mustParseURL(s.baseURL).Scheme || u.Host != mustParseURL(s.baseURL).Host ||
-		u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return "", fmt.Errorf("invalid account URL")
-	}
-	prefix := strings.TrimRight(mustParseURL(s.baseURL).Path, "/")
-	id := strings.TrimPrefix(u.Path, prefix+"/account/")
-	if id == "" || id == u.Path || strings.Contains(id, "/") {
-		return "", fmt.Errorf("invalid account URL")
-	}
-	if value != s.url("/account/"+id) {
-		return "", fmt.Errorf("account URL is not canonical")
-	}
-	return id, nil
-}
-
-func (s *acmeService) directory(c echo.Context) error {
-	directory := map[string]any{
-		"newNonce": s.url("/new-nonce"), "newAccount": s.url("/new-account"),
-		"newOrder": s.url("/new-order"), "revokeCert": s.url("/revoke-cert"),
-	}
-	meta := map[string]any{}
-	if s.terms != "" {
-		meta["termsOfService"] = s.terms
-	}
-	if len(meta) != 0 {
-		directory["meta"] = meta
-	}
-	return c.JSON(http.StatusOK, directory)
-}
-
-func (s *acmeService) newNonce(c echo.Context) error {
-	return c.NoContent(http.StatusOK)
-}
-
-func (s *acmeService) newAccount(c echo.Context) error {
-	_, jws, err := s.authenticate(c, "/new-account", true)
-	if err != nil {
-		return err
-	}
-	var request struct {
-		Contact              []string `json:"contact"`
-		TermsOfServiceAgreed bool     `json:"termsOfServiceAgreed"`
-		OnlyReturnExisting   bool     `json:"onlyReturnExisting"`
-	}
-	if len(jws.payload) != 0 {
-		if err := json.Unmarshal(jws.payload, &request); err != nil {
-			return acmeProblem(http.StatusBadRequest, "malformed", "invalid new-account payload")
-		}
-	}
-	if len(request.Contact) > 10 {
-		return acmeProblem(http.StatusBadRequest, "malformed", "at most 10 contact URIs are allowed")
-	}
-	for _, contact := range request.Contact {
-		contactURL, parseErr := url.Parse(contact)
-		if parseErr != nil || strings.ContainsAny(contact, "\r\n") ||
-			!(contactURL.Scheme == "mailto" && contactURL.Opaque != "" ||
-				contactURL.Scheme == "https" && contactURL.Host != "") {
-			return acmeProblem(http.StatusBadRequest, "invalidContact", "unsupported contact URI")
-		}
-	}
-	if request.OnlyReturnExisting {
-		s.mu.Lock()
-		id := s.thumbprints[jws.thumbprint]
-		account := s.accounts[id]
-		if account != nil {
-			account = cloneACMEAccount(account)
-		}
-		s.mu.Unlock()
-		if account == nil {
-			return acmeProblem(http.StatusNotFound, "accountDoesNotExist", "account does not exist")
-		}
-		c.Response().Header().Set("Location", s.url("/account/"+id))
-		return c.JSON(http.StatusOK, accountJSON(account, s.url("/orders/"+id)))
-	}
-	if s.terms != "" && !request.TermsOfServiceAgreed {
-		return acmeProblem(http.StatusBadRequest, "userActionRequired", "terms of service agreement is required")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return acmeProblem(http.StatusServiceUnavailable, "serverInternal", "ACME service is closed")
-	}
-	if id := s.thumbprints[jws.thumbprint]; id != "" {
-		account := s.accounts[id]
-		account.Contact = append([]string(nil), request.Contact...)
-		c.Response().Header().Set("Location", s.url("/account/"+id))
-		return c.JSON(http.StatusOK, accountJSON(account, s.url("/orders/"+id)))
-	}
-	if len(s.accounts) >= acmeMaxAccounts {
-		return acmeProblem(http.StatusServiceUnavailable, "rateLimited", "ACME account capacity reached")
-	}
-	id, err := randomACMEID()
-	if err != nil {
-		return err
-	}
-	account := &acmeAccount{ID: id, Key: jws.publicKey, Thumb: jws.thumbprint, Contact: request.Contact, Status: "valid"}
-	s.accounts[id] = account
-	s.thumbprints[jws.thumbprint] = id
-	c.Response().Header().Set("Location", s.url("/account/"+id))
-	return c.JSON(http.StatusCreated, accountJSON(account, s.url("/orders/"+id)))
-}
-
-func accountJSON(account *acmeAccount, orders string) map[string]any {
-	return map[string]any{"status": account.Status, "contact": account.Contact, "orders": orders}
-}
-
-func cloneACMEAccount(account *acmeAccount) *acmeAccount {
-	clone := *account
-	clone.Contact = append([]string(nil), account.Contact...)
-	clone.OrderIDs = append([]string(nil), account.OrderIDs...)
-	return &clone
-}
-
-func (s *acmeService) account(c echo.Context) error {
-	account, jws, err := s.authenticate(c, "/account/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	if len(jws.payload) != 0 {
-		return acmeProblem(http.StatusBadRequest, "malformed", "account POST-as-GET payload must be empty")
-	}
-	if account.ID != c.Param("id") {
-		return acmeProblem(http.StatusNotFound, "accountDoesNotExist", "account not found")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return c.JSON(http.StatusOK, accountJSON(account, s.url("/orders/"+account.ID)))
-}
-
-func (s *acmeService) accountOrders(c echo.Context) error {
-	account, jws, err := s.authenticate(c, "/orders/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	if len(jws.payload) != 0 {
-		return acmeProblem(http.StatusBadRequest, "malformed", "orders POST-as-GET payload must be empty")
-	}
-	if account.ID != c.Param("id") {
-		return acmeProblem(http.StatusNotFound, "accountDoesNotExist", "account not found")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	urls := make([]string, 0, len(account.OrderIDs))
-	for _, id := range account.OrderIDs {
-		urls = append(urls, s.url("/order/"+id))
-	}
-	return c.JSON(http.StatusOK, map[string]any{"orders": urls})
-}
-
-func (s *acmeService) newOrder(c echo.Context) error {
-	account, jws, err := s.authenticate(c, "/new-order", false)
-	if err != nil {
-		return err
-	}
-	var request struct {
-		Identifiers []acmeIdentifier `json:"identifiers"`
-		NotBefore   time.Time        `json:"notBefore,omitempty"`
-		NotAfter    time.Time        `json:"notAfter,omitempty"`
-	}
-	if err := json.Unmarshal(jws.payload, &request); err != nil {
-		return acmeProblem(http.StatusBadRequest, "malformed", "invalid new-order payload")
-	}
-	if len(request.Identifiers) == 0 || len(request.Identifiers) > acmeMaxIdentifiers {
-		return acmeProblem(http.StatusBadRequest, "malformed", fmt.Sprintf("new order must contain between 1 and %d identifiers", acmeMaxIdentifiers))
-	}
-	identifiers := make([]acmeIdentifier, len(request.Identifiers))
-	seen := make(map[string]bool, len(request.Identifiers))
-	for i, identifier := range request.Identifiers {
-		normalized, err := normalizeACMEIdentifier(identifier)
-		if err != nil {
-			return acmeProblem(http.StatusBadRequest, "unsupportedIdentifier", err.Error())
-		}
-		key := normalized.Type + ":" + normalized.Value
-		if seen[key] {
-			return acmeProblem(http.StatusBadRequest, "malformed", "duplicate order identifier")
-		}
-		seen[key] = true
-		identifiers[i] = normalized
-	}
-	if !request.NotBefore.IsZero() || !request.NotAfter.IsZero() {
-		return acmeProblem(http.StatusBadRequest, "badPublicKey", "custom certificate validity dates are unsupported")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed || s.accounts[account.ID] == nil {
-		return acmeProblem(http.StatusServiceUnavailable, "serverInternal", "ACME service is closed")
-	}
-	if len(s.orders) >= acmeMaxOrders {
-		return acmeProblem(http.StatusServiceUnavailable, "rateLimited", "ACME order capacity reached")
-	}
-	orderID, err := randomACMEID()
-	if err != nil {
-		return err
-	}
-	order := &acmeOrder{
-		ID: orderID, AccountID: account.ID, Identifiers: identifiers, Status: "pending",
-		Expires: time.Now().Add(24 * time.Hour), FinalizeURL: s.url("/finalize/" + orderID),
-	}
-	for _, identifier := range identifiers {
-		authzID, err := randomACMEID()
-		if err != nil {
-			return err
-		}
-		authz := &acmeAuthorization{
-			ID: authzID, AccountID: account.ID, Identifier: identifier, Status: "pending",
-			Expires: order.Expires,
-		}
-		challengeTypes := []string{"http-01", "tls-alpn-01"}
-		if identifier.Type == "dns" {
-			challengeTypes = append(challengeTypes, "dns-01")
-		}
-		for _, challengeType := range challengeTypes {
-			challengeID, err := randomACMEID()
-			if err != nil {
-				return err
-			}
-			token, err := randomACMEID()
-			if err != nil {
-				return err
-			}
-			challenge := &acmeChallengeRecord{
-				ID: challengeID, AccountID: account.ID, AuthzID: authzID,
-				Identifier: identifier, Type: challengeType, Token: token, Status: "pending",
-			}
-			s.challenges[challengeID] = challenge
-			authz.Challenges = append(authz.Challenges, challengeID)
-		}
-		s.authzs[authzID] = authz
-		order.Authorization = append(order.Authorization, s.url("/authz/"+authzID))
-	}
-	s.orders[orderID] = order
-	account.OrderIDs = append(account.OrderIDs, orderID)
-	c.Response().Header().Set("Location", s.url("/order/"+orderID))
-	return c.JSON(http.StatusCreated, s.orderJSON(order))
-}
-
-func normalizeACMEIdentifier(identifier acmeIdentifier) (acmeIdentifier, error) {
-	switch identifier.Type {
-	case "dns":
-		value := strings.ToLower(strings.TrimSuffix(identifier.Value, "."))
-		if value == "" || len(value) > 253 || strings.Contains(value, "*") || strings.ContainsAny(value, "\r\n /\\") {
-			return acmeIdentifier{}, fmt.Errorf("invalid or unsupported DNS identifier")
-		}
-		for _, label := range strings.Split(value, ".") {
-			if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
-				return acmeIdentifier{}, fmt.Errorf("invalid DNS identifier")
-			}
-			for _, r := range label {
-				if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') {
-					return acmeIdentifier{}, fmt.Errorf("invalid DNS identifier")
-				}
-			}
-		}
-		return acmeIdentifier{Type: "dns", Value: value}, nil
-	case "ip":
-		ip := net.ParseIP(identifier.Value)
-		if ip == nil {
-			return acmeIdentifier{}, fmt.Errorf("invalid IP identifier")
-		}
-		return acmeIdentifier{Type: "ip", Value: ip.String()}, nil
-	default:
-		return acmeIdentifier{}, fmt.Errorf("only DNS and IP identifiers are supported")
-	}
-}
-
-func (s *acmeService) orderJSON(order *acmeOrder) map[string]any {
-	result := map[string]any{
-		"status": order.Status, "expires": order.Expires.UTC().Format(time.RFC3339),
-		"identifiers": order.Identifiers, "authorizations": order.Authorization,
-		"finalize": order.FinalizeURL,
-	}
-	if order.CertificateURL != "" {
-		result["certificate"] = order.CertificateURL
-	}
-	if order.Status == "invalid" {
-		result["error"] = map[string]string{"type": "urn:ietf:params:acme:error:unauthorized", "detail": "authorization challenge validation failed"}
-	}
-	return result
-}
-
-func (s *acmeService) order(c echo.Context) error {
-	account, _, err := s.authenticate(c, "/order/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	order := s.orders[c.Param("id")]
-	if order == nil || order.AccountID != account.ID {
-		return acmeProblem(http.StatusNotFound, "orderNotFound", "order not found")
-	}
-	if !order.Expires.After(time.Now()) && (order.Status == "pending" || order.Status == "ready") {
-		order.Status = "invalid"
-	}
-	return c.JSON(http.StatusOK, s.orderJSON(order))
-}
-
-func (s *acmeService) authorization(c echo.Context) error {
-	account, _, err := s.authenticate(c, "/authz/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	authz := s.authzs[c.Param("id")]
-	if authz == nil || authz.AccountID != account.ID {
-		return acmeProblem(http.StatusNotFound, "authorizationNotFound", "authorization not found")
-	}
-	if !authz.Expires.After(time.Now()) && authz.Status == "pending" {
-		authz.Status = "invalid"
-		s.setOrderStatusLocked(authz.ID, "invalid")
-	}
-	challenges := make([]map[string]any, 0, len(authz.Challenges))
-	for _, id := range authz.Challenges {
-		challenge := s.challenges[id]
-		item := map[string]any{
-			"type": challenge.Type, "url": s.url("/challenge/" + id),
-			"status": challenge.Status, "token": challenge.Token,
-		}
-		if challenge.Error != nil {
-			item["error"] = challenge.Error
-		}
-		challenges = append(challenges, item)
-	}
-	return c.JSON(http.StatusOK, map[string]any{
-		"identifier": authz.Identifier, "status": authz.Status,
-		"expires": authz.Expires.UTC().Format(time.RFC3339), "challenges": challenges,
-	})
-}
-
-func (s *acmeService) challenge(c echo.Context) error {
-	account, jws, err := s.authenticate(c, "/challenge/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	challengeID := c.Param("id")
-	s.mu.Lock()
-	challenge := s.challenges[challengeID]
-	if challenge == nil || challenge.AccountID != account.ID {
-		s.mu.Unlock()
-		return acmeProblem(http.StatusNotFound, "malformed", "challenge not found")
-	}
-	if len(jws.payload) != 0 && string(jws.payload) != "{}" {
-		s.mu.Unlock()
-		return acmeProblem(http.StatusBadRequest, "malformed", "challenge response payload must be empty")
-	}
-	if challenge.Status != "pending" {
-		response := s.challengeJSON(challenge)
-		s.mu.Unlock()
-		return c.JSON(http.StatusOK, response)
-	}
-	authz := s.authzs[challenge.AuthzID]
-	if authz == nil || !authz.Expires.After(time.Now()) {
-		challenge.Status = "invalid"
-		challenge.Error = map[string]string{
-			"type": "urn:ietf:params:acme:error:unauthorized", "detail": "authorization has expired",
-		}
-		if authz != nil {
-			authz.Status = "invalid"
-			s.setOrderStatusLocked(authz.ID, "invalid")
-		}
-		response := s.challengeJSON(challenge)
-		s.mu.Unlock()
-		return c.JSON(http.StatusOK, response)
-	}
-	challenge.Status = "processing"
-	challengeCopy := *challenge
-	s.mu.Unlock()
-
-	var validateErr error
-	keyAuth := challengeCopy.Token + "." + account.Thumb
-	if s.check == nil {
-		validateErr = errors.New("challenge validation is not configured; challenge type unsupported")
-	} else {
-		validateErr = s.check(c.Request().Context(), ACMEChallenge{
-			Type: challengeCopy.Type, Identifier: challengeCopy.Identifier.Value,
-			Token: challengeCopy.Token, KeyAuthorization: keyAuth,
-		})
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	challenge = s.challenges[challengeID]
-	if challenge == nil {
-		return acmeProblem(http.StatusNotFound, "malformed", "challenge no longer exists")
-	}
-	if validateErr != nil {
-		challenge.Status = "invalid"
-		detail := validateErr.Error()
-		if len(detail) > 512 {
-			detail = detail[:512]
-		}
-		challenge.Error = map[string]string{"type": "urn:ietf:params:acme:error:unauthorized", "detail": detail}
-		authz := s.authzs[challenge.AuthzID]
-		if authz != nil {
-			authz.Status = "invalid"
-			s.setOrderStatusLocked(authz.ID, "invalid")
-		}
-	} else {
-		challenge.Status = "valid"
-		if authz := s.authzs[challenge.AuthzID]; authz != nil {
-			authz.Status = "valid"
-			s.updateOrderReadinessLocked(authz.ID)
-		}
-	}
-	return c.JSON(http.StatusOK, s.challengeJSON(challenge))
-}
-
-func (s *acmeService) challengeJSON(challenge *acmeChallengeRecord) map[string]any {
-	result := map[string]any{
-		"type": challenge.Type, "url": s.url("/challenge/" + challenge.ID),
-		"status": challenge.Status, "token": challenge.Token,
-	}
-	if challenge.Error != nil {
-		result["error"] = challenge.Error
-	}
-	return result
-}
-
-func (s *acmeService) setOrderStatusLocked(authzID, status string) {
-	for _, order := range s.orders {
-		for _, urlValue := range order.Authorization {
-			if strings.HasSuffix(urlValue, "/authz/"+authzID) && order.Status != "valid" {
-				order.Status = status
-			}
-		}
-	}
-}
-
-func (s *acmeService) updateOrderReadinessLocked(authzID string) {
-	for _, order := range s.orders {
-		for _, urlValue := range order.Authorization {
-			if strings.HasSuffix(urlValue, "/authz/"+authzID) {
-				allValid := true
-				for _, authzURL := range order.Authorization {
-					id := strings.TrimPrefix(authzURL, s.url("/authz/"))
-					if authz := s.authzs[id]; authz == nil || authz.Status != "valid" {
-						allValid = false
-						break
-					}
-				}
-				if allValid && order.Status == "pending" {
-					order.Status = "ready"
-				}
-			}
-		}
-	}
-}
-
-func (s *acmeService) finalize(c echo.Context) error {
-	account, jws, err := s.authenticate(c, "/finalize/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	var request struct {
-		CSR string `json:"csr"`
-	}
-	if err := json.Unmarshal(jws.payload, &request); err != nil || request.CSR == "" {
-		return acmeProblem(http.StatusBadRequest, "malformed", "finalize payload must contain a CSR")
-	}
-	csrDER, err := base64.RawURLEncoding.DecodeString(request.CSR)
-	if err != nil || len(csrDER) > 128*1024 {
-		return acmeProblem(http.StatusBadRequest, "malformed", "invalid or oversized CSR")
-	}
-	csr, err := x509.ParseCertificateRequest(csrDER)
-	if err != nil || csr.CheckSignature() != nil {
-		return acmeProblem(http.StatusBadRequest, "badCSR", "CSR signature is invalid")
-	}
-	s.mu.Lock()
-	order := s.orders[c.Param("id")]
-	if order == nil || order.AccountID != account.ID {
-		s.mu.Unlock()
-		return acmeProblem(http.StatusNotFound, "orderNotFound", "order not found")
-	}
-	if order.Status == "valid" && order.Serial != "" {
-		response := s.orderJSON(order)
-		s.mu.Unlock()
-		return c.JSON(http.StatusOK, response)
-	}
-	if !order.Expires.After(time.Now()) && (order.Status == "pending" || order.Status == "ready") {
-		order.Status = "invalid"
-	}
-	if order.Status != "ready" {
-		s.mu.Unlock()
-		return acmeProblem(http.StatusBadRequest, "orderNotReady", "all authorizations must be valid before finalization")
-	}
-	if !csrMatchesACMEOrder(csr, order.Identifiers) {
-		s.mu.Unlock()
-		return acmeProblem(http.StatusBadRequest, "badCSR", "CSR identifiers must exactly match the order identifiers")
-	}
-	order.Status = "processing"
-	s.mu.Unlock()
-
-	certificate, err := s.manager.IssueCertificateFromCSR(csrDER, "acme")
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	order = s.orders[c.Param("id")]
-	if err != nil {
-		order.Status = "ready"
-		return acmeProblem(http.StatusBadRequest, "badCSR", "certificate signing failed")
-	}
-	order.Serial = certificate.Serial
-	order.CertificateURL = s.url("/cert/" + order.ID)
-	order.Status = "valid"
-	return c.JSON(http.StatusOK, s.orderJSON(order))
-}
-
-func csrMatchesACMEOrder(csr *x509.CertificateRequest, identifiers []acmeIdentifier) bool {
-	if csr == nil || len(csr.EmailAddresses) != 0 || len(csr.DNSNames)+len(csr.IPAddresses) != len(identifiers) {
-		return false
-	}
-	actual := make([]string, 0, len(identifiers))
-	for _, name := range csr.DNSNames {
-		normal, err := normalizeACMEIdentifier(acmeIdentifier{Type: "dns", Value: name})
-		if err != nil {
-			return false
-		}
-		actual = append(actual, normal.Type+":"+normal.Value)
-	}
-	for _, ip := range csr.IPAddresses {
-		actual = append(actual, "ip:"+ip.String())
-	}
-	expected := make([]string, 0, len(identifiers))
-	for _, identifier := range identifiers {
-		expected = append(expected, identifier.Type+":"+identifier.Value)
-	}
-	sort.Strings(actual)
-	sort.Strings(expected)
-	if strings.Join(actual, "\x00") != strings.Join(expected, "\x00") {
-		return false
-	}
-	commonName := strings.ToLower(strings.TrimSuffix(csr.Subject.CommonName, "."))
-	for _, identifier := range identifiers {
-		if identifier.Type == "dns" && commonName == identifier.Value {
-			return true
-		}
-		if identifier.Type == "ip" {
-			cnIP := net.ParseIP(csr.Subject.CommonName)
-			if cnIP != nil && cnIP.Equal(net.ParseIP(identifier.Value)) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (s *acmeService) certificate(c echo.Context) error {
-	account, _, err := s.authenticate(c, "/cert/"+c.Param("id"), false)
-	if err != nil {
-		return err
-	}
-	s.mu.Lock()
-	order := s.orders[c.Param("id")]
-	if order == nil || order.AccountID != account.ID || order.Status != "valid" || order.Serial == "" {
-		s.mu.Unlock()
-		return acmeProblem(http.StatusNotFound, "certificateNotFound", "certificate not found")
-	}
-	serial := order.Serial
-	s.mu.Unlock()
-	cert, err := s.manager.GetCertificate(serial)
-	if err != nil {
-		return acmeProblem(http.StatusNotFound, "certificateNotFound", "certificate not found")
-	}
-	c.Response().Header().Set(echo.HeaderContentType, "application/pem-certificate-chain")
-	c.Response().WriteHeader(http.StatusOK)
-	_, err = c.Response().Write(append([]byte(cert.CertPEM), []byte(s.manager.GetCACertPEM())...))
-	return err
-}
-
-func (s *acmeService) revokeCertificate(c echo.Context) error {
-	account, jws, err := s.authenticate(c, "/revoke-cert", false)
-	if err != nil {
-		return err
-	}
-	var request struct {
-		Certificate string `json:"certificate"`
-		Reason      *int   `json:"reason"`
-	}
-	var payload map[string]json.RawMessage
-	if err := json.Unmarshal(jws.payload, &payload); err != nil {
-		return acmeProblem(http.StatusBadRequest, "malformed", "invalid revoke-cert payload")
-	}
-	if err := json.Unmarshal(jws.payload, &request); err != nil || request.Certificate == "" {
-		return acmeProblem(http.StatusBadRequest, "malformed", "revoke-cert payload must contain a certificate")
-	}
-	if request.Reason != nil && (*request.Reason < 0 || *request.Reason > 10) {
-		return acmeProblem(http.StatusBadRequest, "malformed", "invalid revocation reason")
-	}
-	der, err := base64.RawURLEncoding.DecodeString(request.Certificate)
-	if err != nil {
-		return acmeProblem(http.StatusBadRequest, "malformed", "invalid certificate encoding")
-	}
-	cert, err := x509.ParseCertificate(der)
-	if err != nil {
-		return acmeProblem(http.StatusBadRequest, "malformed", "invalid certificate")
-	}
-	serial := cert.SerialNumber.Text(16)
-	s.mu.Lock()
-	var ownedSerial string
-	for _, order := range s.orders {
-		if order.AccountID == account.ID && strings.EqualFold(order.Serial, serial) {
-			ownedSerial = order.Serial
-			break
-		}
-	}
-	s.mu.Unlock()
-	if ownedSerial == "" {
-		return acmeProblem(http.StatusUnauthorized, "unauthorized", "account does not own this ACME certificate")
-	}
-	issued, err := s.manager.GetCertificate(ownedSerial)
-	if err != nil {
-		return acmeProblem(http.StatusUnauthorized, "unauthorized", "account does not own this ACME certificate")
-	}
-	block, _ := pem.Decode([]byte(issued.CertPEM))
-	if block == nil || !bytes.Equal(block.Bytes, cert.Raw) {
-		return acmeProblem(http.StatusBadRequest, "malformed", "certificate does not match the issued ACME certificate")
-	}
-	if err := s.manager.RevokeCertificate(ownedSerial); err != nil {
-		return acmeProblem(http.StatusBadRequest, "alreadyRevoked", "certificate could not be revoked")
-	}
-	return c.NoContent(http.StatusOK)
-}
-
-func randomACMEID() (string, error) {
-	b := make([]byte, 18)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return "", err
 	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	return base64.RawURLEncoding.EncodeToString(kid), nil
 }
 
-func acmeProblem(status int, code, detail string) error {
-	return &acmeProblemError{status: status, body: map[string]any{
-		"type": "urn:ietf:params:acme:error:" + code, "detail": detail, "status": status,
-	}}
+func canExtractJWKFrom(jws *jose.JSONWebSignature) bool {
+	if jws == nil || len(jws.Signatures) == 0 {
+		return false
+	}
+	return jws.Signatures[0].Protected.JSONWebKey != nil
+}
+
+func createNonce() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func http01Validate(acc *account, ch *challenge) error {
+	url := fmt.Sprintf("http://%s/.well-known/acme-challenge/%s", ch.Value, ch.Token)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	expected, err := keyAuthorization(ch.Token, acc.Key)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(b)) != expected {
+		return fmt.Errorf("key auth mismatch")
+	}
+	return nil
+}
+
+func tlsalpn01Validate(acc *account, ch *challenge) error {
+	config := &tls.Config{
+		NextProtos:         []string{"acme-tls/1"},
+		MinVersion:         tls.VersionTLS12,
+		ServerName:         serverName(ch),
+		InsecureSkipVerify: true,
+	}
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp", net.JoinHostPort(ch.Value, "443"), config)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	certs := conn.ConnectionState().PeerCertificates
+	if len(certs) == 0 {
+		return fmt.Errorf("peer cert not found")
+	}
+	leaf := certs[0]
+
+	idPeAcmeIdentifier := asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 31}
+	keyAuth, err := keyAuthorization(ch.Token, acc.Key)
+	if err != nil {
+		return err
+	}
+	hashedKeyAuth := sha256.Sum256([]byte(keyAuth))
+
+	for _, ext := range leaf.Extensions {
+		if idPeAcmeIdentifier.Equal(ext.Id) {
+			var extValue []byte
+			rest, err := asn1.Unmarshal(ext.Value, &extValue)
+			if err != nil || len(rest) > 0 || len(hashedKeyAuth) != len(extValue) {
+				return fmt.Errorf("malformed acme extension")
+			}
+			if subtle.ConstantTimeCompare(hashedKeyAuth[:], extValue) != 1 {
+				return fmt.Errorf("key auth extension mismatch")
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("acmeValidationV1 extension not found")
+}
+
+func dns01Validate(acc *account, ch *challenge) error {
+	domain := strings.TrimPrefix(ch.Value, "*.")
+	records, err := net.LookupTXT("_acme-challenge." + domain)
+	if err != nil {
+		return err
+	}
+	expectedKeyAuth, err := keyAuthorization(ch.Token, acc.Key)
+	if err != nil {
+		return err
+	}
+	h := sha256.Sum256([]byte(expectedKeyAuth))
+	expected := base64.RawURLEncoding.EncodeToString(h[:])
+	for _, r := range records {
+		if r == expected {
+			return nil
+		}
+	}
+	return fmt.Errorf("TXT record mismatch")
+}
+
+func keyAuthorization(token string, jwk *jose.JSONWebKey) (string, error) {
+	thumb, err := jwk.Thumbprint(crypto.SHA256)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s.%s", token, base64.RawURLEncoding.EncodeToString(thumb)), nil
+}
+
+func serverName(ch *challenge) string {
+	if ip := net.ParseIP(ch.Value); ip != nil {
+		return reverseIP(ch.Value)
+	}
+	return ch.Value
+}
+
+func reverseIP(ipStr string) string {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return ipStr
+	}
+	if ipv4 := ip.To4(); ipv4 != nil {
+		return fmt.Sprintf("%d.%d.%d.%d.in-addr.arpa", ipv4[3], ipv4[2], ipv4[1], ipv4[0])
+	}
+	return ipStr
 }

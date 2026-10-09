@@ -40,14 +40,13 @@ import (
 )
 
 type Server struct {
-	echo       *echo.Echo
-	port       int
-	store      datastore.DataStore
-	logStore   *parquet.Store
-	mcpServer  *ai.MCPServer
-	pki        *pki.Manager
-	pkiServers *pkiServiceServers
-	authMgr    *auth.Manager
+	echo      *echo.Echo
+	port      int
+	store     datastore.DataStore
+	logStore  *parquet.Store
+	mcpServer *ai.MCPServer
+	pki       *pki.Manager
+	authMgr   *auth.Manager
 }
 
 type ArpManager interface {
@@ -94,28 +93,13 @@ func NewServer(cfg Config) (*Server, error) {
 	if cfg.ACMEBaseURL != "" && cfg.PKI == nil {
 		return nil, fmt.Errorf("ACME service requires a PKI manager")
 	}
-	var pkiServers *pkiServiceServers
 	if cfg.PKI != nil {
 		if cfg.ACMEBaseURL != "" {
-			settings := cfg.PKI.Settings()
-			settings.ACMEBaseURL = cfg.ACMEBaseURL
-			settings.EnableACME = true
-			acmeURL, err := url.Parse(cfg.ACMEBaseURL)
-			if err != nil {
-				return nil, fmt.Errorf("parse ACME base URL: %w", err)
-			}
-			if acmeURL.Port() != "" {
-				port, err := strconv.Atoi(acmeURL.Port())
-				if err != nil || port < 1 || port > 65535 {
-					return nil, fmt.Errorf("invalid ACME listener port %q", acmeURL.Port())
-				}
-				settings.ACMEPort = port
-			}
-			if err := cfg.PKI.UpdateSettings(settings); err != nil {
-				return nil, fmt.Errorf("apply ACME command-line settings: %w", err)
-			}
+			control := cfg.PKI.GetPKIControl()
+			control.AcmeBaseURL = cfg.ACMEBaseURL
+			control.EnableAcme = true
+			_ = cfg.PKI.UpdatePKIControl(control)
 		}
-		pkiServers = newPKIServiceServers(cfg.PKI, cfg.Store)
 	}
 
 	// API Group
@@ -427,8 +411,7 @@ func NewServer(cfg Config) (*Server, error) {
 		registerGNMIToolRoutes(apiGroup, cfg.Store)
 	}
 	if cfg.PKI != nil {
-		registerPKIRoutes(apiGroup, cfg.PKI, cfg.Store, pkiServers.Apply)
-		registerPKIProtocolRoutes(e, cfg.PKI, cfg.Store)
+		registerPKIRoutes(apiGroup, cfg.PKI, cfg.Store)
 	}
 	apiGroup.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{
@@ -2777,11 +2760,13 @@ func NewServer(cfg Config) (*Server, error) {
 	}
 
 	return &Server{
-		echo:       e,
-		port:       cfg.Port,
-		store:      cfg.Store,
-		pki:        cfg.PKI,
-		pkiServers: pkiServers,
+		echo:      e,
+		port:      cfg.Port,
+		store:     cfg.Store,
+		logStore:  cfg.LogStore,
+		mcpServer: cfg.MCPServer,
+		pki:       cfg.PKI,
+		authMgr:   authMgr,
 	}, nil
 }
 
@@ -2822,11 +2807,6 @@ func notifyOAuth2RedirectURL(c echo.Context) (string, error) {
 func (s *Server) Start(ctx context.Context) error {
 	addr := fmt.Sprintf(":%d", s.port)
 	slog.Info("Starting HTTP Web/API server", "addr", addr)
-	if s.pkiServers != nil {
-		if err := s.pkiServers.Start(); err != nil {
-			return err
-		}
-	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -2836,7 +2816,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}()
 	select {
 	case <-ctx.Done():
-		slog.Info("Stopping HTTP, API, and PKI servers...")
+		slog.Info("Stopping HTTP and API server...")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return s.shutdown(shutdownCtx)
@@ -2849,11 +2829,6 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) shutdown(ctx context.Context) error {
 	var shutdownErrors []error
-	if s.pkiServers != nil {
-		if err := s.pkiServers.Shutdown(ctx); err != nil {
-			shutdownErrors = append(shutdownErrors, fmt.Errorf("shutdown PKI services: %w", err))
-		}
-	}
 	if err := s.echo.Shutdown(ctx); err != nil {
 		shutdownErrors = append(shutdownErrors, fmt.Errorf("shutdown web/API listener: %w", err))
 	}
@@ -2863,13 +2838,6 @@ func (s *Server) shutdown(ctx context.Context) error {
 // GetEcho returns underlying Echo instance for testing and route inspection.
 func (s *Server) GetEcho() *echo.Echo {
 	return s.echo
-}
-
-func (s *Server) GetACMEEcho() *echo.Echo {
-	if s.pkiServers == nil {
-		return nil
-	}
-	return s.pkiServers.ACMEEcho()
 }
 
 func extractNumericValue(raw interface{}) (float64, bool) {

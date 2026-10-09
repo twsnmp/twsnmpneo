@@ -9,6 +9,7 @@ require (
 	github.com/beevik/ntp v1.6.0
 	github.com/codegaudi/go-iforest v0.0.1
 	github.com/dustin/go-humanize v1.1.0
+	github.com/go-jose/go-jose/v4 v4.1.5
 	github.com/google/gopacket v1.1.19
 	github.com/gosnmp/gosnmp v1.45.0
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade

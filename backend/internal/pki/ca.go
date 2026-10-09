@@ -1,7 +1,9 @@
 package pki
 
 import (
+	"archive/zip"
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -10,1136 +12,895 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"net"
-	"net/url"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/ocsp"
+	"github.com/labstack/echo/v4"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 )
 
-// CertificatePair holds PEM-encoded certificate and private key strings.
-type CertificatePair struct {
-	CertPEM string `json:"certPEM"`
-	KeyPEM  string `json:"keyPEM"`
-}
-
-type Certificate struct {
-	Serial    string `json:"serial"`
-	Subject   string `json:"subject"`
-	Type      string `json:"type"`
-	CertPEM   string `json:"certPEM"`
-	CreatedAt int64  `json:"createdAt"`
-	ExpiresAt int64  `json:"expiresAt"`
-	RevokedAt int64  `json:"revokedAt,omitempty"`
-	KeyPEM    string `json:"keyPEM,omitempty"`
-}
-
-type Status struct {
-	Ready       bool   `json:"ready"`
-	CommonName  string `json:"commonName,omitempty"`
-	ExpiresAt   int64  `json:"expiresAt,omitempty"`
-	Certificate string `json:"certificate,omitempty"`
-}
-
-type CertificateStore interface {
-	ListPKICertificates() ([]*Certificate, error)
-	SavePKICertificate(*Certificate) error
-	DeleteAllPKICertificates() error
-}
-
-type CAOptions struct {
-	CommonName        string   `json:"commonName"`
-	Organization      string   `json:"organization"`
-	SANs              []string `json:"sans"`
-	KeyType           string   `json:"keyType"`
-	ValidYears        int      `json:"validYears"`
-	ACMEBaseURL       string   `json:"acmeBaseURL"`
-	HTTPBaseURL       string   `json:"httpBaseURL"`
-	CRLIntervalHours  int      `json:"crlIntervalHours"`
-	CertValidityHours int      `json:"certValidityHours"`
-	HTTPPort          int      `json:"httpPort"`
-	ACMEPort          int      `json:"acmePort"`
-}
-
-type Settings struct {
-	CAOptions
-	EnableHTTP bool `json:"enableHTTP"`
-	EnableACME bool `json:"enableACME"`
-}
-
-// Config defines options for the Private PKI Manager.
-type Config struct {
-	DataDir      string
-	Organization string
-	CommonName   string
-	KeyType      string
-	ValidYears   int
-	CertStore    CertificateStore
-}
-
-// Manager manages Private PKI root CA and certificate issuances.
+// Manager manages the Private PKI Certificate Authority and protocol servers.
 type Manager struct {
-	mu           sync.RWMutex
-	dir          string
-	caCert       *x509.Certificate
-	caKey        crypto.Signer
-	caCertPEM    string
-	caKeyPEM     string
-	scepCert     *x509.Certificate
-	scepKey      crypto.Signer
-	organization string
-	commonName   string
-	validYears   int
-	keyType      string
-	settings     Settings
-	certificates map[string]*Certificate
-	certStore    CertificateStore
+	mu     sync.RWMutex
+	store  datastore.DataStore
+	conf   datastore.PKIConfEnt
+
+	rootCAPrivateKey   any
+	rootCAPublicKey    any
+	rootCACertificate  []byte
+	scepCAPrivateKey   any
+	scepCAPublicKey    any
+	scepCACertificate  []byte
+	crl                []byte
+
+	httpServer         *echo.Echo
+	httpServerRunning  bool
+	lastHTTPServerErr  error
+
+	acmeServer         *echo.Echo
+	acmeServerRunning  bool
+	lastAcmeServerErr  error
+
+	cancel             context.CancelFunc
 }
 
-// New creates and initializes a PKI Manager, loading or creating the Root CA.
-func New(cfg Config) (*Manager, error) {
-	if cfg.DataDir == "" {
-		return nil, fmt.Errorf("empty pki data dir")
-	}
-	if cfg.Organization == "" {
-		cfg.Organization = "TWSNMP NEO"
-	}
-	if cfg.CommonName == "" {
-		cfg.CommonName = "TWSNMP NEO Root CA"
-	}
-	if cfg.ValidYears <= 0 {
-		cfg.ValidYears = 10
-	}
-	if cfg.KeyType == "" {
-		cfg.KeyType = "ecdsa-256"
-	}
-
+// New creates and initializes a PKI Manager instance.
+func New(store datastore.DataStore) (*Manager, error) {
 	m := &Manager{
-		dir:          cfg.DataDir,
-		organization: cfg.Organization,
-		commonName:   cfg.CommonName,
-		validYears:   cfg.ValidYears,
-		keyType:      cfg.KeyType,
-		settings:     defaultSettings(),
-		certificates: make(map[string]*Certificate),
-		certStore:    cfg.CertStore,
+		store: store,
+	}
+	ctx := context.Background()
+	if store != nil {
+		conf, err := store.GetPKIConf(ctx)
+		if err == nil && conf != nil {
+			m.conf = *conf
+		} else {
+			m.conf = datastore.DefaultPKIConf()
+		}
+	} else {
+		m.conf = datastore.DefaultPKIConf()
 	}
 
-	if err := os.MkdirAll(m.dir, 0700); err != nil {
-		return nil, fmt.Errorf("create pki dir: %w", err)
+	if err := m.loadKeyAndCert(); err != nil {
+		slog.Warn("PKI load root CA key/cert", "error", err)
 	}
-	if err := os.Chmod(m.dir, 0700); err != nil {
-		return nil, fmt.Errorf("protect pki directory: %w", err)
+	if err := m.loadScepCA(); err != nil {
+		slog.Warn("PKI load SCEP CA key/cert", "error", err)
 	}
-	if err := m.loadSettings(); err != nil {
-		return nil, fmt.Errorf("load PKI settings: %w", err)
-	}
-	m.commonName = m.settings.CommonName
-	m.organization = m.settings.Organization
-	m.validYears = m.settings.ValidYears
-	m.keyType = m.settings.KeyType
-
-	if err := m.loadRootCA(); err != nil {
-		return nil, fmt.Errorf("init root ca: %w", err)
-	}
-	if m.caCert != nil {
-		if err := m.loadOrCreateSCEPCA(); err != nil {
-			return nil, fmt.Errorf("init SCEP ca: %w", err)
+	if m.IsCAValid() {
+		if err := m.createCRL(); err != nil {
+			slog.Warn("PKI create CRL", "error", err)
 		}
 	}
-	if err := m.loadCertificates(); err != nil {
-		return nil, fmt.Errorf("load certificate inventory: %w", err)
-	}
-
 	return m, nil
 }
 
-func defaultSettings() Settings {
-	host, err := os.Hostname()
-	if err != nil || strings.TrimSpace(host) == "" {
-		host = "localhost"
+// Start launches the PKI background routines and listeners.
+func (m *Manager) Start(ctx context.Context, wg *sync.WaitGroup) error {
+	m.mu.Lock()
+	pkiCtx, cancel := context.WithCancel(ctx)
+	m.cancel = cancel
+	enableHTTP := m.conf.EnableHTTP
+	enableAcme := m.conf.EnableAcme
+	m.mu.Unlock()
+
+	if m.store != nil {
+		_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "pki",
+			Level: "info",
+			Event: i18n.Trans("Start PKI service"),
+		})
 	}
-	sans := []string{host}
-	if interfaces, err := net.Interfaces(); err == nil {
-		for _, iface := range interfaces {
-			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-				continue
+
+	if wg != nil {
+		wg.Add(1)
+	}
+	go m.caServer(pkiCtx, wg)
+
+	if enableHTTP {
+		m.StartHTTPServer()
+	}
+	if enableAcme {
+		m.StartAcmeServer()
+	}
+	return nil
+}
+
+// Stop stops the PKI service and listeners.
+func (m *Manager) Stop() {
+	m.mu.Lock()
+	if m.cancel != nil {
+		m.cancel()
+	}
+	m.mu.Unlock()
+
+	m.StopHTTPServer()
+	m.StopAcmeServer()
+}
+
+func (m *Manager) caServer(ctx context.Context, wg *sync.WaitGroup) {
+	if wg != nil {
+		defer wg.Done()
+	}
+	timer := time.NewTicker(time.Hour * 1)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+			m.mu.Lock()
+			if m.IsCAValid() {
+				_ = m.createCRL()
 			}
-			addresses, err := iface.Addrs()
-			if err != nil {
-				continue
+			m.mu.Unlock()
+		}
+	}
+}
+
+// IsCAValid checks if the Root CA certificate and key are validly loaded.
+func (m *Manager) IsCAValid() bool {
+	return m.rootCACertificate != nil && m.rootCAPrivateKey != nil
+}
+
+// CreateCA creates and initializes a Root CA and SCEP CA.
+func (m *Manager) CreateCA(req *datastore.CreateCAReq) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	datastore.InitCAConf(&m.conf, req)
+	if err := m.createRootCACertificate(); err != nil {
+		return fmt.Errorf("create root CA certificate: %w", err)
+	}
+	if err := m.createScepCACertificate(); err != nil {
+		slog.Warn("Failed to create SCEP CA certificate", "error", err)
+	}
+	if err := m.createCRL(); err != nil {
+		slog.Warn("Failed to create CRL", "error", err)
+	}
+	if m.store != nil {
+		_ = m.store.SavePKIConf(context.Background(), &m.conf)
+	}
+	return nil
+}
+
+// DestroyCA destroys the CA and deletes all issued certificates.
+func (m *Manager) DestroyCA() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.stopHTTPServerLocked()
+	m.stopAcmeServerLocked()
+
+	m.rootCAPrivateKey = nil
+	m.rootCAPublicKey = nil
+	m.rootCACertificate = nil
+	m.scepCAPrivateKey = nil
+	m.scepCAPublicKey = nil
+	m.scepCACertificate = nil
+	m.crl = nil
+
+	m.conf = datastore.DefaultPKIConf()
+	if m.store != nil {
+		_ = m.store.SavePKIConf(context.Background(), &m.conf)
+		_ = m.store.DeleteAllPKICerts(context.Background())
+		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "ca",
+			Level: "warn",
+			Event: i18n.Trans("CA destroyed and issued certificates deleted"),
+		})
+	}
+	return nil
+}
+
+func (m *Manager) getSerial() int64 {
+	sn := m.conf.Serial
+	m.conf.Serial++
+	if m.store != nil {
+		_ = m.store.SavePKIConf(context.Background(), &m.conf)
+	}
+	return sn
+}
+
+func (m *Manager) createRootCACertificate() error {
+	var keyBytes []byte
+	var isRSA bool
+	var err error
+
+	if strings.HasPrefix(m.conf.RootCAKeyType, "rsa") {
+		isRSA = true
+		bits := 4096
+		switch m.conf.RootCAKeyType {
+		case "rsa-2048":
+			bits = 2048
+		case "rsa-8192":
+			bits = 8192
+		}
+		key, kErr := rsa.GenerateKey(rand.Reader, bits)
+		if kErr != nil {
+			return kErr
+		}
+		m.rootCAPrivateKey = key
+		m.rootCAPublicKey = &key.PublicKey
+		keyBytes = x509.MarshalPKCS1PrivateKey(key)
+	} else {
+		var curve = elliptic.P256()
+		switch m.conf.RootCAKeyType {
+		case "ecdsa-224":
+			curve = elliptic.P224()
+		case "ecdsa-384":
+			curve = elliptic.P384()
+		case "ecdsa-521":
+			curve = elliptic.P521()
+		}
+		key, kErr := ecdsa.GenerateKey(curve, rand.Reader)
+		if kErr != nil {
+			return kErr
+		}
+		m.rootCAPrivateKey = key
+		m.rootCAPublicKey = &key.PublicKey
+		keyBytes, err = x509.MarshalECPrivateKey(key)
+		if err != nil {
+			return err
+		}
+	}
+
+	subject := pkix.Name{
+		CommonName: m.conf.Name + " Root CA",
+	}
+	sn := m.getSerial()
+	tmp := &x509.Certificate{
+		SerialNumber:          big.NewInt(sn),
+		Subject:               subject,
+		NotBefore:             time.Now().UTC(),
+		NotAfter:              time.Now().AddDate(m.conf.RootCATerm, 0, 0).UTC(),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		MaxPathLen:            int(2),
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, tmp, tmp, m.rootCAPublicKey, m.rootCAPrivateKey)
+	if err != nil {
+		return err
+	}
+	m.rootCACertificate = certBytes
+
+	m.conf.RootCACert = string(makePEM(m.rootCACertificate, "CERTIFICATE"))
+	if isRSA {
+		m.conf.RootCAKey = string(makePEM(keyBytes, "RSA PRIVATE KEY"))
+	} else {
+		m.conf.RootCAKey = string(makePEM(keyBytes, "EC PRIVATE KEY"))
+	}
+
+	if m.store != nil {
+		_ = m.store.SavePKICert(context.Background(), &datastore.PKICertEnt{
+			ID:          fmt.Sprintf("%x", sn),
+			Subject:     subject.String(),
+			Created:     time.Now().UnixNano(),
+			Certificate: m.conf.RootCACert,
+			Expire:      tmp.NotAfter.UnixNano(),
+			Type:        "system",
+		})
+		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "ca",
+			Level: "info",
+			Event: fmt.Sprintf(i18n.Trans("Issued CA certificate subject=%s serial=%x"), subject.String(), sn),
+		})
+	}
+	return nil
+}
+
+func (m *Manager) createScepCACertificate() error {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return err
+	}
+	m.scepCAPrivateKey = key
+	m.scepCAPublicKey = &key.PublicKey
+
+	ca, err := x509.ParseCertificate(m.rootCACertificate)
+	if err != nil {
+		return err
+	}
+	sn := m.getSerial()
+	tmp := &x509.Certificate{
+		SerialNumber: big.NewInt(sn),
+		Subject: pkix.Name{
+			CommonName: m.conf.Name + " SCEP CA",
+		},
+		NotBefore:             time.Now().UTC(),
+		NotAfter:              time.Now().AddDate(m.conf.RootCATerm, 0, 0).UTC(),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		MaxPathLen:            int(1),
+	}
+	for _, san := range strings.Split(m.conf.SANs, ",") {
+		san = strings.TrimSpace(san)
+		if san == "" {
+			continue
+		}
+		baseURL := fmt.Sprintf("http://%s:%d", san, m.conf.HTTPPort)
+		if ip := net.ParseIP(san); ip == nil {
+			tmp.DNSNames = append(tmp.DNSNames, san)
+		} else {
+			tmp.IPAddresses = append(tmp.IPAddresses, ip)
+		}
+		tmp.CRLDistributionPoints = append(tmp.CRLDistributionPoints, baseURL+"/crl")
+		tmp.OCSPServer = append(tmp.OCSPServer, baseURL+"/ocsp")
+	}
+	if strings.HasPrefix(m.conf.HTTPBaseURL, "http://") {
+		baseURL := strings.TrimRight(m.conf.HTTPBaseURL, "/")
+		tmp.CRLDistributionPoints = append(tmp.CRLDistributionPoints, baseURL+"/crl")
+		tmp.OCSPServer = append(tmp.OCSPServer, baseURL+"/ocsp")
+	}
+	scepCertBytes, err := x509.CreateCertificate(rand.Reader, tmp, ca, m.scepCAPublicKey, m.rootCAPrivateKey)
+	if err != nil {
+		return err
+	}
+	m.scepCACertificate = scepCertBytes
+	m.conf.ScepCACert = string(makePEM(scepCertBytes, "CERTIFICATE"))
+	m.conf.ScepCAKey = string(makePEM(x509.MarshalPKCS1PrivateKey(key), "RSA PRIVATE KEY"))
+
+	if m.store != nil {
+		_ = m.store.SavePKICert(context.Background(), &datastore.PKICertEnt{
+			ID:          fmt.Sprintf("%x", sn),
+			Subject:     tmp.Subject.String(),
+			Created:     time.Now().UnixNano(),
+			Expire:      tmp.NotAfter.UnixNano(),
+			Certificate: m.conf.ScepCACert,
+			Type:        "system",
+		})
+		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "ca",
+			Level: "info",
+			Event: fmt.Sprintf(i18n.Trans("Issued SCEP CA certificate subject=%s serial=%x"), tmp.Subject.String(), sn),
+		})
+	}
+	return nil
+}
+
+func (m *Manager) loadKeyAndCert() error {
+	if m.conf.RootCAKey == "" {
+		return nil
+	}
+	key, pub, err := getPrivateKeyFromPEM(m.conf.RootCAKey)
+	if err != nil {
+		return err
+	}
+	m.rootCAPrivateKey = key
+	m.rootCAPublicKey = pub
+	cert, err := getCertFromPEM(m.conf.RootCACert)
+	if err != nil {
+		return err
+	}
+	m.rootCACertificate = cert
+	return nil
+}
+
+func (m *Manager) loadScepCA() error {
+	if m.conf.ScepCAKey == "" {
+		return nil
+	}
+	key, pub, err := getPrivateKeyFromPEM(m.conf.ScepCAKey)
+	if err != nil {
+		return err
+	}
+	m.scepCAPrivateKey = key
+	m.scepCAPublicKey = pub
+	cert, err := getCertFromPEM(m.conf.ScepCACert)
+	if err != nil {
+		return err
+	}
+	m.scepCACertificate = cert
+	return nil
+}
+
+// CreateCertificateRequest creates a CSR and private key and returns a ZIP archive containing csr.pem and key.pem.
+func (m *Manager) CreateCertificateRequest(req *datastore.CSRReqEnt) ([]byte, error) {
+	var key any
+	var keyBytes []byte
+	var err error
+	var pemKeyType = "RSA PRIVATE KEY"
+
+	tmp := &x509.CertificateRequest{
+		Subject: pkix.Name{
+			CommonName:         req.CommonName,
+			OrganizationalUnit: []string{req.OrganizationalUnit},
+			Organization:       []string{req.Organization},
+			Locality:           []string{req.Locality},
+			Province:           []string{req.Province},
+			Country:            []string{req.Country},
+		},
+	}
+	for _, san := range strings.Split(req.Sans, ",") {
+		san = strings.TrimSpace(san)
+		if san == "" {
+			continue
+		}
+		if ip := net.ParseIP(san); ip == nil {
+			tmp.DNSNames = append(tmp.DNSNames, san)
+		} else {
+			tmp.IPAddresses = append(tmp.IPAddresses, ip)
+		}
+	}
+
+	if strings.HasPrefix(req.KeyType, "rsa") {
+		bits := 4096
+		switch req.KeyType {
+		case "rsa-2048":
+			bits = 2048
+		case "rsa-8192":
+			bits = 8192
+		}
+		k, kErr := rsa.GenerateKey(rand.Reader, bits)
+		if kErr != nil {
+			return nil, kErr
+		}
+		tmp.PublicKeyAlgorithm = x509.RSA
+		tmp.SignatureAlgorithm = x509.SHA256WithRSA
+		tmp.PublicKey = &k.PublicKey
+		key = k
+		keyBytes = x509.MarshalPKCS1PrivateKey(k)
+	} else {
+		var curve = elliptic.P256()
+		switch req.KeyType {
+		case "ecdsa-224":
+			curve = elliptic.P224()
+		case "ecdsa-384":
+			curve = elliptic.P384()
+		case "ecdsa-521":
+			curve = elliptic.P521()
+		}
+		k, kErr := ecdsa.GenerateKey(curve, rand.Reader)
+		if kErr != nil {
+			return nil, kErr
+		}
+		tmp.PublicKeyAlgorithm = x509.ECDSA
+		tmp.SignatureAlgorithm = x509.ECDSAWithSHA256
+		tmp.PublicKey = &k.PublicKey
+		key = k
+		pemKeyType = "EC PRIVATE KEY"
+		keyBytes, err = x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	csr, err := x509.CreateCertificateRequest(rand.Reader, tmp, key)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+
+	f, err := w.Create("csr.pem")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Write(makePEM(csr, "CERTIFICATE REQUEST")); err != nil {
+		return nil, err
+	}
+
+	f, err = w.Create("key.pem")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Write(makePEM(keyBytes, pemKeyType)); err != nil {
+		return nil, err
+	}
+	_ = w.Close()
+	return buf.Bytes(), nil
+}
+
+// CreateCertificate manually issues a certificate from uploaded CSR PEM bytes.
+func (m *Manager) CreateCertificate(csrBytes []byte) ([]byte, error) {
+	block, _ := pem.Decode(csrBytes)
+	if block == nil || block.Type != "CERTIFICATE REQUEST" {
+		return nil, fmt.Errorf("certificate request PEM not found")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	crt, _, err := m.createCertificateFromCSR(block.Bytes, "manual", make(map[string]string))
+	if err != nil {
+		return nil, err
+	}
+	return makePEM(crt, "CERTIFICATE"), nil
+}
+
+func (m *Manager) createCertificateFromCSR(csrBytes []byte, certType string, info map[string]string) ([]byte, string, error) {
+	csr, err := x509.ParseCertificateRequest(csrBytes)
+	if err != nil {
+		return nil, "", err
+	}
+	nodeID, err := m.checkCSR(certType, csr, info)
+	if err != nil {
+		if m.store != nil {
+			_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "ca",
+				Level: "low",
+				Event: fmt.Sprintf(i18n.Trans("Rejected certificate issuance subject=%s err=%v"), csr.Subject.String(), err),
+			})
+		}
+		return nil, "", err
+	}
+	ca, err := x509.ParseCertificate(m.rootCACertificate)
+	if err != nil {
+		return nil, "", err
+	}
+	term := m.conf.CertTerm
+	if term < 1 {
+		term = 24 * 30
+	}
+	sn := m.getSerial()
+	tmp := &x509.Certificate{
+		SerialNumber:          big.NewInt(sn),
+		Subject:               csr.Subject,
+		NotBefore:             time.Now().UTC(),
+		NotAfter:              time.Now().Add(time.Hour * time.Duration(term)).UTC(),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		DNSNames:              csr.DNSNames,
+		EmailAddresses:        csr.EmailAddresses,
+		IPAddresses:           csr.IPAddresses,
+		ExtraExtensions:       csr.Extensions,
+		IsCA:                  false,
+		MaxPathLen:            0,
+		BasicConstraintsValid: true,
+		CRLDistributionPoints: []string{},
+		OCSPServer:            []string{},
+	}
+	for _, san := range strings.Split(m.conf.SANs, ",") {
+		san = strings.TrimSpace(san)
+		if san == "" {
+			continue
+		}
+		baseURL := fmt.Sprintf("http://%s:%d/", san, m.conf.HTTPPort)
+		tmp.CRLDistributionPoints = append(tmp.CRLDistributionPoints, baseURL+"crl")
+		tmp.OCSPServer = append(tmp.OCSPServer, baseURL+"ocsp")
+	}
+	if strings.HasPrefix(m.conf.HTTPBaseURL, "http://") {
+		baseURL := strings.TrimRight(m.conf.HTTPBaseURL, "/")
+		tmp.CRLDistributionPoints = append(tmp.CRLDistributionPoints, baseURL+"/crl")
+		tmp.OCSPServer = append(tmp.OCSPServer, baseURL+"/ocsp")
+	}
+
+	ret, err := x509.CreateCertificate(rand.Reader, tmp, ca, csr.PublicKey, m.rootCAPrivateKey)
+	if err != nil {
+		return nil, "", err
+	}
+	certID := fmt.Sprintf("%x", sn)
+	if m.store != nil {
+		_ = m.store.SavePKICert(context.Background(), &datastore.PKICertEnt{
+			ID:          certID,
+			Subject:     tmp.Subject.String(),
+			Created:     time.Now().UnixNano(),
+			Expire:      tmp.NotAfter.UnixNano(),
+			NodeID:      nodeID,
+			Info:        info,
+			Certificate: string(makePEM(ret, "CERTIFICATE")),
+			Type:        certType,
+		})
+		nodeName := ""
+		if node, _ := m.store.GetNode(context.Background(), nodeID); node != nil {
+			nodeName = node.Name
+		}
+		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+			Time:     time.Now().UnixNano(),
+			Type:     "ca",
+			Level:    "info",
+			NodeID:   nodeID,
+			NodeName: nodeName,
+			Event:    fmt.Sprintf(i18n.Trans("Issued certificate subject=%s serial=%s"), tmp.Subject.String(), certID),
+		})
+	}
+	return ret, certID, nil
+}
+
+func (m *Manager) checkCSR(certType string, csr *x509.CertificateRequest, info map[string]string) (string, error) {
+	if m.store == nil {
+		return "", nil
+	}
+	var node *datastore.NodeEnt
+	for _, n := range csr.DNSNames {
+		m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+			if strings.EqualFold(cand.Name, n) {
+				node = cand
+				return false
 			}
-			for _, address := range addresses {
-				ip, _, err := net.ParseCIDR(address.String())
-				if err == nil && ip.To4() != nil {
-					sans = append(sans, ip.String())
+			return true
+		})
+		if node != nil {
+			break
+		}
+	}
+	if node == nil {
+		for _, ip := range csr.IPAddresses {
+			if ipv4 := ip.To4(); ipv4 != nil {
+				m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+					if cand.IP == ipv4.String() {
+						node = cand
+						return false
+					}
+					return true
+				})
+				if node != nil {
+					break
+				}
+			}
+		}
+		if node == nil {
+			m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+				if strings.EqualFold(cand.Name, csr.Subject.CommonName) {
+					node = cand
+					return false
+				}
+				return true
+			})
+			if node == nil {
+				if remoteIP, ok := info["RemoteAddr"]; ok && remoteIP != "" {
+					m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+						if cand.IP == remoteIP {
+							node = cand
+							return false
+						}
+						return true
+					})
 				}
 			}
 		}
 	}
-	httpBase := "http://" + net.JoinHostPort(host, "8082")
-	acmeBase := "https://" + net.JoinHostPort(host, "8083")
-	return Settings{
-		CAOptions: CAOptions{
-			CommonName:        "TWSNMP NEO Root CA",
-			Organization:      "TWSNMP NEO",
-			SANs:              sans,
-			KeyType:           "ecdsa-256",
-			ValidYears:        10,
-			HTTPBaseURL:       httpBase,
-			ACMEBaseURL:       acmeBase,
-			CRLIntervalHours:  24,
-			CertValidityHours: 8760,
-			HTTPPort:          8082,
-			ACMEPort:          8083,
-		},
+	if certType == "scep" {
+		if node == nil {
+			return "", fmt.Errorf("node not found")
+		}
+		if p, ok := info["ChallengePassword"]; !ok || p == "" || node.Password != p {
+			return "", fmt.Errorf("challenge password mismatch")
+		}
 	}
+	if node != nil {
+		return node.ID, nil
+	}
+	return "", nil
 }
 
-func (m *Manager) loadSettings() error {
-	data, err := os.ReadFile(filepath.Join(m.dir, "settings.json"))
-	if os.IsNotExist(err) {
-		return nil
+type issuingDistributionPoint struct {
+	DistributionPoint          distributionPointName `asn1:"optional,tag:0"`
+	OnlyContainsUserCerts      bool                  `asn1:"optional,tag:1"`
+	OnlyContainsCACerts        bool                  `asn1:"optional,tag:2"`
+	OnlySomeReasons            asn1.BitString        `asn1:"optional,tag:3"`
+	IndirectCRL                bool                  `asn1:"optional,tag:4"`
+	OnlyContainsAttributeCerts bool                  `asn1:"optional,tag:5"`
+}
+
+type distributionPointName struct {
+	FullName     []asn1.RawValue  `asn1:"optional,tag:0"`
+	RelativeName pkix.RDNSequence `asn1:"optional,tag:1"`
+}
+
+func (m *Manager) createCRL() error {
+	dp := distributionPointName{
+		FullName: []asn1.RawValue{},
 	}
+	for _, san := range strings.Split(m.conf.SANs, ",") {
+		san = strings.TrimSpace(san)
+		if san == "" {
+			continue
+		}
+		cdp := fmt.Sprintf("http://%s:%d/crl", san, m.conf.HTTPPort)
+		dp.FullName = append(dp.FullName, asn1.RawValue{Tag: 6, Class: 2, Bytes: []byte(cdp)})
+	}
+	var oidExtensionIssuingDistributionPoint = []int{2, 5, 29, 28}
+	idp := issuingDistributionPoint{
+		DistributionPoint: dp,
+	}
+	v, err := asn1.Marshal(idp)
 	if err != nil {
 		return err
 	}
-	var settings Settings
-	if err := json.Unmarshal(data, &settings); err != nil {
-		return fmt.Errorf("decode settings: %w", err)
-	}
-	normalizeSettings(&settings)
-	if err := validateSettings(settings); err != nil {
-		return fmt.Errorf("invalid persisted settings: %w", err)
-	}
-	m.settings = settings
-	return nil
-}
 
-func normalizeSettings(settings *Settings) {
-	defaults := defaultSettings()
-	if settings.CommonName == "" {
-		settings.CommonName = defaults.CommonName
+	cdpExt := pkix.Extension{
+		Id:       oidExtensionIssuingDistributionPoint,
+		Critical: true,
+		Value:    v,
 	}
-	if settings.Organization == "" {
-		settings.Organization = defaults.Organization
-	}
-	if len(settings.SANs) == 0 {
-		settings.SANs = defaults.SANs
-	}
-	if settings.KeyType == "" {
-		settings.KeyType = defaults.KeyType
-	}
-	if settings.ValidYears <= 0 {
-		settings.ValidYears = defaults.ValidYears
-	}
-	if settings.HTTPBaseURL == "" {
-		settings.HTTPBaseURL = defaults.HTTPBaseURL
-	}
-	if settings.ACMEBaseURL == "" {
-		settings.ACMEBaseURL = defaults.ACMEBaseURL
-	}
-	if settings.CRLIntervalHours <= 0 {
-		settings.CRLIntervalHours = defaults.CRLIntervalHours
-	}
-	if settings.CertValidityHours <= 0 {
-		settings.CertValidityHours = defaults.CertValidityHours
-	}
-	if settings.HTTPPort <= 0 {
-		settings.HTTPPort = defaults.HTTPPort
-	}
-	if settings.ACMEPort <= 0 {
-		settings.ACMEPort = defaults.ACMEPort
-	}
-}
 
-func validateSettings(settings Settings) error {
-	if strings.TrimSpace(settings.CommonName) == "" || len(settings.SANs) == 0 {
-		return fmt.Errorf("CA common name and at least one SAN are required")
+	key, ok := m.rootCAPrivateKey.(crypto.Signer)
+	if !ok {
+		return fmt.Errorf("invalid key type")
 	}
-	if settings.ValidYears < 1 || settings.ValidYears > 100 {
-		return fmt.Errorf("CA validity must be between 1 and 100 years")
-	}
-	if settings.KeyType != "ecdsa-256" && settings.KeyType != "rsa-2048" && settings.KeyType != "rsa-4096" {
-		return fmt.Errorf("unsupported CA key type %q", settings.KeyType)
-	}
-	if settings.HTTPPort < 1 || settings.HTTPPort > 65535 || settings.ACMEPort < 1 || settings.ACMEPort > 65535 {
-		return fmt.Errorf("HTTP and ACME ports must be between 1 and 65535")
-	}
-	if settings.HTTPPort == settings.ACMEPort {
-		return fmt.Errorf("HTTP and ACME ports must be different")
-	}
-	if settings.CRLIntervalHours < 1 || settings.CRLIntervalHours > 8760 {
-		return fmt.Errorf("CRL update interval must be between 1 and 8760 hours")
-	}
-	if settings.CertValidityHours < 1 || settings.CertValidityHours > 87600 {
-		return fmt.Errorf("certificate validity must be between 1 and 87600 hours")
-	}
-	for _, san := range settings.SANs {
-		san = strings.TrimSpace(san)
-		if san == "" || strings.ContainsAny(san, "\r\n") || strings.ContainsAny(san, " /") {
-			return fmt.Errorf("invalid CA SAN %q", san)
-		}
-	}
-	for _, item := range []struct {
-		value  string
-		scheme string
-	}{
-		{settings.ACMEBaseURL, "https"},
-		{settings.HTTPBaseURL, ""},
-	} {
-		u, err := url.Parse(item.value)
-		if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
-			item.scheme != "" && u.Scheme != item.scheme ||
-			item.scheme == "" && u.Scheme != "http" && u.Scheme != "https" {
-			return fmt.Errorf("invalid service base URL %q", item.value)
-		}
-	}
-	return nil
-}
-
-func (m *Manager) saveSettings(settings Settings) error {
-	data, err := json.MarshalIndent(settings, "", "  ")
+	ca, err := x509.ParseCertificate(m.rootCACertificate)
 	if err != nil {
-		return fmt.Errorf("encode PKI settings: %w", err)
+		return err
 	}
-	tmpPath := filepath.Join(m.dir, "settings.json.tmp")
-	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
-		return fmt.Errorf("write PKI settings: %w", err)
+	revokedCerts := []pkix.RevokedCertificate{}
+	now := time.Now().UnixNano()
+	if m.store != nil {
+		m.store.ForEachPKICert(func(c *datastore.PKICertEnt) bool {
+			if c.Revoked > 0 && c.Expire > now {
+				if s, ok := big.NewInt(0).SetString(c.ID, 16); ok {
+					revokedCerts = append(revokedCerts, pkix.RevokedCertificate{
+						RevocationTime: time.Unix(0, c.Revoked),
+						SerialNumber:   s,
+					})
+				}
+			}
+			return true
+		})
 	}
-	if err := os.Chmod(tmpPath, 0600); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("protect PKI settings: %w", err)
+	tmp := &x509.RevocationList{
+		SignatureAlgorithm:  x509.ECDSAWithSHA256,
+		RevokedCertificates: revokedCerts,
+		Number:              big.NewInt(m.conf.CrlNumber),
+		ThisUpdate:          time.Now(),
+		NextUpdate:          time.Now().Add(time.Duration(m.conf.CrlInterval) * time.Hour),
+		ExtraExtensions:     []pkix.Extension{cdpExt},
 	}
-	if err := os.Rename(tmpPath, filepath.Join(m.dir, "settings.json")); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("replace PKI settings: %w", err)
+	m.crl, err = x509.CreateRevocationList(rand.Reader, tmp, ca, key)
+	if err == nil {
+		m.conf.CrlNumber++
+		if m.store != nil {
+			_ = m.store.SavePKIConf(context.Background(), &m.conf)
+		}
 	}
+	return err
+}
+
+// RevokeCert revokes a certificate by its ID and refreshes CRL.
+func (m *Manager) RevokeCert(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.store == nil {
+		return nil
+	}
+	cert, err := m.store.GetPKICert(context.Background(), id)
+	if err != nil || cert == nil {
+		return fmt.Errorf("cert not found")
+	}
+	cert.Revoked = time.Now().UnixNano()
+	_ = m.store.SavePKICert(context.Background(), cert)
+	_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
+		Time:  cert.Revoked,
+		Level: "low",
+		Type:  "ca",
+		Event: fmt.Sprintf(i18n.Trans("Revoked certificate subject=%s serial=%s"), cert.Subject, cert.ID),
+	})
+	_ = m.createCRL()
 	return nil
 }
 
-func (m *Manager) Settings() Settings {
+// GetPKIControl returns current server control information.
+func (m *Manager) GetPKIControl() *datastore.PKIControlEnt {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	settings := m.settings
-	settings.SANs = append([]string(nil), m.settings.SANs...)
-	return settings
+
+	return &datastore.PKIControlEnt{
+		EnableAcme:  m.conf.EnableAcme,
+		EnableHTTP:  m.conf.EnableHTTP,
+		AcmeBaseURL: m.conf.AcmeBaseURL,
+		CertTerm:    m.conf.CertTerm,
+		CrlInterval: m.conf.CrlInterval,
+		AcmeStatus:  m.GetAcmeServerStatus(),
+		HTTPStatus:  m.GetHTTPServerStatus(),
+	}
 }
 
-func (m *Manager) UpdateSettings(settings Settings) error {
-	normalizeSettings(&settings)
-	if err := validateSettings(settings); err != nil {
-		return err
-	}
+// UpdatePKIControl updates PKI control settings and reflects listener states.
+func (m *Manager) UpdatePKIControl(req *datastore.PKIControlEnt) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.caCert != nil && (settings.CommonName != m.settings.CommonName ||
-		settings.Organization != m.settings.Organization ||
-		settings.KeyType != m.settings.KeyType ||
-		settings.ValidYears != m.settings.ValidYears) {
-		return fmt.Errorf("CA identity and key settings cannot be changed after initialization")
+	m.conf.EnableAcme = req.EnableAcme
+	m.conf.EnableHTTP = req.EnableHTTP
+	m.conf.AcmeBaseURL = req.AcmeBaseURL
+	m.conf.CertTerm = req.CertTerm
+	m.conf.CrlInterval = req.CrlInterval
+	if m.store != nil {
+		_ = m.store.SavePKIConf(context.Background(), &m.conf)
 	}
-	if err := m.saveSettings(settings); err != nil {
-		return err
-	}
-	settings.SANs = append([]string(nil), settings.SANs...)
-	m.settings = settings
-	return nil
-}
+	enableHTTP := m.conf.EnableHTTP
+	enableAcme := m.conf.EnableAcme
+	m.mu.Unlock()
 
-func (m *Manager) loadRootCA() error {
-	certPath := filepath.Join(m.dir, "ca.crt")
-	keyPath := filepath.Join(m.dir, "ca.key")
-	_, certErr := os.Stat(certPath)
-	_, keyErr := os.Stat(keyPath)
-	if certErr != nil && !os.IsNotExist(certErr) {
-		return fmt.Errorf("stat ca certificate: %w", certErr)
+	if enableHTTP {
+		m.StartHTTPServer()
+	} else {
+		m.StopHTTPServer()
 	}
-	if keyErr != nil && !os.IsNotExist(keyErr) {
-		return fmt.Errorf("stat ca private key: %w", keyErr)
-	}
-	certExists, keyExists := certErr == nil, keyErr == nil
-	if !certExists && !keyExists {
-		return nil
-	}
-	if certExists != keyExists {
-		return fmt.Errorf("incomplete root CA: certificate and private key must both exist")
-	}
-	if err := os.Chmod(keyPath, 0600); err != nil {
-		return fmt.Errorf("protect ca private key: %w", err)
-	}
-	certPEM, err := os.ReadFile(certPath)
-	if err != nil {
-		return err
-	}
-	keyPEM, err := os.ReadFile(keyPath)
-	if err != nil {
-		return err
-	}
-	certBlock, _ := pem.Decode(certPEM)
-	if certBlock == nil {
-		return fmt.Errorf("invalid ca cert pem")
-	}
-	cert, err := x509.ParseCertificate(certBlock.Bytes)
-	if err != nil {
-		return fmt.Errorf("parse ca cert: %w", err)
-	}
-	keyBlock, _ := pem.Decode(keyPEM)
-	if keyBlock == nil {
-		return fmt.Errorf("invalid ca key pem")
-	}
-	var key crypto.Signer
-	switch keyBlock.Type {
-	case "EC PRIVATE KEY":
-		key, err = x509.ParseECPrivateKey(keyBlock.Bytes)
-	case "RSA PRIVATE KEY":
-		key, err = x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-	case "PRIVATE KEY":
-		var parsed any
-		parsed, err = x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
-		if err == nil {
-			var ok bool
-			key, ok = parsed.(crypto.Signer)
-			if !ok {
-				err = fmt.Errorf("unsupported private key type %T", parsed)
-			}
-		}
-	default:
-		err = fmt.Errorf("unsupported private key PEM type %q", keyBlock.Type)
-	}
-	if err != nil {
-		return fmt.Errorf("parse ca key: %w", err)
-	}
-	if !publicKeysMatch(cert.PublicKey, key.Public()) {
-		return fmt.Errorf("ca certificate and private key do not match")
-	}
-	if !cert.IsCA || cert.CheckSignatureFrom(cert) != nil {
-		return fmt.Errorf("invalid self-signed root CA certificate")
-	}
-	m.caCert, m.caKey = cert, key
-	m.caCertPEM, m.caKeyPEM = string(certPEM), string(keyPEM)
-	m.commonName = cert.Subject.CommonName
-	if len(cert.Subject.Organization) > 0 {
-		m.organization = cert.Subject.Organization[0]
-	}
-	m.validYears = int(cert.NotAfter.Sub(cert.NotBefore).Hours() / (24 * 365))
-	slog.Info("Loaded existing Root CA", "commonName", cert.Subject.CommonName)
-	return nil
-}
 
-// InitializeCA creates the Root CA and its SCEP subordinate CA only on request.
-func (m *Manager) InitializeCA(options CAOptions) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.caCert != nil || m.caKey != nil {
-		return fmt.Errorf("CA is already initialized")
-	}
-	settings := m.settings
-	if value := strings.TrimSpace(options.CommonName); value != "" {
-		settings.CommonName = value
-	}
-	if value := strings.TrimSpace(options.Organization); value != "" {
-		settings.Organization = value
-	}
-	if options.SANs != nil {
-		settings.SANs = append([]string(nil), options.SANs...)
-	}
-	if options.KeyType != "" {
-		settings.KeyType = options.KeyType
-	}
-	if options.ValidYears > 0 {
-		settings.ValidYears = options.ValidYears
-	}
-	if options.ACMEBaseURL != "" {
-		settings.ACMEBaseURL = options.ACMEBaseURL
-	}
-	if options.HTTPBaseURL != "" {
-		settings.HTTPBaseURL = options.HTTPBaseURL
-	}
-	if options.CRLIntervalHours > 0 {
-		settings.CRLIntervalHours = options.CRLIntervalHours
-	}
-	if options.CertValidityHours > 0 {
-		settings.CertValidityHours = options.CertValidityHours
-	}
-	if options.HTTPPort > 0 {
-		settings.HTTPPort = options.HTTPPort
-	}
-	if options.ACMEPort > 0 {
-		settings.ACMEPort = options.ACMEPort
-	}
-	normalizeSettings(&settings)
-	if err := validateSettings(settings); err != nil {
-		return err
-	}
-	m.settings = settings
-	m.commonName, m.organization = settings.CommonName, settings.Organization
-	m.validYears, m.keyType = settings.ValidYears, settings.KeyType
-	if err := m.createRootCA(); err != nil {
-		return err
-	}
-	if err := m.loadOrCreateSCEPCA(); err != nil {
-		cleanupErrors := []error{err}
-		for _, name := range []string{"ca.crt", "ca.key", "scep-ca.crt", "scep-ca.key"} {
-			if removeErr := os.Remove(filepath.Join(m.dir, name)); removeErr != nil && !os.IsNotExist(removeErr) {
-				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove incomplete %s: %w", name, removeErr))
-			}
-		}
-		m.caCert, m.caKey = nil, nil
-		m.caCertPEM, m.caKeyPEM = "", ""
-		m.scepCert, m.scepKey = nil, nil
-		return fmt.Errorf("create SCEP CA: %w", errors.Join(cleanupErrors...))
-	}
-	if err := m.saveSettings(settings); err != nil {
-		cleanupErrors := []error{err}
-		for _, name := range []string{"ca.crt", "ca.key", "scep-ca.crt", "scep-ca.key"} {
-			if removeErr := os.Remove(filepath.Join(m.dir, name)); removeErr != nil && !os.IsNotExist(removeErr) {
-				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove incomplete %s: %w", name, removeErr))
-			}
-		}
-		m.caCert, m.caKey = nil, nil
-		m.caCertPEM, m.caKeyPEM = "", ""
-		m.scepCert, m.scepKey = nil, nil
-		return fmt.Errorf("persist CA settings: %w", errors.Join(cleanupErrors...))
+	if enableAcme {
+		m.StartAcmeServer()
+	} else {
+		m.StopAcmeServer()
 	}
 	return nil
 }
 
-// ResetCA removes the CA keys and certificate inventory.
-func (m *Manager) ResetCA() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, name := range []string{"ca.crt", "ca.key", "scep-ca.crt", "scep-ca.key"} {
-		if err := os.Remove(filepath.Join(m.dir, name)); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("remove %s: %w", name, err)
-		}
-	}
-	if m.certStore != nil {
-		if err := m.certStore.DeleteAllPKICertificates(); err != nil {
-			return fmt.Errorf("clear certificate inventory: %w", err)
-		}
-	} else if err := os.RemoveAll(filepath.Join(m.dir, "certificates")); err != nil {
-		return fmt.Errorf("clear certificate inventory: %w", err)
-	}
-	m.caCert, m.caKey = nil, nil
-	m.caCertPEM, m.caKeyPEM = "", ""
-	m.scepCert, m.scepKey = nil, nil
-	m.certificates = make(map[string]*Certificate)
-	m.commonName = "TWSNMP NEO Root CA"
-	m.organization = "TWSNMP NEO"
-	m.validYears = 10
-	m.keyType = "ecdsa-256"
-	m.settings = defaultSettings()
-	if err := m.saveSettings(m.settings); err != nil {
-		return fmt.Errorf("reset PKI settings: %w", err)
-	}
-	return nil
-}
-
-func (m *Manager) createRootCA() error {
-	var privKey crypto.Signer
-	var err error
-	switch m.keyType {
-	case "rsa-2048":
-		privKey, err = rsa.GenerateKey(rand.Reader, 2048)
-	case "rsa-4096":
-		privKey, err = rsa.GenerateKey(rand.Reader, 4096)
-	default:
-		privKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	}
-	if err != nil {
-		return fmt.Errorf("generate ca key: %w", err)
-	}
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		return fmt.Errorf("generate serial: %w", err)
-	}
-	notBefore := time.Now().UTC()
-	notAfter := notBefore.AddDate(m.validYears, 0, 0)
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject:      pkix.Name{Organization: []string{m.organization}, CommonName: m.commonName},
-		NotBefore:    notBefore, NotAfter: notAfter,
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
-		BasicConstraintsValid: true,
-	}
-	for _, san := range m.settings.SANs {
-		if ip := net.ParseIP(san); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, san)
-		}
-	}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, privKey.Public(), privKey)
-	if err != nil {
-		return fmt.Errorf("create ca cert: %w", err)
-	}
-	cert, err := x509.ParseCertificate(certDER)
-	if err != nil {
-		return fmt.Errorf("parse created cert: %w", err)
-	}
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	keyDER, err := x509.MarshalPKCS8PrivateKey(privKey)
-	if err != nil {
-		return fmt.Errorf("marshal ca key: %w", err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
-	if err := os.WriteFile(filepath.Join(m.dir, "ca.crt"), certPEM, 0644); err != nil {
-		return fmt.Errorf("write ca certificate: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(m.dir, "ca.key"), keyPEM, 0600); err != nil {
-		_ = os.Remove(filepath.Join(m.dir, "ca.crt"))
-		_ = os.Remove(filepath.Join(m.dir, "ca.key"))
-		return fmt.Errorf("write ca private key: %w", err)
-	}
-	m.caCert, m.caKey = cert, privKey
-	m.caCertPEM, m.caKeyPEM = string(certPEM), string(keyPEM)
-	slog.Info("Created new Private Root CA", "commonName", m.commonName, "validUntil", notAfter)
-	return nil
-}
-
-func (m *Manager) loadOrCreateSCEPCA() error {
-	if m.caCert == nil || m.caKey == nil {
-		return fmt.Errorf("root CA is not initialized")
-	}
-	certPath := filepath.Join(m.dir, "scep-ca.crt")
-	keyPath := filepath.Join(m.dir, "scep-ca.key")
-	_, certErr := os.Stat(certPath)
-	_, keyErr := os.Stat(keyPath)
-	if certErr != nil && !os.IsNotExist(certErr) {
-		return fmt.Errorf("stat SCEP CA certificate: %w", certErr)
-	}
-	if keyErr != nil && !os.IsNotExist(keyErr) {
-		return fmt.Errorf("stat SCEP CA private key: %w", keyErr)
-	}
-	certExists, keyExists := certErr == nil, keyErr == nil
-	if certExists != keyExists {
-		return fmt.Errorf("incomplete SCEP CA: certificate and private key must both exist")
-	}
-	if certExists {
-		if err := os.Chmod(keyPath, 0600); err != nil {
-			return fmt.Errorf("protect SCEP CA private key: %w", err)
-		}
-		certPEM, err := os.ReadFile(certPath)
-		if err != nil {
-			return fmt.Errorf("read SCEP CA certificate: %w", err)
-		}
-		certBlock, _ := pem.Decode(certPEM)
-		if certBlock == nil || certBlock.Type != "CERTIFICATE" {
-			return fmt.Errorf("invalid SCEP CA certificate PEM")
-		}
-		cert, err := x509.ParseCertificate(certBlock.Bytes)
-		if err != nil {
-			return fmt.Errorf("parse SCEP CA certificate: %w", err)
-		}
-		keyPEM, err := os.ReadFile(keyPath)
-		if err != nil {
-			return fmt.Errorf("read SCEP CA private key: %w", err)
-		}
-		keyBlock, _ := pem.Decode(keyPEM)
-		if keyBlock == nil || keyBlock.Type != "RSA PRIVATE KEY" {
-			return fmt.Errorf("invalid SCEP CA private key PEM")
-		}
-		key, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
-		if err != nil {
-			return fmt.Errorf("parse SCEP CA private key: %w", err)
-		}
-		if !cert.IsCA || cert.CheckSignatureFrom(m.caCert) != nil || !publicKeysMatch(cert.PublicKey, key.Public()) {
-			return fmt.Errorf("SCEP CA certificate and private key do not match")
-		}
-		m.scepCert, m.scepKey = cert, key
-		return nil
-	}
-	key, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return fmt.Errorf("generate SCEP CA key: %w", err)
-	}
-	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		return fmt.Errorf("generate SCEP CA serial: %w", err)
-	}
-	now := time.Now().UTC()
-	template := &x509.Certificate{
-		SerialNumber: serial,
-		Subject:      pkix.Name{Organization: []string{m.organization}, CommonName: m.commonName + " SCEP CA"},
-		NotBefore:    now.Add(-time.Minute), NotAfter: m.caCert.NotAfter,
-		KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		IsCA:     true, MaxPathLen: 0, BasicConstraintsValid: true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, m.caCert, &key.PublicKey, m.caKey)
-	if err != nil {
-		return fmt.Errorf("create SCEP CA certificate: %w", err)
-	}
-	keyDER := x509.MarshalPKCS1PrivateKey(key)
-	if err := os.WriteFile(certPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0644); err != nil {
-		return fmt.Errorf("write SCEP CA certificate: %w", err)
-	}
-	if err := os.WriteFile(keyPath, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: keyDER}), 0600); err != nil {
-		_ = os.Remove(certPath)
-		return fmt.Errorf("write SCEP CA private key: %w", err)
-	}
-	if err := os.Chmod(keyPath, 0600); err != nil {
-		return fmt.Errorf("protect SCEP CA private key: %w", err)
-	}
-	cert, err := x509.ParseCertificate(der)
-	if err != nil {
-		return fmt.Errorf("parse generated SCEP CA certificate: %w", err)
-	}
-	m.scepCert, m.scepKey = cert, key
-	return nil
-}
-
-// GetCACertPEM returns the PEM-encoded Root CA certificate.
+// GetCACertPEM returns the Root CA certificate PEM string.
 func (m *Manager) GetCACertPEM() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.caCertPEM
+	return m.conf.RootCACert
 }
 
-func (m *Manager) Status() Status {
+// GetSCEPCACertPEM returns the SCEP CA certificate PEM string.
+func (m *Manager) GetSCEPCACertPEM() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if m.caCert == nil || m.caKey == nil {
-		return Status{}
-	}
-	return Status{
-		Ready:       true,
-		CommonName:  m.caCert.Subject.CommonName,
-		ExpiresAt:   m.caCert.NotAfter.Unix(),
-		Certificate: m.caCertPEM,
-	}
+	return m.conf.ScepCACert
 }
 
-func (m *Manager) ListCertificates() []*Certificate {
+// GetCRL returns the binary CRL bytes.
+func (m *Manager) GetCRL() []byte {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	certs := make([]*Certificate, 0, len(m.certificates))
-	for _, cert := range m.certificates {
-		copy := *cert
-		copy.KeyPEM = ""
-		certs = append(certs, &copy)
-	}
-	sort.Slice(certs, func(i, j int) bool {
-		return certs[i].CreatedAt > certs[j].CreatedAt
-	})
-	return certs
+	return m.crl
 }
 
-func (m *Manager) IssueCertificate(commonName string, dnsNames []string, ipAddresses []net.IP, validDays int) (*Certificate, error) {
-	if strings.TrimSpace(commonName) == "" {
-		return nil, fmt.Errorf("common name is required")
-	}
-	if validDays < 1 || validDays > 36500 {
-		return nil, fmt.Errorf("validity must be between 1 and 36500 days")
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.caCert == nil || m.caKey == nil {
-		return nil, fmt.Errorf("root ca not initialized")
-	}
-	if len(dnsNames)+len(ipAddresses) == 0 {
-		if ip := net.ParseIP(commonName); ip != nil {
-			ipAddresses = []net.IP{ip}
-		} else {
-			dnsNames = []string{commonName}
-		}
-	}
-	if len(dnsNames)+len(ipAddresses) > 100 {
-		return nil, fmt.Errorf("at most 100 subject alternative names are allowed")
-	}
-	for i, name := range dnsNames {
-		name = strings.TrimSpace(name)
-		if name == "" || strings.ContainsAny(name, "\r\n") {
-			return nil, fmt.Errorf("invalid DNS subject alternative name")
-		}
-		dnsNames[i] = name
-	}
-	for _, ip := range ipAddresses {
-		if ip == nil || ip.To16() == nil {
-			return nil, fmt.Errorf("invalid IP subject alternative name")
-		}
-	}
+// Helper functions for PEM encoding/decoding
 
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("generate certificate key: %w", err)
-	}
-	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		return nil, fmt.Errorf("generate certificate serial: %w", err)
-	}
-	now := time.Now().UTC()
-	crlURLs, ocspURLs := m.certificateURLs()
-	template := &x509.Certificate{
-		SerialNumber:          serial,
-		Subject:               pkix.Name{Organization: []string{m.organization}, CommonName: commonName},
-		NotBefore:             now.Add(-time.Minute),
-		NotAfter:              now.AddDate(0, 0, validDays),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		DNSNames:              dnsNames,
-		IPAddresses:           ipAddresses,
-		CRLDistributionPoints: crlURLs,
-		OCSPServer:            ocspURLs,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, m.caCert, &key.PublicKey, m.caKey)
-	if err != nil {
-		return nil, fmt.Errorf("sign certificate: %w", err)
-	}
-	keyDER, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("marshal certificate key: %w", err)
-	}
-	cert := &Certificate{
-		Serial:    serial.Text(16),
-		Subject:   template.Subject.String(),
-		Type:      "manual",
-		CertPEM:   string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
-		KeyPEM:    string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})),
-		CreatedAt: now.Unix(),
-		ExpiresAt: template.NotAfter.Unix(),
-	}
-	if err := m.saveCertificateLocked(cert); err != nil {
-		return nil, err
-	}
-	copy := *cert
-	copy.KeyPEM = ""
-	return &copy, nil
-}
-
-func (m *Manager) IssueCertificateFromCSR(csrDER []byte, certType string) (*Certificate, error) {
-	csr, err := x509.ParseCertificateRequest(csrDER)
-	if err != nil {
-		return nil, fmt.Errorf("parse certificate request: %w", err)
-	}
-	if err := csr.CheckSignature(); err != nil {
-		return nil, fmt.Errorf("verify certificate request signature: %w", err)
-	}
-	if strings.TrimSpace(csr.Subject.CommonName) == "" {
-		return nil, fmt.Errorf("certificate request common name is required")
-	}
-	if len(csr.DNSNames)+len(csr.IPAddresses)+len(csr.EmailAddresses) > 100 {
-		return nil, fmt.Errorf("at most 100 subject alternative names are allowed")
-	}
-	if certType == "" {
-		certType = "csr"
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.caCert == nil || m.caKey == nil {
-		return nil, fmt.Errorf("root ca not initialized")
-	}
-	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		return nil, fmt.Errorf("generate certificate serial: %w", err)
-	}
-	now := time.Now().UTC()
-	crlURLs, ocspURLs := m.certificateURLs()
-	template := &x509.Certificate{
-		SerialNumber:          serial,
-		Subject:               csr.Subject,
-		NotBefore:             now.Add(-time.Minute),
-		NotAfter:              now.Add(time.Duration(m.settings.CertValidityHours) * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		DNSNames:              append([]string(nil), csr.DNSNames...),
-		EmailAddresses:        append([]string(nil), csr.EmailAddresses...),
-		IPAddresses:           append([]net.IP(nil), csr.IPAddresses...),
-		CRLDistributionPoints: crlURLs,
-		OCSPServer:            ocspURLs,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, m.caCert, csr.PublicKey, m.caKey)
-	if err != nil {
-		return nil, fmt.Errorf("sign certificate request: %w", err)
-	}
-	cert := &Certificate{
-		Serial:    serial.Text(16),
-		Subject:   template.Subject.String(),
-		Type:      certType,
-		CertPEM:   string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
-		CreatedAt: now.Unix(),
-		ExpiresAt: template.NotAfter.Unix(),
-	}
-	if err := m.saveCertificateLocked(cert); err != nil {
-		return nil, err
-	}
-	copy := *cert
-	return &copy, nil
-}
-
-func (m *Manager) certificateURLs() ([]string, []string) {
-	base := strings.TrimRight(m.settings.HTTPBaseURL, "/")
-	return []string{base + "/crl"}, []string{base + "/ocsp"}
-}
-
-func (m *Manager) RevokeCertificate(serial string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	cert, ok := m.certificates[strings.ToLower(serial)]
-	if !ok {
-		return os.ErrNotExist
-	}
-	if cert.RevokedAt != 0 {
-		return nil
-	}
-	cert.RevokedAt = time.Now().Unix()
-	return m.saveCertificateLocked(cert)
-}
-
-func (m *Manager) CreateOCSPResponse(requestDER []byte) ([]byte, error) {
-	req, err := ocsp.ParseRequest(requestDER)
-	if err != nil {
-		return nil, fmt.Errorf("parse OCSP request: %w", err)
-	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.caCert == nil || m.caKey == nil {
-		return nil, fmt.Errorf("root ca not initialized")
-	}
-	now := time.Now()
-	response := ocsp.Response{
-		Status:       ocsp.Unknown,
-		SerialNumber: req.SerialNumber,
-		ThisUpdate:   now,
-		NextUpdate:   now.Add(10 * time.Minute),
-		IssuerHash:   req.HashAlgorithm,
-	}
-	var publicKeyInfo struct {
-		Algorithm pkix.AlgorithmIdentifier
-		PublicKey asn1.BitString
-	}
-	if _, err := asn1.Unmarshal(m.caCert.RawSubjectPublicKeyInfo, &publicKeyInfo); err != nil {
-		return nil, fmt.Errorf("parse CA public key for OCSP: %w", err)
-	}
-	if !req.HashAlgorithm.Available() {
-		return nil, fmt.Errorf("unsupported OCSP issuer hash algorithm %v", req.HashAlgorithm)
-	}
-	nameHash := req.HashAlgorithm.New()
-	_, _ = nameHash.Write(m.caCert.RawSubject)
-	keyHash := req.HashAlgorithm.New()
-	_, _ = keyHash.Write(publicKeyInfo.PublicKey.RightAlign())
-	if bytes.Equal(req.IssuerNameHash, nameHash.Sum(nil)) && bytes.Equal(req.IssuerKeyHash, keyHash.Sum(nil)) {
-		if cert, ok := m.certificates[strings.ToLower(req.SerialNumber.Text(16))]; ok {
-			if cert.RevokedAt != 0 {
-				response.Status = ocsp.Revoked
-				response.RevokedAt = time.Unix(cert.RevokedAt, 0)
-				response.RevocationReason = ocsp.Unspecified
-			} else {
-				response.Status = ocsp.Good
-			}
-		}
-	}
-	result, err := ocsp.CreateResponse(m.caCert, m.caCert, response, m.caKey)
-	if err != nil {
-		return nil, fmt.Errorf("create OCSP response: %w", err)
-	}
-	return result, nil
-}
-
-func (m *Manager) GetCertificate(serial string) (*Certificate, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	cert, ok := m.certificates[strings.ToLower(serial)]
-	if !ok {
-		return nil, os.ErrNotExist
-	}
-	copy := *cert
-	return &copy, nil
-}
-
-func (m *Manager) GetCRL() ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.caCert == nil || m.caKey == nil {
-		return nil, fmt.Errorf("root ca not initialized")
-	}
-	revoked := make([]x509.RevocationListEntry, 0)
-	for _, cert := range m.certificates {
-		if cert.RevokedAt == 0 {
-			continue
-		}
-		serial, ok := new(big.Int).SetString(cert.Serial, 16)
-		if !ok {
-			return nil, fmt.Errorf("invalid certificate serial %q", cert.Serial)
-		}
-		revoked = append(revoked, x509.RevocationListEntry{
-			SerialNumber:   serial,
-			RevocationTime: time.Unix(cert.RevokedAt, 0),
-		})
-	}
-	template := &x509.RevocationList{
-		Number:                    big.NewInt(time.Now().Unix()),
-		ThisUpdate:                time.Now().UTC(),
-		NextUpdate:                time.Now().UTC().Add(time.Duration(m.settings.CRLIntervalHours) * time.Hour),
-		RevokedCertificateEntries: revoked,
-	}
-	return x509.CreateRevocationList(rand.Reader, template, m.caCert, m.caKey)
-}
-
-func (m *Manager) loadCertificates() error {
-	if m.certStore != nil {
-		certs, err := m.certStore.ListPKICertificates()
-		if err != nil {
-			return err
-		}
-		for _, cert := range certs {
-			if cert == nil || cert.Serial == "" {
-				return fmt.Errorf("stored certificate record has no serial")
-			}
-			copy := *cert
-			m.certificates[strings.ToLower(copy.Serial)] = &copy
-		}
-		return nil
-	}
-	dir := filepath.Join(m.dir, "certificates")
-	entries, err := os.ReadDir(dir)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-		if err != nil {
-			return err
-		}
-		var cert Certificate
-		if err := json.Unmarshal(data, &cert); err != nil {
-			return fmt.Errorf("parse certificate record %s: %w", entry.Name(), err)
-		}
-		if cert.Serial == "" {
-			return fmt.Errorf("certificate record %s has no serial", entry.Name())
-		}
-		m.certificates[strings.ToLower(cert.Serial)] = &cert
-	}
-	return nil
-}
-
-func (m *Manager) saveCertificateLocked(cert *Certificate) error {
-	if m.certStore != nil {
-		if err := m.certStore.SavePKICertificate(cert); err != nil {
-			return fmt.Errorf("save certificate record: %w", err)
-		}
-		copy := *cert
-		m.certificates[strings.ToLower(cert.Serial)] = &copy
-		return nil
-	}
-	dir := filepath.Join(m.dir, "certificates")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("create certificate inventory: %w", err)
-	}
-	data, err := json.Marshal(cert)
-	if err != nil {
-		return fmt.Errorf("encode certificate record: %w", err)
-	}
-	path := filepath.Join(dir, strings.ToLower(cert.Serial)+".json")
-	tmp, err := os.CreateTemp(dir, ".certificate-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create certificate record: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
-	if err := tmp.Chmod(0600); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("protect certificate record: %w", err)
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write certificate record: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close certificate record: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("save certificate record: %w", err)
-	}
-	copy := *cert
-	m.certificates[strings.ToLower(cert.Serial)] = &copy
-	return nil
-}
-
-func publicKeysMatch(a, b any) bool {
-	aDER, err := x509.MarshalPKIXPublicKey(a)
-	if err != nil {
-		return false
-	}
-	bDER, err := x509.MarshalPKIXPublicKey(b)
-	return err == nil && string(aDER) == string(bDER)
-}
-
-// IssueServerCertificate generates a signed server certificate for TLS.
-func (m *Manager) IssueServerCertificate(commonName string, dnsNames []string, ips []net.IP, validDays int) (*CertificatePair, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.caCert == nil || m.caKey == nil {
-		return nil, fmt.Errorf("root ca not initialized")
-	}
-	if validDays <= 0 {
-		validDays = 365
-	}
-
-	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("generate server key: %w", err)
-	}
-
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-	if err != nil {
-		return nil, fmt.Errorf("generate serial: %w", err)
-	}
-
-	notBefore := time.Now().Add(-1 * time.Minute)
-	notAfter := notBefore.AddDate(0, 0, validDays)
-
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{m.organization},
-			CommonName:   commonName,
+func makePEM(b []byte, t string) []byte {
+	return pem.EncodeToMemory(
+		&pem.Block{
+			Type:  t,
+			Bytes: b,
 		},
-		NotBefore:             notBefore,
-		NotAfter:              notAfter,
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-		DNSNames:              dnsNames,
-		IPAddresses:           ips,
-	}
+	)
+}
 
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, m.caCert, &privKey.PublicKey, m.caKey)
-	if err != nil {
-		return nil, fmt.Errorf("sign server cert: %w", err)
+func getCertFromPEM(certPEM string) ([]byte, error) {
+	block, _ := pem.Decode([]byte(certPEM))
+	if block == nil {
+		return nil, fmt.Errorf("invalid PEM certificate")
 	}
+	return block.Bytes, nil
+}
 
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-	keyBytes, err := x509.MarshalECPrivateKey(privKey)
-	if err != nil {
-		return nil, fmt.Errorf("marshal server key: %w", err)
+func getPrivateKeyFromPEM(keyPEM string) (any, any, error) {
+	block, _ := pem.Decode([]byte(keyPEM))
+	if block == nil {
+		return nil, nil, fmt.Errorf("invalid PEM private key")
 	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
-
-	return &CertificatePair{
-		CertPEM: string(certPEM),
-		KeyPEM:  string(keyPEM),
-	}, nil
+	switch block.Type {
+	case "RSA PRIVATE KEY":
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key, &key.PublicKey, nil
+	case "EC PRIVATE KEY":
+		key, err := x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key, &key.PublicKey, nil
+	default:
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, nil, err
+		}
+		switch k := key.(type) {
+		case *rsa.PrivateKey:
+			return k, &k.PublicKey, nil
+		case *ecdsa.PrivateKey:
+			return k, &k.PublicKey, nil
+		default:
+			return nil, nil, fmt.Errorf("unsupported key type")
+		}
+	}
 }
