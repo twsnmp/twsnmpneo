@@ -299,7 +299,10 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 	// Determine directories to scan
 	dirs := make([]string, 0)
 	if filter.Type != "" {
-		dirs = append(dirs, filepath.Join(s.dir, filter.Type))
+		cleanType := filepath.Base(filepath.Clean(filter.Type))
+		if cleanType != "." && cleanType != "/" && !strings.Contains(filter.Type, "..") {
+			dirs = append(dirs, filepath.Join(s.dir, cleanType))
+		}
 	} else {
 		entries, err := os.ReadDir(s.dir)
 		if err != nil {
@@ -331,7 +334,7 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 		return files[i] > files[j]
 	})
 
-	results := make([]*ParquetLogRecord, 0, limit)
+	results := make([]*ParquetLogRecord, 0, min(limit, 500))
 
 	var regexKeyword *regexp.Regexp
 	if filter.Filter != "" {
@@ -529,7 +532,11 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 	s.mu.Unlock()
 
 	if logType != "" {
-		typeDir := filepath.Join(s.dir, logType)
+		cleanType := filepath.Base(filepath.Clean(logType))
+		if cleanType == "." || cleanType == "/" || strings.Contains(logType, "..") {
+			return fmt.Errorf("invalid log type: %s", logType)
+		}
+		typeDir := filepath.Join(s.dir, cleanType)
 		return os.RemoveAll(typeDir)
 	}
 

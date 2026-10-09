@@ -1256,7 +1256,7 @@ func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFil
 	if limit > 20000 {
 		limit = 20000
 	}
-	logs := make([]*datastore.EventLogEnt, 0, min(limit, 1000))
+	logs := make([]*datastore.EventLogEnt, 0, min(limit, 500))
 
 	var regexType *regexp.Regexp
 	if filter.Type != "" && filter.Type != "all" {

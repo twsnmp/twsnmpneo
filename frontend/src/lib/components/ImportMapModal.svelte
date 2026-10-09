@@ -95,8 +95,9 @@
           if (f.length > 4) {
             const x = parseInt(f[2], 10) || 0;
             const y = parseInt(f[3], 10) || 0;
+            const randomPart = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36);
             lastNode = {
-              id: `v4_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              id: `v4_${Date.now()}_${randomPart}`,
               name: f[1],
               x,
               y,
@@ -184,8 +185,9 @@
       const sn = nodesMap.get(le.srcNode);
       const dn = nodesMap.get(le.dstNode);
       if (sn && dn) {
+        const randomPart = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36);
         finalLines.push({
-          id: `line_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          id: `line_${Date.now()}_${randomPart}`,
           node_id1: sn.id,
           node_id2: dn.id,
           NodeID1: sn.id,

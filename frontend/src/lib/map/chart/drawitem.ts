@@ -309,7 +309,7 @@ export const kpi = (
   const valueColor = dark ? '#f3f4f6' : '#0f172a'
   const unitColor = dark ? '#9ca3af' : '#64748b'
 
-  const uid = Math.random().toString(36).substring(2, 8)
+  const uid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Date.now().toString(36)
   const cardGradId = `cardGrad_${uid}`
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}">

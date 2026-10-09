@@ -1886,24 +1886,29 @@ func NewServer(cfg Config) (*Server, error) {
 		})
 
 		findImageFile := func(name string) string {
+			cleanName := filepath.Base(filepath.Clean(name))
+			if cleanName == "." || cleanName == "/" || strings.Contains(name, "..") {
+				return ""
+			}
 			dirs := []string{}
-			if cfg.DataDir != "" {
-				dirs = append(dirs, cfg.DataDir)
+			if cfg.DataDir != "" && !strings.Contains(cfg.DataDir, "..") {
+				dirs = append(dirs, filepath.Clean(cfg.DataDir))
 			}
 			if cfg.Store != nil {
-				if sd := cfg.Store.GetDataDir(); sd != "" {
-					dirs = append(dirs, sd)
+				if sd := cfg.Store.GetDataDir(); sd != "" && !strings.Contains(sd, "..") {
+					dirs = append(dirs, filepath.Clean(sd))
 				}
 			}
 			dirs = append(dirs, "./data", ".")
 
 			for _, d := range dirs {
-				p := filepath.Join(d, "images", name)
+				imgDir := filepath.Join(d, "images")
+				p := filepath.Clean(filepath.Join(imgDir, cleanName))
 				if _, err := os.Stat(p); err == nil {
 					return p
 				}
 				// Fallback search for backimage_map
-				if strings.Contains(name, "japanesemap") || strings.Contains(name, "backimage") {
+				if strings.Contains(cleanName, "japanesemap") || strings.Contains(cleanName, "backimage") {
 					for _, fallback := range []string{"backimage_map.png", "backimage_map.jpg"} {
 						fbPath := filepath.Join(d, "images", fallback)
 						if _, err := os.Stat(fbPath); err == nil {

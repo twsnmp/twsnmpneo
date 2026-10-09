@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -216,17 +217,13 @@ func (m *DownloadManager) FindModel(name string) (string, error) {
 	primaryDir := m.ModelDir()
 
 	if name != "" {
-		if fi, err := os.Stat(name); err == nil {
-			if fi.IsDir() {
-				if _, err := os.Stat(filepath.Join(name, "config.json")); err == nil {
-					return name, nil
-				}
-			} else if strings.HasSuffix(strings.ToLower(name), ".gguf") {
-				return name, nil
-			}
+		cleanName := filepath.Clean(name)
+		if strings.Contains(cleanName, "..") {
+			return "", fmt.Errorf("invalid model name: %s", name)
 		}
+		baseName := filepath.Base(cleanName)
 
-		p := filepath.Join(primaryDir, name)
+		p := filepath.Join(primaryDir, baseName)
 		if fi, err := os.Stat(p); err == nil {
 			if !fi.IsDir() || fileExists(filepath.Join(p, "config.json")) {
 				return p, nil
@@ -298,13 +295,20 @@ func (m *DownloadManager) FindModel(name string) (string, error) {
 
 // DeleteModel deletes a model from the datastore's models folder
 func (m *DownloadManager) DeleteModel(name string) error {
-	p, err := m.FindModel(name)
+	cleanName := filepath.Base(filepath.Clean(name))
+	if cleanName == "." || cleanName == "/" || strings.Contains(name, "..") {
+		return fmt.Errorf("invalid model name: %s", name)
+	}
+	p, err := m.FindModel(cleanName)
 	if err != nil {
-		targetPath := filepath.Join(m.ModelDir(), name)
+		targetPath := filepath.Join(m.ModelDir(), cleanName)
 		if _, statErr := os.Stat(targetPath); statErr == nil {
 			return os.RemoveAll(targetPath)
 		}
 		return err
+	}
+	if !strings.HasPrefix(filepath.Clean(p), filepath.Clean(m.ModelDir())) {
+		return fmt.Errorf("cannot delete model outside model dir: %s", p)
 	}
 	return os.RemoveAll(p)
 }
@@ -474,14 +478,14 @@ func downloadModelFile(ctx context.Context, modelDir, target string, progress Do
 		return "", err
 	}
 
-	url := target
+	rawURL := target
 	var filename string
 
 	if presetURL, ok := PresetModels[strings.ToLower(target)]; ok {
-		url = presetURL
+		rawURL = presetURL
 		filename = filepath.Base(presetURL)
 	} else if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
-		url = target
+		rawURL = target
 		filename = filepath.Base(target)
 		if idx := strings.Index(filename, "?"); idx != -1 {
 			filename = filename[:idx]
@@ -491,12 +495,12 @@ func downloadModelFile(ctx context.Context, modelDir, target string, progress Do
 		if len(parts) >= 3 && strings.HasSuffix(parts[len(parts)-1], ".gguf") {
 			repo := strings.Join(parts[:len(parts)-1], "/")
 			file := parts[len(parts)-1]
-			url = fmt.Sprintf("https://huggingface.co/%s/resolve/main/%s", repo, file)
+			rawURL = fmt.Sprintf("https://huggingface.co/%s/resolve/main/%s", repo, file)
 			filename = file
 		} else {
 			repo := target
 			file := strings.ToLower(parts[len(parts)-1]) + "-q8_0.gguf"
-			url = fmt.Sprintf("https://huggingface.co/%s/resolve/main/%s", repo, file)
+			rawURL = fmt.Sprintf("https://huggingface.co/%s/resolve/main/%s", repo, file)
 			filename = file
 		}
 	} else {
@@ -511,10 +515,20 @@ func downloadModelFile(ctx context.Context, modelDir, target string, progress Do
 	if filename == "" {
 		filename = "model.gguf"
 	}
-	destPath := filepath.Join(modelDir, filename)
+	cleanFilename := filepath.Base(filepath.Clean(filename))
+	if cleanFilename == "." || cleanFilename == "/" || strings.Contains(cleanFilename, "..") {
+		cleanFilename = "model.gguf"
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return "", fmt.Errorf("invalid download URL scheme: %s", rawURL)
+	}
+
+	destPath := filepath.Join(modelDir, cleanFilename)
 	tmpPath := destPath + ".tmp"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return "", err
 	}
@@ -526,7 +540,7 @@ func downloadModelFile(ctx context.Context, modelDir, target string, progress Do
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download model: HTTP %s (%s)", resp.Status, url)
+		return "", fmt.Errorf("failed to download model: HTTP %s (%s)", resp.Status, rawURL)
 	}
 
 	out, err := os.Create(tmpPath)

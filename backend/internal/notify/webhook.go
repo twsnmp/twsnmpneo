@@ -190,6 +190,9 @@ func (m *Manager) webhookReport(title string, info []reportInfoEnt, ai []aiResul
 
 // PostWebhook posts JSON data to the given webhook URL.
 func PostWebhook(url string, j []byte) error {
+	if err := validateWebhookURL(url); err != nil {
+		return err
+	}
 	return postWebhook(url, j, &http.Client{Timeout: 2 * time.Second})
 }
 
@@ -202,6 +205,9 @@ func PostTestWebhook(url string, j []byte) error {
 }
 
 func postWebhook(url string, j []byte, client *http.Client) error {
+	if err := validateWebhookURL(url); err != nil {
+		return err
+	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(j))
 	if err != nil {
 		return err

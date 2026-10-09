@@ -351,7 +351,7 @@ func parseKV(c string) map[string]string {
 
 func atoi(s string) int {
 	s = strings.TrimSpace(s)
-	n, err := strconv.ParseInt(s, 10, 64)
+	n, err := strconv.Atoi(s)
 	if err != nil {
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
@@ -359,7 +359,7 @@ func atoi(s string) int {
 		}
 		return int(f)
 	}
-	return int(n)
+	return n
 }
 
 func atof(s string) float64 {
