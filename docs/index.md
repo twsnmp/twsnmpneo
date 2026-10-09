@@ -26,18 +26,19 @@ Next-Generation Container-Native & Web-Based Network Management System
    - [Connection Lines & Packet Flow Animation](#connection-lines--packet-flow-animation)
    - [Draw Items (11 Types)](#draw-items-11-types)
    - [3D Virtual Hardware Panel (vpanel)](#3d-virtual-hardware-panel-vpanel)
-   - [Map Menu & Background Images](#map-menu--background-images)
+   - [Map Settings & Background Images](#map-settings--background-images)
 5. [Auto-Discovery & Topology Exploration](#auto-discovery--topology-exploration)
    - [IP Range Auto-Discovery](#ip-range-auto-discovery)
    - [Neighbor Topology Finder (Find Neighbor)](#neighbor-topology-finder-find-neighbor)
 6. [Node & Polling Management](#node--polling-management)
-   - [Node Properties & Auto-Detection](#node-properties--auto-detection)
+   - [Node List & Properties](#node-list--properties)
    - [Extensive Polling Protocols](#extensive-polling-protocols)
    - [AI Polling Setup Assistant](#ai-polling-setup-assistant)
 7. [Diagnostic & Operational Tools](#diagnostic--operational-tools)
-   - [Ping / Smokeping / MTR / 3D Analysis](#ping--smokeping--mtr--3d-analysis)
+   - [Ping / Smokeping / MTR](#ping--smokeping--mtr)
    - [MIB Browser & MIB Tree Explorer](#mib-browser--mib-tree-explorer)
-   - [gNMI Tool & Wake-on-LAN (WOL)](#gnmi-tool--wake-on-lan-wol)
+   - [gNMI Tool](#gnmi-tool)
+   - [Wake-on-LAN (WOL)](#wake-on-lan-wol)
 8. [Analytics & Reporting Suite](#analytics--reporting-suite)
    - [Device Analytics (LAN / Wi-Fi / Bluetooth / FDB)](#device-analytics-lan--wi-fi--bluetooth--fdb)
    - [IPAM (IP Address Management Heatmap)](#ipam-ip-address-management-heatmap)
@@ -47,33 +48,33 @@ Next-Generation Container-Native & Web-Based Network Management System
    - [TLS/SSL Certificate Monitoring](#tlsssl-certificate-monitoring)
    - [AI Anomaly Detection Scores](#ai-anomaly-detection-scores)
 9. [High-Speed Log Management (Apache Parquet)](#high-speed-log-management-apache-parquet)
-   - [Event Logs & AI Root Cause Diagnosis](#event-logs--ai-root-cause-diagnosis)
-   - [Syslog & SNMP TRAP](#syslog--snmp-trap)
-   - [ARP Watch (IP-MAC Conflict Detection)](#arp-watch-ip-mac-conflict-detection)
-   - [OpenTelemetry & MQTT Logs](#opentelemetry--mqtt-logs)
-   - [Comprehensive Log Report Modal](#comprehensive-log-report-modal)
+   - [Supported Log Types](#supported-log-types)
+   - [Receivers & Daemons Settings](#receivers--daemons-settings)
+   - [AI Root Cause Diagnosis](#ai-root-cause-diagnosis)
 10. [Built-in PKI (Certificate Authority)](#built-in-pki-certificate-authority)
     - [Root CA Setup & Certificate Ledger](#root-ca-setup--certificate-ledger)
     - [In-Browser CSR Generation](#in-browser-csr-generation)
     - [CRL / OCSP / SCEP / ACME Services](#crl--ocsp--scep--acme-services)
 11. [AI & MCP Integration](#ai--mcp-integration)
-    - [LLM Configuration (Gemini / OpenAI / Claude / Ollama)](#llm-configuration-gemini--openai--claude--ollama)
-    - [Native Streamable HTTP MCP Server (`/api/mcp`)](#native-streamable-http-mcp-server-apimcp)
-    - [AI Agent Workflows (Cursor / Claude Desktop)](#ai-agent-workflows-cursor--claude-desktop)
+    - [LLM Configuration (Local LLM / Cloud AI Services)](#llm-configuration-local-llm--cloud-ai-services)
+    - [Native Streamable HTTP MCP Server](#native-streamable-http-mcp-server)
 12. [Settings & System Administration](#settings--system-administration)
-    - [Notifications (Email / Slack / LINE / Teams / Discord / Webhook)](#notifications-email--slack--line--teams--discord--webhook)
+    - [System Status & Resource Monitor](#system-status--resource-monitor)
+    - [Notifications (Email / Webhook)](#notifications-email--webhook)
     - [Backup & Automated Log Retention](#backup--automated-log-retention)
+    - [Icon Management & Custom Assets](#icon-management--custom-assets)
+    - [User Account Management & Access Control](#user-account-management--access-control)
 
 ---
 
-## 1. Introduction
+## 1. Introduction {: #introduction}
 
 **TWSNMP NEO** represents the next generation of the renowned **TWSNMP** network management system series.
 It consolidates the container portability of **TWSNMP FC** and the advanced visual and AI capabilities of **TWSNMP FK**, built from the ground up on modern web architecture (Go 1.27+, Svelte 5 with Runes, and TypeScript).
 
 ![](./images/en/readme_hero_banner.png)
 
-### Core Highlights
+### Core Highlights {: #core-highlights}
 - **Zero-Install Web Experience**: Full management capabilities accessible from any modern desktop or mobile browser.
 - **p5.js & 3D WebGL Canvas**: Hardware-accurate switching hub panels with real-time port LEDs and full 3D interactive hardware panels (`vpanel`).
 - **Apache Parquet Columnar Storage**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios and sub-second query performance.
@@ -82,11 +83,11 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 
 ---
 
-## 2. Installation & Startup
+## 2. Installation & Startup {: #installation--startup}
 
 TWSNMP NEO runs either as a Docker container or as a standalone lightweight executable binary.
 
-### Running with Docker
+### Running with Docker {: #running-with-docker}
 
 ```bash
 docker run -d \
@@ -103,7 +104,7 @@ docker run -d \
 
 After startup, open your browser and go to `http://<host-ip>:8080`.
 
-### Running with Docker Compose
+### Running with Docker Compose {: #running-with-docker-compose}
 
 Create a `docker-compose.yml` file:
 
@@ -129,7 +130,7 @@ Launch with:
 docker compose up -d
 ```
 
-### Running as a Standalone Binary
+### Running as a Standalone Binary {: #running-as-a-standalone-binary}
 
 Download the executable binary for your OS from the [GitHub Releases page](https://github.com/twsnmp/twsnmpneo/releases).
 
@@ -137,7 +138,7 @@ Download the executable binary for your OS from the [GitHub Releases page](https
 ./twsnmpneo -datastore ./data -port 8080
 ```
 
-### Linux Capabilities Configuration
+### Linux Capabilities Configuration {: #linux-capabilities-configuration}
 
 When running as an unprivileged user on Linux, grant Capabilities for raw sockets (ICMP Ping) and privileged ports (Syslog 514, TRAP 162):
 
@@ -151,7 +152,7 @@ sudo setcap 'cap_net_bind_service,cap_net_raw+ep' ./twsnmpneo
 
 ---
 
-## 3. User Interface Overview
+## 3. User Interface Overview {: #user-interface-overview}
 
 TWSNMP NEO is engineered as a responsive Single Page Application (SPA).
 
@@ -166,9 +167,9 @@ TWSNMP NEO is engineered as a responsive Single Page Application (SPA).
 
 ---
 
-## 4. Map Screen
+## 4. Map Screen {: #map-screen}
 
-### Nodes and Networks (SW-HUB Port Panel)
+### Nodes and Networks (SW-HUB Port Panel) {: #nodes-and-networks-sw-hub-port-panel}
 
 - **Nodes**: Physical servers, routers, endpoints, and appliances with status glows (Green: Normal, Yellow: Warning, Red: Critical, Gray: Inactive).
 - **Networks (SW-HUB Container)**: Visualizes physical switches with RJ45 port images, Link UP/DOWN status LEDs, port numbers, and auto-wrapping layout.
@@ -179,7 +180,7 @@ Switching hubs and networks can also be managed via the dedicated inventory list
 
 ![](./images/en/network_list.png)
 
-### Connection Lines & Packet Flow Animation
+### Connection Lines & Packet Flow Animation {: #connection-lines--packet-flow-animation}
 
 Connect nodes and switch ports via drag-and-drop or Shift+click. When bound to traffic polling metrics, line widths dynamically scale with bandwidth utilization, and packet flow dots animate in real time.
 
@@ -187,7 +188,7 @@ Lines can also be audited and managed in the Lines inventory table (Source, Dest
 
 ![](./images/en/line_list.png)
 
-### Draw Items (11 Types)
+### Draw Items (11 Types) {: #draw-items-11-types}
 
 Enrich your topology map with functional and aesthetic widgets:
 
@@ -206,7 +207,7 @@ All configured draw items can also be audited and managed in the Draw Items inve
 
 ![](./images/en/drawitem_list.png)
 
-### 3D Virtual Hardware Panel (vpanel)
+### 3D Virtual Hardware Panel (vpanel) {: #3d-virtual-hardware-panel-vpanel}
 
 Right-click any switch node and select **Virtual Panel** to launch the 3D WebGL hardware representation.
 
@@ -215,7 +216,7 @@ Right-click any switch node and select **Virtual Panel** to launch the 3D WebGL 
 - Full 3D orbital rotation and zoom (Orbit Controls).
 - High-resolution RJ45 port textures with active Link UP/DOWN green LEDs, 1Gbps+ speed amber LEDs, and Power LEDs.
 
-### Map Menu & Background Images
+### Map Settings & Background Images {: #map-settings--background-images}
 
 Right-click empty canvas space or open Settings to configure map properties:
 - **Map Name & Canvas Size**: Auto-scaling or fixed virtual dimensions.
@@ -227,9 +228,9 @@ Right-click empty canvas space or open Settings to configure map properties:
 
 ---
 
-## 5. Auto-Discovery & Topology Exploration
+## 5. Auto-Discovery & Topology Exploration {: #auto-discovery--topology-exploration}
 
-### IP Range Auto-Discovery
+### IP Range Auto-Discovery {: #ip-range-auto-discovery}
 
 Scan subnets (e.g., `192.168.1.0/24`) using simultaneous ICMP Ping, SNMP walk, and ARP discovery to populate maps automatically.
 
@@ -239,7 +240,7 @@ During execution, real-time discovery progress and categorized service detection
 
 ![](./images/en/discover_running.png)
 
-### Neighbor Topology Finder (Find Neighbor)
+### Neighbor Topology Finder (Find Neighbor) {: #neighbor-topology-finder-find-neighbor}
 
 Inspects switch ARP caches, Bridge MIB FDB tables, and LLDP/CDP neighbor tables to automatically identify and connect nodes to their exact switch ports.
 
@@ -247,7 +248,9 @@ Inspects switch ARP caches, Bridge MIB FDB tables, and LLDP/CDP neighbor tables 
 
 ---
 
-### Node List & Properties
+## 6. Node & Polling Management {: #node--polling-management}
+
+### Node List & Properties {: #node-list--properties}
 
 View and manage all monitored nodes, IP/MAC bindings, hardware vendors, and operational states in a real-time searchable inventory list:
 
@@ -257,7 +260,7 @@ Configure hostname, IP, MAC address, SNMP credentials (v1/v2c/v3 with authPriv),
 
 ![](./images/en/node_dialog.png)
 
-### Extensive Polling Protocols
+### Extensive Polling Protocols {: #extensive-polling-protocols}
 
 - **PING**: ICMP, UDP, Smokeping, MTR
 - **SNMP**: v1 / v2c / v3 Get, Walk, and Table extractions
@@ -274,24 +277,23 @@ Global default polling parameters (interval, timeout, retry count, SNMP mode, co
 
 ![](./images/en/settings_polling.png)
 
-### AI Polling Setup Assistant (Planned Feature)
+### AI Polling Setup Assistant {: #ai-polling-setup-assistant}
 
 Describe monitoring requirements in natural language (e.g., *"Create a polling that alerts if CPU utilization exceeds 85%"*), and the AI automatically generates the appropriate OID, polling type, and threshold expression. *(Experimental feature under development)*
 
 ---
 
-## 7. Diagnostic & Operational Tools
+## 7. Diagnostic & Operational Tools {: #diagnostic--operational-tools}
 
-### Ping / Smokeping / MTR / 3D Analysis
+### Ping / Smokeping / MTR {: #ping--smokeping--mtr}
 
 - **Real-Time Ping**: Continuous ICMP/UDP ping with real-time response graphs and audio cues.
 - **Smokeping**: Visualizes latency jitter and packet drop distributions.
 - **MTR**: Per-hop traceroute latency statistics with AI diagnostic summaries.
-- **3D Analysis**: Response time patterns across hours and days rendered as 3D surface charts.
 
 ![](./images/en/ping_tool.png)
 
-### MIB Browser & MIB Tree Explorer
+### MIB Browser & MIB Tree Explorer {: #mib-browser--mib-tree-explorer}
 
 Browse standard RFC MIBs and vendor private MIB trees. Perform Get / GetNext / Walk / Table operations, sort table columns, and export data directly to CSV.
 
@@ -299,39 +301,54 @@ Browse standard RFC MIBs and vendor private MIB trees. Perform Get / GetNext / W
 
 ![](./images/en/mib_tree.png)
 
-### gNMI Tool & Wake-on-LAN (WOL)
+### gNMI Tool {: #gnmi-tool}
 
-- **gNMI Tool**: Query modern telemetry streams and inspect configurations over gRPC.
-- **Wake-on-LAN**: Broadcast Magic Packets to remote MAC addresses for instant remote boot.
+Query modern telemetry streams and inspect configurations over gRPC.
 
 ![](./images/en/gnmi_tool.png)
 
+### Wake-on-LAN (WOL) {: #wake-on-lan-wol}
+
+Execute directly from the node's right-click context menu on the map or via the "WOL" button at the top of the Node Details modal. Broadcasts Magic Packets to the target MAC address for instant remote power-on.
+
 ---
 
-## 8. Analytics & Reporting Suite
+## 8. Analytics & Reporting Suite {: #analytics--reporting-suite}
 
 TWSNMP NEO incorporates 8 dedicated analytics engines:
 
 ![](./images/en/report_device_lan.png)
 
-1. **LAN / Wi-Fi / Bluetooth Device Analytics**: Vendor OUI breakdown, signal strength, and rogue device tracking.
-2. **IPAM (IP Address Management)**: Multi-subnet utilization heatmaps and IP conflict detection.
-3. **Polling SLA & Availability**: Service level agreements, availability percentages, failure/caution breakdowns, and response time rankings.
-4. **Traffic & Flow (NetFlow / sFlow / Fumble)**: Top talkers, top ports, and Fumble anomalous connection tracking.
-5. **Host & OS Analytics**: Windows Security event auditing, privilege escalation, and active processes.
-6. **IoT & Environmental Sensors**: Temperature, humidity, pressure, and energy consumption (Wh) trends.
-7. **TLS/SSL Certificate Auditing**: Expiration countdown and revocation status verification.
-8. **AI Anomaly Detection Scores**: Statistical anomaly scoring and ranking across nodes and pollings.
+### Device Analytics (LAN / Wi-Fi / Bluetooth / FDB) {: #device-analytics-lan--wi-fi--bluetooth--fdb}
+Vendor OUI breakdown, signal strength, and rogue device tracking.
+
+### IPAM (IP Address Management Heatmap) {: #ipam-ip-address-management-heatmap}
+Multi-subnet utilization heatmaps and IP conflict detection.
+
+![](./images/en/report_ipam_heatmap.png)
+
+### Flow & Traffic Analysis (NetFlow / sFlow / Fumble) {: #flow--traffic-analysis-netflow--sflow--fumble}
+Top talkers, top ports, and Fumble anomalous connection tracking.
+
+### Host Analysis (Windows Events / Processes) {: #host-analysis-windows-events--processes}
+Windows Security event auditing, privilege escalation, and active processes.
+
+### IoT & Environmental Sensors (Temperature / Power / MQTT) {: #iot--environmental-sensors-temperature--power--mqtt}
+Temperature, humidity, pressure, and energy consumption (Wh) trends.
+
+### TLS/SSL Certificate Monitoring {: #tlsssl-certificate-monitoring}
+Expiration countdown and revocation status verification.
+
+### AI Anomaly Detection Scores {: #ai-anomaly-detection-scores}
+Statistical anomaly scoring and ranking across nodes and pollings.
 
 ![](./images/en/report_polling_sla.png)
 
 ![](./images/en/report_event_analytics.png)
 
-![](./images/en/report_ipam_heatmap.png)
-
 ---
 
-## 9. High-Speed Log Management (Apache Parquet)
+## 9. High-Speed Log Management (Apache Parquet) {: #high-speed-log-management-apache-parquet}
 
 Built on **Apache Parquet** columnar compression, TWSNMP NEO processes massive log volumes with exceptional speed and minimal storage overhead.
 
@@ -339,7 +356,7 @@ Built on **Apache Parquet** columnar compression, TWSNMP NEO processes massive l
 
 ![](./images/en/log_syslog.png)
 
-### Supported Log Types
+### Supported Log Types {: #supported-log-types}
 - **Event Logs**: System lifecycle events, status changes, and AI Root Cause analysis.
 - **Syslog**: UDP/TCP/TLS reception, severity breakdowns, log normalization, and FFT periodicity analysis.
 - **SNMP TRAP**: v1/v2c/v3 traps with MIB OID name translation.
@@ -350,37 +367,40 @@ Built on **Apache Parquet** columnar compression, TWSNMP NEO processes massive l
 
 ![](./images/en/log_arp.png)
 
+### Receivers & Daemons Settings {: #receivers--daemons-settings}
 Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow UDP:2055, sFlow UDP:6343, ARP Watch CIDR, OpenTelemetry OTLP gRPC/HTTP:4318, MQTT Broker) can be enabled or configured under Receivers & Daemons settings:
 
 ![](./images/en/settings_receivers.png)
 
-### AI Root Cause Diagnosis (Planned Feature)
+### AI Root Cause Diagnosis {: #ai-root-cause-diagnosis}
 When critical events occur, LLM-based intelligent analysis automatically summarizes correlated logs and provides immediate remediation recommendations. *(Experimental feature under development)*
 
 ---
 
-## 10. Built-in PKI (Certificate Authority)
+## 10. Built-in PKI (Certificate Authority) {: #built-in-pki-certificate-authority}
 
 A complete, self-contained Private PKI system embedded directly within your network manager. Modeled after the production-grade TWSNMP FC Web server architecture, it offers an intuitive left-sidebar interface with full protocol server integration.
 
 ![](./images/en/pki_root_ca.png)
 
-- **Root CA Setup & Management**: Generate Root CA keys and certificates securely (supporting RSA and ECDSA key curves) with explicit initialization.
-- **Certificates Inventory**: Full-featured certificate management table with unified keyword search, column sorting, pagination, CSV export, individual PEM download, and revocation actions.
-- **CSR Builder**: Simultaneously generate private keys and CSRs with immediate ZIP package downloads.
-- **Certificate Issuance**: Issue and download signed PEM certificates from uploaded CSR files.
-- **Server Control & Protocol Services**:
-  - **Plain HTTP Listener (Port 8082)**: Serves Root CA certificates (`/ca.pem`), SCEP CA certificates (`/scepca.pem`), CRL (`/crl`), OCSP (`/ocsp`), and SCEP (`/scep`) (preventing TLS bootstrap issues and circular dependencies).
-  - **ACME Listener (Port 8083)**: RFC 8555-compliant Automated Certificate Management Environment (Let's Encrypt compatible).
-  - Real-time service status monitoring and immediate runtime configuration updates.
+### Root CA Setup & Certificate Ledger {: #root-ca-setup--certificate-ledger}
+Generate Root CA keys and certificates securely (supporting RSA and ECDSA key curves) with explicit initialization. Features unified keyword search, column sorting, pagination, CSV export, individual PEM download, and revocation actions.
+
+### In-Browser CSR Generation {: #in-browser-csr-generation}
+Simultaneously generate private keys and CSRs with immediate ZIP package downloads. Issue and download signed PEM certificates from uploaded CSR files.
+
+### CRL / OCSP / SCEP / ACME Services {: #crl--ocsp--scep--acme-services}
+- **Plain HTTP Listener (Port 8082)**: Serves Root CA certificates (`/ca.pem`), SCEP CA certificates (`/scepca.pem`), CRL (`/crl`), OCSP (`/ocsp`), and SCEP (`/scep`) (preventing TLS bootstrap issues and circular dependencies).
+- **ACME Listener (Port 8083)**: RFC 8555-compliant Automated Certificate Management Environment (Let's Encrypt compatible).
+- Real-time service status monitoring and immediate runtime configuration updates.
 
 ![](./images/en/pki_cert_manager.png)
 
 ---
 
-## 11. AI & MCP Integration
+## 11. AI & MCP Integration {: #ai--mcp-integration}
 
-### LLM Configuration (Local LLM / Cloud AI Services)
+### LLM Configuration (Local LLM / Cloud AI Services) {: #llm-configuration-local-llm--cloud-ai-services}
 
 Configure AI providers (Local `tensai` LLM, Gemini, OpenAI, Claude, Ollama) and parameters directly from the settings.
 
@@ -391,7 +411,7 @@ TWSNMP NEO includes a built-in offline inference engine requiring zero external 
 
 ![](./images/en/ai_gpu_manager.png)
 
-### Native Streamable HTTP MCP Server (Planned Feature)
+### Native Streamable HTTP MCP Server {: #native-streamable-http-mcp-server}
 
 TWSNMP NEO is designed to provide a **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
 Autonomous AI agents like Cursor, Claude Desktop, and Antigravity will connect directly to inspect network status, query logs, and troubleshoot incidents. *(Experimental feature under development)*
@@ -400,9 +420,9 @@ Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](
 
 ---
 
-## 12. Settings & System Administration
+## 12. Settings & System Administration {: #settings--system-administration}
 
-### System Status & Resource Monitor
+### System Status & Resource Monitor {: #system-status--resource-monitor}
 
 Monitor server daemons, CPU/memory/swap/disk consumption, TCP connections, and database capacity in real time:
 
@@ -412,29 +432,29 @@ Monitor server daemons, CPU/memory/swap/disk consumption, TCP connections, and d
 - **Resource Trends**: CPU, memory heap, and process utilization time charts.
 - **Capacity Forecast & DB Backup**: One-click database backups and storage growth predictions.
 
-### Notifications
+### Notifications (Email / Webhook) {: #notifications-email--webhook}
 
-Receive instant alerts and periodic reports across multiple channels:
-- **Email** (SMTP / OAuth2) formatted as clean HTML summaries.
-- **Chat Services**: Slack, LINE, Microsoft Teams, Discord, Mattermost, Chatwork.
-- **Webhooks**: Custom integrations with your internal ticketing or automation workflows.
+Receive instant alerts and periodic reports across supported channels:
+- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries and daily operational reports.
+- **Webhooks**: Real-time event notifications and daily report postings sent directly to your custom webhook endpoints or automation workflows.
+- **External Command Execution**: Execute arbitrary OS scripts or commands triggered on fault level state changes.
 
 ![](./images/en/settings_notify.png)
 
-### Backup & Automated Log Retention
+### Backup & Automated Log Retention {: #backup--automated-log-retention}
 
 ![](./images/en/settings_backup.png)
 
 - **Map Export**: Export topology, nodes, and polling configurations as JSON or ZIP archives.
 - **Parquet Auto-Rotation**: Automatically prune historical records based on disk usage thresholds or retention days.
 
-### Icon Management & Custom Assets
+### Icon Management & Custom Assets {: #icon-management--custom-assets}
 
 Manage built-in Material Design Icons (MDI) and import/export custom PNG/JPEG/SVG image icons for map nodes and topology elements.
 
 ![](./images/en/settings_icon.png)
 
-### User Account Management & Access Control
+### User Account Management & Access Control {: #user-account-management--access-control}
 
 Manage multi-user access with granular role-based permissions (`ADMINISTRATOR`, `OPERATOR`, `READ-ONLY`) and secure credential management.
 
@@ -442,6 +462,7 @@ Manage multi-user access with granular role-based permissions (`ADMINISTRATOR`, 
 
 ---
 
-## Conclusion
+## Conclusion {: #conclusion}
 
 TWSNMP NEO delivers a robust, container-native network observability platform with 3D visualization, big data log storage, and native AI integration. Start managing your network today using Docker or standalone binaries!
+

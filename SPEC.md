@@ -697,6 +697,6 @@ flowchart TD
    - Backend aggregation pipelines for periodic reporting.
 7. **Milestone 7: Configuration, Notification Engine, AI/MCP Deepening & Final Verification**
    - Implement `ConfigModal` (Map, Notify, AI, Icons, MIBs, Grok, Store).
-   - Implement full notification dispatchers (Email, Slack, LINE, Teams, Webhook).
+   - Implement full notification dispatchers (Email, Webhook, and Command Execution).
    - Expand built-in MCP server tools and AI chat capabilities.
    - Execute full test suites (`go test -race -cover ./...`), verify frontend build, and build self-contained Go binary.
