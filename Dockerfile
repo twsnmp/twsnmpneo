@@ -13,7 +13,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # Stage 2: Build Backend Go binary (Runs natively using Go's fast cross-compiler)
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:alpine AS backend-builder
 WORKDIR /app/backend
 
 RUN apk add --no-cache git ca-certificates tzdata

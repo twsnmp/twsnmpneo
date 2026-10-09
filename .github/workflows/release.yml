@@ -137,10 +137,32 @@ jobs:
 
   publish-docker-image:
     name: Build & Push Multi-Arch Docker Image
+    needs: [ build-release-binaries ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download Linux AMD64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-amd64
+          path: bin-amd64
+
+      - name: Download Linux ARM64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-arm64
+          path: bin-arm64
+
+      - name: Extract binaries
+        run: |
+          mkdir -p docker-bin
+          tar -xzf bin-amd64/*.tar.gz -C docker-bin
+          mv docker-bin/twsnmpneo docker-bin/twsnmpneo-amd64
+          tar -xzf bin-arm64/*.tar.gz -C docker-bin
+          mv docker-bin/twsnmpneo docker-bin/twsnmpneo-arm64
+          chmod +x docker-bin/twsnmpneo-*
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -170,12 +192,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.release
           platforms: linux/amd64,linux/arm64
           push: true
-          build-args: |
-            VERSION=${{ inputs.version || github.ref_name }}
-            COMMIT=${{ inputs.commit || github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
