@@ -142,7 +142,7 @@
   };
 
   const handleClearItem = async (item: AIListEnt) => {
-    const confirmMsg = `ポーリング「${item.Polling}」(${item.Node}) の異常検知結果を削除しますか？`;
+    const confirmMsg = $_("report.confirmClearAIItem", { values: { polling: item.Polling, node: item.Node } }) || `ポーリング「${item.Polling}」(${item.Node}) の異常検知結果を削除しますか？`;
     const ok = await showConfirm({
       title: $_('common.confirmDelete') || '異常検知結果削除の確認',
       message: confirmMsg,
@@ -160,7 +160,7 @@
       console.error("Failed to clear AI result:", e);
       showAlert({
         title: $_('common.error') || 'エラー',
-        message: "削除に失敗しました",
+        message: $_('report.alertDeleteFailed', { values: { error: (e as any)?.message || e } }) || "削除に失敗しました",
         type: 'danger',
       });
     } finally {
@@ -203,19 +203,19 @@
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
       <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnalyzedPollings")}</span>
       <div class="text-2xl font-bold font-mono text-cyan-600 dark:text-cyan-400">
-        {data.length} <span class="text-xs font-normal text-slate-400">件</span>
+        {data.length} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span>
       </div>
       <div class="text-[10px] text-slate-400">
-        対象ノード: {uniqueNodeCount} ノード
+        {$_("report.aiTargetNodesSub", { values: { count: uniqueNodeCount } })}
       </div>
     </div>
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
       <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("report.aiAnomalyPollings")}</span>
       <div class="text-2xl font-bold font-mono {highAnomalyCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">
-        {highAnomalyCount} <span class="text-xs font-normal text-slate-400">件</span>
+        {highAnomalyCount} <span class="text-xs font-normal text-slate-400">{$_("report.unitPollings")}</span>
       </div>
       <div class="text-[10px] {highAnomalyCount > 0 ? 'text-rose-500/80' : 'text-emerald-500/80'}">
-        {highAnomalyCount > 0 ? `スコア 60 以上 (${highAnomalyNodeCount} ノード)` : $_("report.aiNoSpikesSub")}
+        {highAnomalyCount > 0 ? $_("report.aiSpikesSub", { values: { count: highAnomalyNodeCount } }) : $_("report.aiNoSpikesSub")}
       </div>
     </div>
     <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg space-y-2">
@@ -224,7 +224,7 @@
         {avgScore}
       </div>
       <div class="text-[10px] text-slate-400">
-        {data.length > 0 ? `最高スコア: ${maxScore}` : $_("report.aiStableSub")}
+        {data.length > 0 ? $_("report.aiMaxScoreSub", { values: { score: maxScore } }) : $_("report.aiStableSub")}
       </div>
     </div>
   </div>
@@ -349,7 +349,7 @@
               <td colspan="6" class="py-12 text-center text-slate-500 font-sans">
                 <span class="mdi mdi-chart-bell-curve-cumulative text-3xl text-slate-400 dark:text-slate-600"></span>
                 <div class="mt-2 text-xs">
-                  ポーリングのログモードを「異常検知あり」に設定したポーリングがここに表示されます。
+                  {$_("report.aiNoDataDesc")}
                 </div>
               </td>
             </tr>

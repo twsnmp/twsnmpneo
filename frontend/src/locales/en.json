@@ -1933,9 +1933,14 @@
     "aiAnalyzedPollings": "Target Pollings",
     "aiAnomalyPollings": "Detected Anomalies",
     "aiAvgScore": "Average Anomaly Score",
+    "aiTargetNodesSub": "Target Nodes: {count} nodes",
+    "aiSpikesSub": "Score ≥ 60 ({count} nodes)",
+    "aiMaxScoreSub": "Max Score: {score}",
     "aiFeaturesSub": "Extracting time-series features",
     "aiNoSpikesSub": "No items with score >= 60 (Normal)",
     "aiStableSub": "Overall operating stably",
+    "aiNoDataDesc": "Pollings with log mode set to 'Anomaly Detection' will appear here.",
+    "confirmClearAIItem": "Are you sure you want to delete anomaly detection result for polling '{polling}' ({node})?",
     "aiEngine": "Diagnostic Inference Engine",
     "aiEngineSub": "Multi-LLM Integration",
     "colAnomalyScore": "Anomaly Score (0-100)",
@@ -2385,9 +2390,12 @@
     "ConfirmClear": "Are you sure you want to clear selected AI results?"
   },
   "AIReport": {
+    "Report": "AI Anomaly Detection Report",
     "Heatmap": "Heatmap",
     "PieChart": "Anomaly Ratio",
     "TimeChart": "Time Chart",
+    "HeatmapDate": "Date",
+    "HeatmapHour": "Hour",
     "Close": "Close"
   },
   "auth": {

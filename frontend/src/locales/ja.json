@@ -1931,9 +1931,14 @@
     "aiAnalyzedPollings": "対象ポーリング数",
     "aiAnomalyPollings": "異常検知数",
     "aiAvgScore": "平均異常スコア",
+    "aiTargetNodesSub": "対象ノード: {count} ノード",
+    "aiSpikesSub": "スコア 60 以上 ({count} ノード)",
+    "aiMaxScoreSub": "最高スコア: {score}",
     "aiFeaturesSub": "時系列特徴量抽出中",
     "aiNoSpikesSub": "スコア60以上なし (正常)",
     "aiStableSub": "全体安定稼働中",
+    "aiNoDataDesc": "ポーリングのログモードを「異常検知あり」に設定したポーリングがここに表示されます。",
+    "confirmClearAIItem": "ポーリング「{polling}」({node}) の異常検知結果を削除しますか？",
     "aiEngine": "診断推論エンジン",
     "aiEngineSub": "マルチLLM統合",
     "colAnomalyScore": "異常度スコア (0-100)",
@@ -2383,9 +2388,12 @@
     "ConfirmClear": "選択した異常検知結果を削除しますか？"
   },
   "AIReport": {
+    "Report": "異常検知レポート",
     "Heatmap": "ヒートマップ",
     "PieChart": "異常割合",
     "TimeChart": "タイムチャート",
+    "HeatmapDate": "日付",
+    "HeatmapHour": "時間 (時)",
     "Close": "閉じる"
   },
   "auth": {
