@@ -2298,11 +2298,11 @@ export interface GNMIValueEnt {
   Index?: string;
 }
 
-export async function fetchGNMICapabilities(nodeId: string): Promise<GNMICapabilitiesEnt> {
+export async function fetchGNMICapabilities(nodeId: string, target?: string): Promise<GNMICapabilitiesEnt> {
   const res = await apiFetch(`${API_BASE}/tools/gnmi/capabilities`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ node_id: nodeId }),
+    body: JSON.stringify({ node_id: nodeId, target }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -2311,11 +2311,11 @@ export async function fetchGNMICapabilities(nodeId: string): Promise<GNMICapabil
   return res.json();
 }
 
-export async function runGNMIGet(nodeId: string, path: string, encoding: string): Promise<GNMIValueEnt[]> {
+export async function runGNMIGet(nodeId: string, path: string, encoding: string, target?: string): Promise<GNMIValueEnt[]> {
   const res = await apiFetch(`${API_BASE}/tools/gnmi/get`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ node_id: nodeId, path, encoding }),
+    body: JSON.stringify({ node_id: nodeId, path, encoding, target }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));

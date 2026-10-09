@@ -69,6 +69,7 @@ func registerGNMIToolRoutes(apiGroup *echo.Group, store datastore.DataStore) {
 	apiGroup.POST("/tools/gnmi/get", func(c echo.Context) error {
 		var req struct {
 			NodeID   string `json:"node_id"`
+			Target   string `json:"target"`
 			Path     string `json:"path"`
 			Encoding string `json:"encoding"`
 		}
@@ -79,7 +80,10 @@ func registerGNMIToolRoutes(apiGroup *echo.Group, store datastore.DataStore) {
 		if err != nil || node == nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "node not found"})
 		}
-		target := gnmiTarget(node)
+		target := strings.TrimSpace(req.Target)
+		if target == "" {
+			target = gnmiTarget(node)
+		}
 		ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
 		defer cancel()
 		client, err := newGNMIClient(ctx, node, target)
@@ -132,6 +136,7 @@ func registerGNMIToolRoutes(apiGroup *echo.Group, store datastore.DataStore) {
 func bindGNMITarget(c echo.Context, store datastore.DataStore) (*datastore.NodeEnt, string, error) {
 	var req struct {
 		NodeID string `json:"node_id"`
+		Target string `json:"target"`
 	}
 	if err := c.Bind(&req); err != nil || req.NodeID == "" {
 		return nil, "", errors.New("node_id is required")
@@ -140,7 +145,11 @@ func bindGNMITarget(c echo.Context, store datastore.DataStore) (*datastore.NodeE
 	if err != nil || node == nil {
 		return nil, "", errGNMINodeNotFound
 	}
-	return node, gnmiTarget(node), nil
+	target := strings.TrimSpace(req.Target)
+	if target == "" {
+		target = gnmiTarget(node)
+	}
+	return node, target, nil
 }
 
 func writeGNMIError(c echo.Context, err error) error {

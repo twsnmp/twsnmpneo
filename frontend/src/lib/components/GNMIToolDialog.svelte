@@ -19,6 +19,8 @@
     Plus,
     FileSpreadsheet,
     Layers,
+    Search,
+    ExternalLink,
   } from "@lucide/svelte";
 
   let {
@@ -37,12 +39,14 @@
   let history = $state<string[]>(["/interfaces", "/system", "/components"]);
 
   let isLoading = $state(false);
+  let isCapLoading = $state(false);
   let errorMessage = $state("");
   let capabilities = $state<GNMICapabilitiesEnt | null>(null);
   let results = $state<GNMIValueEnt[]>([]);
   let selectedIndices = $state<number[]>([]);
   let copied = $state(false);
   let showCapDetails = $state(false);
+  let modelFilter = $state("");
 
   const nodeId = $derived(node?.id || (node as any)?.ID || "");
   const targetName = $derived(node?.name || (node as any)?.Name || "");
@@ -53,25 +57,32 @@
         errorMessage = "";
         results = [];
         selectedIndices = [];
+        showCapDetails = false;
+        modelFilter = "";
         const port = node?.gnmi_port || (node as any)?.GNMIPort || "57400";
         target = `${node?.ip || (node as any)?.IP || ""}:${port}`;
         encoding = node?.gnmi_encoding || (node as any)?.GNMIEncoding || "json_ietf";
       });
-      void loadCapabilities();
+      // Do NOT auto-fetch on dialog open. Wait until user clicks Get or Capabilities.
     }
   });
 
   const loadCapabilities = async () => {
     if (!nodeId) return;
-    isLoading = true;
+    isCapLoading = true;
     errorMessage = "";
     try {
-      capabilities = await fetchGNMICapabilities(nodeId);
+      capabilities = await fetchGNMICapabilities(nodeId, target.trim());
+      showCapDetails = true;
     } catch (e) {
       errorMessage = e instanceof Error ? e.message : String(e);
     } finally {
-      isLoading = false;
+      isCapLoading = false;
     }
+  };
+
+  const openYangInfo = () => {
+    window.open("https://github.com/YangModels/yang", "_blank", "noopener,noreferrer");
   };
 
   const runGet = async () => {
@@ -84,7 +95,7 @@
       if (!history.includes(q)) {
         history = [q, ...history.slice(0, 9)];
       }
-      results = await runGNMIGet(nodeId, q, encoding);
+      results = await runGNMIGet(nodeId, q, encoding, target.trim());
     } catch (e) {
       errorMessage = e instanceof Error ? e.message : String(e);
     } finally {
@@ -141,6 +152,18 @@
     });
     show = false;
   };
+
+  const filteredModels = $derived.by(() => {
+    if (!capabilities?.models) return [];
+    const q = modelFilter.trim().toLowerCase();
+    if (!q) return capabilities.models;
+    return capabilities.models.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.organization && m.organization.toLowerCase().includes(q)) ||
+        (m.version && m.version.toLowerCase().includes(q))
+    );
+  });
 </script>
 
 {#if show}
@@ -171,16 +194,43 @@
         </button>
       </header>
 
-      <!-- Controls Toolbar -->
+      <!-- Main Controls Toolbar matching PingDialog style -->
       <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
         <div class="flex flex-wrap items-center gap-2">
+          <!-- Target IP:Port Input -->
           <input
             type="text"
-            bind:value={path}
-            placeholder={$_("gnmi.pathPlaceholder")}
-            class="min-w-[220px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            bind:value={target}
+            placeholder={$_("gnmi.target")}
+            title={$_("gnmi.target")}
+            class="w-44 sm:w-52 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-mono text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
 
+          <!-- Encoding Selector -->
+          <select
+            bind:value={encoding}
+            title={$_("gnmi.encoding")}
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+          >
+            <option value="json_ietf">json_ietf</option>
+            <option value="json">json</option>
+            <option value="proto">proto</option>
+            <option value="bytes">bytes</option>
+            <option value="ascii">ascii</option>
+          </select>
+
+          <!-- Path Input -->
+          <div class="relative min-w-[200px] flex-1">
+            <Search class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              bind:value={path}
+              placeholder={$_("gnmi.pathPlaceholder")}
+              class="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs font-mono text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
+
+          <!-- History Selector -->
           <select
             onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) path = v; }}
             class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -191,17 +241,39 @@
             {/each}
           </select>
 
-          <select bind:value={encoding} class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950">
-            <option value="json_ietf">JSON_IETF</option>
-            <option value="json">JSON</option>
-            <option value="proto">PROTO</option>
-          </select>
-
+          <!-- Capabilities Button -->
           <button
             type="button"
-            disabled={isLoading || !path.trim()}
+            disabled={isCapLoading || !nodeId}
+            onclick={loadCapabilities}
+            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
+            title={$_("gnmi.capabilities")}
+          >
+            {#if isCapLoading}
+              <RefreshCw class="h-3.5 w-3.5 animate-spin text-cyan-500" />
+            {:else}
+              <Layers class="h-3.5 w-3.5 text-cyan-500" />
+            {/if}
+            {$_("gnmi.capabilities")}
+          </button>
+
+          <!-- YANG情報 Button -->
+          <button
+            type="button"
+            onclick={openYangInfo}
+            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+            title={$_("gnmi.yangInfo")}
+          >
+            <ExternalLink class="h-3.5 w-3.5 text-cyan-500" />
+            {$_("gnmi.yangInfo")}
+          </button>
+
+          <!-- 取得 (Get) Button -->
+          <button
+            type="button"
+            disabled={isLoading || !path.trim() || !nodeId}
             onclick={runGet}
-            class="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-cyan-500 disabled:opacity-50"
+            class="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-cyan-500 disabled:opacity-50 transition-colors"
           >
             {#if isLoading}
               <RefreshCw class="h-3.5 w-3.5 animate-spin" />
@@ -212,24 +284,22 @@
           </button>
         </div>
 
+        <!-- Result Stats & Action Tools -->
         <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
           <div class="flex items-center gap-3">
             {#if capabilities}
               <button
                 type="button"
                 onclick={() => (showCapDetails = !showCapDetails)}
-                class="flex items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-[11px] text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                class="flex items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <Layers class="h-3 w-3 text-cyan-500" />
-                {$_("gnmi.capabilities", {
-                  values: {
-                    version: capabilities.version || "v0",
-                    count: capabilities.models?.length || 0,
-                  },
-                })}
+                Capabilities: {capabilities.version || "v0"} ({capabilities.models?.length || 0} models)
               </button>
             {/if}
-            <span class="text-slate-400">{$_("gnmi.resultCount", { values: { count: results.length } })}</span>
+            <span class="text-slate-500 dark:text-slate-400 font-mono">
+              {$_("gnmi.resultCount", { values: { count: results.length } })}
+            </span>
           </div>
 
           <div class="flex items-center gap-2">
@@ -264,16 +334,68 @@
           </div>
         </div>
 
+        <!-- Expandable Capabilities Card -->
         {#if showCapDetails && capabilities}
-          <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-950">
-            <p class="font-semibold text-slate-700 dark:text-slate-300">{$_("gnmi.encoding")} <span class="font-mono text-cyan-600 dark:text-cyan-400">{capabilities.encodings}</span></p>
-            <p class="mt-1 font-semibold text-slate-700 dark:text-slate-300">{$_("gnmi.supportedModels")}</p>
-            <div class="mt-1 max-h-32 overflow-auto font-mono text-[11px] text-slate-500 dark:text-slate-400">
-              {#each capabilities.models as m}
-                <div>{m.name} ({m.version || "—"}) - {m.organization || ""}</div>
-              {:else}
-                <div>{$_("gnmi.noModelInfo")}</div>
-              {/each}
+          <div class="relative rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-4 text-xs dark:bg-cyan-950/20">
+            <div class="flex items-center justify-between pb-2 border-b border-cyan-500/20">
+              <div class="flex items-center gap-2">
+                <Layers class="h-4 w-4 text-cyan-500" />
+                <span class="font-bold text-slate-800 dark:text-slate-200">{$_("gnmi.capabilitiesTitle")}</span>
+                <span class="rounded bg-cyan-500/20 px-2 py-0.5 text-[11px] font-mono text-cyan-700 dark:text-cyan-300">
+                  Version: {capabilities.version || "N/A"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onclick={() => (showCapDetails = false)}
+                class="rounded p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+              >
+                <X class="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div class="mt-2 text-xs">
+              <span class="font-semibold text-slate-700 dark:text-slate-300">{$_("gnmi.encoding")}</span>
+              <span class="ml-1.5 font-mono text-cyan-600 dark:text-cyan-400">{capabilities.encodings || "N/A"}</span>
+            </div>
+
+            <div class="mt-3">
+              <div class="flex items-center justify-between gap-2 pb-1.5">
+                <span class="font-semibold text-slate-700 dark:text-slate-300">
+                  {$_("gnmi.supportedModels")} ({capabilities.models?.length || 0})
+                </span>
+                <input
+                  type="text"
+                  bind:value={modelFilter}
+                  placeholder={$_("gnmi.searchModels")}
+                  class="w-48 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+
+              <div class="max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+                <table class="w-full text-left text-[11px]">
+                  <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400">
+                    <tr>
+                      <th class="p-1.5 font-mono">{$_("gnmi.modelName")}</th>
+                      <th class="p-1.5 font-mono">{$_("gnmi.organization")}</th>
+                      <th class="p-1.5 font-mono w-24">{$_("gnmi.version")}</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    {#each filteredModels as m}
+                      <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/60 font-mono">
+                        <td class="p-1.5 text-cyan-700 dark:text-cyan-300 break-all font-medium">{m.name}</td>
+                        <td class="p-1.5 text-slate-600 dark:text-slate-400">{m.organization || "—"}</td>
+                        <td class="p-1.5 text-slate-500">{m.version || "—"}</td>
+                      </tr>
+                    {:else}
+                      <tr>
+                        <td colspan="3" class="p-3 text-center text-slate-400">{$_("gnmi.noModelInfo")}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         {/if}
