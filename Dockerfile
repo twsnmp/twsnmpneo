@@ -43,7 +43,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 
 # Stage 3: Minimal Runtime
 FROM ${BASE_IMAGE}
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata gcompat libc6-compat
 
 # Create data directory for bbolt db, parquet columnar logs, and private PKI
 RUN mkdir -p /data && chmod 755 /data

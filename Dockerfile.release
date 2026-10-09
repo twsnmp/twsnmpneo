@@ -3,7 +3,7 @@ FROM ${BASE_IMAGE}
 
 ARG TARGETARCH
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata gcompat libc6-compat
 
 # Create data directory for bbolt db, parquet columnar logs, and private PKI
 RUN mkdir -p /data && chmod 755 /data
