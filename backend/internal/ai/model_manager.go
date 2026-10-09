@@ -296,21 +296,29 @@ func (m *DownloadManager) FindModel(name string) (string, error) {
 // DeleteModel deletes a model from the datastore's models folder
 func (m *DownloadManager) DeleteModel(name string) error {
 	cleanName := filepath.Base(filepath.Clean(name))
-	if cleanName == "." || cleanName == "/" || strings.Contains(name, "..") {
+	if cleanName == "." || cleanName == "/" || strings.Contains(cleanName, "..") || !filepath.IsLocal(cleanName) {
 		return fmt.Errorf("invalid model name: %s", name)
 	}
+	modelDir := filepath.Clean(m.ModelDir())
+	targetPath := filepath.Clean(filepath.Join(modelDir, cleanName))
+	rel, relErr := filepath.Rel(modelDir, targetPath)
+	if relErr != nil || strings.HasPrefix(rel, "..") {
+		return fmt.Errorf("cannot delete model outside model dir: %s", name)
+	}
+
 	p, err := m.FindModel(cleanName)
 	if err != nil {
-		targetPath := filepath.Join(m.ModelDir(), cleanName)
 		if _, statErr := os.Stat(targetPath); statErr == nil {
 			return os.RemoveAll(targetPath)
 		}
 		return err
 	}
-	if !strings.HasPrefix(filepath.Clean(p), filepath.Clean(m.ModelDir())) {
+	cleanP := filepath.Clean(p)
+	relP, relErrP := filepath.Rel(modelDir, cleanP)
+	if relErrP != nil || strings.HasPrefix(relP, "..") {
 		return fmt.Errorf("cannot delete model outside model dir: %s", p)
 	}
-	return os.RemoveAll(p)
+	return os.RemoveAll(cleanP)
 }
 
 // StartModelDownload starts downloading a model in the background
@@ -516,16 +524,21 @@ func downloadModelFile(ctx context.Context, modelDir, target string, progress Do
 		filename = "model.gguf"
 	}
 	cleanFilename := filepath.Base(filepath.Clean(filename))
-	if cleanFilename == "." || cleanFilename == "/" || strings.Contains(cleanFilename, "..") {
+	if cleanFilename == "." || cleanFilename == "/" || strings.Contains(cleanFilename, "..") || !filepath.IsLocal(cleanFilename) {
 		cleanFilename = "model.gguf"
 	}
 
 	parsedURL, err := url.Parse(rawURL)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
 		return "", fmt.Errorf("invalid download URL scheme: %s", rawURL)
 	}
 
-	destPath := filepath.Join(modelDir, cleanFilename)
+	cleanModelDir := filepath.Clean(modelDir)
+	destPath := filepath.Clean(filepath.Join(cleanModelDir, cleanFilename))
+	rel, relErr := filepath.Rel(cleanModelDir, destPath)
+	if relErr != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("invalid destination path for model: %s", cleanFilename)
+	}
 	tmpPath := destPath + ".tmp"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)

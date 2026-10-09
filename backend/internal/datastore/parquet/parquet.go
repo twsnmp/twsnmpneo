@@ -300,8 +300,12 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 	dirs := make([]string, 0)
 	if filter.Type != "" {
 		cleanType := filepath.Base(filepath.Clean(filter.Type))
-		if cleanType != "." && cleanType != "/" && !strings.Contains(filter.Type, "..") {
-			dirs = append(dirs, filepath.Join(s.dir, cleanType))
+		if cleanType != "." && cleanType != "/" && !strings.Contains(cleanType, "..") && filepath.IsLocal(cleanType) {
+			targetDir := filepath.Clean(filepath.Join(s.dir, cleanType))
+			rel, err := filepath.Rel(s.dir, targetDir)
+			if err == nil && !strings.HasPrefix(rel, "..") {
+				dirs = append(dirs, targetDir)
+			}
 		}
 	} else {
 		entries, err := os.ReadDir(s.dir)
@@ -334,7 +338,7 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 		return files[i] > files[j]
 	})
 
-	results := make([]*ParquetLogRecord, 0, min(limit, 500))
+	results := make([]*ParquetLogRecord, 0, 256)
 
 	var regexKeyword *regexp.Regexp
 	if filter.Filter != "" {
@@ -533,10 +537,14 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 
 	if logType != "" {
 		cleanType := filepath.Base(filepath.Clean(logType))
-		if cleanType == "." || cleanType == "/" || strings.Contains(logType, "..") {
+		if cleanType == "." || cleanType == "/" || strings.Contains(cleanType, "..") || !filepath.IsLocal(cleanType) {
 			return fmt.Errorf("invalid log type: %s", logType)
 		}
-		typeDir := filepath.Join(s.dir, cleanType)
+		typeDir := filepath.Clean(filepath.Join(s.dir, cleanType))
+		rel, err := filepath.Rel(s.dir, typeDir)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return fmt.Errorf("invalid log type path: %s", logType)
+		}
 		return os.RemoveAll(typeDir)
 	}
 

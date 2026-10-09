@@ -1887,7 +1887,7 @@ func NewServer(cfg Config) (*Server, error) {
 
 		findImageFile := func(name string) string {
 			cleanName := filepath.Base(filepath.Clean(name))
-			if cleanName == "." || cleanName == "/" || strings.Contains(name, "..") {
+			if cleanName == "." || cleanName == "/" || strings.Contains(cleanName, "..") || !filepath.IsLocal(cleanName) {
 				return ""
 			}
 			dirs := []string{}
@@ -1904,8 +1904,11 @@ func NewServer(cfg Config) (*Server, error) {
 			for _, d := range dirs {
 				imgDir := filepath.Join(d, "images")
 				p := filepath.Clean(filepath.Join(imgDir, cleanName))
-				if _, err := os.Stat(p); err == nil {
-					return p
+				rel, err := filepath.Rel(imgDir, p)
+				if err == nil && !strings.HasPrefix(rel, "..") {
+					if _, err := os.Stat(p); err == nil {
+						return p
+					}
 				}
 				// Fallback search for backimage_map
 				if strings.Contains(cleanName, "japanesemap") || strings.Contains(cleanName, "backimage") {
@@ -1921,7 +1924,10 @@ func NewServer(cfg Config) (*Server, error) {
 		}
 
 		apiGroup.GET("/map/image/:name", func(c echo.Context) error {
-			name := filepath.Base(c.Param("name"))
+			name := filepath.Base(filepath.Clean(c.Param("name")))
+			if name == "." || name == "/" || strings.Contains(name, "..") || !filepath.IsLocal(name) {
+				return c.NoContent(http.StatusBadRequest)
+			}
 			path := findImageFile(name)
 			if path == "" {
 				return c.NoContent(http.StatusNotFound)

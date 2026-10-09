@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
@@ -204,11 +205,12 @@ func PostTestWebhook(url string, j []byte) error {
 	return postWebhook(url, j, newTestWebhookClient())
 }
 
-func postWebhook(url string, j []byte, client *http.Client) error {
-	if err := validateWebhookURL(url); err != nil {
-		return err
+func postWebhook(targetURL string, j []byte, client *http.Client) error {
+	u, err := url.Parse(targetURL)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil {
+		return fmt.Errorf("invalid webhook URL")
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(j))
+	req, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(j))
 	if err != nil {
 		return err
 	}
