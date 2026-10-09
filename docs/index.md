@@ -361,14 +361,18 @@ When critical events occur, LLM-based intelligent analysis automatically summari
 
 ## 10. Built-in PKI (Certificate Authority)
 
-A complete, self-contained Private PKI system embedded directly within your network manager.
+A complete, self-contained Private PKI system embedded directly within your network manager. Modeled after the production-grade TWSNMP FC Web server architecture, it offers an intuitive left-sidebar interface with full protocol server integration.
 
 ![](./images/en/pki_root_ca.png)
 
-- **Root CA Setup**: Initialize Root CA keys and certificates securely.
-- **In-Browser CSR Builder**: Generate private keys and CSRs securely in the browser and issue signed certificates with one click.
-- **CRL & OCSP Servers**: Automated Certificate Revocation List publication and real-time OCSP validation.
-- **SCEP & ACME Automation**: Automated certificate enrollment for switches, routers, and servers via standard ACME and SCEP protocols.
+- **Root CA Setup & Management**: Generate Root CA keys and certificates securely (supporting RSA and ECDSA key curves) with explicit initialization.
+- **Certificates Inventory**: Full-featured certificate management table with unified keyword search, column sorting, pagination, CSV export, individual PEM download, and revocation actions.
+- **CSR Builder**: Simultaneously generate private keys and CSRs with immediate ZIP package downloads.
+- **Certificate Issuance**: Issue and download signed PEM certificates from uploaded CSR files.
+- **Server Control & Protocol Services**:
+  - **Plain HTTP Listener (Port 8082)**: Serves Root CA certificates (`/ca.pem`), SCEP CA certificates (`/scepca.pem`), CRL (`/crl`), OCSP (`/ocsp`), and SCEP (`/scep`) (preventing TLS bootstrap issues and circular dependencies).
+  - **ACME Listener (Port 8083)**: RFC 8555-compliant Automated Certificate Management Environment (Let's Encrypt compatible).
+  - Real-time service status monitoring and immediate runtime configuration updates.
 
 ![](./images/en/pki_cert_manager.png)
 
