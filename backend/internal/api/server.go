@@ -2673,30 +2673,38 @@ func NewServer(cfg Config) (*Server, error) {
 			req.TTL = 64
 		}
 
-		res := ping.DoPing(req.IP, 2, 0, req.Size, req.TTL)
-
-		stat := 2 // Timeout or error
-		switch res.Stat {
-		case ping.PingOK:
-			stat = 1 // Normal
-		case ping.PingTimeExceeded:
-			stat = 3
+		targetIP := req.IP
+		ipreg := regexp.MustCompile(`^[0-9.]+$`)
+		if !ipreg.MatchString(targetIP) {
+			if ips, err := net.LookupIP(targetIP); err == nil {
+				for _, ip := range ips {
+					if ip.IsGlobalUnicast() {
+						s := ip.To4().String()
+						if ipreg.MatchString(s) {
+							targetIP = s
+							break
+						}
+					}
+				}
+			}
 		}
 
-		recvSrc := res.RecvSrc
-		if recvSrc == "" {
-			recvSrc = req.IP
+		res := ping.DoPing(targetIP, 2, 0, req.Size, req.TTL)
+
+		loc := ""
+		if res.RecvSrc != "" {
+			loc = datastore.GetLoc(res.RecvSrc)
 		}
 
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"Stat":      stat,
+			"Stat":      int(res.Stat),
 			"TimeStamp": time.Now().Unix(),
 			"Time":      res.Time,
 			"Size":      req.Size,
 			"SendTTL":   req.TTL,
 			"RecvTTL":   res.RecvTTL,
-			"RecvSrc":   recvSrc,
-			"Loc":       "LOCAL",
+			"RecvSrc":   res.RecvSrc,
+			"Loc":       loc,
 		})
 	})
 	toolsGroup.POST("/wol", func(c echo.Context) error {

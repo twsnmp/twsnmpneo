@@ -40,7 +40,7 @@
   let isRunning = $state(false);
   let stopFlag = $state(false);
   let results = $state<PingResult[]>([]);
-  let mtrHops = $state<MTRHopStat[]>([]);
+  let mtrHops = $state<(MTRHopStat & { history: number[]; lossCount: number })[]>([]);
 
   let mainChartEl = $state<HTMLDivElement | null>(null);
   let histChartEl = $state<HTMLDivElement | null>(null);
@@ -199,7 +199,7 @@
         updateMainChart(res);
 
         if (mode === "trace") {
-          if (res.RecvSrc === ip.trim() || currentTtl >= 32) break;
+          if (res.Stat === 1 || res.RecvSrc === ip.trim() || currentTtl >= 32) break;
           currentTtl++;
         }
         if (size < 0) {
@@ -216,27 +216,44 @@
   };
 
   const runMtrProcess = async () => {
-    // 1. Discover hops
-    const hops: MTRHopStat[] = [];
-    for (let t = 1; t <= 30 && !stopFlag; t++) {
+    // 1. Discovery phase
+    const hops: (MTRHopStat & { history: number[]; lossCount: number })[] = [];
+    let targetReached = false;
+
+    for (let t = 1; t <= 32 && !stopFlag && !targetReached; t++) {
       try {
-        const res = await execPing(ip.trim(), 64, t);
-        const stat: MTRHopStat = {
+        const res = await execPing(ip.trim(), size < 0 ? 64 : size, t);
+        results = [res, ...results];
+        const recvIp = res.RecvSrc || "";
+        const isSuccess = res.Stat === 1 || res.Stat === 4;
+        const isTarget = res.Stat === 1 || recvIp === ip.trim();
+        const rttMs = isSuccess ? res.Time / 1e6 : -1;
+
+        const stat: MTRHopStat & { history: number[]; lossCount: number } = {
           ttl: t,
-          ip: res.RecvSrc || "",
+          ip: recvIp,
           loc: res.Loc || "",
           snt: 1,
-          lossRate: res.Stat === 1 || res.Stat === 4 ? 0 : 100,
-          last: res.Stat === 1 || res.Stat === 4 ? res.Time / 1e6 : -1,
-          avg: res.Stat === 1 || res.Stat === 4 ? res.Time / 1e6 : -1,
-          best: res.Stat === 1 || res.Stat === 4 ? res.Time / 1e6 : -1,
-          wrst: res.Stat === 1 || res.Stat === 4 ? res.Time / 1e6 : -1,
+          lossRate: isSuccess ? 0 : 100,
+          last: rttMs,
+          avg: rttMs,
+          best: rttMs,
+          wrst: rttMs,
           stDev: 0,
-          isTarget: res.RecvSrc === ip.trim(),
+          isTarget: isTarget,
+          history: isSuccess ? [rttMs] : [],
+          lossCount: isSuccess ? 0 : 1,
         };
         hops.push(stat);
         mtrHops = [...hops];
-        if (res.RecvSrc === ip.trim()) break;
+        if (activeTab === "mtr") {
+          await tick();
+          showMtrProfileChart("mtrChartContainer", mtrHops, mtrChartLabels());
+        }
+        if (isTarget) {
+          targetReached = true;
+          break;
+        }
       } catch (e) {
         hops.push({
           ttl: t,
@@ -250,46 +267,72 @@
           wrst: -1,
           stDev: 0,
           isTarget: false,
+          history: [],
+          lossCount: 1,
         });
         mtrHops = [...hops];
       }
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 100));
     }
 
-    // 2. Sampling rounds
+    // 2. Sampling phase
     let round = 1;
     const startTime = Date.now();
     let maxDurationSec = 0;
     if (count === 2001) maxDurationSec = 60;
     if (count === 2003) maxDurationSec = 180;
     if (count === 2005) maxDurationSec = 300;
+    if (count === 2010) maxDurationSec = 600;
 
     while (!stopFlag) {
       if (maxDurationSec > 0 && (Date.now() - startTime) / 1000 >= maxDurationSec) break;
       if (count > 0 && maxDurationSec === 0 && round >= count) break;
 
-      for (const hop of hops) {
+      for (let i = 0; i < hops.length; i++) {
         if (stopFlag) break;
+        const hop = hops[i];
         try {
-          const res = await execPing(ip.trim(), 64, hop.ttl);
+          const res = await execPing(ip.trim(), size < 0 ? 64 : size, hop.ttl);
+          results = [res, ...results];
           hop.snt++;
           if (res.Stat === 1 || res.Stat === 4) {
             const ms = res.Time / 1e6;
             hop.last = ms;
+            hop.history.push(ms);
             if (hop.best < 0 || ms < hop.best) hop.best = ms;
             if (ms > hop.wrst) hop.wrst = ms;
-            hop.avg = hop.avg < 0 ? ms : (hop.avg * (hop.snt - 1) + ms) / hop.snt;
+            const sum = hop.history.reduce((a, b) => a + b, 0);
+            hop.avg = sum / hop.history.length;
+            if (hop.history.length > 1) {
+              const mean = hop.avg;
+              const variance = hop.history.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / hop.history.length;
+              hop.stDev = Math.sqrt(variance);
+            } else {
+              hop.stDev = 0;
+            }
+          } else {
+            hop.lossCount++;
           }
-          const successful = hop.avg >= 0 ? hop.snt : 0;
-          hop.lossRate = Math.max(0, ((hop.snt - successful) / hop.snt) * 100);
+          hop.lossRate = (hop.lossCount / hop.snt) * 100;
+          if (res.RecvSrc && !hop.ip) {
+            hop.ip = res.RecvSrc;
+          }
+          if (res.Loc && !hop.loc) {
+            hop.loc = res.Loc;
+          }
         } catch {
           hop.snt++;
-          hop.lossRate = 100;
+          hop.lossCount++;
+          hop.lossRate = (hop.lossCount / hop.snt) * 100;
         }
       }
       mtrHops = [...hops];
+      if (activeTab === "mtr") {
+        await tick();
+        showMtrProfileChart("mtrChartContainer", mtrHops, mtrChartLabels());
+      }
       round++;
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 500));
     }
   };
 
@@ -355,7 +398,7 @@
       </header>
 
       <!-- Main Controls Toolbar matching TWSNMP FK -->
-      <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+      <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40 shrink-0">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-1.5">
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_("Ping.Mode")}:</span>
@@ -489,7 +532,7 @@
       </div>
 
       <!-- Navigation Tabs matching TWSNMP FK -->
-      <div class="flex items-center gap-1 border-b border-slate-200 px-5 pt-2 text-xs font-semibold dark:border-slate-800">
+      <div class="flex items-center gap-1 border-b border-slate-200 px-5 pt-2 text-xs font-semibold dark:border-slate-800 shrink-0">
         <button
           type="button"
           onclick={() => handleTabSwitch("ping")}
@@ -530,18 +573,19 @@
           <div class="space-y-4">
             <div bind:this={mainChartEl} class="h-56 w-full rounded-xl border border-slate-200 bg-slate-900 p-2 dark:border-slate-800"></div>
 
-            <div class="overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
-              <table class="w-full text-left text-xs">
-                <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
+            <!-- Ping Table with fixed max-height & scrollable tbody -->
+            <div class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 shadow-sm">
                   <tr>
-                    <th class="p-2">{$_("Ping.result")}</th>
-                    <th class="p-2">{$_("Ping.time")}</th>
-                    <th class="p-2 font-mono">{$_("Ping.responseTime")}</th>
-                    <th class="p-2">{$_("Ping.size")}</th>
-                    <th class="p-2">{$_("Ping.sendTtl")}</th>
-                    <th class="p-2">{$_("Ping.recvTtl")}</th>
-                    <th class="p-2">{$_("Ping.source")}</th>
-                    <th class="p-2">{$_("Ping.location")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.result")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.time")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-mono font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.responseTime")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.size")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.sendTtl")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.recvTtl")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.source")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.location")}</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
@@ -587,25 +631,25 @@
               {/each}
             </div>
 
-            <!-- MTR Table -->
-            <div class="overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
-              <table class="w-full text-left text-xs">
-                <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900">
+            <!-- MTR Table with fixed max-height & scrollable tbody -->
+            <div class="max-h-56 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-900 shadow-sm">
                   <tr>
-                    <th class="p-2">{$_("Ping.hop")}</th>
-                    <th class="p-2">{$_("Ping.hostIp")}</th>
-                    <th class="p-2">{$_("Ping.lossRate")}</th>
-                    <th class="p-2">{$_("Ping.sent")}</th>
-                    <th class="p-2">{$_("Ping.latest")}</th>
-                    <th class="p-2">{$_("Ping.average")}</th>
-                    <th class="p-2">{$_("Ping.minimum")}</th>
-                    <th class="p-2">{$_("Ping.maximum")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.hop")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.hostIp")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.lossRate")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.sent")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.latest")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.average")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.minimum")}</th>
+                    <th class="p-2 bg-slate-100 dark:bg-slate-900 font-semibold text-slate-700 dark:text-slate-200">{$_("Ping.maximum")}</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
                   {#each mtrHops as hop}
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/60 font-mono">
-                      <td class="p-2">{hop.ttl}</td>
+                      <td class="p-2 font-bold">{hop.ttl}</td>
                       <td class="p-2">{hop.ip || "—"}</td>
                       <td class="p-2 font-bold {hop.lossRate > 0 ? 'text-rose-400' : 'text-emerald-400'}">{hop.lossRate.toFixed(1)}%</td>
                       <td class="p-2">{hop.snt}</td>
