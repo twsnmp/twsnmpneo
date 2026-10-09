@@ -1,7 +1,8 @@
 <script lang="ts">
+  import "reflect-metadata";
   import { onMount } from "svelte";
   import { _ } from "svelte-i18n";
-  import forge from "node-forge";
+  import { Pkcs10CertificateRequestGenerator, SubjectAlternativeNameExtension } from "@peculiar/x509";
   import {
     createPKICertificate,
     downloadPKICertificate,
@@ -157,57 +158,55 @@
     submitting = true;
     error = "";
     try {
-      const bits = Number(csrKeyType.split("-")[1]);
-      const keys = await new Promise<forge.pki.rsa.KeyPair>((resolve, reject) => {
-        forge.pki.rsa.generateKeyPair({ bits }, (cause, keyPair) => {
-          if (cause) {
-            reject(cause);
-          } else if (keyPair) {
-            resolve(keyPair);
-          } else {
-            reject(new Error("RSA key generation returned no key pair"));
-          }
-        });
-      });
-      const csr = forge.pki.createCertificationRequest();
-      csr.publicKey = keys.publicKey;
-      csr.setSubject([
-        { name: "commonName", value: csrCommonName.trim() },
-        ...(csrOrganization.trim() ? [{ name: "organizationName", value: csrOrganization.trim() }] : []),
-        ...(csrOrganizationalUnit.trim() ? [{ name: "organizationalUnitName", value: csrOrganizationalUnit.trim() }] : []),
-        ...(csrCountry.trim() ? [{ name: "countryName", value: csrCountry.trim() }] : []),
-        ...(csrProvince.trim() ? [{ name: "stateOrProvinceName", value: csrProvince.trim() }] : []),
-        ...(csrLocality.trim() ? [{ name: "localityName", value: csrLocality.trim() }] : []),
-      ]);
-      const altNames = splitValues(csrSANs).map((value) => {
-        if (value.includes("@")) return { type: 1, value };
-        if (value.includes(":")) {
-          try {
-            new URL(`http://[${value}]/`);
-            return { type: 7, ip: value };
-          } catch {
-            throw new Error(`Invalid IP address in SAN: ${value}`);
-          }
+      const bits = Number(csrKeyType.split("-")[1]) || 2048;
+      const alg = {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: "SHA-256",
+        modulusLength: bits,
+        publicExponent: new Uint8Array([1, 0, 1]),
+      };
+      const keys = await crypto.subtle.generateKey(alg, true, ["sign", "verify"]);
+
+      const subjectParts: string[] = [];
+      if (csrCommonName.trim()) subjectParts.push(`CN=${csrCommonName.trim()}`);
+      if (csrOrganization.trim()) subjectParts.push(`O=${csrOrganization.trim()}`);
+      if (csrOrganizationalUnit.trim()) subjectParts.push(`OU=${csrOrganizationalUnit.trim()}`);
+      if (csrCountry.trim()) subjectParts.push(`C=${csrCountry.trim()}`);
+      if (csrProvince.trim()) subjectParts.push(`ST=${csrProvince.trim()}`);
+      if (csrLocality.trim()) subjectParts.push(`L=${csrLocality.trim()}`);
+
+      const sanList: Array<{ type: "dns" | "ip" | "email"; value: string }> = [];
+      for (const value of splitValues(csrSANs)) {
+        if (value.includes("@")) {
+          sanList.push({ type: "email", value });
+        } else if (/^\d+(?:\.\d+){3}$/.test(value) || value.includes(":")) {
+          sanList.push({ type: "ip", value });
+        } else {
+          sanList.push({ type: "dns", value });
         }
-        if (/^\d+(?:\.\d+){3}$/.test(value)) {
-          if (value.split(".").some((part) => Number(part) > 255)) {
-            throw new Error(`Invalid IP address in SAN: ${value}`);
-          }
-          return { type: 7, ip: value };
-        }
-        return { type: 2, value };
-      });
-      if (altNames.length > 100) throw new Error("At most 100 subject alternative names are allowed");
-      if (altNames.length > 0) {
-        csr.setAttributes([{
-          name: "extensionRequest",
-          extensions: [{ name: "subjectAltName", altNames }],
-        }]);
       }
-      csr.sign(keys.privateKey, forge.md.sha256.create());
+
+      if (sanList.length > 100) throw new Error("At most 100 subject alternative names are allowed");
+
+      const extensions: any[] = [];
+      if (sanList.length > 0) {
+        extensions.push(new SubjectAlternativeNameExtension(sanList));
+      }
+
+      const csr = await Pkcs10CertificateRequestGenerator.create({
+        name: subjectParts.join(", "),
+        keys,
+        signingAlgorithm: alg,
+        extensions,
+      });
+
       generatedCSRBase = csrCommonName.trim().replace(/[^a-zA-Z0-9._-]/g, "_");
-      generatedCSR = forge.pki.certificationRequestToPem(csr);
-      generatedKey = forge.pki.privateKeyToPem(keys.privateKey);
+      generatedCSR = csr.toString("pem");
+
+      const exportedKey = await crypto.subtle.exportKey("pkcs8", keys.privateKey);
+      const binary = String.fromCharCode(...new Uint8Array(exportedKey));
+      const base64Key = btoa(binary);
+      generatedKey = `-----BEGIN PRIVATE KEY-----\n${base64Key.match(/.{1,64}/g)?.join("\n")}\n-----END PRIVATE KEY-----\n`;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
