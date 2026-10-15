@@ -482,10 +482,39 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
     - **Reports & Analytics**: `get_sensor_list`, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`.
     - **Logs & Diagnostics**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `get_ip_address_info`, `get_mac_address_info`.
   - **MCP Prompts**: Full suite of 19 interactive prompt templates for node inspection, poller queries, ping, SNMP walk, log search, and IP/MAC info retrieval.
-* **UI AI Assist Dialogs**:
-  - `LogAIDialog`: Submit log selections to LLM for root cause hypothesis and remediation suggestions.
-  - `AIPollingAssistDialog`: Analyze SNMP MIB trees and automatically suggest optimal monitoring pollers.
-  - `NodeDiagnoseDialog`: AI analysis of node connectivity and failure history.
+* **UI AI Assist Dialogs & Common Interaction Standards**:
+  - **Component Coverage**: Applies universally across all AI-driven diagnosis and generation interfaces:
+    - `LogAIDialog`: Inline log row AI analysis, root cause hypotheses, and remediation suggestions.
+    - `AlertGrid`: Event log alert diagnosis dialog with contextual node details.
+    - `LogReportModal`: AI Comprehensive Analytics Summary tab for SLA, downtime, and log trends.
+    - `AIPollingAssistDialog`: Automatic poller parameter suggestion from MIB definitions.
+    - `NodeDiagnoseDialog`: Node connectivity, reachability, and failure history diagnosis.
+  - **Universal Markdown Parsing & Sanitization (`AIMarkdown.svelte` & `markdown.ts`)**:
+    - Centralized markdown parsing pipeline using `marked` configured with GitHub Flavored Markdown (GFM tables, strikethrough, autolinks) and `breaks: true` for soft line break / `<br>` tag support.
+    - Strict XSS sanitization via `DOMPurify` allowing safe structural elements (`table`, `thead`, `tbody`, `tr`, `th`, `td`, `code`, `pre`, `p`, `h1`-`h4`, `ul`, `ol`, `li`, `blockquote`, `strong`, `em`, `hr`, `a`) while automatically attaching `target="_blank"` and `rel="noopener noreferrer"` to external links.
+    - Rich light/dark typography styling:
+      - **Tables**: Collapsed borders, padded headers with light/dark contrast (`bg-slate-100 dark:bg-slate-800`), zebra-striped rows (`even:bg-slate-50 dark:even:bg-slate-800/40`), cell borders, and horizontal scrolling wrapper (`overflow-x-auto`).
+      - **Code**: Inline code badges (`code`) with border and subtle background, preformatted code blocks (`pre`) with dark theme container.
+      - **Typography**: Headings, lists, bold text, blockquotes, and horizontal separators.
+  - **Manual Trigger Workflow (No Auto-Query on Open)**:
+    - AI dialogs and tabs must NOT auto-query LLMs upon being opened or tab switched.
+    - Opens in an inspection and condition-setting state showing target data (log message, event, or aggregated metrics) and query options.
+    - LLM query is executed only after the user explicitly clicks the trigger button (e.g. "AIログ診断を実行" / "Run AI Diagnosis" or "AIレポート生成を実行").
+    - After completion, the trigger button updates to a re-execution button ("再診断を実行" / "Re-analyze"), allowing the user to re-query with modified conditions (e.g. switching language).
+  - **Animated Cat Character WAIT Screen (`AnimatedCatLogo mode="loading"`)**:
+    - During LLM reasoning (`aiLoading` / `isDiagnosing`), the content area displays the signature TWSNMP animated cat character logo (`AnimatedCatLogo mode="loading" size="lg"`).
+    - Features animated radar pulse waves, orbiting particle rings, sweeping light beam, bounce rhythm, and pulsing reasoning status text (`$_('log.aiReasoning')` / "マルチLLM推論中...").
+  - **Bilingual Query Language Selection (日本語 / English)**:
+    - When the UI locale is Japanese (`$locale` starting with `ja`), AI interaction dialogs provide a prominent language toggle:
+      - `日本語` (Japanese) [Default]
+      - `英語 (English)`
+    - When the UI is in English, language defaults to English.
+    - Selected language determines prompt and system instructions passed to the LLM (mandating structured markdown output, tables, and Japanese or English responses).
+    - Backend endpoint `/api/ai/diagnose` supports the optional `lang` parameter (`ja` or `en`) to deliver language-tailored alert diagnostic prompts.
+  - **Modal Geometry, Scrollability & Clipboard Utilities**:
+    - Dialog dimensions expand to `max-w-4xl` / `max-w-5xl` with `h-[90vh]` or `max-h-[90vh]` constraints to ensure wide comparative tables render comfortably without horizontal truncation.
+    - Smooth vertical scroll applied via flexbox `min-h-0 overflow-y-auto` to the response container so extensive explanations scroll cleanly without expanding the modal past viewport boundaries.
+    - Integrated clipboard copy button with visual confirmation feedback (`copied: 2s timeout`).
 
 ---
 
