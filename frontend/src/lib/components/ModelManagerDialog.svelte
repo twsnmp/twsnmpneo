@@ -288,41 +288,41 @@
 
           <!-- Active Backend -->
           <div class="flex flex-wrap items-center gap-2 text-xs">
-            <span class="font-medium text-slate-600 dark:text-slate-400">
+            <span class="font-medium text-slate-600 dark:text-slate-400 shrink-0 whitespace-nowrap">
               {$_("modelManager.activeBackend") || "現在のアクティブ環境"}:
             </span>
             {#if hardwareStatus.acceleration === "GPU"}
-              <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 whitespace-nowrap">
                 GPU
               </span>
             {:else if hardwareStatus.acceleration && hardwareStatus.acceleration.includes("SIMD")}
-              <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0 whitespace-nowrap">
                 SIMD
               </span>
             {:else}
-              <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
+              <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 shrink-0 whitespace-nowrap">
                 CPU
               </span>
             {/if}
-            <span class="text-slate-500 dark:text-slate-400 font-mono text-[11px]">{hardwareStatus.detail}</span>
+            <span class="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate min-w-0">{hardwareStatus.detail}</span>
           </div>
 
           <!-- WGPU Library Status -->
           <div class="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t border-slate-200/60 dark:border-slate-800/60">
-            <div class="flex items-center gap-2">
-              <span class="font-medium text-slate-600 dark:text-slate-400">
+            <div class="flex flex-wrap items-center gap-2 min-w-0">
+              <span class="font-medium text-slate-600 dark:text-slate-400 shrink-0 whitespace-nowrap">
                 {$_("modelManager.wgpuLibrary") || "wgpu-native ライブラリ"}:
               </span>
               {#if hardwareStatus.has_gpu_lib}
-                <span class="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 class="w-3.5 h-3.5" />
+                <span class="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap">
+                  <CheckCircle2 class="w-3.5 h-3.5 shrink-0" />
                   {$_("modelManager.gpuLibInstalled") || "インストール済み"}
                 </span>
-                <span class="text-slate-400 font-mono text-[10px] truncate max-w-xs" title={hardwareStatus.wgpu_lib_path}>
+                <span class="text-slate-400 font-mono text-[10px] truncate max-w-xs min-w-0" title={hardwareStatus.wgpu_lib_path}>
                   ({hardwareStatus.wgpu_lib_path})
                 </span>
               {:else}
-                <span class="text-amber-600 dark:text-amber-400 font-medium">
+                <span class="text-amber-600 dark:text-amber-400 font-medium shrink-0 whitespace-nowrap">
                   {$_("modelManager.gpuLibNotInstalled") || "未インストール (CPUモードで動作)"}
                 </span>
               {/if}

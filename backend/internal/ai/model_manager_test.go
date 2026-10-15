@@ -56,6 +56,12 @@ func TestDownloadManagerDatadir(t *testing.T) {
 		t.Errorf("expected %s, got %s", dummyModel, foundPath)
 	}
 
+	// Create a dummy cache file to verify it gets cleaned up alongside the model
+	cachePath := dummyModel + ".cache"
+	if err := os.WriteFile(cachePath, []byte("dummy cache"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	// Test DeleteModel
 	if err := mgr.DeleteModel("qwen2.5-0.5b"); err != nil {
 		t.Fatalf("failed to delete model: %v", err)
@@ -68,6 +74,9 @@ func TestDownloadManagerDatadir(t *testing.T) {
 	if len(models) != 0 {
 		t.Errorf("expected 0 models after deletion, got %d", len(models))
 	}
+	if _, err := os.Stat(cachePath); !os.IsNotExist(err) {
+		t.Errorf("expected cache file %s to be deleted, but still exists", cachePath)
+	}
 
 	// Test Hardware Status
 	status := mgr.GetHardwareStatus()
@@ -76,5 +85,24 @@ func TestDownloadManagerDatadir(t *testing.T) {
 	}
 	if status.LibDir != mgr.LibDir() {
 		t.Errorf("expected status libDir %s, got %s", mgr.LibDir(), status.LibDir)
+	}
+
+	// Verify newly added preset models
+	expectedPresets := []string{
+		"qwen2.5-3b",
+		"qwen2.5-coder-3b",
+		"qwen3-4b",
+		"llm-jp-3-1.8b",
+		"gemma-2-2b",
+		"gemma-3-1b",
+		"gemma-4-e2b",
+		"smollm2-135m",
+		"smollm3-3b",
+		"phi-3.5-mini",
+	}
+	for _, p := range expectedPresets {
+		if _, ok := PresetModels[p]; !ok {
+			t.Errorf("expected preset model %q to be registered in PresetModels", p)
+		}
 	}
 }

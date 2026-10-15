@@ -75,14 +75,14 @@ func TestLLMClient(t *testing.T) {
 		LLMModel:    "test-model",
 	}
 	cLocal := ai.NewLLMClient(localConf)
-	ans, err := cLocal.GenerateAnswer(ctx, "system prompt", "user query")
-	if err != nil || !strings.Contains(ans, "Local Model Response") {
-		t.Fatalf("expected local model response, got: %v (err: %v)", ans, err)
+	_, err = cLocal.GenerateAnswer(ctx, "system prompt", "user query")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected model not found error, got: %v", err)
 	}
 
-	diag, err := cLocal.DiagnoseAlert(ctx, "High CPU Utilization", "Core Switch (10.0.0.1)")
-	if err != nil || !strings.Contains(diag, "High CPU") {
-		t.Fatalf("expected diagnosis output, got: %s (err: %v)", diag, err)
+	_, err = cLocal.DiagnoseAlert(ctx, "High CPU Utilization", "Core Switch (10.0.0.1)")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected model not found error on DiagnoseAlert, got: %v", err)
 	}
 }
 

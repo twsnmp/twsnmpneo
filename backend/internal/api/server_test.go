@@ -342,13 +342,13 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("delete parquet logs returned %d", delPqRec.Code)
 	}
 
-	// 8. AI Ask & Diagnose (using local tensai provider configured above)
+	// 8. AI Ask & Diagnose (using local tensai provider configured above without model file)
 	askPayload := `{"prompt":"Check link status","system":"system instructions"}`
 	req = httptest.NewRequest(http.MethodPost, "/api/ai/ask", strings.NewReader(askPayload))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Local Model Response") {
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "local model not found") {
 		t.Errorf("ai ask failed: code %d, body: %s", rec.Code, rec.Body.String())
 	}
 
@@ -357,7 +357,7 @@ func TestAPIServer_Endpoints(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Local Model Response") {
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "local model not found") {
 		t.Errorf("ai diagnose failed: code %d, body: %s", rec.Code, rec.Body.String())
 	}
 

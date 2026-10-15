@@ -14,7 +14,7 @@ require (
 	github.com/gosnmp/gosnmp v1.45.0
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
 	github.com/labstack/echo/v4 v4.15.4
-	github.com/mattn/tensai v0.0.33
+	github.com/mattn/tensai v0.0.35
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/montanaflynn/stats v0.12.7
 	github.com/openconfig/gnmic/pkg/api v0.1.9
