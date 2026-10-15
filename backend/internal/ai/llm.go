@@ -293,8 +293,15 @@ func (c *LLMClient) generateClaude(ctx context.Context, system, prompt string) (
 }
 
 // DiagnoseAlert provides AI-powered root-cause inference and remediation tips.
-func (c *LLMClient) DiagnoseAlert(ctx context.Context, alertEvent, nodeContext string) (string, error) {
-	system := "You are a network reliability engineer and security expert. Analyze the following network alert and provide concise root-cause inference and remediation steps."
+func (c *LLMClient) DiagnoseAlert(ctx context.Context, alertEvent, nodeContext string, lang ...string) (string, error) {
+	isJa := false
+	if len(lang) > 0 && strings.HasPrefix(lang[0], "ja") {
+		isJa = true
+	}
+	system := "You are a network reliability engineer and security expert. Analyze the following network alert and provide concise root-cause inference and remediation steps in English using markdown format (with tables, bold, bullet points)."
+	if isJa {
+		system = "あなたはネットワーク信頼性エンジニアおよびセキュリティの専門家です。提示されたネットワークアラートを分析し、根本原因の推定と推奨される復旧・対策手順を日本語で簡潔に回答してください。必ずマークダウン形式（テーブル、太字、箇条書き）でわかりやすく回答してください。"
+	}
 	user := fmt.Sprintf("Alert Event: %s\nNode Details: %s", alertEvent, nodeContext)
 	return c.GenerateAnswer(ctx, system, user)
 }

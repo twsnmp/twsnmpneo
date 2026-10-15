@@ -1678,11 +1678,11 @@ export async function askAI(prompt: string, system = ''): Promise<string> {
   return data.answer;
 }
 
-export async function diagnoseAlert(alertEvent: string, nodeContext: string): Promise<string> {
+export async function diagnoseAlert(alertEvent: string, nodeContext: string, lang = 'ja'): Promise<string> {
   const res = await apiFetch(`${API_BASE}/ai/diagnose`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ alert_event: alertEvent, node_context: nodeContext }),
+    body: JSON.stringify({ alert_event: alertEvent, node_context: nodeContext, lang }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));

@@ -12,6 +12,9 @@
     ShieldAlert,
     Sparkles,
     X,
+    Languages,
+    Copy,
+    Check,
   } from "@lucide/svelte";
   import {
     calcEventLogDowntimeAndSLA,
@@ -23,7 +26,9 @@
   } from "../charts/eventlog";
   import { renderDuration, renderSLA, getStateColor } from "../common";
   import { askAI } from "../api";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
+  import AIMarkdown from "./common/AIMarkdown.svelte";
+  import AnimatedCatLogo from "./common/AnimatedCatLogo.svelte";
 
   let {
     show = $bindable(false),
@@ -51,6 +56,9 @@
   // AI report states
   let aiSummary = $state("");
   let aiLoading = $state(false);
+  let copied = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
+  let aiLanguage = $state<"ja" | "en">("ja");
 
   const initCharts = async () => {
     await tick();
@@ -77,9 +85,6 @@
   const handleTabChange = (t: ReportTab) => {
     activeTab = t;
     initCharts();
-    if (t === "ai" && !aiSummary) {
-      runAIReport();
-    }
   };
 
   const runAIReport = async () => {
@@ -87,32 +92,59 @@
     aiSummary = "";
     try {
       const stats = calcEventLogDowntimeAndSLA(logs);
+      const isJa = aiLanguage === "ja";
+
       const topNodes = stats.nodeStats.slice(0, 5).map((n) =>
-        $_('logReport.aiPromptNodeItem', {
-          values: {
-            name: n.nodeName,
-            sla: renderSLA(n.sla),
-            downtime: renderDuration(n.totalDowntimeSec),
-            count: n.count,
-          },
-        })
+        isJa
+          ? `${n.nodeName}: SLA ${renderSLA(n.sla)}, 停止時間 ${renderDuration(n.totalDowntimeSec)} (${n.count}回)`
+          : `${n.nodeName}: SLA ${renderSLA(n.sla)}, Downtime ${renderDuration(n.totalDowntimeSec)} (${n.count} times)`
       ).join("; ");
 
-      const prompt =
-        $_('logReport.aiPromptHeader') +
-        $_('logReport.aiPromptStats') +
-        $_('logReport.aiPromptLogs', { values: { count: logs.length } }) +
-        $_('logReport.aiPromptSla', { values: { sla: renderSLA(stats.overallSLA) } }) +
-        $_('logReport.aiPromptIncidents', { values: { total: stats.totalIncidents, ongoing: stats.ongoingIncidents } }) +
-        $_('logReport.aiPromptDowntime', { values: { downtime: renderDuration(stats.totalDowntimeSec) } }) +
-        $_('logReport.aiPromptMttr', { values: { mttr: renderDuration(stats.mttrSec) } }) +
-        $_('logReport.aiPromptTopNodes', { values: { nodes: topNodes || $_('logReport.aiPromptNone') } });
+      let prompt = "";
+      let system = "";
 
-      aiSummary = await askAI(prompt, $_('logReport.aiSystemPrompt'));
+      if (isJa) {
+        prompt =
+          "以下のネットワーク監視ログ集計データを解析し、システム全体の健全性評価、主なボトルネック、および具体的な推奨改善アクションを専門家として簡潔にレポートしてください。日本語で回答してください。\n\n" +
+          "【集計データ】\n" +
+          `- ログ対象件数: ${logs.length} 件\n` +
+          `- 全体稼働率 (SLA): ${renderSLA(stats.overallSLA)}\n` +
+          `- 障害発生件数: ${stats.totalIncidents} 件 (現在障害中: ${stats.ongoingIncidents} 件)\n` +
+          `- 総ダウンタイム: ${renderDuration(stats.totalDowntimeSec)}\n` +
+          `- 平均復旧時間 (MTTR): ${renderDuration(stats.mttrSec)}\n` +
+          `- 障害上位ノード: ${topNodes || "なし"}`;
+        system = "あなたは高可用性ネットワーク運用のシニアインフラエンジニアです。必ず日本語でマークダウン形式（表、太字、箇条書き、見出し）で回答してください。";
+      } else {
+        prompt =
+          "Please analyze the following network monitoring log summary data and concisely report an overall system health assessment, primary bottlenecks, and concrete recommended improvement actions as an expert. Please answer in English.\n\n" +
+          "[Aggregated Data]\n" +
+          `- Target Log Count: ${logs.length} records\n` +
+          `- Overall SLA: ${renderSLA(stats.overallSLA)}\n` +
+          `- Total Incidents: ${stats.totalIncidents} (Ongoing: ${stats.ongoingIncidents})\n` +
+          `- Total Downtime: ${renderDuration(stats.totalDowntimeSec)}\n` +
+          `- Mean Time to Recovery (MTTR): ${renderDuration(stats.mttrSec)}\n` +
+          `- Top Incident Nodes: ${topNodes || "None"}`;
+        system = "You are a senior infrastructure engineer specializing in high-availability network operations. Please answer in English using clean markdown format (tables, bold text, bullet lists, headings).";
+      }
+
+      aiSummary = await askAI(prompt, system);
     } catch (e: any) {
       aiSummary = $_('logReport.aiError', { values: { error: e.message } });
     } finally {
       aiLoading = false;
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!aiSummary) return;
+    try {
+      await navigator.clipboard.writeText(aiSummary);
+      copied = true;
+      setTimeout(() => {
+        copied = false;
+      }, 2000);
+    } catch (e) {
+      console.error("Failed to copy AI summary:", e);
     }
   };
 
@@ -333,33 +365,103 @@
           </div>
         {:else if activeTab === "ai"}
           <div class="space-y-4">
-            <div class="flex items-center justify-between rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4">
-              <div class="flex items-center gap-2.5 text-xs text-pink-600 dark:text-pink-300 font-medium">
-                <Sparkles class="h-4 w-4" />
-                <span>{$_('logReport.aiSectionTitle')}</span>
+            <!-- Condition Setting & Action Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4">
+              <div class="flex flex-wrap items-center gap-4">
+                <div class="flex items-center gap-2.5 text-xs text-pink-600 dark:text-pink-300 font-semibold">
+                  <Sparkles class="h-4 w-4" />
+                  <span>{$_('logReport.aiSectionTitle')}</span>
+                </div>
+
+                {#if isJaLocale}
+                  <!-- Language Toggle (Japanese UI) -->
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
+                      <Languages class="h-3.5 w-3.5 text-pink-500" />
+                      <span>{$_('logReport.aiQueryLanguage') || '回答言語'}:</span>
+                    </span>
+                    <div class="inline-flex rounded-lg border border-pink-300/40 dark:border-pink-800/40 p-0.5 bg-white dark:bg-slate-900 shadow-xs">
+                      <button
+                        type="button"
+                        disabled={aiLoading}
+                        onclick={() => (aiLanguage = "ja")}
+                        class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer {aiLanguage === 'ja' ? 'bg-pink-600 text-white shadow-xs font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}"
+                      >
+                        {$_('logReport.aiLangJa') || '日本語'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={aiLoading}
+                        onclick={() => (aiLanguage = "en")}
+                        class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer {aiLanguage === 'en' ? 'bg-pink-600 text-white shadow-xs font-semibold' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}"
+                      >
+                        {$_('logReport.aiLangEn') || '英語 (English)'}
+                      </button>
+                    </div>
+                  </div>
+                {/if}
               </div>
-              <button
-                type="button"
-                onclick={runAIReport}
-                disabled={aiLoading}
-                class="flex items-center gap-1.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 px-3.5 py-1.5 text-xs font-semibold text-pink-700 dark:text-pink-300 transition-colors cursor-pointer"
-              >
-                <RefreshCw class="h-3.5 w-3.5 {aiLoading ? 'animate-spin' : ''}" />
-                <span>{$_('logReport.btnReanalyze')}</span>
-              </button>
+
+              <div class="flex items-center gap-2">
+                {#if aiSummary && !aiLoading}
+                  <button
+                    type="button"
+                    onclick={handleCopy}
+                    class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
+                  >
+                    {#if copied}
+                      <Check class="h-4 w-4 text-emerald-500" />
+                      <span class="text-emerald-500 font-medium">{$_('common.copied')}</span>
+                    {:else}
+                      <Copy class="h-4 w-4" />
+                      <span>{$_('common.copy')}</span>
+                    {/if}
+                  </button>
+                {/if}
+
+                <button
+                  type="button"
+                  onclick={runAIReport}
+                  disabled={aiLoading}
+                  class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 disabled:opacity-50 text-white px-4 py-2 text-xs font-bold transition-all shadow-md shadow-pink-600/20 cursor-pointer active:scale-95"
+                >
+                  <Sparkles class="h-3.5 w-3.5" />
+                  <span>{aiSummary ? ($_('logReport.btnReanalyze') || '再分析') : ($_('logReport.aiStartReport') || 'AIレポート生成を実行')}</span>
+                </button>
+              </div>
             </div>
 
-            <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/90 p-6 text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans shadow-sm">
+            <!-- AI Output Area -->
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/90 p-6 text-sm leading-relaxed text-slate-800 dark:text-slate-200 font-sans shadow-sm">
               {#if aiLoading}
-                <div class="flex items-center justify-center py-16 gap-3 text-cyan-600 dark:text-cyan-400">
-                  <RefreshCw class="h-5 w-5 animate-spin" />
-                  <span class="text-sm font-semibold">{$_('logReport.aiAnalyzing')}</span>
+                <!-- Animated Cat Logo WAIT Screen -->
+                <div class="flex flex-col items-center justify-center py-16 space-y-4">
+                  <AnimatedCatLogo mode="loading" size="lg" />
+                  <div class="text-center space-y-1.5 max-w-md">
+                    <p class="text-sm font-bold text-pink-600 dark:text-pink-400 animate-pulse">
+                      {aiLanguage === 'ja' ? $_('logReport.aiAnalyzing') : 'Multi-LLM reasoning in progress... Analyzing log statistics.'}
+                    </p>
+                    <p class="text-xs text-slate-400">
+                      {$_('log.aiWaiting') || 'しばらくお待ちください...'}
+                    </p>
+                  </div>
                 </div>
               {:else if aiSummary}
-                {aiSummary}
+                <AIMarkdown content={aiSummary} />
               {:else}
-                <div class="py-12 text-center text-slate-400 dark:text-slate-500">
-                  {$_('logReport.aiPlaceholder')}
+                <!-- Idle Guidance -->
+                <div class="flex flex-col items-center justify-center py-20 text-center space-y-3">
+                  <div class="p-3 rounded-2xl bg-pink-50 dark:bg-pink-950/40 text-pink-500 border border-pink-200 dark:border-pink-800/50">
+                    <Sparkles class="h-8 w-8" />
+                  </div>
+                  <div class="space-y-1 max-w-md">
+                    <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {$_('logReport.aiSectionTitle')}
+                    </h4>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      {$_('logReport.aiPlaceholder')}
+                    </p>
+                  </div>
                 </div>
               {/if}
             </div>

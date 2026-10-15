@@ -521,6 +521,7 @@ func NewServer(cfg Config) (*Server, error) {
 			var req struct {
 				AlertEvent  string `json:"alert_event"`
 				NodeContext string `json:"node_context"`
+				Lang        string `json:"lang"`
 			}
 			if err := c.Bind(&req); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -530,7 +531,7 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			client := ai.NewLLMClient(conf, cfg.DataDir)
-			diag, err := client.DiagnoseAlert(c.Request().Context(), req.AlertEvent, req.NodeContext)
+			diag, err := client.DiagnoseAlert(c.Request().Context(), req.AlertEvent, req.NodeContext, req.Lang)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}

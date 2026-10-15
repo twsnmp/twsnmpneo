@@ -76,8 +76,6 @@
   let showReportModal = $state(false);
   let showAIDialog = $state(false);
   let selectedLogText = $state("");
-  let aiAnswer = $state("");
-  let aiLoading = $state(false);
 
   // Column Visibility & Sflow Mode
   let columnVisibility = $state<Record<string, boolean>>({});
@@ -311,21 +309,9 @@
     sortDirection = "desc";
   };
 
-  const handleAskAI = async (logText: string) => {
+  const handleAskAI = (logText: string) => {
     selectedLogText = logText;
     showAIDialog = true;
-    aiLoading = true;
-    aiAnswer = "";
-    try {
-      aiAnswer = await askAI(
-        $_('log.aiPrompt', { values: { log: logText } }),
-        $_('log.aiSystem')
-      );
-    } catch (e: any) {
-      aiAnswer = $_('log.aiError', { values: { error: e.message } });
-    } finally {
-      aiLoading = false;
-    }
   };
 
   const handleDeleteAll = async () => {
@@ -471,7 +457,5 @@
   <LogAIDialog
     bind:show={showAIDialog}
     {selectedLogText}
-    {aiAnswer}
-    {aiLoading}
   />
 </div>
