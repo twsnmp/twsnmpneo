@@ -318,6 +318,45 @@
       })
   );
 
+  // Derived counts
+  const revokedCount = $derived(
+    certs.filter((c) => c.Status === "revoked" || c.Revoked > 0).length
+  );
+
+  // Server status helpers
+  const getServerStatusType = (status: string | undefined): "running" | "error" | "stopped" => {
+    if (!status) return "stopped";
+    const s = status.toLowerCase();
+    if (s.includes("error")) return "error";
+    if (s.startsWith("running") || s.includes("running")) return "running";
+    return "stopped";
+  };
+
+  const getServerStatusStyle = (status: string | undefined) => {
+    const type = getServerStatusType(status);
+    switch (type) {
+      case "running":
+        return {
+          card: "border-emerald-300 dark:border-emerald-700/70 bg-emerald-50/90 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 shadow-xs",
+          badge: "border-emerald-300 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300",
+          text: "text-emerald-700 dark:text-emerald-300 font-mono",
+        };
+      case "error":
+        return {
+          card: "border-rose-300 dark:border-rose-700/70 bg-rose-50/90 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100 shadow-xs",
+          badge: "border-rose-300 dark:border-rose-700 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-300",
+          text: "text-rose-700 dark:text-rose-300 font-mono",
+        };
+      case "stopped":
+      default:
+        return {
+          card: "border-slate-300 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 shadow-xs",
+          badge: "border-slate-300 dark:border-slate-700 bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
+          text: "text-slate-500 dark:text-slate-400 font-mono",
+        };
+    }
+  };
+
   // Pagination
   const totalPages = $derived(Math.max(1, Math.ceil(filteredCerts.length / pageSize)));
   const paginatedCerts = $derived(
@@ -423,7 +462,7 @@
     </div>
 
     <!-- Sidebar Status Pill -->
-    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5">
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/80 p-3 text-[11px] text-slate-500 dark:text-slate-400 space-y-2">
       <div class="flex items-center justify-between">
         <span class="font-semibold text-slate-700 dark:text-slate-200">{$_("pki.caStatus")}</span>
         {#if hasCA}
@@ -436,13 +475,28 @@
           </span>
         {/if}
       </div>
-      <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-        {#if hasCA}
-          {$_("pki.issuedCertCount", { values: { count: certs.length } })}
-        {:else}
+
+      {#if hasCA}
+        <div class="space-y-1.5 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60 text-[10px] font-mono">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 dark:text-slate-400">{$_("pki.issuedCertificates")}</span>
+            <span class="font-semibold text-slate-700 dark:text-slate-300">{$_("pki.countUnit", { values: { count: certs.length } })}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="{revokedCount > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}">{$_("pki.revokedCertificates")}</span>
+            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold {revokedCount > 0 ? 'bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800/60 text-rose-700 dark:text-rose-400' : 'bg-slate-200/60 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'}">
+              {#if revokedCount > 0}
+                <XCircle class="h-2.5 w-2.5" />
+              {/if}
+              {$_("pki.countUnit", { values: { count: revokedCount } })}
+            </span>
+          </div>
+        </div>
+      {:else}
+        <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
           {$_("pki.pleaseCreateCA")}
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
   </aside>
 
@@ -986,13 +1040,48 @@
 
         <!-- Server Status Banners -->
         <div class="grid gap-4 sm:grid-cols-2">
-          <div class="rounded-xl border p-4 text-xs {pkiControl.AcmeStatus?.includes('error') ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300' : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300'}">
-            <div class="font-bold mb-1">{$_("pki.acmeServerStatus")}</div>
-            <div class="font-mono text-[11px]">{pkiControl.AcmeStatus || $_("pki.notRunning")}</div>
+          <!-- ACME/EST Server Status Card -->
+          <div class="rounded-xl border p-4 text-xs transition-colors {getServerStatusStyle(pkiControl.AcmeStatus).card}">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-bold text-slate-900 dark:text-white">{$_("pki.acmeServerStatus")}</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold {getServerStatusStyle(pkiControl.AcmeStatus).badge}">
+                {#if getServerStatusType(pkiControl.AcmeStatus) === "running"}
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  {$_("pki.running")}
+                {:else if getServerStatusType(pkiControl.AcmeStatus) === "error"}
+                  <AlertCircle class="h-3 w-3" />
+                  {$_("pki.error")}
+                {:else}
+                  <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                  {$_("pki.stopped")}
+                {/if}
+              </span>
+            </div>
+            <div class="text-[11px] {getServerStatusStyle(pkiControl.AcmeStatus).text}">
+              {pkiControl.AcmeStatus || $_("pki.notRunning")}
+            </div>
           </div>
-          <div class="rounded-xl border p-4 text-xs {pkiControl.HttpStatus?.includes('error') ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300' : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300'}">
-            <div class="font-bold mb-1">{$_("pki.httpServerStatus")}</div>
-            <div class="font-mono text-[11px]">{pkiControl.HttpStatus || $_("pki.notRunning")}</div>
+
+          <!-- HTTP (CRL / OCSP / SCEP) Server Status Card -->
+          <div class="rounded-xl border p-4 text-xs transition-colors {getServerStatusStyle(pkiControl.HttpStatus).card}">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-bold text-slate-900 dark:text-white">{$_("pki.httpServerStatus")}</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold {getServerStatusStyle(pkiControl.HttpStatus).badge}">
+                {#if getServerStatusType(pkiControl.HttpStatus) === "running"}
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  {$_("pki.running")}
+                {:else if getServerStatusType(pkiControl.HttpStatus) === "error"}
+                  <AlertCircle class="h-3 w-3" />
+                  {$_("pki.error")}
+                {:else}
+                  <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                  {$_("pki.stopped")}
+                {/if}
+              </span>
+            </div>
+            <div class="text-[11px] {getServerStatusStyle(pkiControl.HttpStatus).text}">
+              {pkiControl.HttpStatus || $_("pki.notRunning")}
+            </div>
           </div>
         </div>
 
