@@ -1,4 +1,5 @@
 import P5 from "p5";
+(P5 as any).disableFriendlyErrors = true;
 import { get } from "svelte/store";
 import { locale } from "svelte-i18n";
 import { getIconCode, getStateColor, isImageIcon, getIconImage, setCustomIcons } from "../common";
@@ -57,6 +58,19 @@ const selectedDrawItems: string[] = [];
 let selectedNetwork = "";
 
 const imageMap = new Map<string, any>();
+const loadingImages = new Set<string>();
+
+const isValidImage = (img: any): boolean => {
+  return (
+    Boolean(img) &&
+    typeof img === "object" &&
+    !(img instanceof Promise) &&
+    typeof (img as any).width === "number" &&
+    (img as any).width > 0 &&
+    typeof (img as any).height === "number" &&
+    (img as any).height > 0
+  );
+};
 let mapState = 0;
 let editDrawItems = false;
 let showNodeInfo = false;
@@ -114,6 +128,9 @@ export const resetMap = () => {
   }
   lastBackImagePath = "";
   _backImage = undefined;
+  portImage = undefined;
+  imageMap.clear();
+  loadingImages.clear();
 };
 
 export const reloadBackImage = () => {
@@ -195,6 +212,9 @@ export const checkNetworkPos = (net: any) => {
 
 export const updateMAP = async () => {
   if (!_mapP5) return;
+  try {
+    _mapP5.loop();
+  } catch {}
   const dark = isDark();
   try {
     mapConf = await fetchMapConf();
@@ -270,14 +290,21 @@ export const updateMAP = async () => {
 
     for (const k in nodes) {
       const imgKey = nodes[k].image || (nodes[k] as any).Image;
-      if (imgKey && !imageMap.has(imgKey) && _mapP5) {
+      if (imgKey && !imageMap.has(imgKey) && !loadingImages.has(imgKey) && _mapP5) {
         const imgData = getIconImage(imgKey);
         if (imgData) {
-          const img = _mapP5.loadImage(imgData, (loaded) => {
-            imageMap.set(imgKey, loaded);
-            mapRedraw = true;
-          });
-          imageMap.set(imgKey, img);
+          loadingImages.add(imgKey);
+          _mapP5.loadImage(
+            imgData,
+            (loaded) => {
+              imageMap.set(imgKey, loaded);
+              loadingImages.delete(imgKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(imgKey);
+            }
+          );
         }
       }
     }
@@ -298,10 +325,12 @@ export const updateMAP = async () => {
             imgUrl = `/api/map/image/backimage_map.png`;
           }
           imgUrl = `${imgUrl}?t=${Date.now()}`;
+          loadingImages.add("backimage");
           _mapP5.loadImage(
             imgUrl,
             (img) => {
               _backImage = img;
+              loadingImages.delete("backimage");
               mapRedraw = true;
             },
             () => {
@@ -310,15 +339,25 @@ export const updateMAP = async () => {
                   `/api/map/backimage/raw?t=${Date.now()}`,
                   (fallbackImg) => {
                     _backImage = fallbackImg;
+                    loadingImages.delete("backimage");
                     mapRedraw = true;
                   },
                   () => {
-                    _mapP5?.loadImage(`/backimage?t=${Date.now()}`, (fcImg) => {
-                      _backImage = fcImg;
-                      mapRedraw = true;
-                    });
+                    _mapP5?.loadImage(
+                      `/backimage?t=${Date.now()}`,
+                      (fcImg) => {
+                        _backImage = fcImg;
+                        loadingImages.delete("backimage");
+                        mapRedraw = true;
+                      },
+                      () => {
+                        loadingImages.delete("backimage");
+                      }
+                    );
                   }
                 );
+              } else {
+                loadingImages.delete("backimage");
               }
             }
           );
@@ -338,10 +377,19 @@ export const updateMAP = async () => {
     console.error("Failed to fetch map elements:", e);
   }
 
-  if (!portImage && _mapP5) {
-    portImage = _mapP5.loadImage(portImgUrl, () => {
-      mapRedraw = true;
-    });
+  if (!portImage && _mapP5 && !loadingImages.has("portImage")) {
+    loadingImages.add("portImage");
+    _mapP5.loadImage(
+      portImgUrl,
+      (loaded) => {
+        portImage = loaded;
+        loadingImages.delete("portImage");
+        mapRedraw = true;
+      },
+      () => {
+        loadingImages.delete("portImage");
+      }
+    );
   }
 
   _setMapState();
@@ -368,11 +416,21 @@ export const updateMAP = async () => {
       }
       case 3: {
         if (it.path && _mapP5) {
-          const img = _mapP5.loadImage(it.path, (loaded) => {
-            imageMap.set(k, loaded);
-            mapRedraw = true;
-          });
-          if (!imageMap.has(k)) imageMap.set(k, img);
+          const loadKey = `item_path_${k}_${it.path}`;
+          if (!imageMap.has(k) && !loadingImages.has(loadKey)) {
+            loadingImages.add(loadKey);
+            _mapP5.loadImage(
+              it.path,
+              (loaded) => {
+                imageMap.set(k, loaded);
+                loadingImages.delete(loadKey);
+                mapRedraw = true;
+              },
+              () => {
+                loadingImages.delete(loadKey);
+              }
+            );
+          }
         }
         break;
       }
@@ -383,11 +441,21 @@ export const updateMAP = async () => {
         (it as any).W = it.w;
         (it as any).H = it.h;
         const dataUrl = classicGauge(it.text || "", it.color || "#00d2ff", it.value || 0, sz, dark);
-        const img = _mapP5.loadImage(dataUrl, (loaded) => {
-          imageMap.set(k, loaded);
-          mapRedraw = true;
-        });
-        if (!imageMap.has(k)) imageMap.set(k, img);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey)) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
         break;
       }
       case 6: {
@@ -397,11 +465,21 @@ export const updateMAP = async () => {
         (it as any).W = it.w;
         (it as any).H = it.h;
         const dataUrl = gauge(it.text || "", it.value || 0, backColor);
-        const img = _mapP5.loadImage(dataUrl, (loaded) => {
-          imageMap.set(k, loaded);
-          mapRedraw = true;
-        });
-        if (!imageMap.has(k)) imageMap.set(k, img);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey)) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
         break;
       }
       case 7: {
@@ -411,11 +489,21 @@ export const updateMAP = async () => {
         (it as any).W = it.w;
         (it as any).H = it.h;
         const dataUrl = bar(it.text || "", it.color || "white", it.value || 0, backColor);
-        const img = _mapP5.loadImage(dataUrl, (loaded) => {
-          imageMap.set(k, loaded);
-          mapRedraw = true;
-        });
-        if (!imageMap.has(k)) imageMap.set(k, img);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey)) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
         break;
       }
       case 8: {
@@ -425,11 +513,21 @@ export const updateMAP = async () => {
         (it as any).W = it.w;
         (it as any).H = it.h;
         const dataUrl = line(it.text || "", it.color || "white", it.values || [], backColor);
-        const img = _mapP5.loadImage(dataUrl, (loaded) => {
-          imageMap.set(k, loaded);
-          mapRedraw = true;
-        });
-        if (!imageMap.has(k)) imageMap.set(k, img);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey)) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
         break;
       }
       case 11: {
@@ -444,11 +542,21 @@ export const updateMAP = async () => {
         let text = (it as any).formatted_text || (it as any).FormattedText || "";
         if (!text && it.value !== undefined) text = it.value.toFixed(1);
         const dataUrl = kpi(title, text, it.value || 0, it.color || "#00d2ff", it.values || [], dark, it.w, it.h);
-        const img = _mapP5.loadImage(dataUrl, (loaded) => {
-          imageMap.set(k, loaded);
-          mapRedraw = true;
-        });
-        if (!imageMap.has(k)) imageMap.set(k, img);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey)) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
         break;
       }
     }
@@ -887,50 +995,54 @@ const mapMain = (p5: P5) => {
     if (!mapRedraw) return;
     mapRedraw = false;
 
-    p5.clear();
-    p5.background(dark ? p5.color(11, 19, 41) : p5.color(252));
-
-    p5.push();
-    if (scale !== 1.0) {
-      p5.scale(scale);
-    }
-
-    // Draw background image if configured
-    if (_backImage) {
-      if (backImage.Width > 0 && backImage.Height > 0) {
-        p5.image(_backImage, backImage.X || 0, backImage.Y || 0, backImage.Width, backImage.Height);
-      } else {
-        p5.image(_backImage, backImage.X || 0, backImage.Y || 0);
-      }
-    }
-
-    // 1. Draw draw items (background layers)
-    drawItems(p5, dark);
-    // 2. Draw networks
-    drawNetworks(p5, dark);
-    // 3. Draw lines (rendered in front of networks into ports)
-    drawLines(p5, dark);
-    // 4. Draw nodes (rendered in front)
-    drawNodes(p5, dark);
-
-    // Draw selection box in dragMode 1
-    if (dragMode === 1) {
-      const curX = lastMouseX;
-      const curY = lastMouseY;
-      const x = Math.min(startMouseX, curX);
-      const y = Math.min(startMouseY, curY);
-      const w = Math.abs(curX - startMouseX);
-      const h = Math.abs(curY - startMouseY);
+    try {
+      p5.clear();
+      p5.background(dark ? p5.color(11, 19, 41) : p5.color(252));
 
       p5.push();
-      p5.fill("rgba(6, 182, 212, 0.15)");
-      p5.stroke("#06b6d4");
-      p5.strokeWeight(1.5);
-      p5.rect(x, y, w, h, 4);
-      p5.pop();
-    }
+      if (scale !== 1.0) {
+        p5.scale(scale);
+      }
 
-    p5.pop();
+      // Draw background image if configured
+      if (isValidImage(_backImage)) {
+        if (backImage.Width > 0 && backImage.Height > 0) {
+          p5.image(_backImage, backImage.X || 0, backImage.Y || 0, backImage.Width, backImage.Height);
+        } else {
+          p5.image(_backImage, backImage.X || 0, backImage.Y || 0);
+        }
+      }
+
+      // 1. Draw draw items (background layers)
+      drawItems(p5, dark);
+      // 2. Draw networks
+      drawNetworks(p5, dark);
+      // 3. Draw lines (rendered in front of networks into ports)
+      drawLines(p5, dark);
+      // 4. Draw nodes (rendered in front)
+      drawNodes(p5, dark);
+
+      // Draw selection box in dragMode 1
+      if (dragMode === 1) {
+        const curX = lastMouseX;
+        const curY = lastMouseY;
+        const x = Math.min(startMouseX, curX);
+        const y = Math.min(startMouseY, curY);
+        const w = Math.abs(curX - startMouseX);
+        const h = Math.abs(curY - startMouseY);
+
+        p5.push();
+        p5.fill("rgba(6, 182, 212, 0.15)");
+        p5.stroke("#06b6d4");
+        p5.strokeWeight(1.5);
+        p5.rect(x, y, w, h, 4);
+        p5.pop();
+      }
+
+      p5.pop();
+    } catch (err) {
+      console.error("Error in p5.draw:", err);
+    }
   };
 
   const drawNetworks = (p5: P5, dark: boolean) => {
@@ -990,7 +1102,7 @@ const mapMain = (p5: P5) => {
         for (const pt of ports) {
           const px = ((pt.x ?? pt.X) || 0) * 45 + 10;
           const py = ((pt.y ?? pt.Y) || 0) * 55 + fontSize + 15;
-          if (portImage && portImage.width > 0) {
+          if (isValidImage(portImage)) {
             p5.image(portImage, px, py, 40, 40);
           } else {
             // RJ45 port socket graphic
@@ -1096,8 +1208,8 @@ const mapMain = (p5: P5) => {
         p5.rect(-4, -4, iw + 8, ih + 8, 6);
       }
 
-      if (imageMap.has(k)) {
-        const img = imageMap.get(k);
+      const img = imageMap.get(k);
+      if (isValidImage(img)) {
         p5.image(img, 0, 0, iw, ih);
       } else {
         switch (it.type) {
@@ -1188,17 +1300,24 @@ const mapMain = (p5: P5) => {
 
       if (nimage) {
         let img = imageMap.get(nimage);
-        if (!img && _mapP5) {
+        if (!img && _mapP5 && !loadingImages.has(nimage)) {
           const imgData = getIconImage(nimage);
           if (imgData) {
-            img = _mapP5.loadImage(imgData, (loaded) => {
-              imageMap.set(nimage, loaded);
-              mapRedraw = true;
-            });
-            imageMap.set(nimage, img);
+            loadingImages.add(nimage);
+            _mapP5.loadImage(
+              imgData,
+              (loaded) => {
+                imageMap.set(nimage, loaded);
+                loadingImages.delete(nimage);
+                mapRedraw = true;
+              },
+              () => {
+                loadingImages.delete(nimage);
+              }
+            );
           }
         }
-        if (img && img.width > 0) {
+        if (isValidImage(img)) {
           const iw = isSelected ? iconSize + 8 : iconSize;
           const ih = (img.height * iw) / img.width;
           const w = iw + 16;
