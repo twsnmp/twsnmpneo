@@ -1486,18 +1486,20 @@
     />
   </div>
 
-  <ReportAIExplainModal
-    bind:show={showAiExplainModal}
-    reportType="syslog"
-    title="Syslog インシデント & セキュリティAI分析"
-    summary={`総ログ数: ${kpiStats.total.toLocaleString()}件, エラー: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常: ${kpiStats.normal.toLocaleString()}件, 送信ホスト数: ${hostSummaries.length}台`}
-    items={
-      // Collect top error/warn tags, hosts, and sample raw messages
-      [
-        ...tagSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => `[TAG] ${t.tag} (エラー: ${t.errorCount}, 警告: ${t.warnCount}, 総数: ${t.count})`),
-        ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).map(h => `[HOST] ${h.name || h.host} (${h.ip}) - エラー: ${h.errorCount}, 警告: ${h.warnCount}, タグ: ${h.topTags}`),
-        ...filteredLogs.filter(l => isSyslogError(l.severity, l.level) || isSyslogWarn(l.severity, l.level)).slice(0, 30).map(l => `[LOG ${l.level.toUpperCase()}] ${new Date(l.time).toISOString()} ${l.host} [${l.tag}]: ${l.message}`)
-      ]
-    }
-  />
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="syslog"
+      title="Syslog インシデント & セキュリティAI分析"
+      summary={`総ログ数: ${kpiStats.total.toLocaleString()}件, エラー: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常: ${kpiStats.normal.toLocaleString()}件, 送信ホスト数: ${hostSummaries.length}台`}
+      items={
+        // Collect top error/warn tags, hosts, and sample raw messages
+        [
+          ...tagSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => `[TAG] ${t.tag} (エラー: ${t.errorCount}, 警告: ${t.warnCount}, 総数: ${t.count})`),
+          ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).map(h => `[HOST] ${h.name || h.host} (${h.ip}) - エラー: ${h.errorCount}, 警告: ${h.warnCount}, タグ: ${h.topTags}`),
+          ...filteredLogs.filter(l => isSyslogError(l.severity, l.level) || isSyslogWarn(l.severity, l.level)).slice(0, 30).map(l => `[LOG ${l.level.toUpperCase()}] ${formatTimeStr(l.time)} ${l.host} [${l.tag}]: ${l.message}`)
+        ]
+      }
+    />
+  {/if}
 </div>

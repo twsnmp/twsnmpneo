@@ -21,6 +21,7 @@
   import { showConfirm, showAlert } from "../../stores/modalStore";
   import { getScoreColor, getScoreIcon, formatTimeStr } from "../../common";
   import AIReportModal from "./AIReportModal.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
 
   let {
@@ -40,6 +41,7 @@
   let data = $state<AIListEnt[]>([]);
   let loading = $state(false);
   let showReportModal = $state(false);
+  let showAiExplainModal = $state(false);
   let selectedReportId = $state("");
   let selectedReportTitle = $state("");
 
@@ -196,6 +198,15 @@
       </h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.aiSubtitle")}</p>
     </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiAnomalyTitle") || "AI異常スコア & 相関分析"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiAnomaly") || "AI 異常分析"}</span>
+    </button>
   </div>
 
   <!-- KPI Summary Cards -->
@@ -437,3 +448,16 @@
   id={selectedReportId}
   title={selectedReportTitle}
 />
+
+{#if showAiExplainModal}
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="anomaly"
+    title={$_("report.aiAnomalyTitle") || "AI異常スコア & 相関分析"}
+    summary={`異常検知分析対象ポーリング: ${data.length}件, 異常スパイク検知: ${highAnomalyCount}件, 対象ノード: ${uniqueNodeCount}台, 平均スコア: ${avgScore}, 最高スコア: ${maxScore}`}
+    items={[
+      ...data.filter(d => d.Score >= 66).slice(0, 20).map(d => `[高異常スコア] ノード: ${d.Node}, ポーリング: ${d.Polling}, スコア: ${d.Score.toFixed(1)}, 件数: ${d.Count}`),
+      ...data.filter(d => d.Score >= 42 && d.Score < 66).slice(0, 15).map(d => `[中異常スコア] ノード: ${d.Node}, ポーリング: ${d.Polling}, スコア: ${d.Score.toFixed(1)}, 件数: ${d.Count}`)
+    ]}
+  />
+{/if}

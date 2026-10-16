@@ -25,8 +25,10 @@
     Server,
     Activity,
     Calendar,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -58,6 +60,7 @@
   let sortDirection = $state<"asc" | "desc">("desc");
   let pageSize = $state(25);
   let currentPage = $state(1);
+  let showAiExplainModal = $state(false);
 
   // ECharts container & instance for Top Vendors and RSSI Breakdown
   let vendorChartElem = $state<HTMLDivElement | null>(null);
@@ -562,6 +565,15 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <button
+        type="button"
+        onclick={() => (showAiExplainModal = true)}
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors shadow-xs cursor-pointer"
+        title={$_("report.aiWirelessTitle") || "Wi-Fi / Bluetooth 無線セキュリティ AI診断"}
+      >
+        <Sparkles class="w-3.5 h-3.5 text-blue-500" />
+        <span>{$_("report.btnAiWireless") || "AI BLE分析"}</span>
+      </button>
       <button
         type="button"
         onclick={exportCSV}
@@ -1103,4 +1115,16 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if showAiExplainModal}
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="bluetooth"
+    title={$_("report.aiWirelessTitle") || "Bluetooth (BLE) 無線セキュリティ AI診断"}
+    summary={`検出BLEデバイス総数: ${stats.total}台, 強い電波(稼働中): ${stats.strongCount}台, 検出ベンダー数: ${stats.uniqueVendors}種, 監視ホスト数: ${stats.uniqueHosts}台`}
+    items={[
+      ...filteredList.slice(0, 30).map(d => `[BLE端末] 名前: ${d.Name || '(Unknown)'}, Address: ${d.Address}, Vendor: ${d.Vendor || '-'}, RSSI: ${d.RSSI} dBm, Count: ${d.Count}, Host: ${d.Host}`)
+    ]}
+  />
 {/if}

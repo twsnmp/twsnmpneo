@@ -578,5 +578,17 @@ func TestAI_AssistAndDiagnose(t *testing.T) {
 	if err != nil {
 		t.Errorf("ExplainReport mqtt failed: %v", err)
 	}
+
+	reportTypesToTest := []string{
+		"device", "arp", "trap", "polling", "event", "winlog", "sensor", "wifi", "pcap", "anomaly",
+	}
+	for _, rt := range reportTypesToTest {
+		if _, err := client.ExplainReport(ctx, bStore, pqStore, rt, map[string]interface{}{"metric": 42}, "overview", "ja"); err != nil {
+			t.Errorf("ExplainReport %s (ja) failed: %v", rt, err)
+		}
+		if _, err := client.ExplainReport(ctx, bStore, pqStore, rt, map[string]interface{}{"metric": 42}, "overview", "en"); err != nil {
+			t.Errorf("ExplainReport %s (en) failed: %v", rt, err)
+		}
+	}
 }
 

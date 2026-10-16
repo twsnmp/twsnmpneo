@@ -24,7 +24,9 @@
     ArrowDown,
     ArrowUpDown,
     BarChart3,
+    Sparkles,
   } from "@lucide/svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import {
     fetchSensors,
     fetchSensorStats,
@@ -70,6 +72,7 @@
   // Modals
   let showInfoModal = $state(false);
   let showDeleteModal = $state(false);
+  let showAiExplainModal = $state(false);
   let selectedTreeType = $state<string>("");
 
   // Chart modals
@@ -827,6 +830,15 @@
       </h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.sensorMainSubtitle")}</p>
     </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiSensorTitle") || "センサー監視 AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiSensor") || "AI センサー分析"}</span>
+    </button>
   </div>
 
   <!-- KPI Cards Grid -->
@@ -1539,4 +1551,17 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if showAiExplainModal}
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="sensor"
+    title={$_("report.aiSensorTitle") || "センサー監視 AI診断"}
+    summary={`登録センサー総数: ${sensors.length}台, 正常稼働: ${kpiCounts.normal}台, 障害/警告: ${kpiCounts.problem}台, センサー種別: ${uniqueTypes.length}種, 監視ホスト: ${uniqueHosts.length}台`}
+    items={[
+      ...filteredSensors.filter(s => s.state && s.state !== 'normal').map(s => `[障害/警告センサー] 名前: ${s.Name || s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, 状態: ${s.state || '-'}`),
+      ...filteredSensors.slice(0, 25).map(s => `[センサー] 名前: ${s.Name || s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, パラメータ: ${s.Param || '-'}`)
+    ]}
+  />
 {/if}

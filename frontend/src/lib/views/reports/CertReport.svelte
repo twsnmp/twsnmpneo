@@ -689,31 +689,35 @@
   {/if}
 
   <!-- AI Explain Modals -->
-  <ReportAIExplainModal
-    bind:show={showAiExplainModal}
-    reportType="cert"
-    title={aiExplainTarget ? `TLS証明書診断: ${aiExplainTarget.target}:${aiExplainTarget.port}` : "TLS証明書診断"}
-    summary={aiExplainTarget ? `状態: ${aiExplainTarget.status}, 残り: ${aiExplainTarget.days}日, 有効期限: ${aiExplainTarget.end}, Subject: ${aiExplainTarget.subject}, Issuer: ${aiExplainTarget.issuer}` : ""}
-    items={aiExplainTarget ? [
-      `Target: ${aiExplainTarget.target}:${aiExplainTarget.port}`,
-      `Subject: ${aiExplainTarget.subject}`,
-      `Issuer: ${aiExplainTarget.issuer}`,
-      `Serial: ${aiExplainTarget.serialNumber}`,
-      `NotBefore: ${aiExplainTarget.start}`,
-      `NotAfter: ${aiExplainTarget.end}`,
-      `DaysRemaining: ${aiExplainTarget.days}`,
-      `Status: ${aiExplainTarget.status}`,
-      `VerifyValid: ${aiExplainTarget.verify}`,
-      `KeyStrength: ${aiExplainTarget.key}`,
-      `Error: ${aiExplainTarget.error || 'none'}`
-    ] : []}
-  />
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="cert"
+      title={aiExplainTarget ? `TLS証明書診断: ${aiExplainTarget.target}:${aiExplainTarget.port}` : "TLS証明書診断"}
+      summary={aiExplainTarget ? `状態: ${aiExplainTarget.status}, 残り: ${aiExplainTarget.days}日, 有効期限: ${aiExplainTarget.end}, Subject: ${aiExplainTarget.subject}, Issuer: ${aiExplainTarget.issuer}` : ""}
+      items={aiExplainTarget ? [
+        `Target: ${aiExplainTarget.target}:${aiExplainTarget.port}`,
+        `Subject: ${aiExplainTarget.subject}`,
+        `Issuer: ${aiExplainTarget.issuer}`,
+        `Serial: ${aiExplainTarget.serialNumber}`,
+        `NotBefore: ${aiExplainTarget.start}`,
+        `NotAfter: ${aiExplainTarget.end}`,
+        `DaysRemaining: ${aiExplainTarget.days}`,
+        `Status: ${aiExplainTarget.status}`,
+        `VerifyValid: ${aiExplainTarget.verify}`,
+        `KeyStrength: ${aiExplainTarget.key}`,
+        `Error: ${aiExplainTarget.error || 'none'}`
+      ] : []}
+    />
+  {/if}
 
-  <ReportAIExplainModal
-    bind:show={showGlobalAiExplain}
-    reportType="cert"
-    title="TLS/SSL証明書 全体セキュリティ監査"
-    summary={`監視総数: ${rawCertItems.length}件, 正常: ${rawCertItems.filter(c => c.status === 'normal').length}件, 警告/障害: ${rawCertItems.filter(c => c.status === 'warn' || c.status === 'high').length}件`}
-    items={rawCertItems.map(c => `[${c.status.toUpperCase()}] ${c.target}:${c.port} (残り: ${c.days}日, Subject: ${c.subject}, Issuer: ${c.issuer}${c.error ? ', エラー: ' + c.error : ''})`)}
-  />
+  {#if showGlobalAiExplain}
+    <ReportAIExplainModal
+      bind:show={showGlobalAiExplain}
+      reportType="cert"
+      title="TLS/SSL証明書 全体セキュリティ監査"
+      summary={`監視総数: ${rawCertItems.length}件, 正常: ${rawCertItems.filter(c => c.status === 'normal').length}件, 警告/障害: ${rawCertItems.filter(c => c.status === 'warn' || c.status === 'high').length}件`}
+      items={rawCertItems.map(c => `[${c.status.toUpperCase()}] ${c.target}:${c.port} (残り: ${c.days}日, Subject: ${c.subject}, Issuer: ${c.issuer}${c.error ? ', エラー: ' + c.error : ''})`)}
+    />
+  {/if}
 </div>

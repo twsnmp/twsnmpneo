@@ -237,6 +237,7 @@ twsnmpneo/
   - `LogAIDialog`: ログ行の詳細AI原因分析・復旧対策提示モーダル。
   - `AlertGrid`: アラートイベントログのAI原因診断モーダル。
   - `LogReportModal`: SLA・停止時間・ログ統計のAI総合分析要約タブ。
+  - `ReportAIExplainModal`: 分析レポートスイート全般（LANデバイス、IPAM、ARP監視、フロー、SNMP TRAP、ポーリングSLA、イベントログ、Windowsログ、センサー、Wi-Fi/Bluetooth、パケット解析、AI異常スコア、証明書監査）のAI総合診断・運用助言モーダル。
   - `AIPollingAssistDialog`: MIB定義からの自動ポーリング設定提案。
   - `NodeDiagnoseDialog`: ノード疎通・障害履歴診断。
 * **共通マークダウンパース & サニタイズ (`AIMarkdown.svelte` & `markdown.ts`)**:

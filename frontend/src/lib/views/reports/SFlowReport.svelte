@@ -9,8 +9,10 @@
     ArrowDown,
     ArrowUpDown,
     ShieldAlert,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { renderBytes, formatTime } from "../../common";
   import { ipToNum, getServiceName, type ParsedFlow } from "./utils";
   import {
@@ -36,6 +38,7 @@
   let backendFlows = $state<FlowEnt[]>([]);
   let backendServers = $state<ServerEnt[]>([]);
   let backendFumbles = $state<FumbleEnt[]>([]);
+  let showAiExplainModal = $state(false);
 
   export const refresh = async () => {
     try {
@@ -614,12 +617,23 @@
 </script>
 
 <div class="space-y-4">
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Share2 class="w-5 h-5 text-indigo-400" />
-      {$_("report.sflowTitle")}
-    </h2>
-    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.sflowSubtitle")}</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Share2 class="w-5 h-5 text-indigo-400" />
+        {$_("report.sflowTitle")}
+      </h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.sflowSubtitle")}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 px-3.5 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiFlowTitle") || "トラフィックフロー AI分析"}
+    >
+      <Sparkles class="w-4 h-4 text-indigo-500" />
+      <span>{$_("report.btnAiFlow") || "AI フロー分析"}</span>
+    </button>
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1309,4 +1323,18 @@
       totalCount={currentSFlowTotalCount}
     />
   </div>
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="sflow"
+      title={$_("report.aiFlowTitle") || "トラフィックフロー AI分析 (sFlow)"}
+      summary={`総転送量: ${renderBytes(sflowStats.totalBytes)}, サンプリングセッション総数: ${sflowStats.totalSessions.toLocaleString()} flows, 主要プロトコル: ${sflowStats.topProtocol}, ピーク帯域: ${sflowStats.peakBandwidth}, サーバー数: ${rawSFlowServers.length}台, サービス数: ${rawSFlowServices.length}種, 異常Fumble: ${rawSFlowFumbles.length}件`}
+      items={[
+        ...rawSFlowConversations.slice(0, 30).map(c => `[SFLOW] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, スコア: ${c.score}`),
+        ...rawSFlowServers.slice(0, 15).map(s => `[SERVER] ${s.server || s.ip}:${s.port} (${s.proto || 'TCP/UDP'}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
+        ...rawSFlowFumbles.slice(0, 15).map(f => `[FUMBLE] ${f.src} -> ${f.dst}: ${f.reason || 'Anomalous communication'}`)
+      ]}
+    />
+  {/if}
 </div>

@@ -138,6 +138,106 @@ func (c *LLMClient) ExplainReport(ctx context.Context, store datastore.DataStore
 	var system string
 
 	switch strings.ToLower(reportType) {
+	case "device", "devices", "lan":
+		system = "You are an enterprise network asset management, Zero Trust, and network access control (NAC) expert. Analyze the provided LAN device inventory (managed nodes vs unmanaged/rogue ARP devices, duplicate IPs/MACs, 169.254.x.x APIPA addresses, MAC address churning/spoofing, and vendor distribution). Highlight critical security and operational risks, rogue shadow IT devices, and provide step-by-step remediation in clean markdown format (tables, bold text, bullet points)."
+		if isJa {
+			system = "あなたは社内ネットワーク資産管理、ゼロトラスト、および端末セキュリティ（NAC/IT資産管理）の専門家です。提示されたLANデバイス（ARP/ノード台帳）データを分析し、未管理端末（野良端末/シャドーIT）、IP/MACアドレスの重複・競合、DHCP構成障害（169.254.x.x APIPA）、急速なMACアドレス変化（MACスプーフィング疑惑）、仮想マシンおよびベンダー分布の傾向についてセキュリティと運用観点から整理し、推奨される隔離・台帳登録・DHCP設定等の対策手順を日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "arp":
+		system = "You are an ARP security and Layer-2 network operations expert. Analyze the ARP log data and detect potential ARP spoofing/poisoning, gateway conflicts, IP flapping, unauthorized MAC migrations, and IP turnover anomalies."
+		if isJa {
+			system = "あなたはARPセキュリティおよびレイヤー2ネットワーク運用の専門家です。提示されたARP監視ログデータを分析し、ARPスプーフィング/キャッシュポイズニングの疑惑、デフォルトゲートウェイのIP競合、同一IPに対する頻繁なMAC変更（IPフラッピング）、不正な端末すり替え、および推奨されるポートセキュリティ・ダイナミックARPインスペクション(DAI)等の対策を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "trap":
+		system = "You are an SNMP Trap and network infrastructure incident response expert. Analyze the received SNMP trap events, identify link flapping/storms, authentication failures (potential brute-force), spontaneous equipment reboots (coldStart/warmStart), and critical vendor-specific hardware alarms."
+		if isJa {
+			system = "あなたはSNMP TRAPおよびネットワークインフラ障害対応の専門家です。提示されたSNMP TRAP集計データを分析し、LinkDown/LinkUpストーム（ポートフラッピング）、認証失敗(authFailure)の急増による攻撃疑惑、ハードウェアの予期せぬ再起動(coldStart/warmStart)、および機器ベンダー固有の重大アラームを整理し、復旧手順と根本原因調査の指針を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "polling":
+		system = "You are a network service reliability and SLA monitoring expert. Analyze the polling performance data, identify degraded services, response time spikes, chronic timeout patterns, and recommend polling interval/threshold tuning."
+		if isJa {
+			system = "あなたはネットワークサービス稼働率およびSLA監視の専門家です。提示されたポーリング稼働率・応答時間データを分析し、稼働率低下ノード、応答遅延スパイクの発生箇所、頻繁にタイムアウトする監視項目、およびポーリング間隔・タイムアウト閾値の最適化提案を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "event":
+		system = "You are an IT systems incident manager and root cause analysis (RCA) expert. Analyze the system event log history, correlate cascading node failures, identify incident triggers, and summarize operational impacts."
+		if isJa {
+			system = "あなたはITシステムインシデント管理および根本原因分析(RCA)の専門家です。提示されたイベントログデータを分析し、重要障害イベントの時系列パターン、連鎖的ノードダウン（カスケード障害）の波及経路、障害の引き金となった初発事象、および再発防止策を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "winlog":
+		system = "You are a Windows security audit and Active Directory operations expert. Analyze the Windows event logs, identify brute-force login attempts (Event 4625), unauthorized privilege changes, service terminations, and critical system anomalies."
+		if isJa {
+			system = "あなたはWindowsセキュリティ監査およびActive Directory運用の専門家です。提示されたWindowsイベントログを分析し、ログオン失敗多発(Event ID 4625)による不正侵入・パスワード総当たり攻撃の兆候、ユーザー権限変更、重要サービスの異常停止、および推奨されるアカウントロック・監査ポリシー改善策を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "sensor", "env":
+		system = "You are an IoT sensor and datacenter environment monitoring expert. Analyze temperature, humidity, power consumption, and motion sensor telemetry. Identify overheating hotspots, power surge risks, and equipment operating threshold breaches."
+		if isJa {
+			system = "あなたはIoTセンサーおよびデータセンター環境監視の専門家です。提示された温湿度・電力・人感センサーの時系列データを分析し、局所的な温度上昇ホットスポット、空調効率、電力消費スパイクや過負荷リスク、センサー電池残量の低下を整理し、環境改善アクションを日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "wifi", "bluetooth":
+		system = "You are a wireless security and RF optimization analyst. Analyze Wi-Fi APs and Bluetooth beacon data, detect rogue access points, insecure open/WEP encryption, channel congestion, and unapproved wireless transmitters."
+		if isJa {
+			system = "あなたは無線LANセキュリティおよび電波最適化のアナリストです。提示されたWi-FiアクセスポイントおよびBluetooth端末データを分析し、社内ポリシー違反の不正AP(Rogue AP)や野良テザリング、暗号化なし(Open)や脆弱な設定、電波干渉・チャンネル重複、および電波強度(RSSI)の異常を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "pcap":
+		system = "You are a deep packet inspection and network protocol analyst. Analyze packet capture metrics, broadcast/multicast storm ratios, TCP retransmission rates, DNS response errors, and communication anomalies."
+		if isJa {
+			system = "あなたはパケット解析およびネットワークプロトコルの専門家です。提示されたパケットキャプチャ集計データを分析し、ブロードキャストストーム比率、TCP再送やRSTセッションの多発、DNS解決エラー、および帯域圧迫フローの要因を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "anomaly", "ai":
+		system = "You are an AI/ML anomaly detection specialist for network operations. Correlate machine learning anomaly scores with node and polling telemetry, prioritize root-cause investigations, and suggest model tuning."
+		if isJa {
+			system = "あなたはAI異常検知および機械学習モデル運用の専門家です。提示された異常検知スコア（Isolation Forest等）と各種監視メトリクスの相関を分析し、突発的なスコア上昇の要因、優先して対処すべきノード・ポーリングのトリアージ、および誤検知防止のための学習データ再調整の指針を日本語のマークダウン形式で解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
 	case "address", "ipam":
 		system = "You are an IPAM and network architecture expert. Analyze the address management data and explain IP usage efficiency, duplicate IPs, APIPA (169.254.x.x) risks, MAC address changes, and subnet recommendations."
 		if isJa {

@@ -14,9 +14,11 @@
     CheckCircle2,
     AlertTriangle,
     Shield,
+    Sparkles,
   } from "@lucide/svelte";
   import NodeDialog from "../../components/NodeDialog.svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { getStateColor, getStateName, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import { getVendor, isVirtualMachine, ipToNum } from "./utils";
@@ -54,6 +56,7 @@
 
   // Modal states
   let showAddNodeModal = $state(false);
+  let showAiExplainModal = $state(false);
   let nodeToEdit = $state<NodeEnt | null>(null);
 
   // ECharts container & instance
@@ -455,6 +458,15 @@
       </h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.deviceSubtitle")}</p>
     </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiDeviceTitle") || "LANデバイス & ネットワーク資産 AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiDevice") || "AI 端末診断"}</span>
+    </button>
   </div>
 
   <!-- KPI Cards with Vendor Graph -->
@@ -766,3 +778,19 @@
     onRefresh();
   }}
 />
+
+{#if showAiExplainModal}
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="device"
+    title={$_("report.aiDeviceTitle") || "LANデバイス & ネットワーク資産 AI診断"}
+    summary={`検出端末総数: ${allDevices.length}台 (登録ノード: ${nodes.length}台, ARP未管理: ${allDevices.filter(d => !d.isManaged).length}台, 仮想マシン: ${allDevices.filter(d => isVirtualMachine(d)).length}台), アラート検知: ${kpiCounts.duplicate + kpiCounts.changed + kpiCounts.dhcpError}件 (重複: ${kpiCounts.duplicate}, 変更: ${kpiCounts.changed}, DHCP異常: ${kpiCounts.dhcpError})`}
+    items={[
+      ...allDevices.filter(d => d.addressState === "duplicate").map(d => `[重複検知] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
+      ...allDevices.filter(d => d.addressState === "dhcpError").map(d => `[APIPA/DHCP異常] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
+      ...allDevices.filter(d => d.addressState === "ipChanged" || d.addressState === "macChanged").map(d => `[アドレス変更] 状態: ${d.addressState}, IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
+      ...allDevices.filter(d => !d.isManaged).slice(0, 30).map(d => `[未管理端末] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}`),
+      ...allDevices.filter(d => d.isManaged && d.state && d.state !== 'normal' && d.state !== 'info').map(d => `[障害ノード] 名前: ${d.name}, IP: ${d.ip}, 状態: ${d.state}`)
+    ]}
+  />
+{/if}

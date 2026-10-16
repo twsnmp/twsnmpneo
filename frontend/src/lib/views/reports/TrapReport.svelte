@@ -11,8 +11,10 @@
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { getStateColor, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -35,6 +37,7 @@
   } = $props();
 
   let backendTrapStats = $state<TrapStatsSummary | null>(null);
+  let showAiExplainModal = $state(false);
 
   export const refresh = async () => {
     try {
@@ -946,12 +949,23 @@
 
 <div class="space-y-4">
   <!-- Title Header -->
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Radio class="w-5 h-5 text-cyan-400" />
-      {$_("report.trapTitle")}
-    </h2>
-    <p class="text-xs text-slate-400 mt-1">{$_("report.trapSubtitle")}</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Radio class="w-5 h-5 text-cyan-400" />
+        {$_("report.trapTitle")}
+      </h2>
+      <p class="text-xs text-slate-400 mt-1">{$_("report.trapSubtitle")}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiTrapTitle") || "SNMP TRAP インシデント AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiTrap") || "AI TRAP分析"}</span>
+    </button>
   </div>
 
   <!-- KPI Overview with Mini ECharts (SLA-aligned: LOW is Error) -->
@@ -1633,4 +1647,18 @@
       bind:pageSize
     />
   </div>
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="trap"
+      title={$_("report.aiTrapTitle") || "SNMP TRAP インシデント AI診断"}
+      summary={`総TRAPログ数: ${kpiStats.total.toLocaleString()}件, エラー/障害: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常/情報: ${kpiStats.normal.toLocaleString()}件, 送信元ホスト数: ${hostSummaries.length}台, TRAP種別: ${typeSummaries.length}種`}
+      items={[
+        ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0 || t.count > 5).slice(0, 20).map(t => `[TRAP種別] ${t.trapType}: エラー ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`),
+        ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).slice(0, 20).map(h => `[送信元ホスト] ${h.name || h.host} (${h.ip}): エラー ${h.errorCount}件, 警告 ${h.warnCount}件, 主要TRAP: ${h.topTrapTypes || ''}`),
+        ...filteredLogs.slice(0, 30).map(l => `[TRAPログ] ${formatTimeStr(l.time)} ${l.host} [${l.trapType}]: ${l.variables || ''}`)
+      ]}
+    />
+  {/if}
 </div>

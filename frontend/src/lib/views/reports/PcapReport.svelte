@@ -16,8 +16,10 @@
     BarChart2,
     Eye,
     X,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -56,6 +58,7 @@
 
   // Detail Modal State
   let infoModalOpen = $state(false);
+  let showAiExplainModal = $state(false);
   let selectedItem = $state<any>(null);
 
   // Full Chart Modal State
@@ -951,6 +954,26 @@
 </script>
 
 <div class="space-y-4">
+  <!-- Title Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Network class="w-5 h-5 text-cyan-400" />
+        {$_("report.tabPcap") || "Pcap パケット分析"}
+      </h2>
+      <p class="text-xs text-slate-400 mt-0.5">{$_("report.pcapSubtitle") || "パケットキャプチャ・EtherType/DNS/RADIUS/TLS詳細分析"}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiPcapTitle") || "パケット解析 & トラフィック品質 AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiPcap") || "AI パケット分析"}</span>
+    </button>
+  </div>
+
   <!-- KPI Cards with Type-Distribution Graph (Aligned with DeviceReport layout) -->
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
     <div class="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1681,5 +1704,20 @@
         </div>
       </div>
     </div>
+  {/if}
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="pcap"
+      title={$_("report.aiPcapTitle") || "パケット解析 & トラフィック品質 AI診断"}
+      summary={`EtherType集計: ${ethers.length}種, DNSクエリ数: ${dnsList.length}件, RADIUSフロー: ${radiusFlows.length}件, TLSフロー: ${tlsFlows.length}件, 監視ノード数: ${nodes.length}台`}
+      items={[
+        ...ethers.slice(0, 10).map(e => `[ETHER] タイプ: ${e.Type || e.Name}, カウント: ${e.Count}, 割合: ${e.Rate || '-'}`),
+        ...dnsList.slice(0, 15).map(d => `[DNS] ドメイン: ${d.Name}, タイプ: ${d.Type}, カウント: ${d.Count}, エラー: ${d.Error || 'OK'}`),
+        ...tlsFlows.slice(0, 10).map(t => `[TLS] SNI: ${t.ServerName || t.Host}, バージョン: ${t.Version}, 暗号: ${t.CipherSuite}`),
+        ...radiusFlows.slice(0, 10).map(r => `[RADIUS] ユーザー: ${r.UserName}, 結果: ${r.Result}, NAS: ${r.NASIP}`)
+      ]}
+    />
   {/if}
 </div>

@@ -18,8 +18,10 @@
     ChevronDown,
     ChevronRight,
     Users,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { formatTimeStr } from "../../common";
   import {
     fetchLogReport,
@@ -68,6 +70,7 @@
 
   let internalLoading = $state(false);
   let expandedId = $state<string | null>(null);
+  let showAiExplainModal = $state(false);
 
   let sortColumn = $state("LastTime");
   let sortDirection = $state<"asc" | "desc">("desc");
@@ -243,6 +246,26 @@
 </script>
 
 <div class="space-y-6">
+  <!-- Title Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Terminal class="w-5 h-5 text-cyan-400" />
+        {$_("report.winTitleEventID") || "Windows イベントログ"}
+      </h2>
+      <p class="text-xs text-slate-400 mt-1">{$_("report.winTitleLogon") || "Windows サーバー・認証・特権イベント集計"}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiWinlogTitle") || "Windows イベントログ & 認証セキュリティ AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiWinlog") || "AI Windowsログ分析"}</span>
+    </button>
+  </div>
+
   <!-- Sub-tab Selector Pills -->
   <div class="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
     <button
@@ -520,4 +543,20 @@
       totalCount={currentList.length}
     />
   </div>
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="winlog"
+      title={$_("report.aiWinlogTitle") || "Windows イベントログ & 認証セキュリティ AI診断"}
+      summary={`イベントID集計: ${eventIDs.length}種, ログオン監査: ${logons.length}件, アカウント操作: ${accounts.length}件, Kerberos認証: ${kerberosList.length}件, 特権操作: ${privileges.length}件, プロセス監視: ${processes.length}件, タスク監視: ${tasks.length}件`}
+      items={[
+        ...eventIDs.slice(0, 15).map(e => `[EVENT ID ${e.EventID}] コンピュータ: ${e.Computer}, プロバイダ: ${e.Provider}, 件数: ${e.Count}`),
+        ...logons.slice(0, 15).map(l => `[LOGON] タイプ: ${l.LogonType}, ユーザー: ${l.TargetUserName}, IP: ${l.IpAddress}, 件数: ${l.Count}`),
+        ...accounts.slice(0, 10).map(a => `[ACCOUNT] 操作: ${a.TargetUserName}, 実行者: ${a.SubjectUserName}, 件数: ${a.Count}`),
+        ...privileges.slice(0, 10).map(p => `[PRIVILEGE] 特権: ${p.PrivilegeList}, ユーザー: ${p.SubjectUserName}`),
+        ...kerberosList.slice(0, 10).map(k => `[KERBEROS] サービス: ${k.ServiceName}, クライアント: ${k.TargetUserName}, チケットオプション: ${k.TicketOptions}`)
+      ]}
+    />
+  {/if}
 </div>

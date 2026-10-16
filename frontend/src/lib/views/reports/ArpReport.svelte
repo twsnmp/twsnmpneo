@@ -11,8 +11,10 @@
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { getStateColor, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import { getVendor } from "./utils";
@@ -34,6 +36,7 @@
   let sortDirection = $state<"asc" | "desc">("desc");
   let pageSize = $state(25);
   let currentPage = $state(1);
+  let showAiExplainModal = $state(false);
 
   // ECharts container & instance
   let chartElem = $state<HTMLDivElement | null>(null);
@@ -823,12 +826,23 @@
 
 <div class="space-y-4">
   <!-- Title Header -->
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Eye class="w-5 h-5 text-cyan-400" />
-      {$_("report.arpTitle")}
-    </h2>
-    <p class="text-xs text-slate-400 mt-1">{$_("report.arpSubtitle")}</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Eye class="w-5 h-5 text-cyan-400" />
+        {$_("report.arpTitle")}
+      </h2>
+      <p class="text-xs text-slate-400 mt-1">{$_("report.arpSubtitle")}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiArpTitle") || "ARP監視 & L2セキュリティ AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiArp") || "AI ARP分析"}</span>
+    </button>
   </div>
 
   <!-- KPI Overview with Mini ECharts (SLA-aligned: LOW is Error) -->
@@ -1516,4 +1530,18 @@
       bind:pageSize
     />
   </div>
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="arp"
+      title={$_("report.aiArpTitle") || "ARP監視 & L2セキュリティ AI診断"}
+      summary={`総ARPログ数: ${kpiStats.total.toLocaleString()}件, 異常/障害: ${kpiStats.high.toLocaleString()}件, MAC変更: ${kpiStats.warn.toLocaleString()}件, 正常/新規: ${kpiStats.normal.toLocaleString()}件, 監視IP数: ${ipSummaries.length}個`}
+      items={[
+        ...stateSummaries.map(s => `[状態内訳] ${s.state}: ${s.count}件`),
+        ...ipSummaries.filter(ip => ip.errorCount > 0 || ip.warnCount > 0).slice(0, 30).map(ip => `[注目IP] ${ip.ip} (${ip.nodeName || '未登録'}): エラー ${ip.errorCount}件, 変更 ${ip.warnCount}件, 最新MAC ${ip.mac}, Vendor: ${ip.vendor}`),
+        ...filteredLogs.filter(l => isArpError(l.state) || isArpWarn(l.state)).slice(0, 30).map(l => `[ARPログ] ${formatTimeStr(l.time)} IP: ${l.ip}, 状態: ${l.state}, MAC: ${l.mac}, OldMAC: ${l.oldMac || '-'}`)
+      ]}
+    />
+  {/if}
 </div>

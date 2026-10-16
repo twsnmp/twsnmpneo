@@ -20,8 +20,10 @@
     AlertTriangle,
     Clock,
     Radio,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -58,6 +60,7 @@
   let powers = $state<PowerMonitorEnt[]>([]);
   let motions = $state<MotionSensorEnt[]>([]);
   let internalLoading = $state(false);
+  let showAiExplainModal = $state(false);
 
   // Sorting & Pagination
   let sortColumn = $state("LastTime");
@@ -964,6 +967,15 @@
         {$_("report.sensorSubtitle")}
       </p>
     </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiSensorTitle") || "環境・電力センサー AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiSensor") || "AI センサー分析"}</span>
+    </button>
   </div>
 
   <!-- KPI Summary Cards -->
@@ -1909,4 +1921,18 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if showAiExplainModal}
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="sensor"
+    title={$_("report.aiSensorTitle") || "環境・電力・人感センサー AI診断"}
+    summary={`環境センサー: ${envs.length}台, 電力センサー: ${powers.length}台, 人感センサー: ${motions.length}台, 監視ホスト数: ${nodes.length}台`}
+    items={[
+      ...envs.slice(0, 15).map(e => `[環境] 名前: ${e.Name || e.Address}, 最新気温: ${e.EnvData?.[e.EnvData.length - 1]?.Temp ?? '-'}℃, 湿度: ${e.EnvData?.[e.EnvData.length - 1]?.Humidity ?? '-'}%, 照度: ${e.EnvData?.[e.EnvData.length - 1]?.Illuminance ?? '-'}lx, 電池: ${e.EnvData?.[e.EnvData.length - 1]?.Battery ?? '-'}V`),
+      ...powers.slice(0, 15).map(p => `[電力] 名前: ${p.Name || p.Address}, 最新電力: ${p.Data?.[p.Data.length - 1]?.Power ?? '-'}W, スイッチ: ${p.Data?.[p.Data.length - 1]?.State ?? '-'}`),
+      ...motions.slice(0, 10).map(m => `[人感] 名前: ${m.Name || m.Address}, 動体検知: ${m.Data?.[m.Data.length - 1]?.Count ?? 0}回`)
+    ]}
+  />
 {/if}

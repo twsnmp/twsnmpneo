@@ -487,6 +487,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
     - `LogAIDialog`: Inline log row AI analysis, root cause hypotheses, and remediation suggestions.
     - `AlertGrid`: Event log alert diagnosis dialog with contextual node details.
     - `LogReportModal`: AI Comprehensive Analytics Summary tab for SLA, downtime, and log trends.
+    - `ReportAIExplainModal`: Universal AI diagnosis and remediation advisor across all analytics report suites (LAN Devices, IPAM, ARP Watch, Flow/sFlow, SNMP Trap, Polling SLA, System Events, Windows Logs, Sensors, Wi-Fi/Bluetooth, Packet Capture, Anomaly Scores, Certificate Audits).
     - `AIPollingAssistDialog`: Automatic poller parameter suggestion from MIB definitions.
     - `NodeDiagnoseDialog`: Node connectivity, reachability, and failure history diagnosis.
   - **Universal Markdown Parsing & Sanitization (`AIMarkdown.svelte` & `markdown.ts`)**:

@@ -583,14 +583,16 @@
     </div>
   {/if}
 
-  <ReportAIExplainModal
-    bind:show={showAiExplainModal}
-    reportType="address"
-    title="IPAM & アドレス台帳 AI診断"
-    summary={`サブネット総数: ${ipamReport.TotalRanges}個, 総アドレス枠: ${ipamReport.TotalSize.toLocaleString()}個, 使用中: ${ipamReport.TotalUsed.toLocaleString()}個 (${ipamReport.TotalUsage.toFixed(1)}%), 空き: ${(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}個`}
-    items={[
-      ...ipamReport.Ranges.map(r => `[SUBNET] ${r.Range} (${r.StartIP} - ${r.EndIP}): 使用率 ${r.Usage.toFixed(1)}% (${r.Used}/${r.Size})`),
-      ...effectiveDevices.slice(0, 50).map(d => `[DEVICE] IP: ${d.ip}, MAC: ${d.mac}, Name: ${d.name || '-'}, Vendor: ${d.vendor || '-'}, Managed: ${d.isManaged ? '管理対象' : '未管理/野良'}`)
-    ]}
-  />
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="address"
+      title="IPAM & アドレス台帳 AI診断"
+      summary={`サブネット総数: ${ipamReport.TotalRanges}個, 総アドレス枠: ${ipamReport.TotalSize.toLocaleString()}個, 使用中: ${ipamReport.TotalUsed.toLocaleString()}個 (${ipamReport.TotalUsage.toFixed(1)}%), 空き: ${(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}個`}
+      items={[
+        ...ipamReport.Ranges.map(r => `[SUBNET] ${r.Range} (${r.StartIP} - ${r.EndIP}): 使用率 ${r.Usage.toFixed(1)}% (${r.Used}/${r.Size})`),
+        ...effectiveDevices.slice(0, 50).map(d => `[DEVICE] IP: ${d.ip}, MAC: ${d.mac}, Name: ${d.name || '-'}, Vendor: ${d.vendor || '-'}, Managed: ${d.isManaged ? '管理対象' : '未管理/野良'}`)
+      ]}
+    />
+  {/if}
 </div>

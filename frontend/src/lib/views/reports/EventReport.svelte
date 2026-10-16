@@ -10,8 +10,10 @@
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { getStateColor, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import type { EventLogEnt, NodeEnt } from "../../api";
@@ -32,6 +34,7 @@
   let sortDirection = $state<"asc" | "desc">("desc");
   let pageSize = $state(25);
   let currentPage = $state(1);
+  let showAiExplainModal = $state(false);
 
   // ECharts container & instance
   let chartElem = $state<HTMLDivElement | null>(null);
@@ -644,12 +647,23 @@
 
 <div class="space-y-4">
   <!-- Title Header -->
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <FileText class="w-5 h-5 text-cyan-400" />
-      {$_("report.eventTitle")}
-    </h2>
-    <p class="text-xs text-slate-400 mt-1">{$_("report.eventSubtitle")}</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <FileText class="w-5 h-5 text-cyan-400" />
+        {$_("report.eventTitle")}
+      </h2>
+      <p class="text-xs text-slate-400 mt-1">{$_("report.eventSubtitle")}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiEventTitle") || "システムイベント & 根本原因 AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiEvent") || "AI イベント分析"}</span>
+    </button>
   </div>
 
   <!-- KPI Overview with Mini ECharts (SLA-aligned: LOW is Error) -->
@@ -1201,4 +1215,18 @@
       totalCount={currentTotalCount}
     />
   </div>
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="event"
+      title={$_("report.aiEventTitle") || "システムイベント & 根本原因 AI診断"}
+      summary={`総イベント数: ${kpiStats.total.toLocaleString()}件, 重度障害: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常/復旧: ${kpiStats.normal.toLocaleString()}件, 関連ノード数: ${nodeSummaries.length}台`}
+      items={[
+        ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => `[種別別イベント] ${t.type}: 障害 ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`),
+        ...nodeSummaries.filter(n => n.errorCount > 0 || n.warnCount > 0).slice(0, 20).map(n => `[障害発生ノード] ${n.name || n.nodeId}: 障害 ${n.errorCount}件, 警告 ${n.warnCount}件`),
+        ...filteredLogs.filter(l => isEventError(l.level) || isEventWarn(l.level)).slice(0, 30).map(l => `[EVENT] ${formatTimeStr(l.time)} ${nodeMap.get(l.node_id)?.name || l.node_id} [${l.type}/${l.level}]: ${l.event || ''}`)
+      ]}
+    />
+  {/if}
 </div>

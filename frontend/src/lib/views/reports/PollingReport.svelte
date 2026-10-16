@@ -10,8 +10,10 @@
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { getStateColor, getStateName } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import type { PollingEnt, NodeEnt } from "../../api";
@@ -31,6 +33,7 @@
   let pollingSortDirection = $state<"asc" | "desc">("asc");
   let pollingPageSize = $state(25);
   let pollingCurrentPage = $state(1);
+  let showAiExplainModal = $state(false);
 
   let pollingChartElem = $state<HTMLDivElement | null>(null);
   let pollingChartInstance: echarts.ECharts | null = null;
@@ -247,12 +250,23 @@
 </script>
 
 <div class="space-y-4">
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Activity class="w-5 h-5 text-cyan-400" />
-      {$_("report.pollingTitle")}
-    </h2>
-    <p class="text-xs text-slate-400 mt-1">{$_("report.pollingSubtitle")}</p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Activity class="w-5 h-5 text-cyan-400" />
+        {$_("report.pollingTitle")}
+      </h2>
+      <p class="text-xs text-slate-400 mt-1">{$_("report.pollingSubtitle")}</p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiPollingTitle") || "ポーリング稼働率 & SLA AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiPolling") || "AI SLA診断"}</span>
+    </button>
   </div>
 
   <!-- Top summary: KPI cards + Status distribution donut chart -->
@@ -499,4 +513,18 @@
       totalCount={sortedPollings.length}
     />
   </div>
+
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="polling"
+      title={$_("report.aiPollingTitle") || "ポーリング稼働率 & SLA AI診断"}
+      summary={`監視ポーリング総数: ${pollingStats.total}件, 正常稼働率: ${pollingStats.rate}%, 障害: ${pollingStats.error}件, 警告: ${pollingStats.warn}件, 正常: ${pollingStats.normal}件, 監視ノード数: ${nodes.length}台`}
+      items={[
+        ...activePollings.filter(p => isPollingError(p.state || "")).map(p => `[障害] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}, 状態: ${p.state}, 結果: ${p.result || ''}`),
+        ...activePollings.filter(p => isPollingWarn(p.state || "")).map(p => `[警告] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}, 状態: ${p.state}, 結果: ${p.result || ''}`),
+        ...activePollings.filter(p => p.state === 'normal' || p.state === 'up').slice(0, 20).map(p => `[正常稼働] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}`)
+      ]}
+    />
+  {/if}
 </div>

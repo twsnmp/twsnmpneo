@@ -16,8 +16,10 @@
     Signal,
     Building2,
     Calendar,
+    Sparkles,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import { formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import {
@@ -43,6 +45,7 @@
   let apList = $state<WifiAPEnt[]>([]);
   let internalLoading = $state(false);
   let expandedId = $state<string | null>(null);
+  let showAiExplainModal = $state(false);
 
   let sortColumn = $state("LastTime");
   let sortDirection = $state<"asc" | "desc">("desc");
@@ -252,14 +255,25 @@
 
 <div class="space-y-6">
   <!-- Title Header -->
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Wifi class="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
-      {$_("report.wifiTitle") || $_("report.tabWifi")}
-    </h2>
-    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-      {$_("report.wifiSubtitle")}
-    </p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Wifi class="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
+        {$_("report.wifiTitle") || $_("report.tabWifi")}
+      </h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        {$_("report.wifiSubtitle")}
+      </p>
+    </div>
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title={$_("report.aiWirelessTitle") || "Wi-Fi / Bluetooth 無線セキュリティ AI診断"}
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>{$_("report.btnAiWireless") || "AI 無線分析"}</span>
+    </button>
   </div>
 
   <!-- Summary Cards & Channel Chart -->
@@ -543,4 +557,15 @@
     />
   </div>
 
+  {#if showAiExplainModal}
+    <ReportAIExplainModal
+      bind:show={showAiExplainModal}
+      reportType="wifi"
+      title={$_("report.aiWirelessTitle") || "Wi-Fi 無線セキュリティ AI診断"}
+      summary={`検出AP総数: ${stats.total}台, ユニークSSID数: ${stats.uniqueSSIDs}種, 監視ホスト数: ${stats.uniqueHosts}台, 最多利用チャネル: ${stats.topChannel}`}
+      items={[
+        ...filteredAPs.slice(0, 30).map(ap => `[Wi-Fi AP] SSID: ${ap.SSID || '(hidden)'}, BSSID: ${ap.BSSID}, Ch: ${ap.Channel || '-'}, Vendor: ${ap.Vendor || '-'}, RSSI: ${ap.RSSI || '-'} dBm, Info: ${ap.Info || '-'}`)
+      ]}
+    />
+  {/if}
 </div>
