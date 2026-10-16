@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick, untrack } from "svelte";
   import { _ } from "svelte-i18n";
-  import { execPing, type PingResult, type NodeEnt, type NetworkEnt } from "../api";
+  import { execPing, explainPing, type PingResult, type NodeEnt, type NetworkEnt } from "../api";
   import { getPingChartOption, showPingHistogram, showPingSmokeChart } from "../charts/ping";
   import { showMtrProfileChart, type MTRHopStat } from "../charts/mtr";
   import * as echarts from "echarts";
@@ -16,10 +16,16 @@
     RotateCcw,
     BarChart3,
     TrendingUp,
+    Sparkles,
+    Check,
+    Copy,
+    RefreshCw,
   } from "@lucide/svelte";
+  import AIMarkdown from "./common/AIMarkdown.svelte";
+  import AnimatedCatLogo from "./common/AnimatedCatLogo.svelte";
 
   type PingMode = "normal" | "smoke" | "trace" | "mtr";
-  type ActiveTab = "ping" | "mtr" | "smoke" | "histogram";
+  type ActiveTab = "ping" | "mtr" | "smoke" | "histogram" | "ai";
 
   let {
     show = $bindable(false),
@@ -68,6 +74,13 @@
     minimumRtt: $_("Ping.minimumRtt"),
   });
 
+  // AI Quality Diagnosis State
+  let aiLoading = $state(false);
+  let aiError = $state("");
+  let aiResult = $state<string>("");
+  let aiLang = $state<"ja" | "en">("ja");
+  let aiCopied = $state(false);
+
   $effect(() => {
     if (show && (node || network)) {
       untrack(() => {
@@ -95,10 +108,65 @@
     ttl = 64;
     count = 10;
     size = 64;
+    aiResult = "";
+    aiError = "";
     if (chartOption?.series) {
       chartOption.series[0].data = [];
       chartOption.series[1].data = [];
       chartOption.series[2].data = [];
+    }
+  };
+
+  const handleRunAIDiagnosis = async () => {
+    if (results.length === 0 && mtrHops.length === 0) return;
+    aiLoading = true;
+    aiError = "";
+    aiResult = "";
+    try {
+      const pingItems = results.slice(-100).map((r) => ({
+        stat: r.Stat,
+        time: r.Time,
+        send_ttl: r.SendTTL,
+        recv_ttl: r.RecvTTL,
+        recv_src: r.RecvSrc,
+        size: r.Size,
+        timestamp: r.TimeStamp,
+      }));
+      const mtrItems = mtrHops.map((h) => ({
+        ttl: h.ttl,
+        ip: h.ip,
+        loss_rate: h.lossRate,
+        snt: h.snt,
+        last: h.last,
+        avg: h.avg,
+        best: h.best,
+        wrst: h.wrst,
+        st_dev: h.stDev,
+      }));
+      const payload = mode === "mtr" ? mtrItems : pingItems;
+      const resp = await explainPing(
+        ip || titleName || "Target Host",
+        payload,
+        mode,
+        activeTab,
+        aiLang
+      );
+      aiResult = resp;
+    } catch (e: any) {
+      aiError = e.message || String(e);
+    } finally {
+      aiLoading = false;
+    }
+  };
+
+  const handleCopyAIDiagnosis = async () => {
+    if (!aiResult) return;
+    try {
+      await navigator.clipboard.writeText(aiResult);
+      aiCopied = true;
+      setTimeout(() => (aiCopied = false), 2000);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -565,6 +633,16 @@
             <BarChart3 class="h-3.5 w-3.5" />{$_("Ping.tabHistogram")}
           </button>
         {/if}
+        {#if canShowStats || canShowMtr}
+          <button
+            type="button"
+            onclick={() => handleTabSwitch("ai")}
+            class={`flex items-center gap-1.5 border-b-2 px-3 py-2 transition-colors cursor-pointer ${activeTab === "ai" ? "border-cyan-500 text-cyan-600 dark:text-cyan-400 font-bold" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`}
+          >
+            <Sparkles class="h-3.5 w-3.5 text-cyan-500" />
+            <span>AI品質診断</span>
+          </button>
+        {/if}
       </div>
 
       <!-- Tab Content Area -->
@@ -669,6 +747,106 @@
           <div id="smokeContainer" class="h-80 w-full rounded-xl border border-slate-200 bg-slate-900 p-2 dark:border-slate-800"></div>
         {:else if activeTab === "histogram"}
           <div id="histogramContainer" class="h-80 w-full rounded-xl border border-slate-200 bg-slate-900 p-2 dark:border-slate-800"></div>
+        {:else if activeTab === "ai"}
+          <div class="space-y-4">
+            <!-- Diagnosis Control Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/60 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div class="flex items-center gap-3">
+                <div class="text-xs">
+                  <span class="text-slate-500 dark:text-slate-400">対象:</span>
+                  <span class="font-bold text-slate-800 dark:text-slate-100 font-mono ml-1">{ip}</span>
+                  <span class="text-slate-400 text-[11px] ml-2">({results.length} 回送信 / MTR: {mtrHops.length} ホップ)</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <!-- Language Toggle -->
+                <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs bg-white dark:bg-slate-950">
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 rounded-md font-medium transition-colors {aiLang === 'ja' ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-400 font-bold' : 'text-slate-500'}"
+                    onclick={() => (aiLang = "ja")}
+                  >
+                    日本語
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 rounded-md font-medium transition-colors {aiLang === 'en' ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-400 font-bold' : 'text-slate-500'}"
+                    onclick={() => (aiLang = "en")}
+                  >
+                    English
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={aiLoading || (results.length === 0 && mtrHops.length === 0)}
+                  onclick={handleRunAIDiagnosis}
+                  class="flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white px-4 py-2 text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                >
+                  {#if aiLoading}
+                    <RefreshCw class="h-3.5 w-3.5 animate-spin" />
+                    <span>AI診断中...</span>
+                  {:else}
+                    <Sparkles class="h-3.5 w-3.5" />
+                    <span>{aiResult ? "再診断を実行" : "AI品質診断を実行"}</span>
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            {#if aiLoading}
+              <div class="flex flex-col items-center justify-center p-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                <AnimatedCatLogo mode="loading" size="lg" />
+                <span class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 mt-3 animate-pulse">
+                  Ping応答データ・MTR経路情報をマルチLLMで分析中...
+                </span>
+              </div>
+            {/if}
+
+            <!-- Error State -->
+            {#if aiError}
+              <div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/30 p-4 text-rose-700 dark:text-rose-400 text-xs">
+                {aiError}
+              </div>
+            {/if}
+
+            <!-- Idle State -->
+            {#if !aiResult && !aiLoading && !aiError}
+              <div class="flex flex-col items-center justify-center p-12 text-center text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800">
+                <Sparkles class="h-10 w-10 text-cyan-500/40 mb-3" />
+                <p class="text-xs font-medium">「AI品質診断を実行」ボタンをクリックすると、応答時間のジッター、パケット損失率、経路のボトルネックをAIが総合診断します。</p>
+              </div>
+            {/if}
+
+            <!-- Result State -->
+            {#if aiResult && !aiLoading}
+              <div class="space-y-4">
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
+                  <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">ネットワーク品質診断レポート</span>
+                    <button
+                      type="button"
+                      onclick={handleCopyAIDiagnosis}
+                      class="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      {#if aiCopied}
+                        <Check class="h-3.5 w-3.5 text-emerald-500" />
+                        <span class="text-emerald-600 font-semibold">コピー完了</span>
+                      {:else}
+                        <Copy class="h-3.5 w-3.5" />
+                        <span>診断をコピー</span>
+                      {/if}
+                    </button>
+                  </div>
+                  <div class="text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+                    <AIMarkdown content={aiResult} />
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
         {/if}
       </div>
     </div>

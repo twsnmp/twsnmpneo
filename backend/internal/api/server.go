@@ -24,6 +24,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/auth"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/diagnose"
 	"github.com/twsnmp/twsnmpneo/backend/internal/discover"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"github.com/twsnmp/twsnmpneo/backend/internal/layout"
@@ -165,9 +166,11 @@ func NewServer(cfg Config) (*Server, error) {
 						isAllowed := reqPath == "/api/logout" ||
 							strings.HasPrefix(reqPath, "/api/tools/ping") ||
 							strings.HasPrefix(reqPath, "/api/tools/snmp") ||
-							strings.HasPrefix(reqPath, "/api/tools/gnmi") ||
 							strings.HasPrefix(reqPath, "/api/ai/ask") ||
-							strings.HasPrefix(reqPath, "/api/ai/diagnose")
+							strings.HasPrefix(reqPath, "/api/ai/diagnose") ||
+							strings.HasPrefix(reqPath, "/api/ai/polling") ||
+							strings.HasPrefix(reqPath, "/api/ai/mib") ||
+							strings.HasPrefix(reqPath, "/api/ai/explain")
 						if !isAllowed {
 							return c.JSON(http.StatusForbidden, map[string]string{"error": "permission denied: read-only user cannot perform write operations"})
 						}
@@ -557,8 +560,13 @@ func NewServer(cfg Config) (*Server, error) {
 
 		apiGroup.POST("/ai/diagnose", func(c echo.Context) error {
 			var req struct {
+				EventLogID  string `json:"event_log_id"`
 				AlertEvent  string `json:"alert_event"`
+				NodeID      string `json:"node_id"`
 				NodeContext string `json:"node_context"`
+				Type        string `json:"type"`
+				Level       string `json:"level"`
+				Time        int64  `json:"time"`
 				Lang        string `json:"lang"`
 			}
 			if err := c.Bind(&req); err != nil {
@@ -569,11 +577,174 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			client := ai.NewLLMClient(conf, cfg.DataDir)
-			diag, err := client.DiagnoseAlert(c.Request().Context(), req.AlertEvent, req.NodeContext, req.Lang)
+			diag, err := client.DiagnoseAlertContext(c.Request().Context(), cfg.Store, cfg.LogStore, ai.DiagnoseAlertParams{
+				EventLogID:  req.EventLogID,
+				AlertEvent:  req.AlertEvent,
+				NodeID:      req.NodeID,
+				NodeContext: req.NodeContext,
+				Type:        req.Type,
+				Level:       req.Level,
+				Time:        req.Time,
+				Lang:        req.Lang,
+			})
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, map[string]string{"diagnosis": diag})
+		})
+
+		apiGroup.POST("/ai/diagnose/node", func(c echo.Context) error {
+			var req struct {
+				NodeID      string                      `json:"node_id"`
+				Lang        string                      `json:"lang"`
+				ProbeResult *diagnose.NodeDiagnoseResult `json:"probe_result,omitempty"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if req.NodeID == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "node_id is required"})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			diag, err := client.DiagnoseNode(c.Request().Context(), cfg.Store, cfg.LogStore, req.NodeID, req.Lang, req.ProbeResult)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"diagnosis": diag})
+		})
+
+		apiGroup.POST("/ai/polling/assist", func(c echo.Context) error {
+			var req struct {
+				NodeID string `json:"node_id"`
+				Prompt string `json:"prompt"`
+				Lang   string `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			resp, err := client.AssistPolling(c.Request().Context(), cfg.Store, req.NodeID, req.Prompt, req.Lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, resp)
+		})
+
+		apiGroup.POST("/ai/polling/script", func(c echo.Context) error {
+			var req struct {
+				Type    string `json:"type"`
+				Mode    string `json:"mode"`
+				Purpose string `json:"purpose"`
+				Lang    string `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			resp, err := client.GeneratePollingScript(c.Request().Context(), req.Type, req.Mode, req.Purpose, req.Lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, resp)
+		})
+
+		apiGroup.POST("/ai/mib/search", func(c echo.Context) error {
+			var req struct {
+				Prompt string `json:"prompt"`
+				Lang   string `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			resp, err := client.SearchMIB(c.Request().Context(), req.Prompt, req.Lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, resp)
+		})
+
+		apiGroup.POST("/ai/mib/explain", func(c echo.Context) error {
+			var req struct {
+				QueryType  string `json:"query_type"`
+				OID        string `json:"oid"`
+				ResultText string `json:"result_text"`
+				Lang       string `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			exp, err := client.ExplainMIB(c.Request().Context(), req.QueryType, req.OID, req.ResultText, req.Lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"explanation": exp})
+		})
+
+		apiGroup.POST("/ai/explain/ping", func(c echo.Context) error {
+			var req struct {
+				TargetIP string              `json:"target_ip"`
+				Results  []ai.PingReportItem `json:"results"`
+				Mode     string              `json:"mode"`
+				Tab      string              `json:"tab"`
+				Lang     string              `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			exp, err := client.ExplainPing(c.Request().Context(), req.TargetIP, req.Results, req.Mode, req.Tab, req.Lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"explanation": exp})
+		})
+
+		apiGroup.POST("/ai/explain/report", func(c echo.Context) error {
+			var req struct {
+				ReportType string                 `json:"report_type"`
+				Data       map[string]interface{} `json:"data"`
+				Tab        string                 `json:"tab"`
+				Lang       string                 `json:"lang"`
+			}
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			conf, err := cfg.Store.GetMapConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			client := ai.NewLLMClient(conf, cfg.DataDir)
+			exp, err := client.ExplainReport(c.Request().Context(), cfg.Store, cfg.LogStore, req.ReportType, req.Data, req.Tab, req.Lang)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, map[string]string{"explanation": exp})
 		})
 
 		// Local LLM Model & GPU Hardware Management

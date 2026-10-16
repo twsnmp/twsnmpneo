@@ -12,10 +12,12 @@
     Grid,
     ChevronRight,
     CornerUpLeft,
+    Sparkles,
   } from "@lucide/svelte";
   import { isDarkMode } from "../../charts/utils";
   import { getVendor } from "./utils";
   import type { IPAMReportResp, IPAMRangeEnt } from "../../api";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
 
   let {
     searchQuery = "",
@@ -34,6 +36,7 @@
   let selectedRangeIndex = $state<number>(0);
   let selectedSubnetBlock = $state<string | null>(null);
   let selectedHostInfo = $state<any | null>(null);
+  let showAiExplainModal = $state(false);
 
   let ipamChartElem = $state<HTMLElement | null>(null);
   let ipamChartInstance: echarts.ECharts | null = null;
@@ -252,14 +255,26 @@
 </script>
 
 <div class="space-y-6">
-  <div>
-    <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-      <Network class="w-5 h-5 text-cyan-400" />
-      {$_("report.ipamTitle")}
-    </h2>
-    <p class="text-xs text-slate-400 mt-1">
-      {$_("report.ipamSubtitle")}
-    </p>
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <Network class="w-5 h-5 text-cyan-400" />
+        {$_("report.ipamTitle")}
+      </h2>
+      <p class="text-xs text-slate-400 mt-1">
+        {$_("report.ipamSubtitle")}
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onclick={() => (showAiExplainModal = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title="サブネット空間と端末台帳のAI分析"
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>AI IPAM・端末分析</span>
+    </button>
   </div>
 
   <!-- KPI Summary Cards across all ranges -->
@@ -567,4 +582,15 @@
       {/if}
     </div>
   {/if}
+
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="address"
+    title="IPAM & アドレス台帳 AI診断"
+    summary={`サブネット総数: ${ipamReport.TotalRanges}個, 総アドレス枠: ${ipamReport.TotalSize.toLocaleString()}個, 使用中: ${ipamReport.TotalUsed.toLocaleString()}個 (${ipamReport.TotalUsage.toFixed(1)}%), 空き: ${(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}個`}
+    items={[
+      ...ipamReport.Ranges.map(r => `[SUBNET] ${r.Range} (${r.StartIP} - ${r.EndIP}): 使用率 ${r.Usage.toFixed(1)}% (${r.Used}/${r.Size})`),
+      ...effectiveDevices.slice(0, 50).map(d => `[DEVICE] IP: ${d.ip}, MAC: ${d.mac}, Name: ${d.name || '-'}, Vendor: ${d.vendor || '-'}, Managed: ${d.isManaged ? '管理対象' : '未管理/野良'}`)
+    ]}
+  />
 </div>

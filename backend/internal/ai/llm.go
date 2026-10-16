@@ -31,7 +31,7 @@ func NewLLMClient(conf *datastore.MapConfEnt, dataDirs ...string) *LLMClient {
 		dDir = dataDirs[0]
 	}
 	if conf == nil {
-		return &LLMClient{dataDir: dDir, httpClient: &http.Client{Timeout: 30 * time.Second}}
+		return &LLMClient{dataDir: dDir, httpClient: &http.Client{Timeout: 90 * time.Second}}
 	}
 	return &LLMClient{
 		provider:   conf.LLMProvider,
@@ -39,7 +39,7 @@ func NewLLMClient(conf *datastore.MapConfEnt, dataDirs ...string) *LLMClient {
 		apiKey:     conf.LLMAPIKey,
 		baseURL:    conf.LLMBaseURL,
 		dataDir:    dDir,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{Timeout: 90 * time.Second},
 	}
 }
 
@@ -76,7 +76,7 @@ func (c *LLMClient) GenerateAnswer(ctx context.Context, systemPrompt, userPrompt
 		if err != nil {
 			return "", fmt.Errorf("failed to load local model (%s): %w", modelName, err)
 		}
-		ans, genErr := tLLM.GenerateAnswer(ctx, systemPrompt, userPrompt, 512)
+		ans, genErr := tLLM.GenerateAnswer(ctx, systemPrompt, userPrompt, 2048)
 		if genErr != nil {
 			return "", fmt.Errorf("local model inference failed: %w", genErr)
 		}
@@ -252,7 +252,7 @@ func (c *LLMClient) generateClaude(ctx context.Context, system, prompt string) (
 
 	payload := map[string]interface{}{
 		"model":      model,
-		"max_tokens": 1024,
+		"max_tokens": 2048,
 		"system":     system,
 		"messages": []map[string]string{
 			{"role": "user", "content": prompt},

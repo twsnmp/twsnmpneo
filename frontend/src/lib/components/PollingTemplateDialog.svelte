@@ -24,6 +24,7 @@
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
+    Sparkles,
   } from "@lucide/svelte";
 
   let {
@@ -32,12 +33,14 @@
     nodes = [],
     onSelect = () => {},
     onCreated = () => {},
+    onAIAssist = undefined,
   } = $props<{
     show: boolean;
     nodeId?: string;
     nodes?: NodeEnt[];
     onSelect?: (template: PollingTemplateEnt, prefilled?: Partial<PollingEnt>) => void;
     onCreated?: () => void;
+    onAIAssist?: () => void;
   }>();
 
   let templates = $state<PollingTemplateEnt[]>([]);
@@ -649,6 +652,17 @@
               <Plus class="h-3.5 w-3.5" />
               <span>{$_("AddPolling.CreateBlank")}</span>
             </button>
+
+            {#if onAIAssist}
+              <button
+                type="button"
+                onclick={onAIAssist}
+                class="rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 transition-colors cursor-pointer font-medium"
+              >
+                <Sparkles class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>{$_("polling.aiAssistBtn") || "AI支援で作成"}</span>
+              </button>
+            {/if}
           </div>
 
           <!-- Right: Cancel & Apply -->

@@ -10,6 +10,7 @@
     fetchNodeHostResource,
     fetchNodeRmon,
     diagnoseNode,
+    diagnoseNodeAI,
     sendWol,
   } from "../api";
   import type {
@@ -27,7 +28,9 @@
   import PingDialog from "./PingDialog.svelte";
   import MIBBrowserDialog from "./MIBBrowserDialog.svelte";
   import GNMIToolDialog from "./GNMIToolDialog.svelte";
-  import { _ } from "svelte-i18n";
+  import AIMarkdown from "./common/AIMarkdown.svelte";
+  import AnimatedCatLogo from "./common/AnimatedCatLogo.svelte";
+  import { _, locale } from "svelte-i18n";
   import {
     X,
     Box,
@@ -45,6 +48,8 @@
     ShieldAlert,
     Gauge,
     Stethoscope,
+    Sparkles,
+    Languages,
     AlertCircle,
     CheckCircle2,
     ArrowUp,
@@ -116,6 +121,14 @@
   let diagnoseResult = $state<NodeDiagnoseResult | null>(null);
   let isDiagnosing = $state(false);
   let diagnoseError = $state<string>("");
+
+  // AI Node Diagnose states
+  let aiDiagnoseResult = $state<string>("");
+  let isAIDiagnosing = $state(false);
+  let aiDiagnoseError = $state<string>("");
+  let aiCopied = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
+  let aiLanguage = $state<"ja" | "en">("ja");
 
   let internalPollings = $state<PollingEnt[]>([]);
   let internalLogs = $state<EventLogEnt[]>([]);
@@ -524,6 +537,31 @@
       diagnoseError = String(e?.message || e);
     } finally {
       isDiagnosing = false;
+    }
+  };
+
+  const runAIDiagnose = async () => {
+    if (!targetNodeId || isAIDiagnosing) return;
+    isAIDiagnosing = true;
+    aiDiagnoseError = "";
+    aiDiagnoseResult = "";
+    try {
+      aiDiagnoseResult = await diagnoseNodeAI(targetNodeId, aiLanguage, diagnoseResult);
+    } catch (e: any) {
+      aiDiagnoseError = String(e?.message || e);
+    } finally {
+      isAIDiagnosing = false;
+    }
+  };
+
+  const handleAICopy = async () => {
+    if (!aiDiagnoseResult) return;
+    try {
+      await navigator.clipboard.writeText(aiDiagnoseResult);
+      aiCopied = true;
+      setTimeout(() => (aiCopied = false), 2000);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -1967,16 +2005,86 @@
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={isDiagnosing}
-                onclick={runNodeDiagnose}
-                class="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <RotateCw class="h-3.5 w-3.5 {isDiagnosing ? 'animate-spin' : ''}" />
-                {isDiagnosing ? $_('common.running') : $_('nodeDetail.runDiagnose')}
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isDiagnosing}
+                  onclick={runNodeDiagnose}
+                  class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <RotateCw class="h-3.5 w-3.5 {isDiagnosing ? 'animate-spin' : ''}" />
+                  {isDiagnosing ? $_('common.running') : $_('nodeDetail.runDiagnose')}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isAIDiagnosing}
+                  onclick={runAIDiagnose}
+                  class="inline-flex items-center gap-1.5 rounded-xl border border-cyan-300 dark:border-cyan-800/60 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 px-3.5 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                  {isAIDiagnosing ? $_('common.running') : ($_('nodeDetail.aiDiagnose') || 'AIノード総合診断')}
+                </button>
+              </div>
             </div>
+
+            <!-- AI Node Diagnosis Card -->
+            {#if isAIDiagnosing}
+              <div class="flex flex-col items-center justify-center p-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <AnimatedCatLogo mode="loading" size="lg" />
+                <span class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 mt-2">
+                  {$_('log.aiReasoning') || 'マルチLLM推論中...'}
+                </span>
+              </div>
+            {:else if aiDiagnoseError}
+              <div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-4 text-rose-600 dark:text-rose-400 text-xs">
+                {aiDiagnoseError}
+              </div>
+            {:else if aiDiagnoseResult}
+              <div class="flex flex-col rounded-xl border border-cyan-200/80 dark:border-cyan-900/60 bg-white dark:bg-slate-900 p-4 shadow-sm">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-3">
+                  <div class="flex items-center gap-2 text-xs font-bold text-cyan-700 dark:text-cyan-400">
+                    <Sparkles class="h-4 w-4" />
+                    <span>{$_('nodeDetail.aiDiagnoseResult') || 'AIノード健全性・障害リスク診断結果'}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[11px] bg-slate-50 dark:bg-slate-800">
+                      <button
+                        type="button"
+                        class="px-2 py-0.5 rounded font-medium transition-colors {aiLanguage === 'ja' ? 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-400 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'}"
+                        onclick={() => { aiLanguage = 'ja'; runAIDiagnose(); }}
+                      >
+                        日本語
+                      </button>
+                      <button
+                        type="button"
+                        class="px-2 py-0.5 rounded font-medium transition-colors {aiLanguage === 'en' ? 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-400 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100'}"
+                        onclick={() => { aiLanguage = 'en'; runAIDiagnose(); }}
+                      >
+                        English
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onclick={handleAICopy}
+                      class="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      {#if aiCopied}
+                        <Check class="h-3.5 w-3.5 text-emerald-500" />
+                        <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{$_('common.copied') || 'コピー完了'}</span>
+                      {:else}
+                        <Copy class="h-3.5 w-3.5" />
+                        <span>{$_('common.copy') || 'コピー'}</span>
+                      {/if}
+                    </button>
+                  </div>
+                </div>
+                <div class="text-xs leading-relaxed max-h-96 overflow-y-auto">
+                  <AIMarkdown content={aiDiagnoseResult} />
+                </div>
+              </div>
+            {/if}
 
             {#if isDiagnosing && !diagnoseResult}
               <div class="flex flex-1 items-center justify-center p-8">

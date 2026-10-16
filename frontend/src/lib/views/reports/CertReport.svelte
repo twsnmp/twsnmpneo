@@ -23,6 +23,7 @@
   import { showConfirm, showAlert } from "../../stores/modalStore";
   import PollingDialog from "../../components/PollingDialog.svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
+  import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
 
   let {
     pollings = [],
@@ -40,6 +41,7 @@
   let showPollingModal = $state(false);
   let editingPolling = $state<PollingEnt | null>(null);
   let showAiExplainModal = $state(false);
+  let showGlobalAiExplain = $state(false);
   let aiExplainTarget = $state<any>(null);
 
   // Pagination & Sorting state
@@ -318,6 +320,16 @@
       </h2>
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{$_("report.certSubtitle")}</p>
     </div>
+
+    <button
+      type="button"
+      onclick={() => (showGlobalAiExplain = true)}
+      class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
+      title="TLS証明書全体をAIセキュリティ監査"
+    >
+      <Sparkles class="w-4 h-4 text-cyan-500" />
+      <span>AI証明書セキュリティ診断</span>
+    </button>
   </div>
 
   <!-- KPI Summary Cards -->
@@ -676,67 +688,32 @@
     />
   {/if}
 
-  <!-- AI Explain Modal -->
-  {#if showAiExplainModal && aiExplainTarget}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-      <div class="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4 font-sans text-xs">
-        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-          <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Sparkles class="w-4 h-4 text-fuchsia-500" />
-            AI 証明書解説・診断
-          </h3>
-          <button
-            type="button"
-            onclick={() => { showAiExplainModal = false; }}
-            class="rounded-lg p-1 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
-          >
-            ✕
-          </button>
-        </div>
+  <!-- AI Explain Modals -->
+  <ReportAIExplainModal
+    bind:show={showAiExplainModal}
+    reportType="cert"
+    title={aiExplainTarget ? `TLS証明書診断: ${aiExplainTarget.target}:${aiExplainTarget.port}` : "TLS証明書診断"}
+    summary={aiExplainTarget ? `状態: ${aiExplainTarget.status}, 残り: ${aiExplainTarget.days}日, 有効期限: ${aiExplainTarget.end}, Subject: ${aiExplainTarget.subject}, Issuer: ${aiExplainTarget.issuer}` : ""}
+    items={aiExplainTarget ? [
+      `Target: ${aiExplainTarget.target}:${aiExplainTarget.port}`,
+      `Subject: ${aiExplainTarget.subject}`,
+      `Issuer: ${aiExplainTarget.issuer}`,
+      `Serial: ${aiExplainTarget.serialNumber}`,
+      `NotBefore: ${aiExplainTarget.start}`,
+      `NotAfter: ${aiExplainTarget.end}`,
+      `DaysRemaining: ${aiExplainTarget.days}`,
+      `Status: ${aiExplainTarget.status}`,
+      `VerifyValid: ${aiExplainTarget.verify}`,
+      `KeyStrength: ${aiExplainTarget.key}`,
+      `Error: ${aiExplainTarget.error || 'none'}`
+    ] : []}
+  />
 
-        <div class="space-y-3 leading-relaxed text-slate-700 dark:text-slate-300">
-          <div class="rounded-xl bg-slate-50 dark:bg-slate-950 p-3 font-mono text-[11px] border border-slate-200 dark:border-slate-800 space-y-1">
-            <div><strong>対象:</strong> {aiExplainTarget.target}:{aiExplainTarget.port}</div>
-            <div><strong>Subject:</strong> {aiExplainTarget.subject}</div>
-            <div><strong>Issuer:</strong> {aiExplainTarget.issuer}</div>
-            <div><strong>残り日数:</strong> {aiExplainTarget.days} 日 (有効期限: {aiExplainTarget.end})</div>
-            <div><strong>ステータス:</strong> <span class="font-bold uppercase">{aiExplainTarget.status}</span></div>
-          </div>
-
-          {#if aiExplainTarget.status === 'high'}
-            <div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-600 dark:text-rose-300">
-              <p class="font-bold">⚠️ 重度障害または証明書エラーが検出されました</p>
-              {#if aiExplainTarget.days <= 0}
-                <p class="mt-1">証明書は既に期限切れとなっています。クライアントからのアクセス時にセキュリティ警告が表示されるため、直ちに証明書の更新が必要です。</p>
-              {:else if !aiExplainTarget.verify}
-                <p class="mt-1">証明書チェーンの検証に失敗したか、ホスト名と証明書Common Name/SANが一致していません ({aiExplainTarget.error})。設定と証明書を確認してください。</p>
-              {:else}
-                <p class="mt-1">{aiExplainTarget.error || 'TLS接続または証明書の検証に失敗しました。'}</p>
-              {/if}
-            </div>
-          {:else if aiExplainTarget.status === 'warn'}
-            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
-              <p class="font-bold">⚡ 証明書の更新推奨期間に入っています</p>
-              <p class="mt-1">有効期限まで残り <strong>{aiExplainTarget.days}日</strong> です。通常、有効期限の30日前までに認証局（Let's Encrypt / 内部CA等）での更新作業とWebサーバーへの反映を行うことが推奨されます。</p>
-            </div>
-          {:else}
-            <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-700 dark:text-emerald-300">
-              <p class="font-bold">✅ 証明書は正常です</p>
-              <p class="mt-1">証明書チェーンの検証に合格しており、有効期限まで十分な期間（{aiExplainTarget.days}日）があります。暗号強度も {aiExplainTarget.key} で問題ありません。</p>
-            </div>
-          {/if}
-        </div>
-
-        <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onclick={() => { showAiExplainModal = false; }}
-            class="rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
-          >
-            閉じる
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
+  <ReportAIExplainModal
+    bind:show={showGlobalAiExplain}
+    reportType="cert"
+    title="TLS/SSL証明書 全体セキュリティ監査"
+    summary={`監視総数: ${rawCertItems.length}件, 正常: ${rawCertItems.filter(c => c.status === 'normal').length}件, 警告/障害: ${rawCertItems.filter(c => c.status === 'warn' || c.status === 'high').length}件`}
+    items={rawCertItems.map(c => `[${c.status.toUpperCase()}] ${c.target}:${c.port} (残り: ${c.days}日, Subject: ${c.subject}, Issuer: ${c.issuer}${c.error ? ', エラー: ' + c.error : ''})`)}
+  />
 </div>

@@ -2,6 +2,7 @@ package ai_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -417,3 +418,165 @@ func TestMCPServer_ComprehensiveToolsAndPrompts(t *testing.T) {
 		t.Errorf("ServeHTTP returned unavailable status: %d", rec.Code)
 	}
 }
+
+func TestAI_AssistAndDiagnose(t *testing.T) {
+	bStore, pqStore, _, cleanup := setupAITestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Seed node and polling
+	n := &datastore.NodeEnt{
+		ID:       "node-ai-1",
+		Name:     "Test-Server",
+		IP:       "192.168.1.50",
+		MAC:      "00:22:33:44:55:66",
+		Vendor:   "Dell",
+		State:    "normal",
+		SnmpMode: "v2c",
+	}
+	_ = bStore.SaveNode(ctx, n)
+
+	p := &datastore.PollingEnt{
+		ID:      "poll-ai-1",
+		NodeID:  "node-ai-1",
+		Name:    "Ping Check",
+		Type:    "ping",
+		State:   "normal",
+		PollInt: 60,
+		Level:   "high",
+		Params:  "count=1",
+	}
+	_ = bStore.SavePolling(ctx, p)
+
+	// Mock Ollama server
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Prompt string `json:"prompt"`
+			System string `json:"system"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
+		response := "Mock AI diagnosis markdown with details."
+		if strings.Contains(req.System, "Object name,OID") || strings.Contains(req.System, "オブジェクト名,OID") {
+			response = "ifInOctets,.1.3.6.1.2.1.2.2.1.10"
+		} else if strings.Contains(req.System, "template_id") {
+			response = `{"template_id": 1, "name": "Ping Monitor", "type": "ping", "mode": "", "script": "rtt < 100 * 1000 * 1000", "advice": "Monitor ping latency"}`
+		} else if strings.Contains(req.System, "JavaScript boolean expression") {
+			response = `{"script": "code == 200", "explanation": "Checks HTTP 200 status"}`
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response": response,
+		})
+	}))
+	defer mockServer.Close()
+
+	conf := &datastore.MapConfEnt{
+		LLMProvider: "ollama",
+		LLMBaseURL:  mockServer.URL,
+		LLMModel:    "mock",
+	}
+	client := ai.NewLLMClient(conf)
+
+	// 1. DiagnoseAlertContext
+	diag, err := client.DiagnoseAlertContext(ctx, bStore, pqStore, ai.DiagnoseAlertParams{
+		AlertEvent: "High CPU on Test-Server",
+		NodeID:     "node-ai-1",
+		Type:       "polling",
+		Level:      "high",
+		Lang:       "ja",
+	})
+	if err != nil || !strings.Contains(diag, "Mock") {
+		t.Fatalf("DiagnoseAlertContext failed: %v, resp: %s", err, diag)
+	}
+
+	// Test user and system types
+	_, err = client.DiagnoseAlertContext(ctx, bStore, pqStore, ai.DiagnoseAlertParams{
+		AlertEvent: "User admin deleted node",
+		Type:       "user",
+		Lang:       "en",
+	})
+	if err != nil {
+		t.Errorf("Diagnose user event failed: %v", err)
+	}
+
+	_, err = client.DiagnoseAlertContext(ctx, bStore, pqStore, ai.DiagnoseAlertParams{
+		AlertEvent: "Disk space low",
+		Type:       "system",
+		Lang:       "ja",
+	})
+	if err != nil {
+		t.Errorf("Diagnose system event failed: %v", err)
+	}
+
+	_, err = client.DiagnoseAlertContext(ctx, bStore, pqStore, ai.DiagnoseAlertParams{
+		AlertEvent: "Certificate expiring",
+		Type:       "cert",
+		Lang:       "ja",
+	})
+	if err != nil {
+		t.Errorf("Diagnose cert event failed: %v", err)
+	}
+
+	// 2. DiagnoseNode
+	nodeDiag, err := client.DiagnoseNode(ctx, bStore, pqStore, "node-ai-1", "ja", nil)
+	if err != nil || !strings.Contains(nodeDiag, "Mock") {
+		t.Fatalf("DiagnoseNode failed: %v, resp: %s", err, nodeDiag)
+	}
+
+	// 3. AssistPolling
+	assistResp, err := client.AssistPolling(ctx, bStore, "node-ai-1", "Webサーバーの稼働を監視したい", "ja")
+	if err != nil || assistResp.Name == "" {
+		t.Fatalf("AssistPolling failed: %v, resp: %+v", err, assistResp)
+	}
+
+	// 4. GeneratePollingScript
+	scriptResp, err := client.GeneratePollingScript(ctx, "http", "status", "Check status 200", "ja")
+	if err != nil || scriptResp.Script == "" {
+		t.Fatalf("GeneratePollingScript failed: %v, resp: %+v", err, scriptResp)
+	}
+
+	// 5. SearchMIB
+	mibSearch, err := client.SearchMIB(ctx, "interface packet in", "ja")
+	if err != nil || mibSearch.OID == "" {
+		t.Fatalf("SearchMIB failed: %v, resp: %+v", err, mibSearch)
+	}
+
+	// 6. ExplainMIB
+	mibExp, err := client.ExplainMIB(ctx, "walk", ".1.3.6.1.2.1.2.2.1.10", "ifInOctets.1 = 123456", "ja")
+	if err != nil || !strings.Contains(mibExp, "Mock") {
+		t.Fatalf("ExplainMIB failed: %v", err)
+	}
+
+	// 7. ExplainPing
+	pingExp, err := client.ExplainPing(ctx, "192.168.1.1", []ai.PingReportItem{
+		{Time: 5000000, Stat: 1, Size: 64},
+		{Time: 0, Stat: 2, Size: 64},
+	}, "normal", "rtt", "ja")
+	if err != nil || !strings.Contains(pingExp, "Mock") {
+		t.Fatalf("ExplainPing failed: %v", err)
+	}
+
+	// 8. ExplainReport
+	repExp, err := client.ExplainReport(ctx, bStore, pqStore, "address", map[string]interface{}{"total": 10}, "ipam", "ja")
+	if err != nil || !strings.Contains(repExp, "Mock") {
+		t.Fatalf("ExplainReport address failed: %v", err)
+	}
+	_, err = client.ExplainReport(ctx, bStore, pqStore, "cert", map[string]interface{}{"total": 2}, "summary", "en")
+	if err != nil {
+		t.Errorf("ExplainReport cert failed: %v", err)
+	}
+	_, err = client.ExplainReport(ctx, bStore, pqStore, "syslog", map[string]interface{}{"count": 100}, "sigma", "ja")
+	if err != nil {
+		t.Errorf("ExplainReport syslog failed: %v", err)
+	}
+	_, err = client.ExplainReport(ctx, bStore, pqStore, "netflow", map[string]interface{}{"flows": 50}, "traffic", "ja")
+	if err != nil {
+		t.Errorf("ExplainReport netflow failed: %v", err)
+	}
+	_, err = client.ExplainReport(ctx, bStore, pqStore, "mqtt", map[string]interface{}{"clients": 5}, "stats", "ja")
+	if err != nil {
+		t.Errorf("ExplainReport mqtt failed: %v", err)
+	}
+}
+

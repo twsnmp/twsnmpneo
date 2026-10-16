@@ -15,6 +15,7 @@
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
+    Sparkles,
   } from "@lucide/svelte";
   import { deletePolling, type PollingEnt, type NodeEnt } from "../../api";
   import { showConfirm } from "../../stores/modalStore";
@@ -28,6 +29,7 @@
   import PollingDialog from "../../components/PollingDialog.svelte";
   import PollingDetailModal from "../../components/PollingDetailModal.svelte";
   import PollingTemplateDialog from "../../components/PollingTemplateDialog.svelte";
+  import AIPollingAssistDialog from "../../components/AIPollingAssistDialog.svelte";
   import ListPagination from "./ListPagination.svelte";
   import { getStatusBadge, getNodeName, compareSortValues } from "./listUtils";
   import type { SortDirection } from "./types";
@@ -55,6 +57,7 @@
   // Dialog states
   let showPollingDialog = $state(false);
   let showTemplateDialog = $state(false);
+  let showAIAssistDialog = $state(false);
   let showPollingDetailModal = $state(false);
   let selectedPolling = $state<PollingEnt | null>(null);
   let detailPolling = $state<PollingEnt | null>(null);
@@ -295,6 +298,15 @@
 
     <div class="flex items-center gap-2">
       <button
+        onclick={() => (showAIAssistDialog = true)}
+        class="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-xs"
+        title="AIポーリング作成支援"
+      >
+        <Sparkles class="h-3.5 w-3.5" />
+        <span>{$_('polling.aiAssistBtn') || 'AI作成支援'}</span>
+      </button>
+
+      <button
         onclick={handleOpenAdd}
         class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
       >
@@ -419,6 +431,18 @@
   {nodes}
   onSelect={handleSelectTemplate}
   onCreated={onRefresh}
+  onAIAssist={() => {
+    showTemplateDialog = false;
+    showAIAssistDialog = true;
+  }}
+/>
+
+<AIPollingAssistDialog
+  bind:show={showAIAssistDialog}
+  onApply={(prefill) => {
+    selectedPolling = { ...prefill } as PollingEnt;
+    showPollingDialog = true;
+  }}
 />
 
 <PollingDialog

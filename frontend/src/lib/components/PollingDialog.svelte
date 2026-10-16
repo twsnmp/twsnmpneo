@@ -1,8 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { _ } from "svelte-i18n";
-  import { savePolling, type PollingEnt, type NodeEnt } from "../api";
-  import { X, Save, CheckSquare } from "@lucide/svelte";
+  import { savePolling, generatePollingScript, type PollingEnt, type NodeEnt } from "../api";
+  import { X, Save, CheckSquare, Sparkles, RotateCw, Check } from "@lucide/svelte";
   import CodeJar from "./CodeJar.svelte";
   import Prism from "prismjs";
   import "prismjs/components/prism-regex";
@@ -64,6 +64,38 @@
   let mqttCols = $state("");
   let saveError = $state("");
   let isSubmitting = $state(false);
+
+  // AI Script generation state
+  let showAIScriptModal = $state(false);
+  let aiScriptPurpose = $state("");
+  let isGeneratingScript = $state(false);
+  let generatedScript = $state("");
+  let generatedExplanation = $state("");
+  let aiScriptError = $state("");
+
+  const handleGenerateScript = async () => {
+    if (!aiScriptPurpose.trim() || isGeneratingScript) return;
+    isGeneratingScript = true;
+    aiScriptError = "";
+    generatedScript = "";
+    generatedExplanation = "";
+    try {
+      const resp = await generatePollingScript(type, mode, aiScriptPurpose.trim(), "ja");
+      generatedScript = resp.script;
+      generatedExplanation = resp.explanation;
+    } catch (e: any) {
+      aiScriptError = e.message || String(e);
+    } finally {
+      isGeneratingScript = false;
+    }
+  };
+
+  const applyGeneratedScript = () => {
+    if (generatedScript) {
+      script = generatedScript;
+      showAIScriptModal = false;
+    }
+  };
 
   // True when editing an existing polling (id is set)
   const isEditing = $derived(id !== "");
@@ -442,7 +474,17 @@
 
         <!-- Script (JavaScript) -->
         <div class="space-y-1.5">
-          <label for="poll-script" class={labelClass}>{$_("polling.script")}</label>
+          <div class="flex items-center justify-between">
+            <label for="poll-script" class={labelClass}>{$_("polling.script")}</label>
+            <button
+              type="button"
+              onclick={() => (showAIScriptModal = true)}
+              class="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
+            >
+              <Sparkles class="h-3 w-3" />
+              <span>{$_('polling.aiGenerateScript') || 'AIスクリプト生成'}</span>
+            </button>
+          </div>
           <CodeJar id="poll-script" syntax="javascript" {highlight} catchTab={true} bind:value={script} />
           <p class="text-[11px] text-slate-500 dark:text-slate-400">{$_("polling.scriptHelp")}</p>
         </div>
@@ -521,4 +563,84 @@
       </form>
     </div>
   </div>
+
+  <!-- AI Script Generator Sub-Modal -->
+  {#if showAIScriptModal}
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-100">
+      <div class="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-5 space-y-4 text-slate-800 dark:text-slate-100">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div class="flex items-center gap-2 text-sm font-bold text-cyan-600 dark:text-cyan-400">
+            <Sparkles class="h-4 w-4" />
+            <span>{$_('polling.aiScriptGenTitle') || 'AI判定スクリプト生成'}</span>
+          </div>
+          <button
+            type="button"
+            onclick={() => (showAIScriptModal = false)}
+            class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+
+        <div class="space-y-2 text-xs">
+          <label for="ai-script-input" class="block font-semibold text-slate-600 dark:text-slate-300">
+            {$_('polling.aiScriptInputLabel') || '正常・障害判定の条件を入力してください'}
+          </label>
+          <input
+            id="ai-script-input"
+            type="text"
+            bind:value={aiScriptPurpose}
+            placeholder="例: HTTPステータスが200かつRTTが500ms以内"
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:outline-none"
+          />
+          <p class="text-[10px] text-slate-400">※TWSNMP規約に従い、正常時にtrue、障害時にfalseとなるJavaScript式を自動構築します。</p>
+        </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            disabled={isGeneratingScript || !aiScriptPurpose.trim()}
+            onclick={handleGenerateScript}
+            class="inline-flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {#if isGeneratingScript}
+              <RotateCw class="h-3.5 w-3.5 animate-spin" />
+              <span>{$_('common.generating') || '生成中...'}</span>
+            {:else}
+              <Sparkles class="h-3.5 w-3.5" />
+              <span>{$_('common.generate') || 'スクリプト生成'}</span>
+            {/if}
+          </button>
+        </div>
+
+        {#if aiScriptError}
+          <div class="rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/30 p-2.5 text-rose-700 dark:text-rose-400 text-xs">
+            {aiScriptError}
+          </div>
+        {/if}
+
+        {#if generatedScript}
+          <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span class="font-bold text-slate-700 dark:text-slate-300">生成された判定式:</span>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 p-3 font-mono text-xs text-emerald-400 overflow-x-auto">
+              <code>{generatedScript}</code>
+            </div>
+            {#if generatedExplanation}
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">{generatedExplanation}</p>
+            {/if}
+            <div class="flex justify-end pt-1">
+              <button
+                type="button"
+                onclick={applyGeneratedScript}
+                class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold cursor-pointer"
+              >
+                <Check class="h-3.5 w-3.5" />
+                <span>{$_('common.apply') || 'このスクリプトを反映'}</span>
+              </button>
+            </div>
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 {/if}

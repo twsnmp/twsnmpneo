@@ -1678,11 +1678,32 @@ export async function askAI(prompt: string, system = ''): Promise<string> {
   return data.answer;
 }
 
-export async function diagnoseAlert(alertEvent: string, nodeContext: string, lang = 'ja'): Promise<string> {
+export interface DiagnoseAlertParams {
+  event_log_id?: string;
+  alert_event: string;
+  node_id?: string;
+  node_context?: string;
+  type?: string;
+  level?: string;
+  time?: number;
+  lang?: string;
+}
+
+export async function diagnoseAlert(
+  paramsOrEvent: DiagnoseAlertParams | string,
+  nodeContext = '',
+  lang = 'ja'
+): Promise<string> {
+  let body: any;
+  if (typeof paramsOrEvent === 'string') {
+    body = { alert_event: paramsOrEvent, node_context: nodeContext, lang };
+  } else {
+    body = paramsOrEvent;
+  }
   const res = await apiFetch(`${API_BASE}/ai/diagnose`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ alert_event: alertEvent, node_context: nodeContext, lang }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -1690,6 +1711,140 @@ export async function diagnoseAlert(alertEvent: string, nodeContext: string, lan
   }
   const data = await res.json();
   return data.diagnosis;
+}
+
+export async function diagnoseNodeAI(nodeId: string, lang = 'ja', probeResult?: any): Promise<string> {
+  const res = await apiFetch(`${API_BASE}/ai/diagnose/node`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ node_id: nodeId, lang, probe_result: probeResult }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const data = await res.json();
+  return data.diagnosis;
+}
+
+export interface AssistPollingResp {
+  template_id: number;
+  name: string;
+  type: string;
+  mode: string;
+  params: string;
+  filter: string;
+  extractor: string;
+  script: string;
+  level: string;
+  poll_int: number;
+  timeout: number;
+  retry: number;
+  advice: string;
+  error?: string;
+}
+
+export async function assistPolling(nodeId: string, prompt: string, lang = 'ja'): Promise<AssistPollingResp> {
+  const res = await apiFetch(`${API_BASE}/ai/polling/assist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ node_id: nodeId, prompt, lang }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return await res.json();
+}
+
+export interface PollingScriptResp {
+  script: string;
+  explanation: string;
+}
+
+export async function generatePollingScript(
+  type: string,
+  mode: string,
+  purpose: string,
+  lang = 'ja'
+): Promise<PollingScriptResp> {
+  const res = await apiFetch(`${API_BASE}/ai/polling/script`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, mode, purpose, lang }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return await res.json();
+}
+
+export interface MIBSearchResp {
+  object_name: string;
+  oid: string;
+  description?: string;
+}
+
+export async function searchMIB(prompt: string, lang = 'ja'): Promise<MIBSearchResp> {
+  const res = await apiFetch(`${API_BASE}/ai/mib/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, lang }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return await res.json();
+}
+
+export async function explainMIB(queryType: string, oid: string, resultText: string, lang = 'ja'): Promise<string> {
+  const res = await apiFetch(`${API_BASE}/ai/mib/explain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query_type: queryType, oid, result_text: resultText, lang }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const data = await res.json();
+  return data.explanation;
+}
+
+export async function explainPing(
+  targetIp: string,
+  results: any[],
+  mode = 'normal',
+  tab = 'rtt',
+  lang = 'ja'
+): Promise<string> {
+  const res = await apiFetch(`${API_BASE}/ai/explain/ping`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_ip: targetIp, results, mode, tab, lang }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const data = await res.json();
+  return data.explanation;
+}
+
+export async function explainReport(reportType: string, data: any, tab = '', lang = 'ja'): Promise<string> {
+  const res = await apiFetch(`${API_BASE}/ai/explain/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ report_type: reportType, data, tab, lang }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const dataRes = await res.json();
+  return dataRes.explanation;
 }
 
 export interface PingResult {

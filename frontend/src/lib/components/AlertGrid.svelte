@@ -56,7 +56,16 @@
 
     try {
       const nodeCtx = diagnosingLog.node_name ? `Node: ${diagnosingLog.node_name} (${diagnosingLog.node_id || 'N/A'})` : 'Unknown Node';
-      const ans = await diagnoseAlert(diagnosingLog.event, nodeCtx, aiLanguage);
+      const ans = await diagnoseAlert({
+        event_log_id: (diagnosingLog as any).id,
+        alert_event: diagnosingLog.event,
+        node_id: diagnosingLog.node_id,
+        node_context: nodeCtx,
+        type: diagnosingLog.type,
+        level: diagnosingLog.level,
+        time: diagnosingLog.time,
+        lang: aiLanguage,
+      });
       diagnosisResult = ans;
     } catch (e: any) {
       diagError = e.message || 'Failed to diagnose alert';

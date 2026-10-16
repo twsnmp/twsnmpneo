@@ -4,6 +4,8 @@
   import {
     fetchMIBTree,
     runSNMPTool,
+    searchMIB,
+    explainMIB,
     type MIBTreeEnt,
     type SNMPToolResult,
     type NodeEnt,
@@ -29,8 +31,11 @@
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
+    Sparkles,
   } from "@lucide/svelte";
   import MIBTree from "./MIBTree.svelte";
+  import AIMarkdown from "./common/AIMarkdown.svelte";
+  import AnimatedCatLogo from "./common/AnimatedCatLogo.svelte";
 
   let {
     show = $bindable(false),
@@ -76,6 +81,21 @@
   // MIB Tree Modal State
   let showMIBTreeModal = $state(false);
   let mibTreeData = $state<MIBTreeEnt[]>([]);
+
+  // AI MIB Search State
+  let showAISearch = $state(false);
+  let aiSearchQuery = $state("");
+  let aiSearchLoading = $state(false);
+  let aiSearchError = $state("");
+  let aiSuggestions = $state<{ name: string; oid: string; description: string }[]>([]);
+
+  // AI MIB Explain State
+  let showAIExplainModal = $state(false);
+  let aiExplainLoading = $state(false);
+  let aiExplainError = $state("");
+  let aiExplainResult = $state<string>("");
+  let aiLang = $state<"ja" | "en">("ja");
+  let aiExplainCopied = $state(false);
 
   const targetName = $derived(node?.name || (node as any)?.Name || network?.name || (network as any)?.Name || "");
   const targetIP = $derived(node?.ip || (node as any)?.IP || network?.ip || (network as any)?.IP || "");
@@ -148,6 +168,65 @@
       } finally {
         hideLoading();
       }
+    }
+  };
+
+  const handleAISearch = async () => {
+    if (!aiSearchQuery.trim() || aiSearchLoading) return;
+    aiSearchLoading = true;
+    aiSearchError = "";
+    aiSuggestions = [];
+    try {
+      const resp = await searchMIB(aiSearchQuery.trim(), aiLang);
+      if (resp && (resp.object_name || resp.oid)) {
+        aiSuggestions = [{
+          name: resp.object_name,
+          oid: resp.oid,
+          description: resp.description || "",
+        }];
+      }
+    } catch (e: any) {
+      aiSearchError = e.message || String(e);
+    } finally {
+      aiSearchLoading = false;
+    }
+  };
+
+  const handleSelectAISuggestion = (s: { name: string; oid: string }) => {
+    nameOrOid = s.name || s.oid;
+    showAISearch = false;
+    runQuery();
+  };
+
+  const handleRunAIExplain = async () => {
+    if (results.length === 0 || aiExplainLoading) return;
+    aiExplainLoading = true;
+    aiExplainError = "";
+    aiExplainResult = "";
+    try {
+      const resultText = results.slice(0, 50).map((r) => `${r.name || r.oid}=${r.value}`).join(", ");
+      const resp = await explainMIB(
+        isTable ? "table" : "walk",
+        lastQueryName || nameOrOid,
+        resultText,
+        aiLang
+      );
+      aiExplainResult = resp;
+    } catch (e: any) {
+      aiExplainError = e.message || String(e);
+    } finally {
+      aiExplainLoading = false;
+    }
+  };
+
+  const handleCopyAIExplain = async () => {
+    if (!aiExplainResult) return;
+    try {
+      await navigator.clipboard.writeText(aiExplainResult);
+      aiExplainCopied = true;
+      setTimeout(() => (aiExplainCopied = false), 2000);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -476,6 +555,16 @@
             <FolderTree class="h-3.5 w-3.5 text-teal-500" />{$_("mib.tree")}
           </button>
 
+          <button
+            type="button"
+            onclick={() => (showAISearch = !showAISearch)}
+            class="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-500/20 dark:border-cyan-500/40 dark:bg-cyan-950/60 dark:text-cyan-300 dark:hover:bg-cyan-900/60 transition-colors cursor-pointer"
+            title="自然言語でMIB/OIDを検索"
+          >
+            <Sparkles class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span>AI MIB検索</span>
+          </button>
+
           <select
             onchange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) nameOrOid = v; }}
             class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -500,6 +589,91 @@
             {$_("mib.execute")}
           </button>
         </div>
+
+        {#if showAISearch}
+          <div class="rounded-xl border border-cyan-200 dark:border-cyan-900/70 bg-cyan-50/40 dark:bg-cyan-950/30 p-3.5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-cyan-800 dark:text-cyan-300 flex items-center gap-1.5">
+                <Sparkles class="h-3.5 w-3.5" />
+                <span>AI自然言語MIB/OID検索</span>
+              </span>
+              <div class="inline-flex rounded-md border border-slate-200 dark:border-slate-700 p-0.5 text-[10px] bg-white dark:bg-slate-900">
+                <button
+                  type="button"
+                  class="px-2 py-0.5 rounded {aiLang === 'ja' ? 'bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 font-bold' : 'text-slate-500'}"
+                  onclick={() => (aiLang = "ja")}
+                >
+                  日本語
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 rounded {aiLang === 'en' ? 'bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 font-bold' : 'text-slate-500'}"
+                  onclick={() => (aiLang = "en")}
+                >
+                  English
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                bind:value={aiSearchQuery}
+                placeholder={aiLang === 'ja' ? '例: CPU使用率, ディスク空き容量, インターフェーストラフィック' : 'e.g. CPU utilization, disk space, interface traffic'}
+                onkeydown={(e) => e.key === 'Enter' && handleAISearch()}
+                class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="button"
+                disabled={aiSearchLoading || !aiSearchQuery.trim()}
+                onclick={handleAISearch}
+                class="flex items-center gap-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+              >
+                {#if aiSearchLoading}
+                  <RefreshCw class="h-3 w-3 animate-spin" />
+                  <span>検索中...</span>
+                {:else}
+                  <Search class="h-3 w-3" />
+                  <span>検索</span>
+                {/if}
+              </button>
+            </div>
+
+            {#if aiSearchLoading}
+              <div class="py-4 flex flex-col items-center justify-center">
+                <AnimatedCatLogo mode="loading" size="sm" />
+                <span class="text-[11px] text-cyan-600 dark:text-cyan-400 mt-2">MIBデータベースを推論照合中...</span>
+              </div>
+            {/if}
+
+            {#if aiSearchError}
+              <p class="text-xs text-rose-500">{aiSearchError}</p>
+            {/if}
+
+            {#if aiSuggestions.length > 0}
+              <div class="space-y-1.5 pt-1">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">候補 (クリックで選択して取得):</span>
+                <div class="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5">
+                  {#each aiSuggestions as s}
+                    <button
+                      type="button"
+                      onclick={() => handleSelectAISuggestion(s)}
+                      class="w-full text-left p-2 rounded hover:bg-cyan-50 dark:hover:bg-cyan-950/40 border border-transparent hover:border-cyan-300 dark:hover:border-cyan-800 transition-colors cursor-pointer group"
+                    >
+                      <div class="flex items-center justify-between text-xs font-bold text-cyan-700 dark:text-cyan-300">
+                        <span>{s.name}</span>
+                        <span class="font-mono text-[10px] text-slate-400">{s.oid}</span>
+                      </div>
+                      {#if s.description}
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{s.description}</p>
+                      {/if}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         <div class="flex flex-wrap items-center gap-2 text-xs">
           <span class="text-slate-500 dark:text-slate-400">{$_("mib.favorites")}</span>
@@ -580,6 +754,20 @@
             >
               <FileSpreadsheet class="h-3 w-3 text-emerald-500" />CSV
             </button>
+
+            {#if results.length > 0}
+              <button
+                type="button"
+                onclick={() => {
+                  showAIExplainModal = true;
+                }}
+                class="flex items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-700 hover:bg-cyan-500/20 dark:border-cyan-500/40 dark:bg-cyan-950/60 dark:text-cyan-300 dark:hover:bg-cyan-900/60 transition-colors cursor-pointer"
+                title="取得結果をAIで分析・解説"
+              >
+                <Sparkles class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>AI解説</span>
+              </button>
+            {/if}
           </div>
         </div>
       </div>
@@ -820,6 +1008,133 @@
           onselect={selectTreeName}
           heightClass="h-[60vh]"
         />
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Sub-Modal: AI MIB Explanation -->
+{#if showAIExplainModal}
+  <div
+    class="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onkeydown={(e) => e.key === "Escape" && (showAIExplainModal = false)}
+  >
+    <div class="flex h-[85vh] max-h-[85vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden text-slate-800 dark:text-slate-100">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+        <div class="flex items-center gap-2.5 text-base font-bold text-cyan-600 dark:text-cyan-400">
+          <Sparkles class="h-5 w-5" />
+          <span>AI MIB解説・診断 (AI MIB Explanation)</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-xs bg-white dark:bg-slate-900">
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded-md font-medium transition-colors {aiLang === 'ja' ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-400 font-bold' : 'text-slate-500'}"
+              onclick={() => (aiLang = "ja")}
+            >
+              日本語
+            </button>
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded-md font-medium transition-colors {aiLang === 'en' ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-400 font-bold' : 'text-slate-500'}"
+              onclick={() => (aiLang = "en")}
+            >
+              English
+            </button>
+          </div>
+          <button
+            type="button"
+            onclick={() => (showAIExplainModal = false)}
+            class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 flex flex-col min-h-0 overflow-y-auto p-6 space-y-4">
+        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+          <div>
+            <span class="font-bold text-slate-700 dark:text-slate-300">対象: </span>
+            <span class="font-semibold text-cyan-600 dark:text-cyan-400">{targetName} ({lastQueryName || nameOrOid})</span>
+            <span class="text-slate-400 ml-2">({results.length} 件取得済み)</span>
+          </div>
+          <button
+            type="button"
+            disabled={aiExplainLoading}
+            onclick={handleRunAIExplain}
+            class="flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white px-4 py-1.5 text-xs font-bold shadow-xs cursor-pointer"
+          >
+            {#if aiExplainLoading}
+              <RefreshCw class="h-3.5 w-3.5 animate-spin" />
+              <span>AI推論中...</span>
+            {:else}
+              <Sparkles class="h-3.5 w-3.5" />
+              <span>{aiExplainResult ? "再解説を実行" : "AI解説を生成"}</span>
+            {/if}
+          </button>
+        </div>
+
+        {#if aiExplainLoading}
+          <div class="flex flex-col items-center justify-center p-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+            <AnimatedCatLogo mode="loading" size="lg" />
+            <span class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 mt-3 animate-pulse">
+              SNMP取得データをマルチLLMで分析中...
+            </span>
+          </div>
+        {/if}
+
+        {#if aiExplainError}
+          <div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/30 p-4 text-rose-700 dark:text-rose-400 text-xs">
+            {aiExplainError}
+          </div>
+        {/if}
+
+        {#if !aiExplainResult && !aiExplainLoading && !aiExplainError}
+          <div class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+            <Sparkles class="h-10 w-10 text-cyan-500/40 mb-3" />
+            <p class="text-xs font-medium">「AI解説を生成」ボタンをクリックすると、取得したMIBデータの意味や状態をAIがわかりやすく解説します。</p>
+          </div>
+        {/if}
+
+        {#if aiExplainResult && !aiExplainLoading}
+          <div class="space-y-4">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 space-y-3">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">詳細解説 &amp; 診断結果</span>
+                <button
+                  type="button"
+                  onclick={handleCopyAIExplain}
+                  class="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  {#if aiExplainCopied}
+                    <Check class="h-3.5 w-3.5 text-emerald-500" />
+                    <span class="text-emerald-600 font-semibold">コピー完了</span>
+                  {:else}
+                    <Copy class="h-3.5 w-3.5" />
+                    <span>解説をコピー</span>
+                  {/if}
+                </button>
+              </div>
+              <div class="text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+                <AIMarkdown content={aiExplainResult} />
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      <div class="shrink-0 flex items-center justify-end border-t border-slate-200 dark:border-slate-800 px-6 py-3 bg-slate-50 dark:bg-slate-950">
+        <button
+          type="button"
+          onclick={() => (showAIExplainModal = false)}
+          class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+        >
+          {$_('common.close') || '閉じる'}
+        </button>
       </div>
     </div>
   </div>

@@ -73,7 +73,16 @@
     "showCount": "Show {count}",
     "showAll": "Show All",
     "itemsPerPage": "Items per page:",
-    "totalCount": "{count} total"
+    "totalCount": "{count} total",
+    "actions": "Actions",
+    "apply": "Apply",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "running": "Running...",
+    "high": "High",
+    "normal": "Normal",
+    "warn": "Warning",
+    "reset": "Reset"
   },
   "mib": {
     "dialogTitle": "MIB Browser",
@@ -521,7 +530,6 @@
     "notifyOAuth2StartError": "Failed to start OAuth2 authorization: {error}",
     "notifyOAuth2TokenDeleted": "OAuth2 token deleted.",
     "notifyOAuth2TokenDeleteError": "Failed to delete token: {error}",
-
     "aiTitle": "AI Assistant & Automated Fault Diagnosis Engine",
     "aiProvider": "AI Provider",
     "aiProviderNone": "Not Used",
@@ -814,7 +822,8 @@
       "lines": "Lines",
       "networks": "Networks",
       "drawItems": "Draw Items",
-      "execute": "Execute Import"
+      "execute": "Execute Import",
+      "successMsg": "Map import completed successfully"
     }
   },
   "network": {
@@ -1080,6 +1089,9 @@
       "network": "Are you sure you want to delete this network? Connected lines will also be deleted or orphaned.",
       "line": "Are you sure you want to delete this line?",
       "drawItem": "Are you sure you want to delete this draw item?"
+    },
+    "col": {
+      "descr": "Description"
     }
   },
   "polling": {
@@ -1143,7 +1155,19 @@
     "errNameRequired": "Please enter a polling name",
     "errNodeRequired": "Please select a target node",
     "errSaveFailed": "Failed to save polling",
-    "nodeLockedHint": "The target node cannot be changed when editing"
+    "nodeLockedHint": "The target node cannot be changed when editing",
+    "aiAssistTitle": "AI Polling Assistant",
+    "aiAssistBtn": "AI Assist",
+    "aiPromptLabel": "Describe what you want to monitor in natural language",
+    "aiGenerate": "Generate Polling Settings",
+    "aiRegenerate": "Regenerate",
+    "aiSuggestedConfig": "AI Suggested Configuration",
+    "pollInt": "Interval",
+    "aiAdviceTitle": "AI Advice & Operations Guide",
+    "aiApplyAndCreate": "Apply Settings to Polling",
+    "aiGenerateScript": "AI Script Generator",
+    "aiScriptGenTitle": "AI Polling Script Generator",
+    "aiScriptInputLabel": "Describe the condition in natural language"
   },
   "nodeDetail": {
     "title": "Node Details",
@@ -1237,7 +1261,11 @@
     "snmpNotSupportedTitle": "SNMP is not configured or disabled on this node",
     "snmpNotSupportedDesc": "Because SNMP is not enabled, 3D panel, port states (IF-MIB), and host resources (HOST-RESOURCES-MIB) cannot be retrieved. To use these features, enable SNMP mode in node settings.",
     "noPortsFound": "No port information (IF-MIB) found",
-    "noHostResourceFound": "No host resource information (HOST-RESOURCES-MIB) found (unsupported or timed out)"
+    "noHostResourceFound": "No host resource information (HOST-RESOURCES-MIB) found (unsupported or timed out)",
+    "aiDiagnose": "AI Node Health Diagnosis",
+    "aiDiagnoseResult": "AI Node Health & Risk Diagnosis Result",
+    "notConfigured": "Not Configured",
+    "snmpConfigureHint": "Configure SNMP Community or v3 credentials in Node settings"
   },
   "log": {
     "typeHeader": "Log Type",
@@ -1370,7 +1398,8 @@
       "newMac": "New MAC",
       "newVendor": "New Vendor",
       "oldMac": "Old MAC"
-    }
+    },
+    "deletingLogs": "Deleting logs..."
   },
   "system": {
     "title": "System Status & Resource Monitor",
@@ -1432,7 +1461,8 @@
     "pageInfo": "Showing {from} - {to} of {total} records",
     "forecastModalTitle": "Storage & Database Future Capacity Projection (1 Year)",
     "forecastModalDesc": "Predicts disk usage and database size over the next 365 days using Linear Regression based on historical resource samples.",
-    "close": "Close"
+    "close": "Close",
+    "backup": "Backup"
   },
   "mqtt": {
     "confirmDeleteSelected": "Delete selected {count} MQTT statistics?",
@@ -1662,7 +1692,8 @@
     "colParentSpan": "Parent Span ID",
     "logDetailTitle": "OpenTelemetry Log Details",
     "severity": "Severity",
-    "rawLog": "Raw Log"
+    "rawLog": "Raw Log",
+    "deletingAll": "Deleting all data..."
   },
   "report": {
     "tabDevice": "LAN Devices",
@@ -1752,7 +1783,7 @@
     "sensorKpiMotionSub": "Detected: {moving} / Bright: {light}",
     "btnEditCertPolling": "Edit",
     "btnDeleteCertPolling": "Delete",
-    "btnAiExplainCert": "AI Insights",
+    "btnAiExplainCert": "AI Explain",
     "sensorMainTitle": "Sensors",
     "sensorMainSubtitle": "Operating status and telemetry metrics for remote sensors (Syslog, MQTT, sFlow, NetFlow, Scanners, etc.)",
     "totalSensors": "Total Sensors",
@@ -1784,8 +1815,8 @@
     "colSend": "Send",
     "colStatsCount": "Stats History",
     "colMonitorsCount": "Resource Monitors",
-    "colFirstTime": "First Time",
-    "colLastTime": "Last Time",
+    "colFirstTime": "First Seen",
+    "colLastTime": "Last Seen",
     "loadingSensors": "Loading sensor data...",
     "noSensors": "No matching sensors found",
     "btnDetail": "Details & Charts",
@@ -1910,7 +1941,7 @@
     "errorPollings": "Fault",
     "errorPollingsSub": "High/Low severity failure / Outage",
     "colPollingName": "Polling Name",
-    "colTarget": "Monitoring Target",
+    "colTarget": "Target",
     "colTargetNode": "Target Node",
     "colResponseStatus": "Response Status",
     "colLatestValue": "Latest Response",
@@ -1948,7 +1979,6 @@
     "normalInfoEventsSub": "Operational logs & recoveries",
     "colTimestamp": "Timestamp",
     "colLevel": "Level",
-    "colTargetNode": "Target Node",
     "colEventContent": "Latest Event Details",
     "noLogs": "No event logs available for aggregation",
     "syslogTitle": "Syslog Analytics",
@@ -1976,23 +2006,17 @@
     "expiringCerts": "Expiring / Error",
     "expiringCertsSub": "Expired or within 30 days",
     "noCertsConfigured": "No server certificate polling (Type: TLS, Mode: cert) found. Please configure a polling on a node.",
-    "colState": "State",
-    "colTarget": "Target",
     "colPort": "Port",
     "colSubject": "Subject",
     "colIssuer": "Issuer",
     "colStart": "Start",
     "colEnd": "End",
-    "colLastTime": "Last Time",
     "colKeyStrength": "Key Type / Strength",
     "colValidUntil": "Valid Until",
     "colRemainingDays": "Remaining Days",
     "remainingDaysUnit": "{days} days",
     "btnAddCertPolling": "Add",
     "btnAddPolling": "Add Polling",
-    "btnEditCertPolling": "Edit",
-    "btnDeleteCertPolling": "Delete",
-    "btnAiExplainCert": "AI Explain",
     "aiTitle": "Anomaly Detection",
     "aiSubtitle": "Anomaly score analysis report for pollings configured with anomaly detection enabled",
     "aiAnalyzedPollings": "Target Pollings",
@@ -2019,7 +2043,6 @@
     "subManagedOnly": "Registered on Map",
     "subUnmanagedOnly": "Unregistered",
     "subProblemOnly": "Problems",
-    "stateNormal": "Normal",
     "stateDuplicate": "Duplicate",
     "stateChanged": "Changed",
     "stateIpChanged": "IP Changed",
@@ -2031,8 +2054,6 @@
     "kpiDhcpErrorSub": "169.254.x.x / Failed to obtain IP",
     "vendorDistribution": "Vendor Distribution",
     "btnAddNode": "Add Node",
-    "colFirstTime": "First Seen",
-    "colLastTime": "Last Seen",
     "colLastChange": "Last Changed",
     "subFlowConversations": "Conversations",
     "subFlowServers": "Server Statistics (Servers)",
@@ -2123,7 +2144,6 @@
     "targetHostLabel": "Hostname / IP Address",
     "targetPortLabel": "Port",
     "btnSave": "Save",
-    "btnCancel": "Cancel",
     "confirmDeleteCert": "Delete certificate monitor entry {target}:{port}?",
     "winTabEventID": "Event ID",
     "winTabLogon": "Logon",
@@ -2322,7 +2342,13 @@
     "pcapKpiTotalTls": "Total TLS Flows",
     "pcapKpiModernTls": "Modern TLS (1.2/1.3)",
     "pcapKpiLowScoreTls": "Low Score Flows (<50)",
-    "pcapTypeDistribution": "Type Distribution"
+    "pcapTypeDistribution": "Type Distribution",
+    "aiAnalysisTitle": "AI Report Analysis & Security Explanation",
+    "confirmClearReport": "Are you sure you want to clear report data?",
+    "pcapColClientLoc": "Client Location",
+    "pcapColServerLoc": "Server Location",
+    "sensorDeleteError": "Failed to delete sensor",
+    "sensorUpdateError": "Failed to update sensor"
   },
   "Ping": {
     "Mode": "Mode",
@@ -2549,5 +2575,11 @@
     "gpuDownloadSuccess": "GPU library set up successfully.",
     "modelDeleteSuccess": "Model {name} deleted successfully.",
     "close": "Close"
+  },
+  "alert": {
+    "aiDiagnoseTitle": "AI Alert Diagnosis",
+    "aiDiagnoseStart": "Run AI Alert Diagnosis",
+    "aiReanalyze": "Re-diagnose",
+    "aiDiagnosePlaceholder": "Verify options and click 'Run AI Alert Diagnosis'."
   }
 }
