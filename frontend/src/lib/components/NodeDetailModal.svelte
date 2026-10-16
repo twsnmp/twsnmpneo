@@ -9,7 +9,6 @@
     fetchNodePorts,
     fetchNodeHostResource,
     fetchNodeRmon,
-    diagnoseNode,
     diagnoseNodeAI,
     sendWol,
   } from "../api";
@@ -20,9 +19,9 @@
     VPanelPortEnt,
     HostResourceEnt,
     RmonEtherStatsEnt,
-    NodeDiagnoseResult,
   } from "../api";
   import { showConfirm } from "../stores/modalStore";
+  import NodeDialog from "./NodeDialog.svelte";
   import PollingDetailModal from "./PollingDetailModal.svelte";
   import PollingDialog from "./PollingDialog.svelte";
   import PingDialog from "./PingDialog.svelte";
@@ -67,15 +66,17 @@
     Power,
     Radio,
     Wrench,
+    Globe,
   } from "@lucide/svelte";
 
   let {
     show = $bindable(false),
-    node = null,
+    node = $bindable(null),
     pollings = $bindable([]),
     logs = [],
     initialTab = "basic",
     onPollingChanged = () => {},
+    onNodeUpdated = () => {},
   } = $props<{
     show: boolean;
     node: NodeEnt | null;
@@ -83,6 +84,7 @@
     logs?: EventLogEnt[];
     initialTab?: TabType;
     onPollingChanged?: () => void;
+    onNodeUpdated?: (saved: NodeEnt) => void;
   }>();
 
   type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo" | "rmon" | "diagnose";
@@ -117,11 +119,6 @@
   let isRmonLoaded = $state(false);
   let rmonError = $state<string>("");
 
-  // Diagnose states
-  let diagnoseResult = $state<NodeDiagnoseResult | null>(null);
-  let isDiagnosing = $state(false);
-  let diagnoseError = $state<string>("");
-
   // AI Node Diagnose states
   let aiDiagnoseResult = $state<string>("");
   let isAIDiagnosing = $state(false);
@@ -140,6 +137,14 @@
   let detailPolling = $state<PollingEnt | null>(null);
   let showPollingEditDialog = $state(false);
   let editPolling = $state<PollingEnt | null>(null);
+
+  // Node Edit Dialog state
+  let showNodeEditDialog = $state(false);
+
+  const handleNodeSaved = (saved: NodeEnt) => {
+    node = saved;
+    onNodeUpdated(saved);
+  };
 
   // Diagnostic Tools Dialog states
   let showPingDialog = $state(false);
@@ -317,6 +322,113 @@
   const isSnmpSupported = $derived(
     hasSnmpPolling || (isSnmpConfigured && !isLoadingPorts && realPorts.length > 0)
   );
+
+  // Polling-based diagnosis summary
+  const pollingHealthSummary = $derived.by(() => {
+    if (nodePollings.length === 0) {
+      return {
+        status: "none" as const,
+        statusLabel: $_('nodeDetail.pollingStatusNone') || "未監視 (NO POLLING)",
+        badgeClass: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/30",
+        iconBg: "bg-slate-500/10 text-slate-500 border border-slate-500/20",
+        summaryText: $_('nodeDetail.noPollingConfiguredDesc') || "このノードには監視ポーリングが設定されていません。",
+        normalCount: 0,
+        warnCount: 0,
+        criticalCount: 0,
+        total: 0,
+      };
+    }
+
+    let normalCount = 0;
+    let warnCount = 0;
+    let criticalCount = 0;
+
+    for (const p of nodePollings) {
+      const st = (p.state || (p as any).State || "").toLowerCase();
+      if (st === "normal") {
+        normalCount++;
+      } else if (st === "warn" || st === "low") {
+        warnCount++;
+      } else if (st === "high" || st === "repair" || st === "critical") {
+        criticalCount++;
+      } else {
+        warnCount++;
+      }
+    }
+
+    let status: "healthy" | "warning" | "critical" = "healthy";
+    let badgeClass = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30";
+    let iconBg = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
+    let statusLabel = $_('nodeDetail.pollingStatusHealthy') || "正常 (HEALTHY)";
+
+    if (criticalCount > 0) {
+      status = "critical";
+      badgeClass = "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30";
+      iconBg = "bg-rose-500/10 text-rose-500 border border-rose-500/20";
+      statusLabel = $_('nodeDetail.pollingStatusCritical') || "障害 (CRITICAL)";
+    } else if (warnCount > 0) {
+      status = "warning";
+      badgeClass = "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30";
+      iconBg = "bg-amber-500/10 text-amber-500 border border-amber-500/20";
+      statusLabel = $_('nodeDetail.pollingStatusWarning') || "警告 (WARNING)";
+    }
+
+    const nName = node?.name || (node as any)?.Name || "Node";
+    const summaryText = `${nName} - 設定ポーリング: ${nodePollings.length}件 (正常: ${normalCount}, 警告: ${warnCount}, 障害: ${criticalCount})`;
+
+    return {
+      status,
+      statusLabel,
+      badgeClass,
+      iconBg,
+      summaryText,
+      normalCount,
+      warnCount,
+      criticalCount,
+      total: nodePollings.length,
+    };
+  });
+
+  function getPollingCardData(p: PollingEnt) {
+    const res = ((p.result || (p as any).Result) || {}) as Record<string, any>;
+    const st = (p.state || (p as any).State || "unknown").toLowerCase();
+    const isNormal = st === "normal";
+    const isCritical = st === "high" || st === "repair" || st === "critical";
+    const isWarn = st === "warn" || st === "low";
+
+    let rttMs: string | null = null;
+    if (typeof res.rtt === "number" && res.rtt > 0) {
+      rttMs = (res.rtt / 1e6).toFixed(2);
+    } else if (typeof p.last_val === "number" && p.last_val > 0) {
+      rttMs = (p.last_val / 1e6).toFixed(2);
+    }
+
+    const errorMsg = res.error || (!isNormal && res.state ? res.message : "");
+    const message = res.message || "";
+    const ttl = res.ttl;
+    const statusCode = res.status ?? res.code ?? res.statusCode;
+    const certDays = res.cert_days ?? res.remainingDays;
+    const sysUpTime = res.sysUpTime;
+    const sysDescr = res.sysDescr;
+    const lastTime = p.last_time || (p as any).LastTime;
+    const lastTimeStr = lastTime ? formatTimeStr(lastTime) : "-";
+
+    return {
+      st,
+      isNormal,
+      isCritical,
+      isWarn,
+      rttMs,
+      errorMsg,
+      message,
+      ttl,
+      statusCode,
+      certDays,
+      sysUpTime,
+      sysDescr,
+      lastTimeStr,
+    };
+  }
 
   // Tabs for vertical sidebar navigation (Matching ListView / LogSidebar style)
   const tabs = $derived<
@@ -527,26 +639,13 @@
     }
   };
 
-  const runNodeDiagnose = async () => {
-    if (!targetNodeId) return;
-    isDiagnosing = true;
-    diagnoseError = "";
-    try {
-      diagnoseResult = await diagnoseNode(targetNodeId);
-    } catch (e: any) {
-      diagnoseError = String(e?.message || e);
-    } finally {
-      isDiagnosing = false;
-    }
-  };
-
   const runAIDiagnose = async () => {
     if (!targetNodeId || isAIDiagnosing) return;
     isAIDiagnosing = true;
     aiDiagnoseError = "";
     aiDiagnoseResult = "";
     try {
-      aiDiagnoseResult = await diagnoseNodeAI(targetNodeId, aiLanguage, diagnoseResult);
+      aiDiagnoseResult = await diagnoseNodeAI(targetNodeId, aiLanguage);
     } catch (e: any) {
       aiDiagnoseError = String(e?.message || e);
     } finally {
@@ -615,8 +714,8 @@
         rmonStats = [];
         isRmonLoaded = false;
         rmonError = "";
-        diagnoseResult = null;
-        diagnoseError = "";
+        aiDiagnoseResult = "";
+        aiDiagnoseError = "";
 
         // If SNMP is configured, probe ports from backend
         if (isSnmpConfigured && targetNodeId) {
@@ -688,8 +787,6 @@
         loadHostResourceData();
       } else if (activeTab === "rmon" && !isRmonLoaded && !isLoadingRmon && isSnmpSupported) {
         loadRmonData();
-      } else if (activeTab === "diagnose" && !diagnoseResult && !isDiagnosing) {
-        runNodeDiagnose();
       }
     }
   });
@@ -802,52 +899,18 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <!-- Header Quick Diagnostic Tools -->
-          <div class="flex items-center gap-1.5 mr-1 border-r border-slate-200 dark:border-slate-800 pr-2">
-            <!-- Ping Tool -->
-            <button
-              type="button"
-              title="PING"
-              onclick={handleOpenPing}
-              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer shadow-sm"
-            >
-              <Activity class="h-3.5 w-3.5 text-emerald-500" />
-              <span>PING</span>
-            </button>
-
-            <!-- MIB Browser -->
-            <button
-              type="button"
-              title="MIB Browser"
-              onclick={handleOpenMIBBrowser}
-              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/30 transition-all cursor-pointer shadow-sm"
-            >
-              <Eye class="h-3.5 w-3.5 text-teal-500" />
-              <span>MIB</span>
-            </button>
-
-            <!-- gNMI Tool -->
-            <button
-              type="button"
-              title="gNMI Tool"
-              onclick={handleOpenGNMITool}
-              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer shadow-sm"
-            >
-              <Radio class="h-3.5 w-3.5 text-cyan-500" />
-              <span>gNMI</span>
-            </button>
-
-            <!-- Wake-on-LAN -->
-            <button
-              type="button"
-              title="Wake-on-LAN"
-              onclick={handleWakeTargetNode}
-              class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-sm"
-            >
-              <Power class="h-3.5 w-3.5 text-amber-500" />
-              <span>WOL</span>
-            </button>
-          </div>
+          <!-- Edit Node Button -->
+          <button
+            type="button"
+            title={$_('nodeDetail.editNode') || 'ノード編集'}
+            onclick={() => {
+              showNodeEditDialog = true;
+            }}
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-cyan-300 border border-blue-500/30 transition-all cursor-pointer shadow-sm"
+          >
+            <Pencil class="h-3.5 w-3.5 text-blue-600 dark:text-cyan-400" />
+            <span>{$_('nodeDetail.editNode') || 'ノード編集'}</span>
+          </button>
 
           <!-- Maximize / Restore Toggle Button -->
           <button
@@ -1981,26 +2044,24 @@
             </div>
           {/if}
 
-        <!-- 8. Diagnose Tab -->
+        <!-- 8. Diagnose Tab (Based on Configured Pollings) -->
         {:else if activeTab === "diagnose"}
           <div class="flex h-full flex-col gap-4 overflow-y-auto pr-1">
             <!-- Header Action Card -->
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm">
               <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl {diagnoseResult?.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : diagnoseResult?.status === 'warning' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : diagnoseResult?.status === 'critical' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl {pollingHealthSummary.iconBg}">
                   <Stethoscope class="h-5 w-5" />
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-bold text-slate-900 dark:text-slate-100">{$_('nodeDetail.diagnoseTitle')}</span>
-                    {#if diagnoseResult}
-                      <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase {diagnoseResult.status === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : diagnoseResult.status === 'warning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'}">
-                        {diagnoseResult.status}
-                      </span>
-                    {/if}
+                    <span class="text-sm font-bold text-slate-900 dark:text-slate-100">{$_('nodeDetail.diagnoseTitle') || '診断情報'}</span>
+                    <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase {pollingHealthSummary.badgeClass}">
+                      {pollingHealthSummary.statusLabel}
+                    </span>
                   </div>
                   <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {diagnoseResult?.summary || $_('nodeDetail.diagnoseSubtitle')}
+                    {pollingHealthSummary.summaryText}
                   </p>
                 </div>
               </div>
@@ -2008,12 +2069,12 @@
               <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  disabled={isDiagnosing}
-                  onclick={runNodeDiagnose}
+                  disabled={isLoadingPollings}
+                  onclick={reloadPollings}
                   class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <RotateCw class="h-3.5 w-3.5 {isDiagnosing ? 'animate-spin' : ''}" />
-                  {isDiagnosing ? $_('common.running') : $_('nodeDetail.runDiagnose')}
+                  <RotateCw class="h-3.5 w-3.5 {isLoadingPollings ? 'animate-spin' : ''}" />
+                  {isLoadingPollings ? $_('common.running') : ($_('nodeDetail.refreshPollings') || '最新情報を更新')}
                 </button>
 
                 <button
@@ -2086,141 +2147,169 @@
               </div>
             {/if}
 
-            {#if isDiagnosing && !diagnoseResult}
+            <!-- Polling Results Grid -->
+            {#if isLoadingPollings && nodePollings.length === 0}
               <div class="flex flex-1 items-center justify-center p-8">
                 <div class="flex flex-col items-center gap-3">
                   <RotateCw class="h-8 w-8 animate-spin text-blue-600 dark:text-cyan-400" />
-                  <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{$_('nodeDetail.diagnosingProbes')}</span>
+                  <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{$_('common.loading')}</span>
                 </div>
               </div>
-            {:else if diagnoseError}
-              <div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-4 text-rose-600 dark:text-rose-400 text-xs">
-                {diagnoseError}
+            {:else if nodePollings.length === 0}
+              <!-- No Polling Configured Card -->
+              <div class="flex flex-col items-center justify-center p-8 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/40 text-center">
+                <div class="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+                  <Activity class="h-6 w-6" />
+                </div>
+                <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
+                  {$_('nodeDetail.noPollingConfigured') || 'ポーリング未設定'}
+                </h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mb-4">
+                  {$_('nodeDetail.noPollingConfiguredDesc') || 'このノードには監視ポーリングが設定されていません。ポーリングタブまたは自動生成からポーリングを追加してください。'}
+                </p>
+                <button
+                  type="button"
+                  onclick={() => {
+                    const nId = node?.id || (node as any)?.ID || "";
+                    addPollingObj = {
+                      id: "",
+                      node_id: nId,
+                      name: "Ping",
+                      type: "ping",
+                      params: "",
+                      state: "unknown",
+                      level: "low",
+                      poll_int: 60,
+                      timeout: 1,
+                      retry: 1,
+                      log_mode: 0,
+                    };
+                    showAddPollingDialog = true;
+                  }}
+                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all cursor-pointer"
+                >
+                  <Activity class="h-3.5 w-3.5" />
+                  <span>{$_('nodeDetail.addPolling') || 'ポーリングを追加'}</span>
+                </button>
               </div>
-            {:else if diagnoseResult}
-              <!-- Probes Result Grid -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <!-- Ping Probe Card -->
-                <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm">
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="font-bold text-xs text-slate-800 dark:text-slate-200">ICMP / Ping Probe</span>
-                    {#if diagnoseResult.ping.success}
-                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        <CheckCircle2 class="h-3 w-3" />
-                        {$_('nodeDetail.probeSuccess')}
-                      </span>
-                    {:else}
-                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
-                        <AlertCircle class="h-3 w-3" />
-                        {$_('nodeDetail.probeFailed')}
-                      </span>
-                    {/if}
-                  </div>
-                  <div class="space-y-1.5 text-[11px] font-mono">
-                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                      <span>{$_('nodeDetail.pingPackets')}:</span>
-                      <span>{diagnoseResult.ping.received} / {diagnoseResult.ping.sent}</span>
-                    </div>
-                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                      <span>{$_('nodeDetail.pingLoss')}:</span>
-                      <span class="{diagnoseResult.ping.loss > 0 ? 'text-rose-500 font-bold' : ''}">{diagnoseResult.ping.loss.toFixed(1)}%</span>
-                    </div>
-                    <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                      <span>{$_('nodeDetail.pingAvgRtt')}:</span>
-                      <span class="font-bold text-blue-600 dark:text-cyan-400">{diagnoseResult.ping.avgRtt.toFixed(2)} ms</span>
-                    </div>
-                    {#if diagnoseResult.ping.error}
-                      <p class="text-[10px] text-rose-500 font-sans mt-1">{diagnoseResult.ping.error}</p>
-                    {/if}
-                  </div>
-                </div>
-
-                <!-- SNMP Probe Card -->
-                <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm">
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="font-bold text-xs text-slate-800 dark:text-slate-200">SNMP Probe</span>
-                    {#if !diagnoseResult.snmp.configured}
-                      <span class="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                        {$_('nodeDetail.notConfigured')}
-                      </span>
-                    {:else if diagnoseResult.snmp.success}
-                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        <CheckCircle2 class="h-3 w-3" />
-                        {$_('nodeDetail.probeSuccess')}
-                      </span>
-                    {:else}
-                      <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
-                        <AlertCircle class="h-3 w-3" />
-                        {$_('nodeDetail.probeFailed')}
-                      </span>
-                    {/if}
-                  </div>
-                  <div class="space-y-1.5 text-[11px] font-mono">
-                    {#if diagnoseResult.snmp.configured}
-                      <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                        <span>RTT:</span>
-                        <span class="font-bold text-blue-600 dark:text-cyan-400">{diagnoseResult.snmp.rtt.toFixed(2)} ms</span>
-                      </div>
-                      {#if diagnoseResult.snmp.sysUpTime}
-                        <div class="flex justify-between text-slate-600 dark:text-slate-400">
-                          <span>UpTime:</span>
-                          <span class="truncate ml-2">{diagnoseResult.snmp.sysUpTime}</span>
-                        </div>
-                      {/if}
-                      {#if diagnoseResult.snmp.sysDescr}
-                        <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-1">
-                          {diagnoseResult.snmp.sysDescr}
-                        </div>
-                      {/if}
-                      {#if diagnoseResult.snmp.error}
-                        <p class="text-[10px] text-rose-500 font-sans mt-1">{diagnoseResult.snmp.error}</p>
-                      {/if}
-                    {:else}
-                      <p class="text-xs text-slate-400 font-sans">{$_('nodeDetail.snmpNotSupported')}</p>
-                    {/if}
-                  </div>
-                </div>
-
-                <!-- Web HTTP / HTTPS Probe Card -->
-                <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm">
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="font-bold text-xs text-slate-800 dark:text-slate-200">Web Ports (80 / 443)</span>
-                    <span class="text-[10px] text-slate-500">HTTP/HTTPS</span>
-                  </div>
-                  <div class="space-y-2 text-[11px] font-mono">
-                    <!-- HTTP 80 -->
-                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-1.5">
-                      <span class="text-slate-600 dark:text-slate-400">HTTP (80):</span>
-                      {#if diagnoseResult.web.http?.success}
-                        <span class="font-bold text-emerald-600 dark:text-emerald-400">{diagnoseResult.web.http.statusCode} ({diagnoseResult.web.http.rtt.toFixed(1)}ms)</span>
-                      {:else}
-                        <span class="text-slate-400">{$_('nodeDetail.noResponse')}</span>
-                      {/if}
-                    </div>
-
-                    <!-- HTTPS 443 -->
+            {:else}
+              <!-- Configured Polling Cards Grid (Matching current Probe Panels style) -->
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {#each nodePollings as p (p.id || (p as any).ID)}
+                  {@const card = getPollingCardData(p)}
+                  {@const pType = (p.type || (p as any).Type || "").toLowerCase()}
+                  <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-4 shadow-sm justify-between transition-all hover:border-slate-300 dark:hover:border-slate-700">
                     <div>
-                      <div class="flex items-center justify-between">
-                        <span class="text-slate-600 dark:text-slate-400">HTTPS (443):</span>
-                        {#if diagnoseResult.web.https?.success}
-                          <span class="font-bold text-emerald-600 dark:text-emerald-400">{diagnoseResult.web.https.statusCode} ({diagnoseResult.web.https.rtt.toFixed(1)}ms)</span>
+                      <!-- Card Header -->
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1.5 min-w-0 mr-2">
+                          {#if pType === 'ping'}
+                            <Activity class="h-4 w-4 text-emerald-500 shrink-0" />
+                          {:else if pType === 'snmp' || pType.startsWith('snmp')}
+                            <Server class="h-4 w-4 text-teal-500 shrink-0" />
+                          {:else if pType === 'http' || pType === 'https'}
+                            <Globe class="h-4 w-4 text-blue-500 shrink-0" />
+                          {:else if pType === 'gnmi'}
+                            <Radio class="h-4 w-4 text-cyan-500 shrink-0" />
+                          {:else}
+                            <Gauge class="h-4 w-4 text-indigo-500 shrink-0" />
+                          {/if}
+                          <span class="font-bold text-xs text-slate-800 dark:text-slate-200 truncate" title={p.name || (p as any).Name}>
+                            {p.name || (p as any).Name}
+                          </span>
+                          <span class="rounded px-1.5 py-0.5 text-[9px] font-mono uppercase bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">
+                            {pType}
+                          </span>
+                        </div>
+
+                        <!-- Status Badge -->
+                        {#if card.isNormal}
+                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+                            <CheckCircle2 class="h-3 w-3" />
+                            {getStateName(card.st)}
+                          </span>
+                        {:else if card.isCritical}
+                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 shrink-0">
+                            <AlertCircle class="h-3 w-3" />
+                            {getStateName(card.st)}
+                          </span>
                         {:else}
-                          <span class="text-slate-400">{$_('nodeDetail.noResponse')}</span>
+                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 shrink-0">
+                            <AlertCircle class="h-3 w-3" />
+                            {getStateName(card.st)}
+                          </span>
                         {/if}
                       </div>
-                      {#if diagnoseResult.web.https?.certIssuer}
-                        <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                          Issuer: {diagnoseResult.web.https.certIssuer}
-                          {#if diagnoseResult.web.https.remainingDays !== undefined}
-                            <span class="ml-1 {diagnoseResult.web.https.remainingDays < 30 ? 'text-amber-500 font-bold' : ''}">
-                              ({diagnoseResult.web.https.remainingDays} days left)
-                            </span>
-                          {/if}
+
+                      <!-- Card Details -->
+                      <div class="space-y-1.5 text-[11px] font-mono mt-2">
+                        {#if card.rttMs !== null}
+                          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                            <span>RTT:</span>
+                            <span class="font-bold text-blue-600 dark:text-cyan-400">{card.rttMs} ms</span>
+                          </div>
+                        {/if}
+
+                        {#if card.statusCode !== undefined}
+                          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                            <span>Status Code:</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400">{card.statusCode}</span>
+                          </div>
+                        {/if}
+
+                        {#if card.certDays !== undefined}
+                          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                            <span>Cert Left:</span>
+                            <span class="{card.certDays < 30 ? 'text-amber-500 font-bold' : 'text-slate-700 dark:text-slate-300'}">{card.certDays} days</span>
+                          </div>
+                        {/if}
+
+                        {#if card.ttl !== undefined}
+                          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                            <span>TTL:</span>
+                            <span>{card.ttl}</span>
+                          </div>
+                        {/if}
+
+                        {#if card.sysUpTime}
+                          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+                            <span>UpTime:</span>
+                            <span class="truncate ml-2">{card.sysUpTime}</span>
+                          </div>
+                        {/if}
+
+                        <div class="flex justify-between text-slate-500 dark:text-slate-400 text-[10px]">
+                          <span>{$_('nodeDetail.pollingLastTime') || '最終実行'}:</span>
+                          <span>{card.lastTimeStr}</span>
                         </div>
-                      {/if}
+
+                        {#if card.errorMsg}
+                          <p class="text-[10px] text-rose-500 font-sans mt-1 line-clamp-2">
+                            {card.errorMsg}
+                          </p>
+                        {:else if card.message}
+                          <p class="text-[10px] text-slate-500 dark:text-slate-400 font-sans mt-1 truncate">
+                            {card.message}
+                          </p>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <!-- Card Footer Actions -->
+                    <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[10px]">
+                      <span class="text-slate-400 font-mono">
+                        {p.params || (p as any).Params || '-'}
+                      </span>
+                      <button
+                        type="button"
+                        onclick={() => handleViewPolling(p)}
+                        class="text-blue-600 dark:text-cyan-400 hover:underline font-semibold cursor-pointer"
+                      >
+                        {$_('nodeDetail.openPollingDetail') || '詳細'} &rarr;
+                      </button>
                     </div>
                   </div>
-                </div>
+                {/each}
               </div>
             {/if}
           </div>
@@ -2251,6 +2340,14 @@
     polling={detailPolling}
     {node}
     onEdit={(p) => handleEditPolling(p)}
+  />
+{/if}
+
+{#if showNodeEditDialog}
+  <NodeDialog
+    bind:show={showNodeEditDialog}
+    bind:node={node}
+    onSave={handleNodeSaved}
   />
 {/if}
 

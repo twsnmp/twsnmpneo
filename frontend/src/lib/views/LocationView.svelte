@@ -283,5 +283,6 @@
   <NodeDetailModal
     bind:show={showNodeDetail}
     node={selectedNode}
+    onNodeUpdated={refreshNodes}
   />
 {/if}

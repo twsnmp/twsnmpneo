@@ -365,5 +365,6 @@
     node={detailNode}
     bind:pollings={pollings}
     onPollingChanged={onRefresh}
+    onNodeUpdated={onRefresh}
   />
 {/if}

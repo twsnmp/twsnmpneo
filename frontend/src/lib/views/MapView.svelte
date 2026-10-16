@@ -1203,6 +1203,7 @@
     bind:pollings={pollings}
     logs={eventLogs}
     onPollingChanged={reloadAllData}
+    onNodeUpdated={reloadAllData}
   />
   <NetworkReportDialog
     bind:show={showNetworkReport}
