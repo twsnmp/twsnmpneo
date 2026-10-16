@@ -58,6 +58,8 @@
     "confirm": "確認",
     "success": "成功",
     "error": "エラー",
+    "enabled": "有効",
+    "disabled": "無効",
     "warning": "警告",
     "info": "情報",
     "upload": "アップロード",
@@ -317,7 +319,17 @@
     "gnmiUser": "gNMIユーザー",
     "gnmiPassword": "gNMIパスワード",
     "saveSuccess": "ノード情報を保存しました",
-    "saveError": "ノードの保存に失敗しました"
+    "saveError": "ノードの保存に失敗しました",
+    "tabCredentials": "ノード認証情報",
+    "credentialsDesc": "EST、HTTP監視、SNMPv3等で共通利用される認証情報",
+    "tabProtocols": "プロトコル設定",
+    "enableSnmp": "SNMP設定を有効にする",
+    "enableSsh": "SSH設定を有効にする",
+    "enableGnmi": "gNMI設定を有効にする",
+    "urlList": "Web URL（複数設定可）",
+    "addUrl": "URLを追加",
+    "openUrl": "ブラウザで開く",
+    "removeUrl": "削除"
   },
   "config": {
     "title": "システム環境設定",

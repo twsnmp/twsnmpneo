@@ -58,6 +58,8 @@
     "confirm": "Confirm",
     "success": "Success",
     "error": "Error",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
     "warning": "Warning",
     "info": "Info",
     "upload": "Upload",
@@ -317,7 +319,17 @@
     "gnmiUser": "gNMI User",
     "gnmiPassword": "gNMI Password",
     "saveSuccess": "Node saved successfully",
-    "saveError": "Failed to save node"
+    "saveError": "Failed to save node",
+    "tabCredentials": "Node Credentials",
+    "credentialsDesc": "Shared credentials for EST, HTTP polling, SNMPv3, etc.",
+    "tabProtocols": "Protocol Settings",
+    "enableSnmp": "Enable SNMP",
+    "enableSsh": "Enable SSH",
+    "enableGnmi": "Enable gNMI",
+    "urlList": "Web URLs (Multiple allowed)",
+    "addUrl": "Add URL",
+    "openUrl": "Open in browser",
+    "removeUrl": "Remove"
   },
   "config": {
     "title": "System Configuration",
