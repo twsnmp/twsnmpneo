@@ -40,6 +40,7 @@ func (m *Manager) StartHTTPServer() {
 	m.httpServer = echo.New()
 	m.httpServer.HideBanner = true
 	m.httpServer.HidePort = true
+	m.registerHTTPServerRoutes(m.httpServer)
 
 	port := m.conf.HTTPPort
 	if m.store != nil {
@@ -84,7 +85,7 @@ func (m *Manager) stopHTTPServerLocked() {
 	}
 }
 
-func (m *Manager) httpServerFunc(e *echo.Echo, port int) {
+func (m *Manager) registerHTTPServerRoutes(e *echo.Echo) {
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 
@@ -125,7 +126,9 @@ func (m *Manager) httpServerFunc(e *echo.Echo, port int) {
 	e.POST("/scep", func(c echo.Context) error {
 		return m.scepFunc(c)
 	})
+}
 
+func (m *Manager) httpServerFunc(e *echo.Echo, port int) {
 	if err := e.Start(fmt.Sprintf(":%d", port)); err != nil && err != http.ErrServerClosed {
 		m.mu.Lock()
 		m.lastHTTPServerErr = err

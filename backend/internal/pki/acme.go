@@ -155,8 +155,17 @@ func (m *Manager) StartAcmeServer() {
 	m.acmeServer = echo.New()
 	m.acmeServer.HideBanner = true
 	m.acmeServer.HidePort = true
+	m.registerAcmeRoutes(m.acmeServer)
 
 	port := m.conf.AcmePort
+	tlsCert, err := tls.X509KeyPair([]byte(m.conf.AcmeServerCert), []byte(m.conf.AcmeServerKey))
+	if err != nil {
+		m.acmeServerRunning = false
+		m.lastAcmeServerErr = err
+		slog.Error("PKI ACME parse keypair error", "error", err)
+		return
+	}
+
 	if m.store != nil {
 		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
 			Time:  time.Now().UnixNano(),
@@ -165,7 +174,7 @@ func (m *Manager) StartAcmeServer() {
 			Event: fmt.Sprintf(i18n.Trans("Started ACME server on port %d"), port),
 		})
 	}
-	go m.acmeServerFunc(m.acmeServer, port)
+	go m.acmeServerFunc(m.acmeServer, port, tlsCert)
 }
 
 // StopAcmeServer stops the ACME server.
@@ -463,7 +472,7 @@ type revokeReqest struct {
 	ReasonCode  *int   `json:"reason,omitempty"`
 }
 
-func (m *Manager) acmeServerFunc(e *echo.Echo, port int) {
+func (m *Manager) registerAcmeRoutes(e *echo.Echo) {
 	e.Use(middleware.Recover())
 
 	e.GET("/directory", func(c echo.Context) error {
@@ -1018,17 +1027,9 @@ func (m *Manager) acmeServerFunc(e *echo.Echo, port int) {
 	})
 
 	m.registerESTRoutes(e)
+}
 
-	tlsCert, err := tls.X509KeyPair([]byte(m.conf.AcmeServerCert), []byte(m.conf.AcmeServerKey))
-	if err != nil {
-		m.mu.Lock()
-		m.acmeServerRunning = false
-		m.lastAcmeServerErr = err
-		m.mu.Unlock()
-		slog.Error("PKI ACME parse keypair error", "error", err)
-		return
-	}
-
+func (m *Manager) acmeServerFunc(e *echo.Echo, port int, tlsCert tls.Certificate) {
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		TLSConfig: &tls.Config{
