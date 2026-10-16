@@ -490,7 +490,7 @@
         <div class="flex flex-wrap items-center gap-2.5">
           <!-- CA Certificates & CRL Downloads -->
           <a
-            href="/ca.pem"
+            href="/api/pki/ca.pem"
             download="root-ca.pem"
             class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
             title={$_("pki.downloadRootCATitle")}
@@ -499,7 +499,7 @@
             <span>Root CA</span>
           </a>
           <a
-            href="/scepca.pem"
+            href="/api/pki/scepca.pem"
             download="scep-ca.pem"
             class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
             title={$_("pki.downloadScepCATitle")}
@@ -508,7 +508,7 @@
             <span>SCEP CA</span>
           </a>
           <a
-            href="/crl"
+            href="/api/pki/crl"
             download="ca.crl"
             class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
             title={$_("pki.downloadCRLTitle")}
@@ -668,6 +668,8 @@
                         <span class="ml-1.5 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200">SCEP</span>
                       {:else if cert.Type === "acme"}
                         <span class="ml-1.5 rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-800 dark:bg-purple-900/60 dark:text-purple-200">ACME</span>
+                      {:else if cert.Type === "est"}
+                        <span class="ml-1.5 rounded bg-teal-100 px-1.5 py-0.5 text-[9px] font-bold text-teal-800 dark:bg-teal-900/60 dark:text-teal-200">EST</span>
                       {/if}
                     </td>
                     <td class="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-400">{cert.Node || "-"}</td>
@@ -689,7 +691,7 @@
                             type="button"
                             title={$_("pki.revokeCertTitle")}
                             onclick={() => handleRevokeCert(cert)}
-                            class="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                            class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                           >
                             <Trash2 class="h-3.5 w-3.5" />
                           </button>

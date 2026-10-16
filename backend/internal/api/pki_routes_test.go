@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"mime/multipart"
 	"net/http"
@@ -110,6 +111,43 @@ func TestPKIAPIRoutes(t *testing.T) {
 	echo.ServeHTTP(rec, authedReq(http.MethodGet, "/api/pki/hasCA", nil))
 	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "true" {
 		t.Fatalf("expected hasCA true, got %s", rec.Body.String())
+	}
+
+	// 4a. Verify CA and CRL downloads (both unauthenticated public endpoints and root aliases)
+	testEndpoints := []struct {
+		url          string
+		expectedType string
+		isCert       bool
+	}{
+		{"/api/pki/ca.pem", "application/x-pem-file", true},
+		{"/ca.pem", "application/x-pem-file", true},
+		{"/api/pki/scepca.pem", "application/x-pem-file", true},
+		{"/scepca.pem", "application/x-pem-file", true},
+		{"/api/pki/crl", "application/pkix-crl", false},
+		{"/crl", "application/pkix-crl", false},
+		{"/api/pki/crl.pem", "application/x-pem-file", false},
+		{"/crl.pem", "application/x-pem-file", false},
+	}
+	for _, ep := range testEndpoints {
+		req := httptest.NewRequest(http.MethodGet, ep.url, nil)
+		rec = httptest.NewRecorder()
+		echo.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("endpoint %s returned HTTP %d: %s", ep.url, rec.Code, rec.Body.String())
+		}
+		if ctype := rec.Header().Get("Content-Type"); !strings.Contains(ctype, ep.expectedType) {
+			t.Fatalf("endpoint %s expected content type %s, got %s", ep.url, ep.expectedType, ctype)
+		}
+		if ep.isCert {
+			certPEM := rec.Body.Bytes()
+			if !strings.Contains(string(certPEM), "BEGIN CERTIFICATE") {
+				t.Fatalf("endpoint %s did not return valid PEM certificate", ep.url)
+			}
+			pool := x509.NewCertPool()
+			if !pool.AppendCertsFromPEM(certPEM) {
+				t.Fatalf("endpoint %s certificate could not be added to x509 cert pool", ep.url)
+			}
+		}
 	}
 
 	// 5. Create CSR (ZIP download)

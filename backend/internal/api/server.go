@@ -115,7 +115,11 @@ func NewServer(cfg Config) (*Server, error) {
 				path == "/api/logout" || reqPath == "/api/logout" ||
 				path == "/api/health" || reqPath == "/api/health" ||
 				(cfg.MCPServer != nil && cfg.MCPServer.Mode() != "auth" && (strings.HasPrefix(path, "/api/mcp") || strings.HasPrefix(reqPath, "/api/mcp"))) ||
-				strings.HasPrefix(path, "/api/notify/oauth2") || strings.HasPrefix(reqPath, "/api/notify/oauth2") {
+				strings.HasPrefix(path, "/api/notify/oauth2") || strings.HasPrefix(reqPath, "/api/notify/oauth2") ||
+				path == "/api/pki/ca.pem" || reqPath == "/api/pki/ca.pem" ||
+				path == "/api/pki/scepca.pem" || reqPath == "/api/pki/scepca.pem" ||
+				path == "/api/pki/crl" || reqPath == "/api/pki/crl" ||
+				path == "/api/pki/crl.pem" || reqPath == "/api/pki/crl.pem" {
 				return next(c)
 			}
 			if authMgr == nil {
@@ -412,6 +416,40 @@ func NewServer(cfg Config) (*Server, error) {
 	}
 	if cfg.PKI != nil {
 		registerPKIRoutes(apiGroup, cfg.PKI, cfg.Store)
+
+		// Root-level convenience endpoints for PKI artifacts
+		e.GET("/ca.pem", func(c echo.Context) error {
+			if !cfg.PKI.IsCAValid() {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
+			}
+			c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
+			c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="ca.pem"`)
+			return c.Blob(http.StatusOK, "application/x-pem-file", []byte(cfg.PKI.GetCACertPEM()))
+		})
+		e.GET("/scepca.pem", func(c echo.Context) error {
+			if !cfg.PKI.IsCAValid() {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
+			}
+			c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
+			c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="scepca.pem"`)
+			return c.Blob(http.StatusOK, "application/x-pem-file", []byte(cfg.PKI.GetSCEPCACertPEM()))
+		})
+		e.GET("/crl", func(c echo.Context) error {
+			if !cfg.PKI.IsCAValid() {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
+			}
+			c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
+			c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="ca.crl"`)
+			return c.Blob(http.StatusOK, "application/pkix-crl", cfg.PKI.GetCRL())
+		})
+		e.GET("/crl.pem", func(c echo.Context) error {
+			if !cfg.PKI.IsCAValid() {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
+			}
+			c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
+			c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="crl.pem"`)
+			return c.Blob(http.StatusOK, "application/x-pem-file", cfg.PKI.GetCRLPEM())
+		})
 	}
 	apiGroup.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]any{

@@ -722,5 +722,36 @@ func TestStore_CustomIcons(t *testing.T) {
 	}
 }
 
+func TestStore_PKIConf_SerialAutoCorrection(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 1. Save PKIConf with Serial = 100
+	conf := datastore.DefaultPKIConf()
+	conf.Serial = 100
+	if err := store.SavePKIConf(ctx, &conf); err != nil {
+		t.Fatalf("SavePKIConf: %v", err)
+	}
+
+	// 2. Save a certificate with a higher hex serial (0x200 = 512)
+	cert := &datastore.PKICertEnt{
+		ID:      "200",
+		Subject: "CN=test",
+	}
+	if err := store.SavePKICert(ctx, cert); err != nil {
+		t.Fatalf("SavePKICert: %v", err)
+	}
+
+	// 3. GetPKIConf should automatically correct Serial to 513
+	loaded, err := store.GetPKIConf(ctx)
+	if err != nil {
+		t.Fatalf("GetPKIConf: %v", err)
+	}
+	if loaded.Serial != 513 {
+		t.Fatalf("expected Serial to be adjusted to 513, got %d", loaded.Serial)
+	}
+}
+
 
 

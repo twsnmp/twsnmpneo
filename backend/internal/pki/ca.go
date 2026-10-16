@@ -559,12 +559,40 @@ func (m *Manager) createCertificateFromCSR(csrBytes []byte, certType string, inf
 		DNSNames:              csr.DNSNames,
 		EmailAddresses:        csr.EmailAddresses,
 		IPAddresses:           csr.IPAddresses,
+		URIs:                  csr.URIs,
 		ExtraExtensions:       csr.Extensions,
 		IsCA:                  false,
 		MaxPathLen:            0,
 		BasicConstraintsValid: true,
 		CRLDistributionPoints: []string{},
 		OCSPServer:            []string{},
+	}
+	if csr.Subject.CommonName != "" {
+		if ip := net.ParseIP(csr.Subject.CommonName); ip != nil {
+			found := false
+			for _, existing := range tmp.IPAddresses {
+				if existing.Equal(ip) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				tmp.IPAddresses = append(tmp.IPAddresses, ip)
+			}
+		}
+	}
+	if pid, ok := info["PermanentIdentifier"]; ok && pid != "" {
+		if ext, err := buildPermanentIdentifierSANExt(pid, tmp.DNSNames, tmp.IPAddresses); err == nil {
+			oidSAN := asn1.ObjectIdentifier{2, 5, 29, 17}
+			filtered := make([]pkix.Extension, 0, len(tmp.ExtraExtensions)+1)
+			for _, e := range tmp.ExtraExtensions {
+				if !e.Id.Equal(oidSAN) {
+					filtered = append(filtered, e)
+				}
+			}
+			filtered = append(filtered, ext)
+			tmp.ExtraExtensions = filtered
+		}
 	}
 	for _, san := range strings.Split(m.conf.SANs, ",") {
 		san = strings.TrimSpace(san)
@@ -613,71 +641,221 @@ func (m *Manager) createCertificateFromCSR(csrBytes []byte, certType string, inf
 	return ret, certID, nil
 }
 
-func (m *Manager) checkCSR(certType string, csr *x509.CertificateRequest, info map[string]string) (string, error) {
-	if m.store == nil {
-		return "", nil
+// buildPermanentIdentifierSANExt builds a SubjectAlternativeName extension (OID 2.5.29.17)
+// including RFC 4043 PermanentIdentifier (OID 1.3.6.1.5.5.7.8.3) alongside any DNSNames and IPAddresses.
+func buildPermanentIdentifierSANExt(pid string, dnsNames []string, ips []net.IP) (pkix.Extension, error) {
+	type asn1PermanentIdentifier struct {
+		IdentifierValue string                `asn1:"utf8,optional"`
+		Assigner        asn1.ObjectIdentifier `asn1:"optional"`
 	}
-	var node *datastore.NodeEnt
-	for _, n := range csr.DNSNames {
+	type otherName struct {
+		TypeID asn1.ObjectIdentifier
+		Value  asn1.RawValue
+	}
+	piBytes, err := asn1.Marshal(asn1PermanentIdentifier{
+		IdentifierValue: pid,
+	})
+	if err != nil {
+		return pkix.Extension{}, err
+	}
+	onBytes, err := asn1.Marshal(otherName{
+		TypeID: asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 8, 3},
+		Value: asn1.RawValue{
+			Class:      asn1.ClassContextSpecific,
+			Tag:        0,
+			IsCompound: true,
+			Bytes:      piBytes,
+		},
+	})
+	if err != nil {
+		return pkix.Extension{}, err
+	}
+	// Replace outer Universal SEQUENCE tag (0x30) with Context-Specific [0] IMPLICIT (0xA0) for GeneralName otherName
+	if len(onBytes) > 0 && onBytes[0] == 0x30 {
+		onBytes[0] = 0xa0
+	}
+	rawValues := []asn1.RawValue{
+		{FullBytes: onBytes},
+	}
+	for _, name := range dnsNames {
+		rawValues = append(rawValues, asn1.RawValue{Tag: 2, Class: asn1.ClassContextSpecific, Bytes: []byte(name)})
+	}
+	for _, ip := range ips {
+		if ip4 := ip.To4(); ip4 != nil {
+			ip = ip4
+		}
+		rawValues = append(rawValues, asn1.RawValue{Tag: 7, Class: asn1.ClassContextSpecific, Bytes: ip})
+	}
+	sanBytes, err := asn1.Marshal(rawValues)
+	if err != nil {
+		return pkix.Extension{}, err
+	}
+	return pkix.Extension{
+		Id:       asn1.ObjectIdentifier{2, 5, 29, 17},
+		Critical: false,
+		Value:    sanBytes,
+	}, nil
+}
+
+func (m *Manager) findNodeFromDNSName(name string) *datastore.NodeEnt {
+	if name == "" || m.store == nil {
+		return nil
+	}
+	var ret *datastore.NodeEnt
+	m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+		if strings.EqualFold(cand.Name, name) {
+			ret = cand
+			return false
+		}
+		return true
+	})
+	if ret != nil {
+		return ret
+	}
+	// Wildcard domain support (e.g. *.example.com -> match example.com or *.example.com suffix)
+	if strings.HasPrefix(name, "*.") {
+		baseDomain := strings.TrimPrefix(name, "*.")
 		m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
-			if strings.EqualFold(cand.Name, n) {
-				node = cand
+			if strings.EqualFold(cand.Name, baseDomain) {
+				ret = cand
 				return false
 			}
 			return true
 		})
-		if node != nil {
-			break
+		if ret != nil {
+			return ret
+		}
+		suffix := "." + strings.ToLower(baseDomain)
+		m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+			if strings.HasSuffix(strings.ToLower(cand.Name), suffix) {
+				ret = cand
+				return false
+			}
+			return true
+		})
+		return ret
+	}
+	return nil
+}
+
+func (m *Manager) findNodeFromIPAddr(ip net.IP) *datastore.NodeEnt {
+	if ip == nil || m.store == nil {
+		return nil
+	}
+	var ret *datastore.NodeEnt
+	if ipv4 := ip.To4(); ipv4 != nil {
+		ipStr := ipv4.String()
+		m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+			if cand.IP == ipStr {
+				ret = cand
+				return false
+			}
+			return true
+		})
+		if ret != nil {
+			return ret
+		}
+	}
+	ipStr := ip.String()
+	m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+		if cand.IP == ipStr {
+			ret = cand
+			return false
+		}
+		if nIP := net.ParseIP(cand.IP); nIP != nil && nIP.Equal(ip) {
+			ret = cand
+			return false
+		}
+		return true
+	})
+	return ret
+}
+
+func (m *Manager) findNodeFromPermanentIdentifier(pid string) *datastore.NodeEnt {
+	if pid == "" || m.store == nil {
+		return nil
+	}
+	var ret *datastore.NodeEnt
+	m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+		if strings.EqualFold(cand.Name, pid) {
+			ret = cand
+			return false
+		}
+		return true
+	})
+	if ret != nil {
+		return ret
+	}
+	m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+		if strings.EqualFold(cand.Name, pid) ||
+			strings.Contains(cand.Descr, pid) ||
+			strings.Contains(cand.PublicKey, pid) {
+			ret = cand
+			return false
+		}
+		return true
+	})
+	return ret
+}
+
+func (m *Manager) findNodeForCSR(csr *x509.CertificateRequest, info map[string]string) *datastore.NodeEnt {
+	if m.store == nil {
+		return nil
+	}
+	var node *datastore.NodeEnt
+	if pid, ok := info["PermanentIdentifier"]; ok && pid != "" {
+		node = m.findNodeFromPermanentIdentifier(pid)
+	}
+	if node == nil {
+		for _, n := range csr.DNSNames {
+			if node = m.findNodeFromDNSName(n); node != nil {
+				break
+			}
 		}
 	}
 	if node == nil {
 		for _, ip := range csr.IPAddresses {
-			if ipv4 := ip.To4(); ipv4 != nil {
-				m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
-					if cand.IP == ipv4.String() {
-						node = cand
-						return false
-					}
-					return true
-				})
-				if node != nil {
-					break
-				}
+			if node = m.findNodeFromIPAddr(ip); node != nil {
+				break
 			}
 		}
 		if node == nil {
-			m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
-				if strings.EqualFold(cand.Name, csr.Subject.CommonName) {
-					node = cand
-					return false
-				}
-				return true
-			})
+			if ip := net.ParseIP(csr.Subject.CommonName); ip != nil {
+				node = m.findNodeFromIPAddr(ip)
+			} else {
+				node = m.findNodeFromDNSName(csr.Subject.CommonName)
+			}
 			if node == nil {
-				if remoteIP, ok := info["RemoteAddr"]; ok && remoteIP != "" {
-					m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
-						if cand.IP == remoteIP {
-							node = cand
-							return false
-						}
-						return true
-					})
+				if ipStr, ok := info["RemoteAddr"]; ok && ipStr != "" {
+					if ip := net.ParseIP(ipStr); ip != nil {
+						node = m.findNodeFromIPAddr(ip)
+					} else {
+						m.store.ForEachNodes(func(cand *datastore.NodeEnt) bool {
+							if cand.IP == ipStr {
+								node = cand
+								return false
+							}
+							return true
+						})
+					}
 				}
 			}
 		}
 	}
+	return node
+}
+
+func (m *Manager) checkCSR(certType string, csr *x509.CertificateRequest, info map[string]string) (string, error) {
+	node := m.findNodeForCSR(csr, info)
+	if node == nil {
+		return "", fmt.Errorf("node not found")
+	}
 	if certType == "scep" {
-		if node == nil {
-			return "", fmt.Errorf("node not found")
-		}
 		if p, ok := info["ChallengePassword"]; !ok || p == "" || node.Password != p {
 			return "", fmt.Errorf("challenge password mismatch")
 		}
 	}
-	if node != nil {
-		return node.ID, nil
-	}
-	return "", nil
+	return node.ID, nil
 }
 
 type issuingDistributionPoint struct {
@@ -850,6 +1028,18 @@ func (m *Manager) GetCRL() []byte {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.crl
+}
+
+// GetCRLPEM returns the PEM-encoded CRL bytes.
+func (m *Manager) GetCRLPEM() []byte {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return makePEM(m.crl, "X509 CRL")
+}
+
+// MakePEM encodes bytes into a PEM block with the given type label.
+func MakePEM(b []byte, t string) []byte {
+	return makePEM(b, t)
 }
 
 // Helper functions for PEM encoding/decoding

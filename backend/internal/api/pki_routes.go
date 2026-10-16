@@ -229,6 +229,7 @@ func registerPKIRoutes(api *echo.Group, manager *pki.Manager, store datastore.Da
 		if manager == nil || !manager.IsCAValid() {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
 		}
+		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
 		c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="ca.pem"`)
 		return c.Blob(http.StatusOK, "application/x-pem-file", []byte(manager.GetCACertPEM()))
 	})
@@ -238,6 +239,7 @@ func registerPKIRoutes(api *echo.Group, manager *pki.Manager, store datastore.Da
 		if manager == nil || !manager.IsCAValid() {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
 		}
+		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
 		c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="scepca.pem"`)
 		return c.Blob(http.StatusOK, "application/x-pem-file", []byte(manager.GetSCEPCACertPEM()))
 	})
@@ -247,7 +249,18 @@ func registerPKIRoutes(api *echo.Group, manager *pki.Manager, store datastore.Da
 		if manager == nil || !manager.IsCAValid() {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
 		}
-		c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="crl.der"`)
+		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
+		c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="ca.crl"`)
 		return c.Blob(http.StatusOK, "application/pkix-crl", manager.GetCRL())
+	})
+
+	// CRL PEM download endpoint
+	group.GET("/crl.pem", func(c echo.Context) error {
+		if manager == nil || !manager.IsCAValid() {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "CA is not initialized"})
+		}
+		c.Response().Header().Set(echo.HeaderCacheControl, "max-age=0, no-cache")
+		c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="crl.pem"`)
+		return c.Blob(http.StatusOK, "application/x-pem-file", manager.GetCRLPEM())
 	})
 }

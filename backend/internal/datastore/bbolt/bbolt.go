@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2124,7 +2125,20 @@ func (s *Store) GetPKIConf(ctx context.Context) (*datastore.PKIConfEnt, error) {
 		if v == nil {
 			return nil
 		}
-		return json.Unmarshal(v, &conf)
+		if err := json.Unmarshal(v, &conf); err != nil {
+			return err
+		}
+		if bc := tx.Bucket(bucketCerts); bc != nil {
+			_ = bc.ForEach(func(k, _ []byte) error {
+				if sn, err := strconv.ParseInt(string(k), 16, 64); err == nil {
+					if sn >= conf.Serial {
+						conf.Serial = sn + 1
+					}
+				}
+				return nil
+			})
+		}
+		return nil
 	})
 	return &conf, err
 }

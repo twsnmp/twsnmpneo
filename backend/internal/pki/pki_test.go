@@ -108,6 +108,15 @@ func TestPKIManagerLifecycle(t *testing.T) {
 		t.Fatalf("missing csr.pem or key.pem in generated zip")
 	}
 
+	// Register managed node for CSR verification
+	if err := store.SaveNode(context.Background(), &datastore.NodeEnt{
+		ID:   "test-node-1",
+		Name: "node1.example.com",
+		IP:   "192.168.1.10",
+	}); err != nil {
+		t.Fatalf("SaveNode failed: %v", err)
+	}
+
 	// 3. Issue Certificate from CSR
 	crtPEM, err := manager.CreateCertificate(csrPEM)
 	if err != nil {
