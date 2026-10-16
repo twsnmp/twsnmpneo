@@ -641,7 +641,7 @@
               {:else}
                 {#each paginatedCerts as cert (cert.ID)}
                   <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                    <td class="whitespace-nowrap px-4 py-3">
+                    <td class="whitespace-nowrap px-2 py-1">
                       {#if cert.Status === "valid"}
                         <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
                           <ShieldCheck class="h-3 w-3" />
@@ -659,8 +659,8 @@
                         </span>
                       {/if}
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">{cert.ID}</td>
-                    <td class="max-w-xs truncate px-4 py-3 font-medium text-slate-800 dark:text-slate-200" title={cert.Subject}>
+                    <td class="whitespace-nowrap px-2 py-1 font-mono text-[11px] text-slate-600 dark:text-slate-300">{cert.ID}</td>
+                    <td class="max-w-xs truncate px-2 py-1 font-medium text-slate-800 dark:text-slate-200" title={cert.Subject}>
                       {cert.Subject}
                       {#if cert.Type === "system"}
                         <span class="ml-1.5 rounded bg-cyan-100 px-1.5 py-0.5 text-[9px] font-bold text-cyan-800 dark:bg-cyan-900/60 dark:text-cyan-200">SYSTEM</span>
@@ -672,12 +672,12 @@
                         <span class="ml-1.5 rounded bg-teal-100 px-1.5 py-0.5 text-[9px] font-bold text-teal-800 dark:bg-teal-900/60 dark:text-teal-200">EST</span>
                       {/if}
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-400">{cert.Node || "-"}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-400">{formatNanoTime(cert.Created)}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-400">{formatNanoTime(cert.Expire)}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-400">{formatNanoTime(cert.Revoked)}</td>
-                    <td class="whitespace-nowrap px-4 py-3 text-right">
-                      <div class="flex items-center justify-end gap-1.5">
+                    <td class="whitespace-nowrap px-2 py-1 text-slate-600 dark:text-slate-400">{cert.Node || "-"}</td>
+                    <td class="whitespace-nowrap px-2 py-1 text-slate-600 dark:text-slate-400">{formatNanoTime(cert.Created)}</td>
+                    <td class="whitespace-nowrap px-2 py-1 text-slate-600 dark:text-slate-400">{formatNanoTime(cert.Expire)}</td>
+                    <td class="whitespace-nowrap px-2 py-1 text-slate-600 dark:text-slate-400">{formatNanoTime(cert.Revoked)}</td>
+                    <td class="whitespace-nowrap px-2 py-0 text-right">
+                      <div class="flex items-center justify-end">
                         <button
                           type="button"
                           title={$_("pki.downloadCertTitle")}
