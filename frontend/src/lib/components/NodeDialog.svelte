@@ -6,11 +6,11 @@
   import { X, Save, Cpu, Shield, Key, Network, Globe, Plus, Trash2, ExternalLink, Eye, EyeOff, Terminal } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
 
-  let { show = $bindable(false), node = $bindable<NodeEnt | null>(null), onSave = () => {} } = $props<{
+  let { show = $bindable(false), node = $bindable<NodeEnt | null>(null), onSave = () => {} }: {
     show: boolean;
     node: NodeEnt | null;
     onSave?: (saved: NodeEnt) => void;
-  }>();
+  } = $props();
 
   // Basic Info
   let name = $state("");
@@ -496,12 +496,13 @@
                     type="button"
                     role="switch"
                     aria-checked={enableSnmp}
+                    aria-label="Toggle SNMP"
                     onclick={() => (enableSnmp = !enableSnmp)}
                     class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {enableSnmp ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-700'}"
                   >
                     <span
                       class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {enableSnmp ? 'translate-x-4' : 'translate-x-0'}"
-                    />
+                    ></span>
                   </button>
                 </div>
               </div>
@@ -568,12 +569,13 @@
                     type="button"
                     role="switch"
                     aria-checked={enableSsh}
+                    aria-label="Toggle SSH"
                     onclick={() => (enableSsh = !enableSsh)}
                     class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {enableSsh ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-700'}"
                   >
                     <span
                       class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {enableSsh ? 'translate-x-4' : 'translate-x-0'}"
-                    />
+                    ></span>
                   </button>
                 </div>
               </div>
@@ -623,12 +625,13 @@
                     type="button"
                     role="switch"
                     aria-checked={enableGnmi}
+                    aria-label="Toggle gNMI"
                     onclick={() => (enableGnmi = !enableGnmi)}
                     class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {enableGnmi ? 'bg-cyan-500' : 'bg-slate-300 dark:bg-slate-700'}"
                   >
                     <span
                       class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out {enableGnmi ? 'translate-x-4' : 'translate-x-0'}"
-                    />
+                    ></span>
                   </button>
                 </div>
               </div>

@@ -77,7 +77,7 @@
     initialTab = "basic",
     onPollingChanged = () => {},
     onNodeUpdated = () => {},
-  } = $props<{
+  }: {
     show: boolean;
     node: NodeEnt | null;
     pollings?: PollingEnt[];
@@ -85,7 +85,7 @@
     initialTab?: TabType;
     onPollingChanged?: () => void;
     onNodeUpdated?: (saved: NodeEnt) => void;
-  }>();
+  } = $props();
 
   type TabType = "basic" | "vpanel" | "ports" | "polling" | "logs" | "hostinfo" | "rmon" | "diagnose";
   let activeTab = $state<TabType>("basic");
@@ -706,7 +706,7 @@
     if (show && node) {
       untrack(() => {
         // Reset states
-        activeTab = initialTab;
+        activeTab = initialTab as TabType;
         realPorts = [];
         hostResource = null;
         isHostResourceLoaded = false;
@@ -1148,7 +1148,7 @@
                       {#if node.ip}
                         <button
                           type="button"
-                          onclick={() => copyToClipboard(node.ip, "ip")}
+                          onclick={() => copyToClipboard(node?.ip ?? "", "ip")}
                           class="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                         >
                           {#if copiedIP}
@@ -1175,7 +1175,7 @@
                       {#if node.mac}
                         <button
                           type="button"
-                          onclick={() => copyToClipboard(node.mac || "", "mac")}
+                          onclick={() => copyToClipboard(node?.mac ?? "", "mac")}
                           class="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                         >
                           {#if copiedMAC}
@@ -2339,7 +2339,7 @@
     bind:show={showPollingDetailModal}
     polling={detailPolling}
     {node}
-    onEdit={(p) => handleEditPolling(p)}
+    onEdit={(p: PollingEnt) => handleEditPolling(p)}
   />
 {/if}
 
@@ -2347,7 +2347,10 @@
   <NodeDialog
     bind:show={showNodeEditDialog}
     bind:node={node}
-    onSave={handleNodeSaved}
+    onSave={(saved: NodeEnt) => {
+      handleNodeSaved(saved);
+      showNodeEditDialog = false;
+    }}
   />
 {/if}
 
