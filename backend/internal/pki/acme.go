@@ -197,6 +197,7 @@ func (m *Manager) stopAcmeServerLocked() {
 	}()
 	if err := m.acmeServer.Shutdown(ctx); err != nil {
 		slog.Warn("PKI ACME server shutdown error", "error", err)
+		_ = m.acmeServer.Close()
 	}
 	if m.store != nil {
 		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{
@@ -1038,6 +1039,7 @@ func (m *Manager) acmeServerFunc(e *echo.Echo, port int, tlsCert tls.Certificate
 			MinVersion:   tls.VersionTLS12,
 		},
 	}
+	e.TLSServer = s
 
 	if err := e.StartServer(s); err != nil && err != http.ErrServerClosed {
 		m.mu.Lock()

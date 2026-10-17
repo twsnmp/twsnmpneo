@@ -74,6 +74,7 @@ func (m *Manager) stopHTTPServerLocked() {
 	}()
 	if err := m.httpServer.Shutdown(ctx); err != nil {
 		slog.Warn("PKI HTTP server shutdown error", "error", err)
+		_ = m.httpServer.Close()
 	}
 	if m.store != nil {
 		_ = m.store.AddEventLog(context.Background(), &datastore.EventLogEnt{

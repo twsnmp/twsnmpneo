@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net"
 	"net/http"
@@ -551,3 +552,85 @@ func TestACME_ErrorResponse_AndDynamicBaseURL(t *testing.T) {
 		t.Fatalf("expected error detail to mention account id, got %s", aErr.Detail)
 	}
 }
+
+func TestAcmeServerStopReleasesPort(t *testing.T) {
+	dir, err := os.MkdirTemp("", "twsnmpneo-acme-port-test-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := bbolt.New(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("bbolt.New: %v", err)
+	}
+	defer store.Close()
+
+	mgr, err := New(store)
+	if err != nil {
+		t.Fatalf("pki.New: %v", err)
+	}
+
+	testPort := 18094
+	err = mgr.CreateCA(&datastore.CreateCAReq{
+		Name:          "TestPortCA",
+		RootCAKeyType: "ecdsa-256",
+		AcmePort:      testPort,
+		AcmeBaseURL:   fmt.Sprintf("https://localhost:%d", testPort),
+	})
+	if err != nil {
+		t.Fatalf("CreateCA: %v", err)
+	}
+
+	mgr.StartAcmeServer()
+
+	addr := fmt.Sprintf("127.0.0.1:%d", testPort)
+	var connected bool
+	for i := 0; i < 20; i++ {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			connected = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !connected {
+		t.Fatalf("ACME server did not start on %s", addr)
+	}
+
+	mgr.StopAcmeServer()
+
+	var released bool
+	for i := 0; i < 20; i++ {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err != nil {
+			released = true
+			break
+		}
+		conn.Close()
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	if !released {
+		t.Fatalf("ACME server port %d was NOT released after StopAcmeServer()", testPort)
+	}
+
+	// Verify server can be restarted on the same port
+	mgr.StartAcmeServer()
+	connected = false
+	for i := 0; i < 20; i++ {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			connected = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !connected {
+		t.Fatalf("ACME server could not be restarted on %s", addr)
+	}
+	mgr.StopAcmeServer()
+}
+
