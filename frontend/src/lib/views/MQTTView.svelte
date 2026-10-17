@@ -846,6 +846,7 @@
                         {/if}
                       </td>
                     </tr>
+                  {:else}
                     {#each paginatedStats as s (s.ID)}
                       <tr
                         class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {selectedIds.has(s.ID) ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200' : ''}"
