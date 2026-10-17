@@ -230,6 +230,7 @@
           id="notify-interval"
           type="number"
           min={1}
+          max={1440}
           bind:value={notifyInterval}
           class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
         />
@@ -270,7 +271,7 @@
         id="notify-exec-cmd"
         type="text"
         bind:value={notifyExecCmd}
-        placeholder="/path/to/script.sh $level"
+        placeholder="script.sh $level"
         class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
       />
       <p class="text-[11px] text-slate-400 mt-1">{$_('config.notifyExecCmdDesc')}</p>
@@ -339,7 +340,12 @@
             <label for="notify-client-id" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('config.notifyClientID')}</label>
             <input
               id="notify-client-id"
+              name="oauth2-client-id"
               type="text"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
               bind:value={notifyClientID}
               class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
             />
@@ -348,7 +354,9 @@
             <label for="notify-client-secret" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">{$_('config.notifyClientSecret')}</label>
             <input
               id="notify-client-secret"
+              name="oauth2-client-secret"
               type="password"
+              autocomplete="new-password"
               bind:value={notifyClientSecret}
               class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
             />
@@ -398,7 +406,12 @@
           <label for="mail-user" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailUserLabel')}</label>
           <input
             id="mail-user"
+            name="smtp-mail-user"
             type="text"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
             bind:value={mailUser}
             placeholder="user@example.com"
             class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
@@ -408,7 +421,9 @@
           <label for="mail-pwd" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.mailPasswordLabel')}</label>
           <input
             id="mail-pwd"
+            name="smtp-mail-password"
             type="password"
+            autocomplete="new-password"
             bind:value={mailPassword}
             placeholder="••••••••"
             class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"

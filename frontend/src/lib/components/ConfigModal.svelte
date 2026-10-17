@@ -214,7 +214,7 @@
       if (nConf) {
         notifyProvider = nConf.Provider || "smtp";
         notifyLevel = nConf.Level || "warn";
-        notifyInterval = nConf.Interval ?? 60;
+        notifyInterval = nConf.Interval && nConf.Interval > 0 ? nConf.Interval : 60;
         notifySubject = nConf.Subject || "TWSNMP";
         mailServer = nConf.MailServer || "";
         mailFrom = nConf.MailFrom || "";

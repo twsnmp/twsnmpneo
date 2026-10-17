@@ -99,7 +99,9 @@
           <label for="snmp-pwd" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('node.snmpPassword')}</label>
           <input
             id="snmp-pwd"
+            name="snmp-v3-password"
             type="password"
+            autocomplete="new-password"
             bind:value={snmpPassword}
             class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
           />

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"go.etcd.io/bbolt"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -297,6 +298,11 @@ func (s *Store) loadCache() error {
 			}
 			if v := b.Get(keyNotifyConf); v != nil {
 				_ = json.Unmarshal(v, &s.notifyConf)
+				if s.notifyConf.Interval <= 0 {
+					s.notifyConf.Interval = 60
+				}
+			} else {
+				s.initDefaultNotifyConf()
 			}
 			if v := b.Get(keyLocConf); v != nil {
 				_ = json.Unmarshal(v, &s.locConf)
@@ -470,6 +476,16 @@ func (s *Store) initDefaultMapConf() {
 		FumbleThreshold: 10,
 		IconSize:        2,
 		LogFormat:       "parquet",
+	}
+}
+
+func (s *Store) initDefaultNotifyConf() {
+	s.notifyConf = datastore.NotifyConfEnt{
+		InsecureSkipVerify: true,
+		Interval:           60,
+		Subject:            i18n.Trans("Notify from TWSNMP"),
+		Level:              "none",
+		Provider:           "smtp",
 	}
 }
 

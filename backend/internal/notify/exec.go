@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -55,11 +54,14 @@ func ExecNotifyCmd(c string, level int) error {
 	return ExecNotifyCmdWithDir(dataDir, c, level)
 }
 
-// ExecNotifyCmdWithDir executes the notification command resolving files in dataDir/cmd.
+// ExecNotifyCmdWithDir executes the notification command resolving files strictly in dataDir/cmd.
 func ExecNotifyCmdWithDir(dataDir string, c string, level int) error {
 	cl := strings.Fields(c)
 	if len(cl) == 0 {
 		return fmt.Errorf("notify ExecCmd is empty")
+	}
+	if filepath.Base(cl[0]) != cl[0] {
+		return fmt.Errorf("notify ExecCmd has path")
 	}
 
 	strLevel := strconv.Itoa(level)
@@ -73,35 +75,22 @@ func ExecNotifyCmdWithDir(dataDir string, c string, level int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmdName := cl[0]
-	// Check if script or executable exists in dataDir/cmd or ./cmd
-	var targetCmd string
+	cmdDir := "cmd"
 	if dataDir != "" {
-		p := filepath.Join(dataDir, "cmd", cmdName)
-		if _, err := os.Stat(p); err == nil {
-			targetCmd = p
-		}
+		cmdDir = filepath.Join(dataDir, "cmd")
 	}
-	if targetCmd == "" {
-		p := filepath.Join("cmd", cmdName)
-		if _, err := os.Stat(p); err == nil {
-			targetCmd = p
-		}
-	}
+	targetCmd := filepath.Join(cmdDir, filepath.Base(cl[0]))
 
 	var cmd *exec.Cmd
-	if targetCmd != "" {
-		if strings.HasSuffix(targetCmd, ".sh") {
-			fullCmd := targetCmd + " " + strings.Join(cl[1:], " ")
-			cmd = exec.CommandContext(ctx, "/bin/sh", "-c", fullCmd)
+	if filepath.Ext(cl[0]) == ".sh" {
+		cl[0] = targetCmd
+		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", strings.Join(cl, " "))
+	} else {
+		if len(cl) == 1 {
+			cmd = exec.CommandContext(ctx, targetCmd)
 		} else {
 			cmd = exec.CommandContext(ctx, targetCmd, cl[1:]...)
 		}
-	} else if strings.HasSuffix(cmdName, ".sh") {
-		fullCmd := cmdName + " " + strings.Join(cl[1:], " ")
-		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", fullCmd)
-	} else {
-		cmd = exec.CommandContext(ctx, cmdName, cl[1:]...)
 	}
 
 	cmd.WaitDelay = 5 * time.Second

@@ -74,7 +74,11 @@ func (m *Manager) getNotifyConf() datastore.NotifyConfEnt {
 	if err != nil || conf == nil {
 		return datastore.NotifyConfEnt{Interval: 60}
 	}
-	return *conf
+	res := *conf
+	if res.Interval <= 0 {
+		res.Interval = 60
+	}
+	return res
 }
 
 func (m *Manager) getMonitorData() []*monitor.MonitorDataEnt {

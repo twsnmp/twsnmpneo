@@ -167,7 +167,9 @@
         <label for="llm-key" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.aiApiKey')}</label>
         <input
           id="llm-key"
+          name="ai-api-key"
           type="password"
+          autocomplete="new-password"
           bind:value={llmApiKey}
           placeholder="{llmProvider.toUpperCase()} {$_('config.aiApiKeyPlaceholder')}"
           class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
