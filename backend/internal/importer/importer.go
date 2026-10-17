@@ -135,6 +135,21 @@ func CopyFCAssets(srcDir, destDir string) ([]string, error) {
 		}
 	}
 
+	// 6. Copy cert.pem and key.pem (if existing server TLS certificate present in FC)
+	for _, certFile := range []string{"cert.pem", "key.pem"} {
+		srcFile := filepath.Join(srcDir, certFile)
+		if fi, err := os.Stat(srcFile); err == nil && !fi.IsDir() {
+			dstFile := filepath.Join(destDir, certFile)
+			perm := os.FileMode(0644)
+			if certFile == "key.pem" {
+				perm = 0600
+			}
+			if err := copySingleFile(srcFile, dstFile, perm); err == nil {
+				copied = append(copied, certFile)
+			}
+		}
+	}
+
 	return copied, nil
 }
 

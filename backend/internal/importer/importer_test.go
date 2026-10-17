@@ -170,6 +170,10 @@ func createMockFCDataDir(t *testing.T) string {
 	_ = os.MkdirAll(cmdDir, 0755)
 	_ = os.WriteFile(filepath.Join(cmdDir, "check_status.sh"), []byte("#!/bin/sh\nexit 0\n"), 0755)
 
+	// Mock cert.pem and key.pem
+	_ = os.WriteFile(filepath.Join(dir, "cert.pem"), []byte("-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----\n"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "key.pem"), []byte("-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----\n"), 0600)
+
 	return dir
 }
 
@@ -295,6 +299,14 @@ func TestRunFCMigration(t *testing.T) {
 		t.Errorf("cmd/check_status.sh not copied: %v", err)
 	} else if info.Mode()&0111 == 0 {
 		t.Errorf("cmd/check_status.sh did not preserve execute permission: %v", info.Mode())
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "cert.pem")); err != nil {
+		t.Errorf("cert.pem not copied: %v", err)
+	}
+	if info, err := os.Stat(filepath.Join(destDir, "key.pem")); err != nil {
+		t.Errorf("key.pem not copied: %v", err)
+	} else if info.Mode().Perm() != 0600 {
+		t.Errorf("key.pem expected 0600 permissions, got %v", info.Mode().Perm())
 	}
 
 	// Test overwriting existing destination with and without Force

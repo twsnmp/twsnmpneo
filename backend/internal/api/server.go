@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/auth"
+	"github.com/twsnmp/twsnmpneo/backend/internal/certmgr"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/diagnose"
@@ -41,13 +42,17 @@ import (
 )
 
 type Server struct {
-	echo      *echo.Echo
-	port      int
-	store     datastore.DataStore
-	logStore  *parquet.Store
-	mcpServer *ai.MCPServer
-	pki       *pki.Manager
-	authMgr   *auth.Manager
+	echo       *echo.Echo
+	port       int
+	store      datastore.DataStore
+	logStore   *parquet.Store
+	mcpServer  *ai.MCPServer
+	pki        *pki.Manager
+	authMgr    *auth.Manager
+	certMgr    *certmgr.Manager
+	httpPort   int
+	useTLS     bool
+	httpServer *http.Server
 }
 
 type ArpManager interface {
@@ -71,6 +76,9 @@ type Config struct {
 	PollingManager *polling.Manager
 	Receivers      map[string]any
 	AuthManager    *auth.Manager
+	CertManager    *certmgr.Manager
+	HTTPPort       int
+	UseTLS         bool
 }
 
 func NewServer(cfg Config) (*Server, error) {
@@ -2969,14 +2977,23 @@ func NewServer(cfg Config) (*Server, error) {
 		})))
 	}
 
+	if cfg.CertManager != nil {
+		apiGroup.GET("/cert/status", func(c echo.Context) error {
+			return c.JSON(http.StatusOK, cfg.CertManager.GetStatus())
+		})
+	}
+
 	return &Server{
-		echo:      e,
-		port:      cfg.Port,
-		store:     cfg.Store,
-		logStore:  cfg.LogStore,
-		mcpServer: cfg.MCPServer,
-		pki:       cfg.PKI,
-		authMgr:   authMgr,
+		echo:       e,
+		port:       cfg.Port,
+		store:      cfg.Store,
+		logStore:   cfg.LogStore,
+		mcpServer:  cfg.MCPServer,
+		pki:        cfg.PKI,
+		authMgr:    authMgr,
+		certMgr:    cfg.CertManager,
+		httpPort:   cfg.HTTPPort,
+		useTLS:     cfg.UseTLS,
 	}, nil
 }
 
@@ -3015,18 +3032,68 @@ func notifyOAuth2RedirectURL(c echo.Context) (string, error) {
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	addr := fmt.Sprintf(":%d", s.port)
-	slog.Info("Starting HTTP Web/API server", "addr", addr)
+	errCh := make(chan error, 2)
 
-	errCh := make(chan error, 1)
-	go func() {
-		if err := s.echo.Start(addr); err != nil && err != http.ErrServerClosed {
-			errCh <- err
+	if s.useTLS && s.certMgr != nil {
+		addr := fmt.Sprintf(":%d", s.port)
+		slog.Info("Starting HTTPS Web/API server", "addr", addr)
+
+		s.echo.TLSServer = &http.Server{
+			Addr:      addr,
+			Handler:   s.echo,
+			TLSConfig: s.certMgr.GetTLSConfig(),
 		}
-	}()
+
+		go func() {
+			if err := s.echo.StartServer(s.echo.TLSServer); err != nil && err != http.ErrServerClosed {
+				errCh <- err
+			}
+		}()
+
+		// Start HTTP redirect & challenge handler if httpPort > 0
+		if s.httpPort > 0 && s.httpPort != s.port {
+			httpAddr := fmt.Sprintf(":%d", s.httpPort)
+			slog.Info("Starting HTTP challenge/redirect server", "addr", httpAddr)
+			httpMux := http.NewServeMux()
+			httpMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				if s.certMgr.GetHTTP01Provider().ServeHTTP(w, r) {
+					return
+				}
+				host := r.Host
+				if h, _, err := net.SplitHostPort(host); err == nil {
+					host = h
+				}
+				target := "https://" + host
+				if s.port != 443 {
+					target += fmt.Sprintf(":%d", s.port)
+				}
+				target += r.URL.RequestURI()
+				http.Redirect(w, r, target, http.StatusMovedPermanently)
+			})
+			s.httpServer = &http.Server{
+				Addr:    httpAddr,
+				Handler: httpMux,
+			}
+			go func() {
+				if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					slog.Warn("HTTP redirect/challenge server error", "error", err)
+				}
+			}()
+		}
+	} else {
+		addr := fmt.Sprintf(":%d", s.port)
+		slog.Info("Starting HTTP Web/API server", "addr", addr)
+
+		go func() {
+			if err := s.echo.Start(addr); err != nil && err != http.ErrServerClosed {
+				errCh <- err
+			}
+		}()
+	}
+
 	select {
 	case <-ctx.Done():
-		slog.Info("Stopping HTTP and API server...")
+		slog.Info("Stopping Web/API server...")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return s.shutdown(shutdownCtx)
@@ -3039,6 +3106,11 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) shutdown(ctx context.Context) error {
 	var shutdownErrors []error
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("shutdown HTTP redirect listener: %w", err))
+		}
+	}
 	if err := s.echo.Shutdown(ctx); err != nil {
 		shutdownErrors = append(shutdownErrors, fmt.Errorf("shutdown web/API listener: %w", err))
 	}

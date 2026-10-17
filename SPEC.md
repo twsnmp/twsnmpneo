@@ -74,6 +74,7 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
   * OpenTelemetry (OTel OTLP receiver for traces and metrics)
   * Embedded MQTT Broker & Client
   * Private PKI (Certificate Authority, SCEP, ACME, EST RFC 7030, OCSP)
+  * Web & API Server TLS / ACME Client: `github.com/go-acme/lego/v4` for automated server certificate issuance and zero-downtime hot-reload.
 * **Notifications**:
   * Email (SMTP / OAuth2), Slack, LINE, Microsoft Teams, Discord, Mattermost, Chatwork, and Webhooks.
 * **Internationalization (i18n)**:
@@ -461,7 +462,16 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 * **ARP Watch Engine**: Promiscuous ARP packet snooper detecting newly connected devices, IP address changes, and ARP spoofing / conflicts.
 * **OpenTelemetry Receiver**: Ingest OTel metrics and traces via OTLP.
 * **MQTT Broker & Client**: Embedded MQTT message broker for IoT sensor ingestion and rule evaluation.
-* **PKI Engine**: Place Reports, PKI, and Logs consecutively in that order in the top navigation. A left-side menu splits PKI into CA Setup and CSR Creation before initialization, and Certificates List, CSR Creation, Certificate Issuance, and Server Control afterward. The Certificates List includes one-click downloads for Root CA, SCEP CA, and CRL, a unified keyword search bar, column sorting, pagination, CSV export, individual PEM downloads, and revocation actions. The Root CA is not created at first startup; the PKI UI provides an explicit CA setup form (key types, SANs, endpoint URLs, ports, validity terms, CRL interval). CA destruction removes the CA and issued-certificate records after confirmation. Issued certificates and revocation state persist in bbolt (`config` and `certs` buckets), with startup serial collision auto-recovery from the `certs` bucket. CSR and private key pairs are generated in the browser/API with ZIP package downloads, and certificate issuance from uploaded CSRs is supported directly in the UI. Built-in dedicated plain HTTP server (default port: 8082 for `/ca.pem`, `/scepca.pem`, `/crl`, `/ocsp`, `/scep`) and ACME/EST server (TLS port: 8083) allow real-time status monitoring and runtime re-configuration. SCEP enrollment validates CSR identities and challenge passwords against managed nodes. ACME server supports `dns-01` (with wildcard domains), `http-01`, `tls-alpn-01` (including RFC 8738 IP identifiers with reverse IP ARPA SNI), and `device-attest-01` (Apple Managed Device Attestation and YubiKey PIV / Smallstep attestation with embedded CBOR decoding and RFC 4043 PermanentIdentifier SAN injection). EST (RFC 7030) runs on the same TLS port providing `/.well-known/est/cacerts`, `/.well-known/est/simpleenroll`, and `/.well-known/est/simplereenroll` authenticated via mTLS client certificates or node HTTP Basic authentication.
+* **Web & API Server TLS & ACME Auto-Renewal (`certmgr`)**:
+  - **3-Tier Automatic Certificate Resolution**:
+    1. **ACME Mode (Highest Priority)**: Triggered when `-acme-domain` (or `-acme-url`) is configured. Requests and updates certificates via `github.com/go-acme/lego/v4`. Automatically monitors certificate expiration in the background (default: 30 days before expiry) and hot-reloads the active TLS certificate in memory (`tls.Config.GetCertificate`) without server restarts.
+    2. **File Certificate Mode**: Triggered when `-cert`/`-key` or `<datadir>/cert.pem` & `<datadir>/key.pem` exist. Seamlessly loads and utilizes custom or migrated certificates.
+    3. **Self-Signed Fallback Mode**: Triggered when `-tls` is specified without external certificates or ACME configuration. Automatically generates an ECDSA P-256 self-signed certificate, persists it to `<datadir>/cert.pem` & `key.pem`, and launches HTTPS.
+    4. **Plain HTTP Mode**: Default operation when TLS is not enabled.
+  - **Embedded HTTP-01 Challenge & Automatic HTTPS Redirection**:
+    - When TLS is active and `-http-port` (default: 80) is configured, runs an embedded HTTP server that intercepts `/.well-known/acme-challenge/*` for seamless ACME validation while redirecting all standard web traffic to HTTPS (301 Moved Permanently).
+  - **CLI Flags & Environment Variable Parity**: Supports `-tls`, `-cert`, `-key`, `-acme-domain`, `-acme-cert-url`, `-acme-email`, `-acme-insecure`, `-acme-renew-days`, `-http-port`, `-host`, and `-ip`. Automatically loads corresponding `TWSNMP_<NAME>` variables with backward compatibility for legacy `TWSNMPFC_<NAME>` variables (`TWSNMPFC_AUTOCERTURL`, `TWSNMPFC_AUTOCERTEMAIL`, `TWSNMPFC_AUTOCERTSANS`, `TWSNMPFC_AUTOCERTINSECURE`).
+  - **API Status Endpoint**: Exposes active certificate metadata (subject, issuer, expiry, days remaining, SANs, mode) via `GET /api/cert/status`.
 
 ---
 
@@ -677,7 +687,8 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - Automatically copies GeoIP databases (`geoip.mmdb`).
   - Automatically copies user-defined MIBs (`mib.txt`, `extmibs/`).
   - Automatically copies custom scripts (`cmd/`) preserving executable permissions (`0755`).
-  - Omits built-in / deprecated files (`yasumi.txt`, `services.txt`, `mac-vendors-export.csv`, `tlsparams.csv`, `polling.json`, `mail_*.html`, `cert.pem`, `key.pem`).
+  - Automatically copies TLS certificates and private keys (`cert.pem`, `key.pem`) preserving secure permissions (`0600` for key).
+  - Omits built-in / deprecated files (`yasumi.txt`, `services.txt`, `mac-vendors-export.csv`, `tlsparams.csv`, `polling.json`, `mail_*.html`).
 
 ---
 

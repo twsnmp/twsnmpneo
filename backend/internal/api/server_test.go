@@ -13,6 +13,7 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/api"
+	"github.com/twsnmp/twsnmpneo/backend/internal/certmgr"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
@@ -1168,4 +1169,57 @@ func TestAPIServer_MIBModuleEndpoints(t *testing.T) {
 		t.Errorf("expected error deleting non-existent file, got 200")
 	}
 }
+
+func TestServerCertStatusEndpoint(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	tmpDir := t.TempDir()
+	mgr := certmgr.New(certmgr.Config{
+		DataDir:   tmpDir,
+		Host:      "apitest.local",
+		EnableTLS: true,
+	}, bStore)
+
+	if err := mgr.LoadOrResolve(context.Background()); err != nil {
+		t.Fatalf("LoadOrResolve failed: %v", err)
+	}
+
+	srv, err := api.NewServer(api.Config{
+		Port:        8080,
+		Store:       bStore,
+		LogStore:    pqStore,
+		MCPServer:   mcpSvr,
+		CertManager: mgr,
+		UseTLS:      true,
+	})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+
+	e := newAuthedEcho(t, srv)
+	req := httptest.NewRequest(http.MethodGet, "/api/cert/status", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/cert/status failed with code %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var status certmgr.CertStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil {
+		t.Fatalf("parse cert status JSON: %v", err)
+	}
+
+	if !status.Enabled {
+		t.Errorf("expected enabled=true")
+	}
+	if status.Mode != certmgr.ModeSelfSigned {
+		t.Errorf("expected mode selfsigned, got %s", status.Mode)
+	}
+	if status.Subject != "apitest.local" {
+		t.Errorf("expected subject apitest.local, got %s", status.Subject)
+	}
+}
+
 

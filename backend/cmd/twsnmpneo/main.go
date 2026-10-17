@@ -17,6 +17,7 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/ai"
 	"github.com/twsnmp/twsnmpneo/backend/internal/api"
+	"github.com/twsnmp/twsnmpneo/backend/internal/certmgr"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
@@ -81,12 +82,54 @@ func main() {
 		debug           = flag.Bool("debug", false, "Enable debug logging")
 		verFlag         = flag.Bool("version", false, "Show version and exit")
 
+		// TLS / ACME server certificate flags
+		tlsFlag       = flag.Bool("tls", false, "Enable TLS (HTTPS) for Web interface")
+		certPath      = flag.String("cert", "", "Path to server certificate file (PEM)")
+		keyPath       = flag.String("key", "", "Path to server private key file (PEM)")
+		acmeDomains   = flag.String("acme-domain", "", "Domains / SANs for ACME auto-update server cert")
+		acmeCertURL   = flag.String("acme-cert-url", "", "ACME Directory URL for server cert (default Let's Encrypt)")
+		acmeEmail     = flag.String("acme-email", "", "Contact email for ACME account registration")
+		acmeInsecure  = flag.Bool("acme-insecure", false, "Skip server certificate verification for ACME")
+		acmeRenewDays = flag.Int("acme-renew-days", 30, "Days before certificate expiry to trigger ACME renewal")
+		httpPort      = flag.Int("http-port", 80, "HTTP port for ACME challenge & HTTPS redirect (0 to disable)")
+		hostName      = flag.String("host", "", "Host name for self-signed certificate SAN")
+		ipAddr        = flag.String("ip", "", "IP address for self-signed certificate SAN")
+
 		// Migration flags
 		importFC       = flag.String("import-fc", "", "Path to legacy TWSNMP FC data directory or twsnmpfc.db to import and compact")
 		importEvents   = flag.Bool("import-events", true, "Import event logs during TWSNMP FC migration")
 		forceImport    = flag.Bool("force", false, "Force overwrite of target database during migration")
 		runAfterImport = flag.Bool("run-after-import", false, "Start TWSNMP NEO server after completing migration")
 	)
+
+	// Environment variable overrides (TWSNMP_<NAME> and legacy TWSNMPFC_<NAME>)
+	flag.VisitAll(func(f *flag.Flag) {
+		nameUpper := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+		if s := os.Getenv("TWSNMP_" + nameUpper); s != "" {
+			_ = f.Value.Set(s)
+			return
+		}
+		// Legacy TWSNMP FC environment variables
+		legacyName := strings.ToUpper(strings.ReplaceAll(f.Name, "-", ""))
+		if s := os.Getenv("TWSNMPFC_" + legacyName); s != "" {
+			_ = f.Value.Set(s)
+			return
+		}
+	})
+	// Legacy FC specific mappings
+	if s := os.Getenv("TWSNMPFC_AUTOCERTURL"); s != "" && *acmeCertURL == "" {
+		*acmeCertURL = s
+	}
+	if s := os.Getenv("TWSNMPFC_AUTOCERTEMAIL"); s != "" && *acmeEmail == "" {
+		*acmeEmail = s
+	}
+	if s := os.Getenv("TWSNMPFC_AUTOCERTSANS"); s != "" && *acmeDomains == "" {
+		*acmeDomains = s
+	}
+	if s := os.Getenv("TWSNMPFC_AUTOCERTINSECURE"); s == "true" {
+		*acmeInsecure = true
+	}
+
 	flag.Parse()
 	explicitFlags := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {
@@ -410,6 +453,36 @@ func main() {
 		"arp":     map[string]any{"status": "running", "range": arpWatchRange},
 	}
 
+	// Resolve TLS and ACME server certificate
+	defaultCert := filepath.Join(*dataDir, "cert.pem")
+	defaultKey := filepath.Join(*dataDir, "key.pem")
+	hasCustomCert := *certPath != "" && *keyPath != "" && fileExists(*certPath) && fileExists(*keyPath)
+	hasDefaultCert := fileExists(defaultCert) && fileExists(defaultKey)
+	useTLS := *tlsFlag || *acmeDomains != "" || hasCustomCert || hasDefaultCert
+
+	certMgr := certmgr.New(certmgr.Config{
+		DataDir:       *dataDir,
+		CertPath:      *certPath,
+		KeyPath:       *keyPath,
+		Host:          *hostName,
+		IP:            *ipAddr,
+		ACMEDomains:   *acmeDomains,
+		ACMEURL:       *acmeCertURL,
+		ACMEEmail:     *acmeEmail,
+		ACMEInsecure:  *acmeInsecure,
+		ACMERenewDays: *acmeRenewDays,
+		HTTPPort:      *httpPort,
+		TLSPort:       0,
+		EnableTLS:     useTLS,
+	}, store)
+
+	if useTLS {
+		if err := certMgr.LoadOrResolve(ctx); err != nil {
+			slog.Error("Failed to initialize TLS server certificate", "error", err)
+			os.Exit(1)
+		}
+	}
+
 	// Initialize Web/API server
 	server, err := api.NewServer(api.Config{
 		Port:           *port,
@@ -426,6 +499,9 @@ func main() {
 		Monitor:        sysMon,
 		PollingManager: pollMgr,
 		Receivers:      receiversInfo,
+		CertManager:    certMgr,
+		HTTPPort:       *httpPort,
+		UseTLS:         useTLS,
 	})
 	if err != nil {
 		slog.Error("Failed to initialize API server", "error", err)
@@ -441,6 +517,12 @@ func main() {
 			serverErr <- err
 		}
 	}()
+
+	// Trigger initial ACME request if needed once listeners are active
+	if useTLS {
+		certMgr.InitialACME(ctx)
+		certMgr.StartAutoRenewal(ctx, 12*time.Hour)
+	}
 
 	select {
 	case err := <-serverErr:
@@ -471,3 +553,12 @@ func main() {
 
 	slog.Info("TWSNMP NEO stopped.")
 }
+
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
