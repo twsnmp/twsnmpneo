@@ -1713,10 +1713,10 @@
       title={$_("report.aiPcapTitle") || "パケット解析 & トラフィック品質 AI診断"}
       summary={`EtherType集計: ${ethers.length}種, DNSクエリ数: ${dnsList.length}件, RADIUSフロー: ${radiusFlows.length}件, TLSフロー: ${tlsFlows.length}件, 監視ノード数: ${nodes.length}台`}
       items={[
-        ...ethers.slice(0, 10).map(e => `[ETHER] タイプ: ${e.Type || e.Name}, カウント: ${e.Count}, 割合: ${e.Rate || '-'}`),
-        ...dnsList.slice(0, 15).map(d => `[DNS] ドメイン: ${d.Name}, タイプ: ${d.Type}, カウント: ${d.Count}, エラー: ${d.Error || 'OK'}`),
-        ...tlsFlows.slice(0, 10).map(t => `[TLS] SNI: ${t.ServerName || t.Host}, バージョン: ${t.Version}, 暗号: ${t.CipherSuite}`),
-        ...radiusFlows.slice(0, 10).map(r => `[RADIUS] ユーザー: ${r.UserName}, 結果: ${r.Result}, NAS: ${r.NASIP}`)
+        ...ethers.slice(0, 10).map(e => `[ETHER] タイプ: ${e.Type || e.Name}, カウント: ${e.Count}`),
+        ...dnsList.slice(0, 15).map(d => `[DNS] ドメイン: ${d.Name}, タイプ: ${d.Type}, カウント: ${d.Count}, サーバー: ${d.Server}`),
+        ...tlsFlows.slice(0, 10).map(t => `[TLS] クライアント: ${t.ClientName || t.Client}, サーバー: ${t.ServerName || t.Server}, バージョン: ${t.Version}, 暗号: ${t.Cipher}`),
+        ...radiusFlows.slice(0, 10).map(r => `[RADIUS] クライアント: ${r.ClientName || r.Client}, サーバー: ${r.ServerName || r.Server}, 要求: ${r.Request}, 許可: ${r.Accept}, 拒否: ${r.Reject}`)
       ]}
     />
   {/if}

@@ -1560,8 +1560,8 @@
     title={$_("report.aiSensorTitle") || "センサー監視 AI診断"}
     summary={`登録センサー総数: ${sensors.length}台, 正常稼働: ${kpiCounts.normal}台, 障害/警告: ${kpiCounts.problem}台, センサー種別: ${uniqueTypes.length}種, 監視ホスト: ${uniqueHosts.length}台`}
     items={[
-      ...filteredSensors.filter(s => s.state && s.state !== 'normal').map(s => `[障害/警告センサー] 名前: ${s.Name || s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, 状態: ${s.state || '-'}`),
-      ...filteredSensors.slice(0, 25).map(s => `[センサー] 名前: ${s.Name || s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, パラメータ: ${s.Param || '-'}`)
+      ...filteredSensors.filter(s => s.State && s.State !== 'normal').map(s => `[障害/警告センサー] ID: ${s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, 状態: ${getStateName(s.State) || s.State}`),
+      ...filteredSensors.slice(0, 25).map(s => `[センサー] ID: ${s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, パラメータ: ${s.Param || '-'}`)
     ]}
   />
 {/if}

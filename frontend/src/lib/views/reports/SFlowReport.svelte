@@ -1332,7 +1332,7 @@
       summary={`総転送量: ${renderBytes(sflowStats.totalBytes)}, サンプリングセッション総数: ${sflowStats.totalSessions.toLocaleString()} flows, 主要プロトコル: ${sflowStats.topProtocol}, ピーク帯域: ${sflowStats.peakBandwidth}, サーバー数: ${rawSFlowServers.length}台, サービス数: ${rawSFlowServices.length}種, 異常Fumble: ${rawSFlowFumbles.length}件`}
       items={[
         ...rawSFlowConversations.slice(0, 30).map(c => `[SFLOW] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, スコア: ${c.score}`),
-        ...rawSFlowServers.slice(0, 15).map(s => `[SERVER] ${s.server || s.ip}:${s.port} (${s.proto || 'TCP/UDP'}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
+        ...rawSFlowServers.slice(0, 15).map(s => `[SERVER] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
         ...rawSFlowFumbles.slice(0, 15).map(f => `[FUMBLE] ${f.src} -> ${f.dst}: ${f.reason || 'Anomalous communication'}`)
       ]}
     />

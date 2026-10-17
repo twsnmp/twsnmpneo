@@ -1225,7 +1225,7 @@
       items={[
         ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => `[種別別イベント] ${t.type}: 障害 ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`),
         ...nodeSummaries.filter(n => n.errorCount > 0 || n.warnCount > 0).slice(0, 20).map(n => `[障害発生ノード] ${n.name || n.nodeId}: 障害 ${n.errorCount}件, 警告 ${n.warnCount}件`),
-        ...filteredLogs.filter(l => isEventError(l.level) || isEventWarn(l.level)).slice(0, 30).map(l => `[EVENT] ${formatTimeStr(l.time)} ${nodeMap.get(l.node_id)?.name || l.node_id} [${l.type}/${l.level}]: ${l.event || ''}`)
+        ...filteredLogs.filter(l => isEventError(l.level) || isEventWarn(l.level)).slice(0, 30).map(l => `[EVENT] ${formatTimeStr(l.time)} ${nodeMap.get(l.nodeId)?.name || l.nodeId} [${l.type}/${l.level}]: ${l.event || ''}`)
       ]}
     />
   {/if}

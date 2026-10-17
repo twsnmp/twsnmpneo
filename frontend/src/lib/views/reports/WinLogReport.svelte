@@ -552,10 +552,10 @@
       summary={`イベントID集計: ${eventIDs.length}種, ログオン監査: ${logons.length}件, アカウント操作: ${accounts.length}件, Kerberos認証: ${kerberosList.length}件, 特権操作: ${privileges.length}件, プロセス監視: ${processes.length}件, タスク監視: ${tasks.length}件`}
       items={[
         ...eventIDs.slice(0, 15).map(e => `[EVENT ID ${e.EventID}] コンピュータ: ${e.Computer}, プロバイダ: ${e.Provider}, 件数: ${e.Count}`),
-        ...logons.slice(0, 15).map(l => `[LOGON] タイプ: ${l.LogonType}, ユーザー: ${l.TargetUserName}, IP: ${l.IpAddress}, 件数: ${l.Count}`),
-        ...accounts.slice(0, 10).map(a => `[ACCOUNT] 操作: ${a.TargetUserName}, 実行者: ${a.SubjectUserName}, 件数: ${a.Count}`),
-        ...privileges.slice(0, 10).map(p => `[PRIVILEGE] 特権: ${p.PrivilegeList}, ユーザー: ${p.SubjectUserName}`),
-        ...kerberosList.slice(0, 10).map(k => `[KERBEROS] サービス: ${k.ServiceName}, クライアント: ${k.TargetUserName}, チケットオプション: ${k.TicketOptions}`)
+        ...logons.slice(0, 15).map(l => `[LOGON] 対象アカウント: ${l.Target}, IP: ${l.IP || '-'}, コンピュータ: ${l.Computer}, 成功: ${l.Logon}, 失敗: ${l.Failed}`),
+        ...accounts.slice(0, 10).map(a => `[ACCOUNT] 操作対象: ${a.Target}, 実行者: ${a.Subject}, コンピュータ: ${a.Computer}, 件数: ${a.Count}`),
+        ...privileges.slice(0, 10).map(p => `[PRIVILEGE] 実行ユーザー: ${p.Subject}, コンピュータ: ${p.Computer}, 件数: ${p.Count}`),
+        ...kerberosList.slice(0, 10).map(k => `[KERBEROS] サービス: ${k.Service}, ユーザー: ${k.Target}, チケット: ${k.TicketType}, 失敗: ${k.Failed}`)
       ]}
     />
   {/if}
