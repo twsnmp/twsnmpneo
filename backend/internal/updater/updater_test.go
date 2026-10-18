@@ -4,6 +4,10 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -211,3 +215,73 @@ func TestSwapBinary(t *testing.T) {
 		t.Errorf("bakPath content = %s, want v1", string(bakData))
 	}
 }
+
+func TestCheckUpdate_ETagAndRateLimit(t *testing.T) {
+	callCount := 0
+	etag := `W/"mock-etag-123"`
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		// Check If-None-Match header
+		if r.Header.Get("If-None-Match") == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		if callCount > 2 {
+			// Simulate 403 Rate Limit
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.Header().Set("X-RateLimit-Reset", "1800000000")
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		// First response with ETag
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(GitHubRelease{
+			TagName: "v0.5.0",
+			Name:    "v0.5.0",
+		})
+	}))
+	defer ts.Close()
+
+	u := New(Config{
+		CurrentVersion: "v0.1.0",
+		RepoOwner:      "mock",
+		RepoName:       "mock",
+	})
+	u.httpClient = ts.Client()
+
+	// 1. First fetch: should return 200 and save ETag
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL, nil)
+	resp, err := u.httpClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rel GitHubRelease
+	_ = json.NewDecoder(resp.Body).Decode(&rel)
+	resp.Body.Close()
+
+	u.cachedInfo = u.buildUpdateInfo(&rel)
+	u.cachedETag = resp.Header.Get("ETag")
+	u.cacheTime = time.Now().Add(-2 * time.Hour) // Expire TTL to test ETag call
+
+	if u.cachedETag != etag {
+		t.Errorf("cachedETag = %s, want %s", u.cachedETag, etag)
+	}
+
+	// 2. Second fetch with ETag: should send If-None-Match and receive 304
+	req2, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL, nil)
+	req2.Header.Set("If-None-Match", u.cachedETag)
+	resp2, err := u.httpClient.Do(req2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusNotModified {
+		t.Errorf("expected 304 Not Modified, got %d", resp2.StatusCode)
+	}
+}
+

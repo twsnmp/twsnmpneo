@@ -703,6 +703,11 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 
 * **Architecture & Downtime Minimization**:
   - Automatically checks GitHub Releases API (`https://api.github.com/repos/twsnmp/twsnmpneo/releases/latest`) using semver version comparisons.
+  - **Rate Limit Protection & Conditional Requests (ETag)**:
+    - Maintains in-memory cache with 1-hour TTL to prevent redundant requests across multiple users.
+    - Sends HTTP `If-None-Match` header with previously cached `ETag`. When unchanged, GitHub responds with `304 Not Modified`, which **does not consume any GitHub API hourly rate-limit quota**.
+    - If `403 Rate Limit Exceeded` is encountered, automatically falls back to cached release metadata with friendly log warnings and user notification rather than breaking system operations.
+    - Supports optional `GITHUB_TOKEN` environment variable to expand limits from 60 to 5,000 req/hr.
   - Background asset download (`.tar.gz` for Linux/macOS, `.zip` for Windows) and executable extraction while the server continues serving network traffic and Web users (zero downtime during download).
   - Seamless in-place replacement:
     - **Unix / macOS**: Stages new binary into identical filesystem directory and executes atomic file replacement (`os.Rename`), preserving current binary as `.bak`.

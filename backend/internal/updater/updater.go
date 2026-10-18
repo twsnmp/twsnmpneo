@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,6 +82,7 @@ type Updater struct {
 	mu         sync.RWMutex
 	status     UpdateStatus
 	cachedInfo *UpdateInfo
+	cachedETag string
 	cacheTime  time.Time
 	cacheTTL   time.Duration
 
@@ -164,7 +166,7 @@ func (u *Updater) setStatus(state string, progress int, msg string, errStr strin
 	}
 }
 
-// CheckUpdate checks GitHub Releases API for the latest release
+// CheckUpdate checks GitHub Releases API for the latest release with ETag caching and rate-limit protection
 func (u *Updater) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, error) {
 	u.mu.RLock()
 	if !force && u.cachedInfo != nil && time.Since(u.cacheTime) < u.cacheTTL {
@@ -172,6 +174,8 @@ func (u *Updater) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, err
 		u.mu.RUnlock()
 		return &info, nil
 	}
+	cachedETag := u.cachedETag
+	cachedInfo := u.cachedInfo
 	u.mu.RUnlock()
 
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", u.repoOwner, u.repoName)
@@ -182,15 +186,50 @@ func (u *Updater) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, err
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "twsnmpneo-updater/"+u.currentVersion)
+	if cachedETag != "" && !force {
+		req.Header.Set("If-None-Match", cachedETag)
+	}
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := u.httpClient.Do(req)
 	if err != nil {
+		// If network fails but we have cached info, gracefully return cached info
+		if cachedInfo != nil {
+			slog.Warn("GitHub API check failed; returning cached release info", "error", err)
+			return cachedInfo, nil
+		}
 		return nil, fmt.Errorf("failed to contact GitHub API: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// 1. Handle 304 Not Modified: Release hasn't changed, does not consume GitHub rate limit
+	if resp.StatusCode == http.StatusNotModified && cachedInfo != nil {
+		slog.Debug("GitHub release not modified (304); rate limit preserved")
+		u.mu.Lock()
+		u.cacheTime = time.Now()
+		u.mu.Unlock()
+		return cachedInfo, nil
+	}
+
+	// 2. Handle 403 Rate Limit Exceeded
+	if resp.StatusCode == http.StatusForbidden {
+		remaining := resp.Header.Get("X-RateLimit-Remaining")
+		if remaining == "0" || strings.Contains(resp.Header.Get("X-RateLimit-Reset"), "") {
+			resetUnix := resp.Header.Get("X-RateLimit-Reset")
+			resetTime := "soon"
+			if sec, pErr := strconv.ParseInt(resetUnix, 10, 64); pErr == nil {
+				resetTime = time.Unix(sec, 0).Format("15:04:05")
+			}
+			if cachedInfo != nil {
+				slog.Warn("GitHub API rate limit exceeded; fallback to cached release info", "reset", resetTime)
+				return cachedInfo, nil
+			}
+			return nil, fmt.Errorf("GitHub API rate limit reached (resets at %s). Set GITHUB_TOKEN or check again later.", resetTime)
+		}
+		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
@@ -202,9 +241,11 @@ func (u *Updater) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, err
 	}
 
 	info := u.buildUpdateInfo(&rel)
+	newETag := resp.Header.Get("ETag")
 
 	u.mu.Lock()
 	u.cachedInfo = info
+	u.cachedETag = newETag
 	u.cacheTime = time.Now()
 	u.mu.Unlock()
 
@@ -493,6 +534,10 @@ func (u *Updater) doReleaseRequest(ctx context.Context, url string) (*GitHubRele
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusForbidden {
+		resetTime := resp.Header.Get("X-RateLimit-Reset")
+		return nil, fmt.Errorf("GitHub API rate limit exceeded (reset at %s). Please set GITHUB_TOKEN or try again later", resetTime)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
