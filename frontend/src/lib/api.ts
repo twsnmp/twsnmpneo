@@ -330,6 +330,11 @@ export interface UpdateInfo {
   release_url?: string;
   published_at?: string;
   is_container?: boolean;
+  is_homebrew?: boolean;
+  is_debug?: boolean;
+  environment?: 'homebrew' | 'curl' | 'debug' | 'container';
+  can_self_update?: boolean;
+  update_guide?: string;
   asset_name?: string;
   asset_url?: string;
   asset_size?: number;

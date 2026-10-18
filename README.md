@@ -59,6 +59,22 @@
 
 ## Quick Start
 
+### Installation
+
+#### Homebrew (macOS / Linux)
+```bash
+brew install twsnmp/tap/twsnmpneo
+```
+
+#### Shell Script (curl installer for CI & standalone)
+```bash
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh
+```
+For CI or non-interactive installations:
+```bash
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh -s -- -y
+```
+
 ### Running with Docker
 
 ```bash

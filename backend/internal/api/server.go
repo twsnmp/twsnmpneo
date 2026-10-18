@@ -532,12 +532,18 @@ func NewServer(cfg Config) (*Server, error) {
 
 	// Self-update Endpoints
 	apiGroup.GET("/system/update/check", func(c echo.Context) error {
+		env := updater.DetectEnvironment(cfg.Version, cfg.Commit, cfg.Debug)
 		if cfg.Updater == nil {
 			return c.JSON(http.StatusOK, map[string]any{
 				"has_update":      false,
 				"current_version": cfg.Version,
 				"latest_version":  cfg.Version,
-				"is_container":    updater.IsContainer(),
+				"is_container":    env.IsContainer,
+				"is_homebrew":     env.IsHomebrew,
+				"is_debug":        env.IsDebug,
+				"environment":     string(env.Type),
+				"can_self_update": env.CanSelfUpdate,
+				"update_guide":    env.UpdateGuide,
 			})
 		}
 		force := c.QueryParam("force") == "true"
@@ -547,7 +553,12 @@ func NewServer(cfg Config) (*Server, error) {
 				"has_update":      false,
 				"current_version": cfg.Version,
 				"error":           err.Error(),
-				"is_container":    updater.IsContainer(),
+				"is_container":    env.IsContainer,
+				"is_homebrew":     env.IsHomebrew,
+				"is_debug":        env.IsDebug,
+				"environment":     string(env.Type),
+				"can_self_update": env.CanSelfUpdate,
+				"update_guide":    env.UpdateGuide,
 			})
 		}
 		return c.JSON(http.StatusOK, info)

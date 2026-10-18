@@ -59,6 +59,22 @@
 
 ## クイックスタート
 
+### インストール方法
+
+#### Homebrew (macOS / Linux)
+```bash
+brew install twsnmp/tap/twsnmpneo
+```
+
+#### シェルスクリプト (curl インストーラー: CI環境・スタンドアロン向け)
+```bash
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh
+```
+CI環境や非対話モードで導入する場合:
+```bash
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh -s -- -y
+```
+
 ### Docker による起動
 
 ```bash

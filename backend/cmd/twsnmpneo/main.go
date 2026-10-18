@@ -196,6 +196,105 @@ func (s *serviceRunner) Stop() error {
 	return s.err
 }
 
+func handleUpdateCommand(args []string, debugFlag bool) {
+	fs := flag.NewFlagSet("update", flag.ExitOnError)
+	checkOnly := fs.Bool("check", false, "Check for available updates without applying")
+	shortCheck := fs.Bool("c", false, "Check for available updates without applying (shorthand)")
+	targetVer := fs.String("version", "", "Update to specified release tag (e.g. 'v0.2.0')")
+	yesFlag := fs.Bool("yes", false, "Update without confirmation (ideal for CI)")
+	shortYes := fs.Bool("y", false, "Update without confirmation (shorthand)")
+	debug := fs.Bool("debug", false, "Enable debug mode check")
+	_ = fs.Parse(args)
+
+	isCheck := *checkOnly || *shortCheck
+	isYes := *yesFlag || *shortYes
+	isDebug := debugFlag || *debug
+
+	env := updater.DetectEnvironment(version, commit, isDebug)
+	fmt.Printf("TWSNMP NEO %s (commit: %s, date: %s)\n", version, commit, date)
+	fmt.Printf("Environment: %s\n\n", env.Type)
+
+	switch env.Type {
+	case updater.EnvDebug:
+		fmt.Println("【注意】デバッグモード（開発環境）で動作しています。")
+		fmt.Println("デバッグビルド環境ではセルフアップデートは無効です。ソースコードからビルドしてください。")
+		os.Exit(0)
+
+	case updater.EnvHomebrew:
+		fmt.Println("【Homebrew 環境を検出】")
+		fmt.Println("twsnmpneo は Homebrew 経由でインストールされています。")
+		fmt.Println("アップデートを実行するには、以下のコマンドを実行してください:")
+		fmt.Println()
+		fmt.Println("  brew upgrade twsnmp/tap/twsnmpneo")
+		fmt.Println()
+		os.Exit(0)
+
+	case updater.EnvContainer:
+		fmt.Println("【Docker コンテナ環境を検出】")
+		fmt.Println("コンテナ環境ではバイナリのセルフアップデートは行えません。")
+		fmt.Println("コンテナイメージを更新してください:")
+		fmt.Println()
+		fmt.Println("  docker compose pull && docker compose up -d")
+		fmt.Println()
+		os.Exit(0)
+	}
+
+	// Standalone binary / curl installer:
+	upd := updater.New(updater.Config{
+		CurrentVersion: version,
+		Commit:         commit,
+		Debug:          false,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	fmt.Println("GitHub Releases から最新バージョンを確認中...")
+	info, err := upd.CheckUpdate(ctx, true)
+	if err != nil {
+		fmt.Printf("アップデート確認エラー: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !info.HasUpdate && *targetVer == "" {
+		fmt.Printf("現在のバージョン %s は最新です。\n", version)
+		os.Exit(0)
+	}
+
+	fmt.Printf("\n新しいバージョンが利用可能です: %s (現在: %s)\n", info.LatestVersion, version)
+	if info.ReleaseTitle != "" {
+		fmt.Printf("タイトル: %s\n", info.ReleaseTitle)
+	}
+	if info.ReleaseBody != "" {
+		fmt.Printf("リリースノート:\n%s\n\n", info.ReleaseBody)
+	}
+
+	if isCheck {
+		fmt.Println("アップデートを適用するには 'twsnmpneo update' を実行してください。")
+		os.Exit(0)
+	}
+
+	if !isYes {
+		fmt.Printf("%s へアップデートを実行しますか？ [y/N]: ", info.LatestVersion)
+		var answer string
+		_, _ = fmt.Scanln(&answer)
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer != "y" && answer != "yes" {
+			fmt.Println("アップデートを中止しました。")
+			os.Exit(0)
+		}
+	}
+
+	fmt.Printf("%s へのアップデートを開始します...\n", info.LatestVersion)
+	if err := upd.RunUpdateDirect(ctx, *targetVer); err != nil {
+		fmt.Printf("アップデート失敗: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("TWSNMP NEO が %s へ正常にアップデートされました！\n", info.LatestVersion)
+	os.Exit(0)
+}
+
 func main() {
 	commit = resolveCommit()
 
@@ -208,6 +307,12 @@ func main() {
 		action := os.Args[2]
 		remaining := os.Args[3:]
 		handleServiceCommand(action, remaining)
+		return
+	}
+
+	// Check if invoked as a subcommand: "twsnmpneo update [options]"
+	if len(os.Args) >= 2 && strings.ToLower(os.Args[1]) == "update" {
+		handleUpdateCommand(os.Args[2:], false)
 		return
 	}
 
@@ -236,6 +341,8 @@ func main() {
 		debug           = fs.Bool("debug", false, "Enable debug logging")
 		verFlag         = fs.Bool("version", false, "Show version and exit")
 		rollbackVersion = fs.String("rollback", "", "Rollback binary to previous backup (.bak) or specified GitHub version (e.g. 'v0.1.0')")
+		updateFlag      = fs.Bool("update", false, "Update twsnmpneo to the latest release")
+		checkUpdateFlag = fs.Bool("check-update", false, "Check for available twsnmpneo updates and environment info")
 
 		// Service management flags
 		serviceCmd     = fs.String("service", "", "Service action for Windows SCM or Linux systemd (install, remove, start, stop, status)")
@@ -325,6 +432,15 @@ func main() {
 		os.Exit(0)
 	}
 
+	if *updateFlag || *checkUpdateFlag {
+		var updateArgs []string
+		if *checkUpdateFlag {
+			updateArgs = append(updateArgs, "-check")
+		}
+		handleUpdateCommand(updateArgs, *debug)
+		return
+	}
+
 	if explicitFlags["rollback"] || *rollbackVersion != "" {
 		target := *rollbackVersion
 		if target == "" {
@@ -332,6 +448,8 @@ func main() {
 		}
 		u := updater.New(updater.Config{
 			CurrentVersion: version,
+			Commit:         commit,
+			Debug:          *debug,
 		})
 		ctx := context.Background()
 		if err := u.Rollback(ctx, target); err != nil {
@@ -726,6 +844,8 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	// Initialize Self-Updater
 	upd := updater.New(updater.Config{
 		CurrentVersion: version,
+		Commit:         commit,
+		Debug:          cfg.debug,
 		OnShutdown: func() {
 			if store != nil {
 				_ = store.Close()

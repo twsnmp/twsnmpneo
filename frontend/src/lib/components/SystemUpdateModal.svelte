@@ -41,8 +41,10 @@
   });
   let pollInterval: ReturnType<typeof setInterval> | null = null;
   let copied = $state(false);
+  let brewCopied = $state(false);
 
   const dockerCommand = "docker compose pull && docker compose up -d";
+  const brewCommand = "brew upgrade twsnmp/tap/twsnmpneo";
 
   const copyCommand = async () => {
     try {
@@ -50,6 +52,18 @@
       copied = true;
       setTimeout(() => {
         copied = false;
+      }, 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const copyBrewCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(brewCommand);
+      brewCopied = true;
+      setTimeout(() => {
+        brewCopied = false;
       }, 2000);
     } catch {
       // fallback
@@ -255,6 +269,57 @@
           </div>
         {/if}
 
+        <!-- Homebrew Notice -->
+        {#if updateInfo.is_homebrew}
+          <div
+            class="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-300 text-xs"
+          >
+            <div class="flex items-center gap-2 font-bold">
+              <AlertTriangle class="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span>{$_("system.homebrewNoticeTitle")}</span>
+            </div>
+            <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+              {$_("system.homebrewNoticeDesc")}
+            </p>
+            <div
+              class="flex items-center justify-between gap-2 mt-1 rounded-lg bg-slate-900 px-3 py-2 text-slate-100 font-mono text-[11px]"
+            >
+              <div class="flex items-center gap-1.5 truncate">
+                <Terminal class="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                <span class="truncate">{brewCommand}</span>
+              </div>
+              <button
+                onclick={copyBrewCommand}
+                class="flex items-center gap-1 shrink-0 rounded px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 transition-colors"
+                title={$_("system.copyCommand")}
+              >
+                {#if brewCopied}
+                  <Check class="h-3.5 w-3.5 text-emerald-400" />
+                  <span class="text-[10px] text-emerald-400">{$_("system.commandCopied")}</span>
+                {:else}
+                  <Copy class="h-3.5 w-3.5" />
+                  <span class="text-[10px]">{$_("system.copyCommand")}</span>
+                {/if}
+              </button>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Debug Notice -->
+        {#if updateInfo.is_debug}
+          <div
+            class="flex flex-col gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 text-indigo-800 dark:text-indigo-300 text-xs"
+          >
+            <div class="flex items-center gap-2 font-bold">
+              <AlertTriangle class="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <span>{$_("system.debugNoticeTitle")}</span>
+            </div>
+            <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+              {$_("system.debugNoticeDesc")}
+            </p>
+          </div>
+        {/if}
+
         <!-- Container Notice (Docker) -->
         {#if updateInfo.is_container}
           <div
@@ -292,7 +357,7 @@
         {/if}
 
         <!-- Non-admin Warning -->
-        {#if !isAdmin && !updateInfo.is_container}
+        {#if !isAdmin && !updateInfo.is_container && !updateInfo.is_homebrew && !updateInfo.is_debug}
           <div
             class="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/40 p-3 text-slate-600 dark:text-slate-400 text-xs"
           >
@@ -336,7 +401,7 @@
           {$_("common.close") || "閉じる"}
         </button>
 
-        {#if !updateInfo.is_container && updateInfo.has_update}
+        {#if (updateInfo.can_self_update ?? (!updateInfo.is_container && !updateInfo.is_homebrew && !updateInfo.is_debug)) && updateInfo.has_update}
           <button
             onclick={handleStartUpdate}
             disabled={updating || !isAdmin}

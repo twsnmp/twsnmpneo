@@ -229,7 +229,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 10. **System View (`SystemView.svelte`)**:
    - Fully compatible with TWSNMP FK resource monitor.
    - Top status summary cards: CPU utilization, Memory usage, Goroutines, Disk usage, Process Uptime, and Build/Git version.
-   - **Self-Update Integration**: Live badge indicator when a new release is published on GitHub, one-click update trigger modal (`SystemUpdateModal.svelte`), release changelog inspection, download/restart progress bar, and automatic reconnect/reload upon completion.
+   - **Self-Update & Environment Adaptation**: Live badge indicator when a new release is published on GitHub, one-click update trigger modal (`SystemUpdateModal.svelte`), release changelog inspection, and environment-aware update pathways: displays 'brew upgrade twsnmp/tap/twsnmpneo' for Homebrew installations, indicates debug mode when running in debug/dev builds, directs container users to 'docker compose pull', and executes in-place self-update with backup and automatic reconnect/reload for curl/standalone binary installations. Also supports CLI `twsnmpneo update` (and `twsnmpneo -update`) with identical environment adaptation.
    - ECharts multi-metric time-series telemetry charts (CPU, Memory, Goroutines, Disk I/O & Capacity).
    - Internal daemon services health, receiver packet/message counters, and runtime version details.
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:

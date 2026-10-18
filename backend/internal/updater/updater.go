@@ -50,6 +50,11 @@ type UpdateInfo struct {
 	ReleaseURL     string    `json:"release_url"`
 	PublishedAt    time.Time `json:"published_at"`
 	IsContainer    bool      `json:"is_container"`
+	IsHomebrew     bool      `json:"is_homebrew"`
+	IsDebug        bool      `json:"is_debug"`
+	Environment    string    `json:"environment"`
+	CanSelfUpdate  bool      `json:"can_self_update"`
+	UpdateGuide    string    `json:"update_guide"`
 	AssetName      string    `json:"asset_name"`
 	AssetURL       string    `json:"asset_url"`
 	AssetSize      int64     `json:"asset_size"`
@@ -66,6 +71,8 @@ type UpdateStatus struct {
 // Config holds configuration options for the Updater
 type Config struct {
 	CurrentVersion string
+	Commit         string
+	Debug          bool
 	RepoOwner      string
 	RepoName       string
 	OnShutdown     func()
@@ -74,6 +81,8 @@ type Config struct {
 // Updater handles checking for GitHub releases, downloading, and hot-updating the executable
 type Updater struct {
 	currentVersion string
+	commit         string
+	debug          bool
 	repoOwner      string
 	repoName       string
 	onShutdown     func()
@@ -105,6 +114,8 @@ func New(cfg Config) *Updater {
 
 	return &Updater{
 		currentVersion: ver,
+		commit:         cfg.Commit,
+		debug:          cfg.Debug,
 		repoOwner:      owner,
 		repoName:       repo,
 		onShutdown:     cfg.OnShutdown,
@@ -272,7 +283,7 @@ func (u *Updater) buildUpdateInfo(rel *GitHubRelease) *UpdateInfo {
 		hasUpdate = true
 	}
 
-	isContainer := IsContainer()
+	env := DetectEnvironment(u.currentVersion, u.commit, u.debug)
 
 	// Find matching binary asset for runtime.GOOS and runtime.GOARCH
 	var matchedAsset *GitHubAsset
@@ -295,7 +306,12 @@ func (u *Updater) buildUpdateInfo(rel *GitHubRelease) *UpdateInfo {
 		ReleaseBody:    rel.Body,
 		ReleaseURL:     rel.HTMLURL,
 		PublishedAt:    rel.PublishedAt,
-		IsContainer:    isContainer,
+		IsContainer:    env.IsContainer,
+		IsHomebrew:     env.IsHomebrew,
+		IsDebug:        env.IsDebug,
+		Environment:    string(env.Type),
+		CanSelfUpdate:  env.CanSelfUpdate,
+		UpdateGuide:    env.UpdateGuide,
 	}
 
 	if matchedAsset != nil {
@@ -307,10 +323,25 @@ func (u *Updater) buildUpdateInfo(rel *GitHubRelease) *UpdateInfo {
 	return info
 }
 
+// GetEnvironment returns the detected execution environment
+func (u *Updater) GetEnvironment() EnvironmentInfo {
+	return DetectEnvironment(u.currentVersion, u.commit, u.debug)
+}
+
 // ApplyUpdate triggers the background download, validation, binary swap, and clean restart
 func (u *Updater) ApplyUpdate(ctx context.Context) error {
-	if IsContainer() {
+	env := DetectEnvironment(u.currentVersion, u.commit, u.debug)
+	if env.IsDebug {
+		return errors.New("cannot perform self-update in debug mode; self-update is disabled")
+	}
+	if env.IsHomebrew {
+		return errors.New("twsnmpneo is installed via Homebrew; please run 'brew upgrade twsnmp/tap/twsnmpneo' to update")
+	}
+	if env.IsContainer {
 		return errors.New("cannot perform in-place self-update within a container; please pull the latest container image instead")
+	}
+	if !env.CanSelfUpdate {
+		return errors.New("self-update is not supported in this environment: " + env.UpdateGuide)
 	}
 
 	u.mu.Lock()
@@ -336,6 +367,25 @@ func (u *Updater) ApplyUpdate(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+// RunUpdateDirect executes the update pipeline synchronously
+func (u *Updater) RunUpdateDirect(ctx context.Context, specificTag string) error {
+	env := DetectEnvironment(u.currentVersion, u.commit, u.debug)
+	if env.IsDebug {
+		return errors.New("cannot perform self-update in debug mode; self-update is disabled")
+	}
+	if env.IsHomebrew {
+		return errors.New("twsnmpneo is installed via Homebrew; please run 'brew upgrade twsnmp/tap/twsnmpneo' to update")
+	}
+	if env.IsContainer {
+		return errors.New("cannot perform in-place self-update within a container; please pull the latest container image instead")
+	}
+	if !env.CanSelfUpdate {
+		return errors.New("self-update is not supported in this environment: " + env.UpdateGuide)
+	}
+
+	return u.runUpdatePipeline(ctx, specificTag)
 }
 
 // runUpdatePipeline downloads, extracts, swaps the binary, and launches the new process

@@ -3,47 +3,22 @@ name: Release & Container Delivery
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version (e.g. v0.1.0)'
-        required: false
-        default: 'v0.1.0'
-      commit:
-        description: 'Git commit hash (optional, defaults to short commit)'
-        required: false
-        default: ''
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  build-release-binaries:
-    name: Build Cross-Platform Binaries
+  release:
+    name: Build, Package & Publish Release (GoReleaser & Homebrew)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            ext: ""
-          - goos: linux
-            goarch: arm64
-            ext: ""
-          - goos: darwin
-            goarch: amd64
-            ext: ""
-          - goos: darwin
-            goarch: arm64
-            ext: ""
-          - goos: windows
-            goarch: amd64
-            ext: ".exe"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -57,111 +32,57 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-
       - name: Build Frontend Static Assets
         working-directory: frontend
         run: |
           pnpm install --frozen-lockfile
           pnpm run build
 
-      - name: Compile Backend Binary
-        working-directory: backend
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - name: Prepare Linux Binaries for Docker
         run: |
-          VERSION="${{ inputs.version || github.ref_name }}"
-          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="v0.1.0"
-          fi
-          COMMIT="${{ inputs.commit }}"
-          if [ -z "$COMMIT" ]; then
-            COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "${{ github.sha }}" | cut -c1-7)
-          fi
-          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          OUTPUT_NAME="twsnmpneo-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          mkdir -p dist
-          go build -tags wgpu24 -trimpath \
-            -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
-            -o "dist/twsnmpneo${{ matrix.ext }}" \
-            ./cmd/twsnmpneo
+          mkdir -p docker-bin
+          tar -xzf dist/twsnmpneo_linux_amd64.tar.gz -C docker-bin
+          mv docker-bin/twsnmpneo docker-bin/twsnmpneo-amd64
+          tar -xzf dist/twsnmpneo_linux_arm64.tar.gz -C docker-bin
+          mv docker-bin/twsnmpneo docker-bin/twsnmpneo-arm64
+          chmod +x docker-bin/twsnmpneo-*
 
-          cd dist
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip "${OUTPUT_NAME}.zip" "twsnmpneo${{ matrix.ext }}"
-          else
-            tar -czvf "${OUTPUT_NAME}.tar.gz" "twsnmpneo${{ matrix.ext }}"
-          fi
-
-      - name: Upload Artifact
+      - name: Upload Docker Binaries Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: backend/dist/*.tar.gz
-          if-no-files-found: ignore
-
-      - name: Upload Windows Artifact
-        if: matrix.goos == 'windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-windows-amd64
-          path: backend/dist/*.zip
-          if-no-files-found: ignore
-
-  publish-github-release:
-    name: Publish GitHub Release
-    needs: [ build-release-binaries ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all built artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: binary-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.version || github.ref_name }}
-          files: release-assets/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          name: docker-binaries
+          path: docker-bin/
 
   publish-docker-image:
     name: Build & Push Multi-Arch Docker Image
-    needs: [ build-release-binaries ]
+    needs: [ release ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Linux AMD64 artifact
+      - name: Download Docker Binaries
         uses: actions/download-artifact@v4
         with:
-          name: binary-linux-amd64
-          path: bin-amd64
+          name: docker-binaries
+          path: docker-bin
 
-      - name: Download Linux ARM64 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: binary-linux-arm64
-          path: bin-arm64
-
-      - name: Extract binaries
+      - name: Ensure Executable
         run: |
-          mkdir -p docker-bin
-          tar -xzf bin-amd64/*.tar.gz -C docker-bin
-          mv docker-bin/twsnmpneo docker-bin/twsnmpneo-amd64
-          tar -xzf bin-arm64/*.tar.gz -C docker-bin
-          mv docker-bin/twsnmpneo docker-bin/twsnmpneo-arm64
           chmod +x docker-bin/twsnmpneo-*
 
       - name: Set up QEMU
@@ -187,7 +108,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=${{ inputs.version || github.ref_name }}
+            type=raw,value=${{ github.ref_name }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
