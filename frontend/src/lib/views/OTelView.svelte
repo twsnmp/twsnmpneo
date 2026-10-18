@@ -51,8 +51,10 @@
     Zap,
     AlertCircle,
     AlertTriangle,
+    Sparkles,
   } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
+  import ReportAIExplainModal from "../components/ReportAIExplainModal.svelte";
 
   type TabType = "metric" | "trace" | "log";
 
@@ -346,6 +348,99 @@
     return metricDetail.DataPoints.filter(
       (dp) => (dp.Attributes?.join(" ") || "") === selectedAttributeFilter
     );
+  });
+
+  // --- AI Analysis States & Summaries for Metric & Trace ---
+  let showMetricAiModal = $state(false);
+  let showTraceAiModal = $state(false);
+
+  const metricAiSummary = $derived.by(() => {
+    if (!metricDetail) return "";
+    const count = filteredModalDataPoints.length;
+    return `メトリック名: ${metricDetail.Name} (${metricDetail.Type}), サービス: ${metricDetail.Service}, ホスト: ${metricDetail.Host}, スコープ: ${metricDetail.Scope || "-"}, 単位: ${metricDetail.Unit || "-"}, データポイント総数: ${count}件, 適用属性フィルタ: ${selectedAttributeFilter}`;
+  });
+
+  const metricAiItems = $derived.by(() => {
+    if (!metricDetail || !filteredModalDataPoints.length) return [];
+    const items: string[] = [];
+    const points = filteredModalDataPoints;
+
+    // Calculate numeric statistics if available
+    const numericVals: number[] = [];
+    for (const dp of points) {
+      const v = dp.Gauge ?? dp.Sum;
+      if (typeof v === "number" && !isNaN(v)) numericVals.push(v);
+    }
+
+    if (numericVals.length > 0) {
+      const min = Math.min(...numericVals);
+      const max = Math.max(...numericVals);
+      const avg = (numericVals.reduce((a, b) => a + b, 0) / numericVals.length).toFixed(3);
+      const latest = numericVals[numericVals.length - 1];
+      items.push(`[統計要約] 最小値: ${min}, 最大値: ${max}, 平均値: ${avg}, 最新値: ${latest}, サンプル数: ${numericVals.length}`);
+    }
+
+    // Top peak data points
+    const sorted = [...points].sort((a, b) => {
+      const valA = (a.Gauge ?? a.Sum ?? a.Count ?? 0);
+      const valB = (b.Gauge ?? b.Sum ?? b.Count ?? 0);
+      return valB - valA;
+    });
+
+    for (const dp of sorted.slice(0, 15)) {
+      const val = dp.Gauge ?? dp.Sum ?? "-";
+      const extra = dp.Count !== undefined ? `, Count: ${dp.Count}, Min/Max: ${dp.Min}/${dp.Max}` : "";
+      items.push(`[ピーク観測値] 時刻: ${formatTimeStr(dp.Time)}, 値: ${val}${extra}, 属性: ${dp.Attributes?.join(" ") || "なし"}`);
+    }
+
+    // Chronological edge points
+    if (points.length > 1) {
+      const first = points[0];
+      const last = points[points.length - 1];
+      items.push(`[時系列変動] 開始時刻: ${formatTimeStr(first.Time)} (値: ${first.Gauge ?? first.Sum ?? "-"}), 終了時刻: ${formatTimeStr(last.Time)} (値: ${last.Gauge ?? last.Sum ?? "-"})`);
+    }
+
+    return items;
+  });
+
+  const traceAiSummary = $derived.by(() => {
+    if (!traceDetail) return "";
+    const totalMs = (traceDetail.Dur * 1000).toFixed(3);
+    const spanCount = traceDetail.Spans?.length || 0;
+    const services = new Set((traceDetail.Spans || []).map((s) => s.Service).filter(Boolean));
+    return `TraceID: ${traceDetail.TraceID}, 総所要時間: ${totalMs} ms, 総スパン数: ${spanCount}件, 関連サービス: ${Array.from(services).join(", ") || "-"}`;
+  });
+
+  const traceAiItems = $derived.by(() => {
+    if (!traceDetail || !traceDetail.Spans?.length) return [];
+    const items: string[] = [];
+    const totalMs = traceDetail.Dur * 1000;
+    const spans = traceDetail.Spans;
+
+    // Sort by duration descending
+    const sortedSpans = [...spans].sort((a, b) => (b.Dur || 0) - (a.Dur || 0));
+
+    for (const sp of sortedSpans.slice(0, 15)) {
+      const spMs = (sp.Dur * 1000).toFixed(3);
+      const ratio = totalMs > 0 ? ((sp.Dur * 1000 / totalMs) * 100).toFixed(1) : "0.0";
+      const isSlow = Number(ratio) >= 20 || (sp.Dur * 1000 >= 100);
+      const tag = isSlow ? "[遅延要因/クリティカルパス]" : "[スパン所要時間]";
+      items.push(`${tag} サービス: ${sp.Service}, スパン名: ${sp.Name}, 所要時間: ${spMs} ms (全体比: ${ratio}%), SpanID: ${sp.SpanID}, 親SpanID: ${sp.ParentSpanID || "(Root)"}`);
+    }
+
+    // Check for errors in attributes or status
+    const errorSpans = spans.filter((sp) =>
+      sp.Attributes?.some((a) => {
+        const lower = a.toLowerCase();
+        return lower.includes("error=true") || lower.includes("status.code=error") || lower.includes("http.status_code=5") || lower.startsWith("error=");
+      })
+    );
+    for (const sp of errorSpans.slice(0, 10)) {
+      const errAttr = sp.Attributes?.find((a) => a.toLowerCase().includes("error")) || "Error detected";
+      items.push(`[エラー検出スパン] サービス: ${sp.Service}, スパン名: ${sp.Name}, エラー詳細: ${errAttr}, SpanID: ${sp.SpanID}`);
+    }
+
+    return items;
   });
 
   const handleMetricSort = (key: string) => {
@@ -1788,6 +1883,16 @@
             </div>
           {/if}
 
+          <button
+            type="button"
+            onclick={() => (showMetricAiModal = true)}
+            class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+            title={$_("otel.btnAIMetricExplain") || "AI異常分析"}
+          >
+            <Sparkles class="h-3.5 w-3.5 text-cyan-200" />
+            <span>{$_("otel.btnAIMetricExplain") || "AI異常分析"}</span>
+          </button>
+
           <button onclick={() => (showMetricReport = false)} class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
             <X class="h-4 w-4" />
           </button>
@@ -1891,6 +1996,16 @@
       </div>
     </div>
   </div>
+
+  {#if showMetricAiModal}
+    <ReportAIExplainModal
+      bind:show={showMetricAiModal}
+      reportType="otel_metric"
+      title={$_("otel.aiMetricReportTitle") || "OpenTelemetry メトリクス異常・傾向 AI診断"}
+      summary={metricAiSummary}
+      items={metricAiItems}
+    />
+  {/if}
 {/if}
 
 <!-- 3. Service DAG Modal -->
@@ -1942,9 +2057,20 @@
             {$_("otel.traceSpanCount")} <span class="font-bold text-slate-800 dark:text-slate-200">{traceDetail.Spans?.length || 0}</span>
           </p>
         </div>
-        <button onclick={() => (showTraceReport = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-          <X class="h-4 w-4" />
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick={() => (showTraceAiModal = true)}
+            class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-rose-600/25 transition-all cursor-pointer"
+            title={$_("otel.btnAITraceExplain") || "遅延原因分析"}
+          >
+            <Sparkles class="h-3.5 w-3.5 text-amber-200" />
+            <span>{$_("otel.btnAITraceExplain") || "遅延原因分析"}</span>
+          </button>
+          <button onclick={() => (showTraceReport = false)} class="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+            <X class="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div class="flex-1 flex flex-col p-4 gap-3 min-h-0 overflow-hidden">
@@ -1992,6 +2118,16 @@
       </div>
     </div>
   </div>
+
+  {#if showTraceAiModal}
+    <ReportAIExplainModal
+      bind:show={showTraceAiModal}
+      reportType="otel_trace"
+      title={$_("otel.aiTraceReportTitle") || "OpenTelemetry トレース遅延・ボトルネック AI診断"}
+      summary={traceAiSummary}
+      items={traceAiItems}
+    />
+  {/if}
 {/if}
 
 <!-- 5. OTel Log Detail Modal -->

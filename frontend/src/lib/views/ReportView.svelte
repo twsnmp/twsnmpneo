@@ -23,6 +23,7 @@
     Bluetooth,
     Binary,
     Terminal,
+    Layers,
   } from "@lucide/svelte";
   import {
     fetchNodes,
@@ -62,6 +63,8 @@
   import BluetoothReport from "./reports/BluetoothReport.svelte";
   import PcapReport from "./reports/PcapReport.svelte";
   import WinLogReport from "./reports/WinLogReport.svelte";
+  import MqttReport from "./reports/MqttReport.svelte";
+  import OTelReport from "./reports/OTelReport.svelte";
 
   type ReportCategory =
     | "device"
@@ -80,6 +83,8 @@
     | "bluetooth"
     | "pcap"
     | "winlog"
+    | "mqtt"
+    | "otel"
     | "ai";
 
   let activeReport = $state<ReportCategory>("device");
@@ -124,6 +129,8 @@
     { id: "bluetooth", name: $_("report.tabBluetooth"), icon: Bluetooth },
     { id: "pcap", name: $_("report.tabPcap"), icon: Binary },
     { id: "winlog", name: $_("report.tabWinlog"), icon: Terminal },
+    { id: "mqtt", name: $_("report.tabMqtt") || "MQTT", icon: Radio },
+    { id: "otel", name: $_("report.tabOtel") || "OpenTelemetry", icon: Layers },
     { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
   ]);
 
@@ -438,6 +445,22 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
+        onRefresh={loadData}
+        {loading}
+      />
+    {:else if activeReport === "mqtt"}
+      <MqttReport
+        bind:this={activeReportRef}
+        {searchQuery}
+        {mqttStats}
+        {nodes}
+        onRefresh={loadData}
+        {loading}
+      />
+    {:else if activeReport === "otel"}
+      <OTelReport
+        bind:this={activeReportRef}
+        {searchQuery}
         onRefresh={loadData}
         {loading}
       />

@@ -581,6 +581,7 @@ func TestAI_AssistAndDiagnose(t *testing.T) {
 
 	reportTypesToTest := []string{
 		"device", "arp", "trap", "polling", "event", "winlog", "sensor", "wifi", "pcap", "anomaly",
+		"otel", "otel_metric", "otel_trace",
 	}
 	for _, rt := range reportTypesToTest {
 		if _, err := client.ExplainReport(ctx, bStore, pqStore, rt, map[string]interface{}{"metric": 42}, "overview", "ja"); err != nil {

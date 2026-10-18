@@ -120,8 +120,19 @@
       currentUser = null;
     };
     window.addEventListener("twsnmp:unauthorized", onUnauthorized);
+
+    // Listen for cross-view navigation events (e.g. from ReportView to MQTT/OTel)
+    const onPageChange = (e: Event) => {
+      const customEvent = e as CustomEvent<PageType>;
+      if (customEvent.detail) {
+        currentPage = customEvent.detail;
+      }
+    };
+    window.addEventListener("twsnmp:change-page", onPageChange);
+
     return () => {
       window.removeEventListener("twsnmp:unauthorized", onUnauthorized);
+      window.removeEventListener("twsnmp:change-page", onPageChange);
     };
   });
 

@@ -279,9 +279,39 @@ func (c *LLMClient) ExplainReport(ctx context.Context, store datastore.DataStore
 		}
 
 	case "mqtt":
-		system = "You are an MQTT broker and IoT operations expert. Analyze the MQTT statistics data and explain client message volumes, topic hierarchy distribution, connection issues, and anomalies."
+		system = "You are an MQTT broker and IoT operations expert. Analyze the MQTT statistics data and provide a comprehensive operational report: evaluate client message volume distribution, identify hot/concentrated topic hierarchies, analyze state health (Normal/Warn/Low ratios), detect communication anomalies or flapping clients, and recommend topic design and broker optimizations in clean markdown format."
 		if isJa {
-			system = "あなたはMQTTブローカーおよびIoT運用の専門家です。提示されたMQTT統計データを分析し、クライアント毎のメッセージ量、トピック階層の集中度、接続状態・切断エラー、および不審なクライアント動作について、日本語のマークダウン形式（表、太字、箇条書き）で解説してください。"
+			system = "あなたはMQTTブローカーおよびIoT運用の専門家です。提示されたMQTT統計データ（クライアント・トピック・状態分布・ヒートマップ・ツリーマップ等）を分析し、①クライアント毎のトラフィック集中度と不審な接続傾向、②トピック階層の利用バランスと設計の妥当性、③異常状態（Warn/Low）の発生原因と影響、④IoTセンサー・デバイスの通信異常の兆候、⑤運用の健全化に向けた推奨対策を、日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "otel_metric", "otel_metrics":
+		system = "You are an OpenTelemetry metrics and cloud-native observability expert. Analyze the time-series metric data points (Gauge, Sum, Histogram), detect value spikes, rate anomalies, percentile regressions (P95/P99 latency), threshold breaches, and explain potential infrastructure bottlenecks, application regressions, and remediation steps in clean markdown format."
+		if isJa {
+			system = "あなたはOpenTelemetryメトリクスおよびオブザーバビリティの専門家です。提示されたメトリクスデータ（時系列推移、Gauge/Sum/Histogramの分布、属性別データポイント）を分析し、①メトリック値の急激なスパイクや異常変動、②P95/P99等のパーセンタイル悪化やスループット低下の兆候、③ホスト・サービス・スコープ別の負荷偏り、④システムリソース枯渇やアプリケーション不具合の推定原因、⑤推奨される調査・チューニング手順を、日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "otel_trace", "otel_traces", "trace":
+		system = "You are a distributed tracing, APM, and latency optimization expert. Analyze the OpenTelemetry trace waterfall and span hierarchy. Identify the critical path and latency bottlenecks, pinpoint slow database queries, external HTTP API calls, lock contention, or cascading error propagation, and provide actionable latency reduction recommendations in clean markdown format."
+		if isJa {
+			system = "あなたは分散トレーシング、APM、およびシステムレイテンシ最適化の専門家です。提示されたOpenTelemetryトレースデータ（全体の所要時間、スパンツリー階層、各スパンのDurationと比率、エラー・ステータス属性）を分析し、①トレース全体の遅延を引き起こしているクリティカルパスおよびボトルネック（DBスロークエリ、外部API呼び出し、同期ブロッキング等）、②エラーやステータスコード異常の発生箇所、③サービス間の依存関係における遅延連鎖、④具体的なパフォーマンス改善およびレイテンシ短縮のための推奨アクションを、日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "otel":
+		system = "You are a full-stack OpenTelemetry observability expert. Analyze the overall OpenTelemetry telemetry summary (metrics volume, trace durations, service dependencies, error logs), assess microservice health, and recommend optimizations in clean markdown format."
+		if isJa {
+			system = "あなたはOpenTelemetry統合オブザーバビリティの専門家です。提示されたテレメトリ概要（メトリクス総数、トレース遅延傾向、サービス間依存DAG、エラーログ発生状況）を総合的に分析し、システム全体の健全性評価、主要ボトルネック、および信頼性向上のための推奨対策を、日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
 		}
 		if data != nil {
 			b, _ := json.MarshalIndent(data, "", "  ")

@@ -191,12 +191,16 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Dedicated telemetry viewer featuring a left sidebar (`w-60`) for switching between **Metrics**, **Traces**, and **Logs** with real-time badge counts.
    - Top overview dashboard (`h-64`) featuring 4 vertical KPIs, metric type donut chart, service metric horizontal bar chart, and trace duration scatter plot.
    - Interactive service DAG topology graph, span hierarchy timeline tree, and fully sortable tables.
+   - **AI Anomaly & Root-Cause Diagnosis**: Integrated `ReportAIExplainModal` across OTel telemetry:
+     - **Metric Anomaly Diagnosis (`otel_metric`)**: AI analysis of Gauge/Sum/Histogram distributions, spikes, and P95/P99 latency regressions.
+     - **Trace Latency & Bottleneck Diagnosis (`otel_trace`)**: AI analysis of span hierarchy critical path, slow database queries, external API dependencies, and error spans.
 7. **MQTT View (`MQTTView.svelte`)**:
    - Dedicated MQTT topic monitor featuring a left sidebar (`w-60`) for switching between **統計 (Stats)** and **ログ (Logs)** with real-time badge counts.
    - Top overview dashboard (`h-64`) with 4 vertical KPIs, State breakdown donut chart, and Top 10 topics horizontal bar chart.
    - Top header action bar (Reload, Create Polling / AI Assist, Report, Delete All, Delete) and per-row topic copy button.
    - Full column sorting, standardized state badges (colored dot + badge tag), and pretty-printed payload code block.
    - Fully theme-adaptive 7-tab MQTT analytics report modal (`MQTTReportModal.svelte`) and independent Parquet logs (`type: mqtt`) with date filtering and automatic rotation.
+   - **AI Topic & Statistical Trend Diagnosis (`mqtt`)**: Integrated `ReportAIExplainModal` analyzing client message concentration, topic tree design, and anomalous states (Warn/Low).
 8. **Report View (`ReportView.svelte`)**:
    - Analytics suites (powered by backend real-time aggregation engine `logreport.Engine` / `Reporter` pipeline, aligned with TWSNMP FC):
      - **Device Analytics**: LAN devices, Bluetooth, Wi-Fi APs, Switch FDB tables, Port tables.
@@ -208,6 +212,8 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **NetFlow Analytics**: Top server ports, Conversations, Servers, Fumble flows, Protocols, with deviation scores (mean 50, sd 10) and penalty badges.
      - **sFlow Analytics**: Sampled flow and counter aggregation with Conversations, Servers, Fumble flows, and deviation scores.
      - **ARP Watch Analytics**: Aggregated ARP monitoring events categorized by IP/node, vendor, state (new device/MAC change), and severity level.
+     - **MQTT Analytics (`MqttReport.svelte`)**: High-level MQTT KPI overview (topics, messages, clients, anomalies), topic statistics table, CSV export, AI statistical trend analysis, and one-click jump to `MQTTView`.
+     - **OpenTelemetry Analytics (`OTelReport.svelte`)**: High-level telemetry KPI overview (series, services, hosts, slow traces), metric catalog, CSV export, AI full-stack observability analysis, and one-click jump to `OTelView`.
      - **Environmental Sensors (環境センサー)**: Tabbed analytics suite (`SensorReport.svelte`) for IoT & environmental sensors parsed from `twBlueScan` syslog:
        - **環境センサー (`envMonitor`)**: OMRON, SwitchBot, Inkbird (temperature, humidity, illuminance, barometric pressure, sound, eTVOC, eCO2, battery).
        - **電力センサー (`powerMonitor`)**: SwitchBot Plug Mini (power load W, switch ON/OFF, overload alert).

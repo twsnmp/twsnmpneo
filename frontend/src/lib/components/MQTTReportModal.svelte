@@ -18,8 +18,11 @@
     Grid,
     PieChart,
     FolderTree,
+    Sparkles,
   } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
+  import { renderBytes } from "../common";
+  import ReportAIExplainModal from "./ReportAIExplainModal.svelte";
 
   let {
     show = $bindable(false),
@@ -34,6 +37,49 @@
   let activeTab = $state<TabType>("client");
   let heatmapMode = $state<"time" | "client_topic">("time");
   let chartContainer: HTMLDivElement | undefined = $state();
+  let showAiModal = $state(false);
+
+  // Derived statistics for AI domain explanation
+  const totalMessages = $derived((stats || []).reduce((acc: number, s: MqttStatEnt) => acc + (s.Count || 0), 0));
+  const totalBytes = $derived((stats || []).reduce((acc: number, s: MqttStatEnt) => acc + (s.Bytes || 0), 0));
+  const warnOrLowStats = $derived((stats || []).filter((s: MqttStatEnt) => s.State === "warn" || s.State === "low"));
+  const uniqueClients = $derived(new Set((stats || []).map((s: MqttStatEnt) => s.ClientID).filter(Boolean)).size);
+  const uniqueRemotes = $derived(new Set((stats || []).map((s: MqttStatEnt) => s.Remote).filter(Boolean)).size);
+
+  const aiSummaryText = $derived(
+    `MQTTトピック総数: ${stats.length}件, 総メッセージ数: ${totalMessages.toLocaleString()}件, 総データ量: ${renderBytes(totalBytes)}, 接続クライアント数: ${uniqueClients}台 (接続元IP数: ${uniqueRemotes}), 異常状態(Warn/Low): ${warnOrLowStats.length}件, 現在表示タブ: ${activeTab}`
+  );
+
+  const aiItemsList = $derived.by(() => {
+    const items: string[] = [];
+    // 1. Anomalous state topics
+    for (const s of warnOrLowStats.slice(0, 20)) {
+      items.push(`[異常状態: ${s.State?.toUpperCase()}] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, Remote: ${s.Remote || "-"}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`);
+    }
+    // 2. High message volume topics
+    const topByCount = [...stats].sort((a, b) => (b.Count || 0) - (a.Count || 0)).slice(0, 15);
+    for (const s of topByCount) {
+      if (!warnOrLowStats.includes(s)) {
+        items.push(`[トラフィック上位] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, State: ${s.State}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`);
+      }
+    }
+    // 3. Client grouping
+    const clientMap = new Map<string, { count: number; bytes: number; topics: number; remotes: Set<string> }>();
+    for (const s of stats) {
+      const cid = s.ClientID || "(Unknown)";
+      const existing = clientMap.get(cid) || { count: 0, bytes: 0, topics: 0, remotes: new Set<string>() };
+      existing.count += s.Count || 0;
+      existing.bytes += s.Bytes || 0;
+      existing.topics += 1;
+      if (s.Remote) existing.remotes.add(s.Remote);
+      clientMap.set(cid, existing);
+    }
+    const topClients = [...clientMap.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 10);
+    for (const [cid, info] of topClients) {
+      items.push(`[主要クライアント] ClientID: ${cid}, Topics: ${info.topics}件, TotalMsgs: ${info.count.toLocaleString()}, TotalBytes: ${renderBytes(info.bytes)}, Remotes: ${[...info.remotes].join(", ") || "-"}`);
+    }
+    return items;
+  });
 
   const switchTab = async (t: TabType) => {
     activeTab = t;
@@ -105,12 +151,23 @@
           </div>
         </div>
 
-        <button
-          onclick={() => (show = false)}
-          class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
-        >
-          <X class="h-5 w-5" />
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick={() => (showAiModal = true)}
+            class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+            title={$_("report.btnAIExplain") || "AI分析"}
+          >
+            <Sparkles class="h-3.5 w-3.5 text-cyan-200" />
+            <span>{$_("report.btnAIExplain") || "AI分析"}</span>
+          </button>
+          <button
+            onclick={() => (show = false)}
+            class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+          >
+            <X class="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <!-- Tab Navigation -->
@@ -194,4 +251,14 @@
       </div>
     </div>
   </div>
+
+  {#if showAiModal}
+    <ReportAIExplainModal
+      bind:show={showAiModal}
+      reportType="mqtt"
+      title={$_("mqtt.aiReportTitle") || "MQTT トピック & 統計傾向 AI診断"}
+      summary={aiSummaryText}
+      items={aiItemsList}
+    />
+  {/if}
 {/if}
