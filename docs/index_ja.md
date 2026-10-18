@@ -3,7 +3,7 @@ title: はじめてのTWSNMP NEO
 layout: default
 ---
 
-[English (英語版はこちら)](./index.html)
+[English (英語版はこちら)](./index.html) | [ライフサイクル（リリース・導入・自動更新）](./lifecycle_ja.html) | [MCP仕様](./mcp_ja.html) | [AIプロンプト](./prompt_ja.html)
 
 # はじめてのTWSNMP NEO
 次世代コンテナネイティブ・Webベース ネットワーク管理システム
@@ -30,9 +30,13 @@ layout: default
 
 ## 2. インストールと起動
 
-TWSNMP NEO は、Docker コンテナまたは単一実行バイナリとして動作します。
+TWSNMP NEO は、Docker コンテナ、Homebrew、Windows サービス、単一実行バイナリとして多様な環境で動作します。
 
-### Docker による起動
+![](./images/twsnmpneo_lifecycle_infographic.jpg)
+
+> 📖 **詳細ガイド**: 各プラットフォームごとの詳細なセットアップ手順や自動更新の仕組みについては **[ライフサイクルガイド（リリース・導入・自動更新）](./lifecycle_ja.html)** をご覧ください。
+
+### Docker による起動（推奨）
 
 最も簡単な起動方法は Docker です。データ保存用ディレクトリをマウントして起動します：
 
@@ -75,25 +79,50 @@ services:
 docker compose up -d
 ```
 
-### スタンドアロンバイナリでの起動
+### Homebrew (macOS / Linux)
 
-[GitHub リリースページ](https://github.com/twsnmp/twsnmpneo/releases) からバイナリをダウンロードして直接実行できます。
+macOS や Linuxbrew では Homebrew Tap より手軽に導入可能です：
 
 ```bash
-./twsnmpneo -datastore ./data -port 8080
+brew install twsnmp/tap/twsnmpneo
+twsnmpneo -datastore ./data -port 8080
 ```
 
-### Linux環境での注意点（Capabilities）
+### Windows (スタンドアロン & Windows サービス常駐)
 
-Linux環境で一般ユーザーとして実行する場合、Raw ソケット（ICMP Ping）や 1024 未満の特権ポート（514 Syslog、162 TRAP など）のバインド権限が必要です。
-`sudo` で直接実行するのではなく、バイナリに Linux Capabilities を付与してください：
+[GitHub Releases](https://github.com/twsnmp/twsnmpneo/releases) より `twsnmpneo_windows_amd64.zip` をダウンロード・展開し、管理者権限のコマンドプロンプトや PowerShell から Windows サービスとして登録・常駐化できます：
+
+```powershell
+# サービス登録（OS起動時に自動起動）
+.\twsnmpneo.exe service install -service-auto -datastore C:\twsnmpneo\data -port 8080
+
+# サービス開始
+.\twsnmpneo.exe service start
+```
+
+### Linux (curl インストーラー & Capabilities)
 
 ```bash
-# 特権の付与
-sudo setcap 'cap_net_bind_service,cap_net_raw+ep' ./twsnmpneo
+# curl ワンライナーインストール
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh
 
-# 一般ユーザーとして実行
-./twsnmpneo -datastore ./data -port 8080
+# 特権ポート (514/162) & Rawソケット (Ping) 許可
+sudo setcap 'cap_net_bind_service,cap_net_raw+ep' /usr/local/bin/twsnmpneo
+
+# 起動または systemd サービス登録
+twsnmpneo -datastore ./data -port 8080
+```
+
+### スマート自動更新 (Self-Updater)
+
+動作環境を自動検出し、CLI や Web UI から安全に自己更新を実行できます：
+
+```bash
+# 更新チェック
+twsnmpneo update -check
+
+# 最新バージョンへ即時更新 & プロセス自動再起動
+twsnmpneo update -y
 ```
 
 ---

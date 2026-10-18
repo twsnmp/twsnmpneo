@@ -23,6 +23,7 @@
 ## ドキュメント（GitHub Pages）
 
 * **[はじめての TWSNMP NEO（日本語マニュアル）](https://twsnmp.github.io/twsnmpneo/index_ja.html)**
+* **[ライフサイクル（リリース・導入・自動更新）ガイド](https://twsnmp.github.io/twsnmpneo/lifecycle_ja.html)**
 * **[English Manual (英語マニュアル)](https://twsnmp.github.io/twsnmpneo/)**
 * **[MCP サーバー仕様・連携ガイド](https://twsnmp.github.io/twsnmpneo/mcp_ja.html)**
 * **[AI プロンプト・診断ガイド](https://twsnmp.github.io/twsnmpneo/prompt_ja.html)**
@@ -59,23 +60,13 @@
 
 ## クイックスタート
 
+![TWSNMP NEO ライフサイクル・インフォグラフィック](docs/images/twsnmpneo_lifecycle_infographic.jpg)
+
+> 💡 **詳しい解説**: リリースパイプライン、各OSの導入設定、自動更新の仕様詳細は **[ライフサイクルガイド（日本語）](https://twsnmp.github.io/twsnmpneo/lifecycle_ja.html)** をご参照ください。
+
 ### インストール方法
 
-#### Homebrew (macOS / Linux)
-```bash
-brew install twsnmp/tap/twsnmpneo
-```
-
-#### シェルスクリプト (curl インストーラー: CI環境・スタンドアロン向け)
-```bash
-curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh
-```
-CI環境や非対話モードで導入する場合:
-```bash
-curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh -s -- -y
-```
-
-### Docker による起動
+#### Docker による起動（推奨）
 
 ```bash
 docker run -d \
@@ -90,45 +81,52 @@ docker run -d \
   ghcr.io/twsnmp/twsnmpneo:latest
 ```
 
-ブラウザで `http://localhost:8080` にアクセスしてください。
+ブラウザで `http://localhost:8080` にアクセスしてください。Docker Compose で起動する場合は `docker compose up -d` を実行します。
 
-### Docker Compose による起動
-
-`docker-compose.yml` を作成します：
-
-```yaml
-services:
-  twsnmpneo:
-    image: ghcr.io/twsnmp/twsnmpneo:latest
-    container_name: twsnmpneo
-    restart: always
-    ports:
-      - "8080:8080"
-      - "514:514/udp"
-      - "162:162/udp"
-      - "2055:2055/udp"
-      - "6343:6343/udp"
-    volumes:
-      - ./data:/data
+#### Homebrew (macOS / Linux)
+```bash
+brew install twsnmp/tap/twsnmpneo
+twsnmpneo -datastore ./data -port 8080
 ```
 
-コンテナを起動します：
+#### Windows (スタンドアロン & Windows サービス常駐)
+[GitHub Releases](https://github.com/twsnmp/twsnmpneo/releases) から `twsnmpneo_windows_amd64.zip` をダウンロード・展開し、管理者権限で実行します：
+```powershell
+# Windows サービスとして登録（OS起動時に自動起動）
+.\twsnmpneo.exe service install -service-auto -datastore C:\twsnmpneo\data -port 8080
+
+# サービスの開始
+.\twsnmpneo.exe service start
+```
+
+#### シェルスクリプト (curl インストーラー: Linux / macOS)
+```bash
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh
+```
+CI環境や非対話モードで導入する場合:
+```bash
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh -s -- -y
+```
+
+Linux で一般ユーザーとして実行する場合の Capabilities 付与：
+```bash
+sudo setcap 'cap_net_bind_service,cap_net_raw+ep' /usr/local/bin/twsnmpneo
+```
+
+---
+
+### スマート自動更新 (Self-Updater)
+
+TWSNMP NEO は動作環境（Docker、Homebrew、Standalone）を自己判別し、安全に最新版へ更新できます：
 
 ```bash
-docker compose up -d
+# 新バージョンの確認
+twsnmpneo update -check
+
+# 最新バージョンへの即時更新 & プロセス自動再起動
+twsnmpneo update -y
 ```
-
-### スタンドアロンバイナリでの起動
-
-[GitHub Releases](https://github.com/twsnmp/twsnmpneo/releases) からお使いのOSに合ったバイナリをダウンロードします。
-
-#### Linux環境での注意点
-Linuxで一般ユーザーとして実行する場合、Rawソケット（ICMP Ping）や1024未満の特権ポート（514のSyslog、162のTRAPなど）の利用に Linux Capabilities が必要です：
-
-```bash
-sudo setcap 'cap_net_bind_service,cap_net_raw+ep' ./twsnmpneo
-./twsnmpneo -datastore ./data -port 8080
-```
+※ Web UI 管理画面からも、新バージョン通知バナーからワンクリックで更新適用が可能です。
 
 ---
 

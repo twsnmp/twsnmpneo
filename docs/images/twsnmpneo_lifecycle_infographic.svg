@@ -1,0 +1,447 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200" width="1600" height="1200">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="0%" r="80%">
+      <stop offset="0%" stop-color="#141d33" />
+      <stop offset="50%" stop-color="#0a0e17" />
+      <stop offset="100%" stop-color="#05070c" />
+    </radialGradient>
+
+    <!-- Card Background Gradient -->
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#151d2f" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0d1320" stop-opacity="0.95" />
+    </linearGradient>
+
+    <!-- Accent Gradients -->
+    <linearGradient id="cyanBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+    <linearGradient id="purplePink" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7928ca" />
+      <stop offset="100%" stop-color="#ff0080" />
+    </linearGradient>
+    <linearGradient id="emeraldTeal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="amberOrange" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ef4444" />
+    </linearGradient>
+    <linearGradient id="neonGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0.05" />
+    </linearGradient>
+
+    <!-- Filter for Glow effects -->
+    <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="shadowBox" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+
+    <!-- Grid Pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1f293d" stroke-width="0.7" stroke-opacity="0.4" />
+    </pattern>
+
+    <!-- Terminal styling -->
+    <style>
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif; font-weight: 900; }
+      .header-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 500; }
+      .mono { font-family: "SF Mono", "Fira Code", Menlo, Monaco, Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      .card-title { font-size: 19px; font-weight: 700; fill: #ffffff; letter-spacing: 0.5px; }
+      .card-sub { font-size: 12px; fill: #94a3b8; }
+      .code-text { font-size: 12px; fill: #38bdf8; }
+      .badge-text { font-size: 11px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <!-- Background Layer -->
+  <rect width="1600" height="1200" fill="url(#bgGlow)" />
+  <rect width="1600" height="1200" fill="url(#grid)" />
+
+  <!-- Ambient Light Orbs -->
+  <circle cx="200" cy="150" r="180" fill="#00f2fe" opacity="0.06" filter="url(#glowCyan)" />
+  <circle cx="1400" cy="200" r="220" fill="#7928ca" opacity="0.07" filter="url(#glowCyan)" />
+  <circle cx="800" cy="800" r="260" fill="#10b981" opacity="0.05" filter="url(#glowCyan)" />
+
+  <!-- ==================== HEADER SECTION ==================== -->
+  <g transform="translate(80, 50)">
+    <!-- Brand Pill -->
+    <rect x="0" y="0" width="160" height="32" rx="16" fill="#1e293b" stroke="#38bdf8" stroke-width="1.2" />
+    <circle cx="16" cy="16" r="5" fill="#00f2fe" filter="url(#glowCyan)" />
+    <text x="30" y="21" class="sans" font-size="12" font-weight="700" fill="#38bdf8" letter-spacing="1">NEXT-GEN NMS</text>
+
+    <!-- Main Title -->
+    <text x="0" y="78" class="title" font-size="38" fill="#ffffff" letter-spacing="-0.5">
+      TWSNMP NEO <tspan fill="url(#cyanBlue)">LIFECYCLE ARCHITECTURE</tspan>
+    </text>
+    <text x="0" y="106" class="header-sub" font-size="15" fill="#94a3b8">
+      リリース自動化パイプライン (CI/CD) • マルチプラットフォーム導入 • インテリジェント自己自動更新
+    </text>
+
+    <!-- Right Header Badges -->
+    <g transform="translate(1080, 20)">
+      <rect x="0" y="0" width="110" height="30" rx="8" fill="#161e31" stroke="#334155" />
+      <text x="55" y="19" class="sans" font-size="12" fill="#00f2fe" text-anchor="middle" font-weight="600">Docker</text>
+
+      <rect x="120" y="0" width="110" height="30" rx="8" fill="#161e31" stroke="#334155" />
+      <text x="175" y="19" class="sans" font-size="12" fill="#60a5fa" text-anchor="middle" font-weight="600">Windows</text>
+
+      <rect x="240" y="0" width="110" height="30" rx="8" fill="#161e31" stroke="#334155" />
+      <text x="295" y="19" class="sans" font-size="12" fill="#f59e0b" text-anchor="middle" font-weight="600">Homebrew</text>
+      
+      <rect x="360" y="0" width="80" height="30" rx="8" fill="#161e31" stroke="#334155" />
+      <text x="400" y="19" class="sans" font-size="12" fill="#a855f7" text-anchor="middle" font-weight="600">Linux</text>
+    </g>
+  </g>
+
+  <!-- Divider Line -->
+  <line x1="80" y1="180" x2="1520" y2="180" stroke="#1e293b" stroke-width="1.5" />
+
+  <!-- ==================== COLUMN 1: RELEASE PIPELINE ==================== -->
+  <g transform="translate(80, 210)">
+    <!-- Column Card Background -->
+    <rect x="0" y="0" width="450" height="930" rx="16" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" filter="url(#shadowBox)" />
+    
+    <!-- Top Accent Bar -->
+    <path d="M 0 16 Q 0 0 16 0 L 434 0 Q 450 0 450 16 L 450 6 L 0 6 Z" fill="url(#cyanBlue)" />
+
+    <!-- Section Header -->
+    <g transform="translate(25, 30)">
+      <circle cx="16" cy="16" r="16" fill="#0284c7" fill-opacity="0.2" />
+      <text x="16" y="21" class="sans" font-size="14" fill="#38bdf8" font-weight="800" text-anchor="middle">01</text>
+      <text x="44" y="15" class="card-title">RELEASE PIPELINE</text>
+      <text x="44" y="32" class="card-sub">GitHub Actions による自動ビルド &amp; 配信</text>
+    </g>
+
+    <!-- Step 1: Git Tag -->
+    <g transform="translate(25, 90)">
+      <rect x="0" y="0" width="400" height="72" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <rect x="15" y="15" width="40" height="40" rx="8" fill="#3b82f6" fill-opacity="0.15" />
+      <!-- Git Icon -->
+      <path d="M 35 25 L 35 45 M 28 32 L 42 32 M 35 30 A 3 3 0 1 0 35 25" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" fill="none" />
+      <text x="68" y="32" class="sans" font-size="13" font-weight="700" fill="#f8fafc">1. Git Tag Push</text>
+      <text x="68" y="50" class="mono" font-size="12" fill="#93c5fd">git tag v1.0.0 &amp;&amp; git push --tags</text>
+    </g>
+
+    <!-- Connecting Arrow -->
+    <path d="M 225 170 L 225 190" stroke="#0284c7" stroke-width="2" stroke-dasharray="3,3" />
+    <polygon points="221,190 229,190 225,196" fill="#0284c7" />
+
+    <!-- Step 2: CI/CD Build Engine -->
+    <g transform="translate(25, 205)">
+      <rect x="0" y="0" width="400" height="180" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <text x="20" y="28" class="sans" font-size="13" font-weight="700" fill="#f8fafc">2. CI/CD Orchestration (release.yml)</text>
+      
+      <!-- Sub-step A: Frontend -->
+      <rect x="20" y="42" width="360" height="52" rx="6" fill="#1e293b" fill-opacity="0.6" stroke="#334155" />
+      <text x="35" y="62" class="sans" font-size="12" font-weight="600" fill="#f43f5e">Frontend Build (Node 22 + pnpm)</text>
+      <text x="35" y="80" class="mono" font-size="11" fill="#cbd5e1">pnpm build &rarr; backend/dist (Svelte/Vite)</text>
+
+      <!-- Sub-step B: Backend -->
+      <rect x="20" y="104" width="360" height="64" rx="6" fill="#1e293b" fill-opacity="0.6" stroke="#334155" />
+      <text x="35" y="124" class="sans" font-size="12" font-weight="600" fill="#06b6d4">GoReleaser (Go 1.27 + CGO=0)</text>
+      <text x="35" y="142" class="mono" font-size="11" fill="#cbd5e1">Matrix: Linux • macOS • Windows</text>
+      <text x="35" y="157" class="mono" font-size="11" fill="#94a3b8">Arch: amd64 / arm64 (Embedded SPA)</text>
+    </g>
+
+    <!-- Connecting Arrow -->
+    <path d="M 225 393 L 225 413" stroke="#0284c7" stroke-width="2" stroke-dasharray="3,3" />
+    <polygon points="221,413 229,413 225,419" fill="#0284c7" />
+
+    <!-- Step 3: Distribution Artifacts -->
+    <g transform="translate(25, 428)">
+      <rect x="0" y="0" width="400" height="470" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <text x="20" y="28" class="sans" font-size="13" font-weight="700" fill="#f8fafc">3. Multi-Channel Distribution</text>
+
+      <!-- Target 1: GitHub Releases -->
+      <g transform="translate(18, 45)">
+        <rect x="0" y="0" width="364" height="115" rx="8" fill="#141c2e" stroke="#1e293b" />
+        <rect x="12" y="12" width="28" height="28" rx="6" fill="#6366f1" fill-opacity="0.2" />
+        <text x="26" y="30" class="sans" font-size="13" fill="#818cf8" font-weight="700" text-anchor="middle">📦</text>
+        <text x="48" y="26" class="sans" font-size="13" font-weight="700" fill="#e2e8f0">GitHub Releases</text>
+        <text x="48" y="42" class="card-sub">全OSスタンドアロンバイナリ</text>
+        <rect x="12" y="52" width="340" height="50" rx="4" fill="#090d16" />
+        <text x="22" y="70" class="mono" font-size="11" fill="#94a3b8">twsnmpneo_linux_{amd64,arm64}.tar.gz</text>
+        <text x="22" y="86" class="mono" font-size="11" fill="#94a3b8">twsnmpneo_darwin_{amd64,arm64}.tar.gz</text>
+        <text x="22" y="99" class="mono" font-size="11" fill="#67e8f9">twsnmpneo_windows_amd64.zip</text>
+      </g>
+
+      <!-- Target 2: Homebrew Tap -->
+      <g transform="translate(18, 175)">
+        <rect x="0" y="0" width="364" height="110" rx="8" fill="#141c2e" stroke="#1e293b" />
+        <rect x="12" y="12" width="28" height="28" rx="6" fill="#f59e0b" fill-opacity="0.2" />
+        <text x="26" y="30" class="sans" font-size="13" fill="#fbbf24" font-weight="700" text-anchor="middle">🍺</text>
+        <text x="48" y="26" class="sans" font-size="13" font-weight="700" fill="#e2e8f0">Homebrew Tap</text>
+        <text x="48" y="42" class="card-sub">自動更新 Formula パッケージ</text>
+        <rect x="12" y="52" width="340" height="46" rx="4" fill="#090d16" />
+        <text x="22" y="72" class="mono" font-size="11" fill="#fbbf24">repo: twsnmp/homebrew-tap</text>
+        <text x="22" y="88" class="mono" font-size="11" fill="#94a3b8">Formula/twsnmpneo.rb 自動コミット</text>
+      </g>
+
+      <!-- Target 3: Container Registry -->
+      <g transform="translate(18, 300)">
+        <rect x="0" y="0" width="364" height="145" rx="8" fill="#141c2e" stroke="#1e293b" />
+        <rect x="12" y="12" width="28" height="28" rx="6" fill="#0284c7" fill-opacity="0.2" />
+        <text x="26" y="30" class="sans" font-size="13" fill="#38bdf8" font-weight="700" text-anchor="middle">🐳</text>
+        <text x="48" y="26" class="sans" font-size="13" font-weight="700" fill="#e2e8f0">GitHub Container Registry (GHCR)</text>
+        <text x="48" y="42" class="card-sub">マルチアーキテクチャ Docker イメージ</text>
+        <rect x="12" y="52" width="340" height="80" rx="4" fill="#090d16" />
+        <text x="22" y="72" class="mono" font-size="11" fill="#38bdf8">ghcr.io/twsnmp/twsnmpneo:latest</text>
+        <text x="22" y="88" class="mono" font-size="11" fill="#94a3b8">Platforms: linux/amd64, linux/arm64</text>
+        <text x="22" y="104" class="mono" font-size="11" fill="#94a3b8">Tags: v1.0.0, v1.0, latest</text>
+        <text x="22" y="120" class="mono" font-size="11" fill="#10b981">Buildx &amp; QEMU キャッシュ最適化</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== COLUMN 2: INSTALLATION ==================== -->
+  <g transform="translate(575, 210)">
+    <!-- Column Card Background -->
+    <rect x="0" y="0" width="450" height="930" rx="16" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" filter="url(#shadowBox)" />
+    
+    <!-- Top Accent Bar -->
+    <path d="M 0 16 Q 0 0 16 0 L 434 0 Q 450 0 450 16 L 450 6 L 0 6 Z" fill="url(#purplePink)" />
+
+    <!-- Section Header -->
+    <g transform="translate(25, 30)">
+      <circle cx="16" cy="16" r="16" fill="#a855f7" fill-opacity="0.2" />
+      <text x="16" y="21" class="sans" font-size="14" fill="#c084fc" font-weight="800" text-anchor="middle">02</text>
+      <text x="44" y="15" class="card-title">INSTALLATION MATRIX</text>
+      <text x="44" y="32" class="card-sub">用途・OSに応じた柔軟なセットアップ手順</text>
+    </g>
+
+    <!-- Method A: Docker / Docker Compose -->
+    <g transform="translate(25, 80)">
+      <rect x="0" y="0" width="400" height="210" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <circle cx="24" cy="24" r="10" fill="#0284c7" />
+      <text x="24" y="28" class="sans" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700">D</text>
+      <text x="44" y="26" class="sans" font-size="14" font-weight="700" fill="#38bdf8">Docker / Docker Compose</text>
+      <rect x="300" y="14" width="85" height="20" rx="4" fill="#0369a1" fill-opacity="0.3" stroke="#0284c7" />
+      <text x="342" y="28" class="badge-text" fill="#38bdf8" text-anchor="middle">推奨環境</text>
+
+      <!-- Terminal Box -->
+      <rect x="15" y="44" width="370" height="152" rx="6" fill="#060911" stroke="#1e293b" />
+      <circle cx="28" cy="58" r="4" fill="#ef4444" />
+      <circle cx="40" cy="58" r="4" fill="#eab308" />
+      <circle cx="52" cy="58" r="4" fill="#22c55e" />
+      <text x="70" y="62" class="mono" font-size="10" fill="#64748b">docker-compose.yml</text>
+      
+      <text x="25" y="84" class="mono" font-size="11" fill="#f8fafc">services:</text>
+      <text x="35" y="98" class="mono" font-size="11" fill="#f8fafc">  twsnmpneo:</text>
+      <text x="45" y="112" class="mono" font-size="11" fill="#93c5fd">    image: ghcr.io/twsnmp/twsnmpneo:latest</text>
+      <text x="45" y="126" class="mono" font-size="11" fill="#94a3b8">    ports: ["8080:8080", "514:514/udp", ...]</text>
+      <text x="45" y="140" class="mono" font-size="11" fill="#94a3b8">    volumes: ["./data:/data"]</text>
+      <text x="25" y="166" class="mono" font-size="11" fill="#4ade80">$ docker compose up -d</text>
+      <text x="25" y="184" class="sans" font-size="11" fill="#94a3b8">&rarr; http://localhost:8080 にアクセス</text>
+    </g>
+
+    <!-- Method B: Homebrew -->
+    <g transform="translate(25, 305)">
+      <rect x="0" y="0" width="400" height="150" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <circle cx="24" cy="24" r="10" fill="#d97706" />
+      <text x="24" y="28" class="sans" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700">H</text>
+      <text x="44" y="26" class="sans" font-size="14" font-weight="700" fill="#fbbf24">Homebrew (macOS / Linux)</text>
+      <rect x="295" y="14" width="90" height="20" rx="4" fill="#78350f" fill-opacity="0.3" stroke="#d97706" />
+      <text x="340" y="28" class="badge-text" fill="#fbbf24" text-anchor="middle">macOS 最適</text>
+
+      <!-- Terminal Box -->
+      <rect x="15" y="44" width="370" height="92" rx="6" fill="#060911" stroke="#1e293b" />
+      <text x="25" y="68" class="mono" font-size="11" fill="#94a3b8"># 1. Tap &amp; Install</text>
+      <text x="25" y="86" class="mono" font-size="11" fill="#fbbf24">$ brew install twsnmp/tap/twsnmpneo</text>
+      <text x="25" y="112" class="mono" font-size="11" fill="#94a3b8"># 2. 実行</text>
+      <text x="25" y="126" class="mono" font-size="11" fill="#4ade80">$ twsnmpneo -datastore ./data -port 8080</text>
+    </g>
+
+    <!-- Method C: Windows Service & Standalone -->
+    <g transform="translate(25, 470)">
+      <rect x="0" y="0" width="400" height="215" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <circle cx="24" cy="24" r="10" fill="#2563eb" />
+      <text x="24" y="28" class="sans" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700">W</text>
+      <text x="44" y="26" class="sans" font-size="14" font-weight="700" fill="#60a5fa">Windows (Service / Standalone)</text>
+      <rect x="285" y="14" width="100" height="20" rx="4" fill="#1e3a8a" fill-opacity="0.3" stroke="#2563eb" />
+      <text x="335" y="28" class="badge-text" fill="#93c5fd" text-anchor="middle">SCM常駐対応</text>
+
+      <!-- Terminal Box -->
+      <rect x="15" y="44" width="370" height="156" rx="6" fill="#060911" stroke="#1e293b" />
+      <text x="25" y="66" class="mono" font-size="11" fill="#94a3b8"># 1. Releases から Zip をダウンロード展開</text>
+      <text x="25" y="82" class="mono" font-size="11" fill="#94a3b8"># 2. 管理者権限で Windows サービス登録</text>
+      <text x="25" y="100" class="mono" font-size="11" fill="#60a5fa">&gt; twsnmpneo service install -service-auto</text>
+      <text x="25" y="120" class="mono" font-size="11" fill="#94a3b8"># 3. サービスの開始</text>
+      <text x="25" y="138" class="mono" font-size="11" fill="#4ade80">&gt; twsnmpneo service start</text>
+      <text x="25" y="160" class="sans" font-size="10" fill="#a5b4fc">&bull; OS起動時にバックグラウンドで自動起動</text>
+      <text x="25" y="176" class="sans" font-size="10" fill="#a5b4fc">&bull; コンソール実行: twsnmpneo.exe -datastore C:\data</text>
+    </g>
+
+    <!-- Method D: Curl Installer & Linux Native -->
+    <g transform="translate(25, 700)">
+      <rect x="0" y="0" width="400" height="198" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <circle cx="24" cy="24" r="10" fill="#10b981" />
+      <text x="24" y="28" class="sans" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="700">L</text>
+      <text x="44" y="26" class="sans" font-size="14" font-weight="700" fill="#34d399">Linux / Curl ワンライナー</text>
+      <rect x="290" y="14" width="95" height="20" rx="4" fill="#064e3b" fill-opacity="0.3" stroke="#10b981" />
+      <text x="337" y="28" class="badge-text" fill="#34d399" text-anchor="middle">CI / サーバー</text>
+
+      <!-- Terminal Box -->
+      <rect x="15" y="44" width="370" height="140" rx="6" fill="#060911" stroke="#1e293b" />
+      <text x="25" y="66" class="mono" font-size="11" fill="#94a3b8"># curl インストーラー (対話 / 非対話 -y)</text>
+      <text x="25" y="84" class="mono" font-size="10" fill="#34d399">$ curl -sS https://.../install.sh | sh</text>
+      <text x="25" y="108" class="mono" font-size="11" fill="#94a3b8"># 特権ポート (514/162) &amp; RawSocket 許可</text>
+      <text x="25" y="126" class="mono" font-size="10" fill="#fbbf24">$ sudo setcap 'cap_net_bind_service,cap_net_raw+ep' ...</text>
+      <text x="25" y="148" class="mono" font-size="11" fill="#94a3b8"># systemd サービス登録</text>
+      <text x="25" y="166" class="mono" font-size="11" fill="#4ade80">$ sudo ./twsnmpneo service install</text>
+    </g>
+  </g>
+
+  <!-- ==================== COLUMN 3: SMART AUTO-UPDATE ==================== -->
+  <g transform="translate(1070, 210)">
+    <!-- Column Card Background -->
+    <rect x="0" y="0" width="450" height="930" rx="16" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" filter="url(#shadowBox)" />
+    
+    <!-- Top Accent Bar -->
+    <path d="M 0 16 Q 0 0 16 0 L 434 0 Q 450 0 450 16 L 450 6 L 0 6 Z" fill="url(#emeraldTeal)" />
+
+    <!-- Section Header -->
+    <g transform="translate(25, 30)">
+      <circle cx="16" cy="16" r="16" fill="#059669" fill-opacity="0.2" />
+      <text x="16" y="21" class="sans" font-size="14" fill="#34d399" font-weight="800" text-anchor="middle">03</text>
+      <text x="44" y="15" class="card-title">SMART AUTO-UPDATE</text>
+      <text x="44" y="32" class="card-sub">動作環境のインテリジェント自己判定と安全更新</text>
+    </g>
+
+    <!-- Block 1: Environment Intelligence -->
+    <g transform="translate(25, 80)">
+      <rect x="0" y="0" width="400" height="280" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <text x="20" y="28" class="sans" font-size="13" font-weight="700" fill="#f8fafc">1. 環境自動検出 (updater.DetectEnvironment)</text>
+      <text x="20" y="44" class="card-sub">環境に合わせた最適なアップデート経路を提示</text>
+
+      <!-- Status 1: Container -->
+      <g transform="translate(15, 58)">
+        <rect x="0" y="0" width="370" height="46" rx="6" fill="#141d30" stroke="#1e293b" />
+        <circle cx="20" cy="23" r="5" fill="#38bdf8" />
+        <text x="35" y="20" class="sans" font-size="12" font-weight="700" fill="#e2e8f0">Docker / Container 環境</text>
+        <text x="35" y="36" class="mono" font-size="10" fill="#94a3b8">Guide: docker compose pull &amp;&amp; up -d</text>
+        <rect x="285" y="12" width="75" height="22" rx="4" fill="#0369a1" fill-opacity="0.3" />
+        <text x="322" y="27" class="badge-text" fill="#38bdf8" text-anchor="middle">Image Pull</text>
+      </g>
+
+      <!-- Status 2: Homebrew -->
+      <g transform="translate(15, 112)">
+        <rect x="0" y="0" width="370" height="46" rx="6" fill="#141d30" stroke="#1e293b" />
+        <circle cx="20" cy="23" r="5" fill="#fbbf24" />
+        <text x="35" y="20" class="sans" font-size="12" font-weight="700" fill="#e2e8f0">Homebrew 管理下</text>
+        <text x="35" y="36" class="mono" font-size="10" fill="#94a3b8">Guide: brew upgrade twsnmp/tap/twsnmpneo</text>
+        <rect x="285" y="12" width="75" height="22" rx="4" fill="#78350f" fill-opacity="0.3" />
+        <text x="322" y="27" class="badge-text" fill="#fbbf24" text-anchor="middle">Brew CLI</text>
+      </g>
+
+      <!-- Status 3: Debug -->
+      <g transform="translate(15, 166)">
+        <rect x="0" y="0" width="370" height="46" rx="6" fill="#141d30" stroke="#1e293b" />
+        <circle cx="20" cy="23" r="5" fill="#ef4444" />
+        <text x="35" y="20" class="sans" font-size="12" font-weight="700" fill="#e2e8f0">Debug / Dev Build</text>
+        <text x="35" y="36" class="sans" font-size="10" fill="#94a3b8">開発中バイナリの誤上書きを自動防止</text>
+        <rect x="285" y="12" width="75" height="22" rx="4" fill="#7f1d1d" fill-opacity="0.3" />
+        <text x="322" y="27" class="badge-text" fill="#f87171" text-anchor="middle">Locked</text>
+      </g>
+
+      <!-- Status 4: Standalone / Curl -->
+      <g transform="translate(15, 220)">
+        <rect x="0" y="0" width="370" height="48" rx="6" fill="#064e3b" fill-opacity="0.3" stroke="#10b981" />
+        <circle cx="20" cy="24" r="5" fill="#34d399" filter="url(#glowCyan)" />
+        <text x="35" y="20" class="sans" font-size="12" font-weight="700" fill="#34d399">Standalone (Linux / Windows)</text>
+        <text x="35" y="37" class="sans" font-size="10" fill="#a7f3d0">インプレース自己差し替え &amp; 自動再起動</text>
+        <rect x="285" y="13" width="75" height="22" rx="4" fill="#047857" />
+        <text x="322" y="28" class="badge-text" fill="#ffffff" text-anchor="middle">CanSelfUpdate</text>
+      </g>
+    </g>
+
+    <!-- Block 2: Dual Trigger Mechanisms -->
+    <g transform="translate(25, 375)">
+      <rect x="0" y="0" width="400" height="315" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <text x="20" y="28" class="sans" font-size="13" font-weight="700" fill="#f8fafc">2. 2系統のアップデート実行方式</text>
+
+      <!-- Trigger A: CLI Command -->
+      <g transform="translate(15, 42)">
+        <rect x="0" y="0" width="370" height="120" rx="6" fill="#141c2e" stroke="#1e293b" />
+        <text x="18" y="24" class="sans" font-size="12" font-weight="700" fill="#38bdf8">&gt;_ CLI コマンド実行</text>
+        <rect x="12" y="34" width="346" height="74" rx="4" fill="#090d16" />
+        <text x="22" y="52" class="mono" font-size="11" fill="#94a3b8"># 更新チェックのみ</text>
+        <text x="22" y="68" class="mono" font-size="11" fill="#67e8f9">$ twsnmpneo update -check</text>
+        <text x="22" y="86" class="mono" font-size="11" fill="#94a3b8"># ワンクリック即時更新 &amp; 自動再起動</text>
+        <text x="22" y="100" class="mono" font-size="11" fill="#4ade80">$ twsnmpneo update -y</text>
+      </g>
+
+      <!-- Trigger B: Web UI & API -->
+      <g transform="translate(15, 175)">
+        <rect x="0" y="0" width="370" height="125" rx="6" fill="#141c2e" stroke="#1e293b" />
+        <text x="18" y="24" class="sans" font-size="12" font-weight="700" fill="#c084fc">&#9776; Web UI 管理画面 &amp; REST API</text>
+        
+        <!-- Mock UI Button -->
+        <rect x="15" y="36" width="340" height="42" rx="6" fill="#1e293b" stroke="#334155" />
+        <circle cx="32" cy="57" r="4" fill="#10b981" />
+        <text x="44" y="54" class="sans" font-size="11" font-weight="600" fill="#e2e8f0">新バージョン v1.1.0 が利用可能</text>
+        <text x="44" y="68" class="sans" font-size="10" fill="#94a3b8">Release notes: ECharts 6 &amp; AI MCP...</text>
+        <rect x="260" y="44" width="85" height="26" rx="4" fill="url(#cyanBlue)" />
+        <text x="302" y="61" class="sans" font-size="11" font-weight="700" fill="#041426" text-anchor="middle">今すぐ更新</text>
+
+        <text x="18" y="96" class="mono" font-size="10" fill="#94a3b8">API: POST /api/system/updater/apply</text>
+        <text x="18" y="112" class="mono" font-size="10" fill="#64748b">ETag キャッシュ対応・GitHub RateLimit 保護</text>
+      </g>
+    </g>
+
+    <!-- Block 3: Safe Hot-Swap & Service Restart Flow -->
+    <g transform="translate(25, 705)">
+      <rect x="0" y="0" width="400" height="195" rx="10" fill="#0f172a" stroke="#1e293b" />
+      <text x="20" y="28" class="sans" font-size="13" font-weight="700" fill="#f8fafc">3. 安全な差し替え &amp; サービス復旧フロー</text>
+
+      <!-- Flow badges -->
+      <g transform="translate(15, 45)">
+        <rect x="0" y="0" width="82" height="48" rx="6" fill="#1e293b" />
+        <text x="41" y="22" class="sans" font-size="10" fill="#94a3b8" text-anchor="middle">STEP 1</text>
+        <text x="41" y="38" class="sans" font-size="11" font-weight="700" fill="#38bdf8" text-anchor="middle">DL検証</text>
+
+        <text x="91" y="28" class="sans" font-size="12" fill="#64748b">&rarr;</text>
+
+        <rect x="100" y="0" width="82" height="48" rx="6" fill="#1e293b" />
+        <text x="141" y="22" class="sans" font-size="10" fill="#94a3b8" text-anchor="middle">STEP 2</text>
+        <text x="141" y="38" class="sans" font-size="11" font-weight="700" fill="#f59e0b" text-anchor="middle">アトミック置換</text>
+
+        <text x="191" y="28" class="sans" font-size="12" fill="#64748b">&rarr;</text>
+
+        <rect x="200" y="0" width="82" height="48" rx="6" fill="#1e293b" />
+        <text x="241" y="22" class="sans" font-size="10" fill="#94a3b8" text-anchor="middle">STEP 3</text>
+        <text x="241" y="38" class="sans" font-size="11" font-weight="700" fill="#a855f7" text-anchor="middle">安全停止</text>
+
+        <text x="291" y="28" class="sans" font-size="12" fill="#64748b">&rarr;</text>
+
+        <rect x="300" y="0" width="70" height="48" rx="6" fill="#065f46" />
+        <text x="335" y="22" class="sans" font-size="10" fill="#a7f3d0" text-anchor="middle">STEP 4</text>
+        <text x="335" y="38" class="sans" font-size="11" font-weight="700" fill="#34d399" text-anchor="middle">自動再起動</text>
+      </g>
+
+      <rect x="15" y="105" width="370" height="75" rx="6" fill="#111827" stroke="#1f2937" />
+      <text x="25" y="125" class="sans" font-size="11" font-weight="600" fill="#e5e7eb">&bull; Windows SCM サービス対応:</text>
+      <text x="35" y="141" class="mono" font-size="10" fill="#9ca3af">cmd /C "timeout /t 3 &amp; sc start twsnmpneo" をデタッチ実行</text>
+      <text x="25" y="161" class="sans" font-size="11" font-weight="600" fill="#e5e7eb">&bull; Unix / Linux 対応: <tspan fill="#9ca3af" font-weight="400">syscall.Exec によるプロセス再起動</tspan></text>
+    </g>
+  </g>
+
+  <!-- ==================== FOOTER ==================== -->
+  <g transform="translate(80, 1155)">
+    <line x1="0" y1="0" x2="1440" y2="0" stroke="#1e293b" stroke-width="1" />
+    <text x="0" y="22" class="sans" font-size="12" fill="#64748b">
+      TWSNMP NEO Project &bull; Open Source Network Management System &bull; Apache License 2.0
+    </text>
+    <text x="1440" y="22" class="mono" font-size="12" fill="#38bdf8" text-anchor="end">
+      https://github.com/twsnmp/twsnmpneo
+    </text>
+  </g>
+</svg>
