@@ -37,6 +37,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
+	"github.com/twsnmp/twsnmpneo/backend/internal/updater"
 	"github.com/twsnmp/twsnmpneo/backend/internal/wol"
 	"github.com/twsnmp/twsnmpneo/backend/web"
 )
@@ -77,6 +78,7 @@ type Config struct {
 	Receivers      map[string]any
 	AuthManager    *auth.Manager
 	CertManager    *certmgr.Manager
+	Updater        *updater.Updater
 	HTTPPort       int
 	UseTLS         bool
 }
@@ -526,6 +528,53 @@ func NewServer(cfg Config) (*Server, error) {
 			})
 		}
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
+	})
+
+	// Self-update Endpoints
+	apiGroup.GET("/system/update/check", func(c echo.Context) error {
+		if cfg.Updater == nil {
+			return c.JSON(http.StatusOK, map[string]any{
+				"has_update":      false,
+				"current_version": cfg.Version,
+				"latest_version":  cfg.Version,
+				"is_container":    updater.IsContainer(),
+			})
+		}
+		force := c.QueryParam("force") == "true"
+		info, err := cfg.Updater.CheckUpdate(c.Request().Context(), force)
+		if err != nil {
+			return c.JSON(http.StatusOK, map[string]any{
+				"has_update":      false,
+				"current_version": cfg.Version,
+				"error":           err.Error(),
+				"is_container":    updater.IsContainer(),
+			})
+		}
+		return c.JSON(http.StatusOK, info)
+	})
+
+	apiGroup.POST("/system/update/apply", func(c echo.Context) error {
+		caller, ok := c.Get("user").(*datastore.UserEnt)
+		if !ok || caller == nil || caller.Role != "admin" {
+			return echo.NewHTTPError(http.StatusForbidden, "Admin role required to trigger update")
+		}
+		if cfg.Updater == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "updater service not enabled"})
+		}
+		if err := cfg.Updater.ApplyUpdate(c.Request().Context()); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "updating", "message": "Self-update initiated"})
+	})
+
+	apiGroup.GET("/system/update/status", func(c echo.Context) error {
+		if cfg.Updater == nil {
+			return c.JSON(http.StatusOK, updater.UpdateStatus{
+				State:   "idle",
+				Message: "Updater not configured",
+			})
+		}
+		return c.JSON(http.StatusOK, cfg.Updater.GetStatus())
 	})
 
 	// MCP Endpoint (Streamable HTTP JSON-RPC)

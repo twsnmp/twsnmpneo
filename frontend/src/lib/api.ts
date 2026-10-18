@@ -321,6 +321,28 @@ export interface SystemInfo {
   receivers?: Record<string, ReceiverStatusInfo>;
 }
 
+export interface UpdateInfo {
+  current_version: string;
+  latest_version: string;
+  has_update: boolean;
+  release_title?: string;
+  release_body?: string;
+  release_url?: string;
+  published_at?: string;
+  is_container?: boolean;
+  asset_name?: string;
+  asset_url?: string;
+  asset_size?: number;
+  error?: string;
+}
+
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'downloading' | 'extracting' | 'restarting' | 'completed' | 'error';
+  progress: number;
+  message: string;
+  error?: string;
+}
+
 const API_BASE = '/api';
 
 export interface UserEnt {
@@ -941,6 +963,28 @@ export async function updateMonitorData(): Promise<MonitorDataEnt> {
 export async function execBackup(): Promise<{ file: string; size: number; time: string }> {
   const res = await apiFetch(`${API_BASE}/system/backup`, { method: 'POST' });
   if (!res.ok) throw new Error(`Backup failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchUpdateCheck(force = false): Promise<UpdateInfo> {
+  const url = force ? `${API_BASE}/system/update/check?force=true` : `${API_BASE}/system/update/check`;
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`Check update failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function applyUpdate(): Promise<{ status: string; message: string }> {
+  const res = await apiFetch(`${API_BASE}/system/update/apply`, { method: 'POST' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Update failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchUpdateStatus(): Promise<UpdateStatus> {
+  const res = await apiFetch(`${API_BASE}/system/update/status`);
+  if (!res.ok) throw new Error(`Fetch update status failed: ${res.statusText}`);
   return res.json();
 }
 

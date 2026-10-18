@@ -229,6 +229,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 10. **System View (`SystemView.svelte`)**:
    - Fully compatible with TWSNMP FK resource monitor.
    - Top status summary cards: CPU utilization, Memory usage, Goroutines, Disk usage, Process Uptime, and Build/Git version.
+   - **Self-Update Integration**: Live badge indicator when a new release is published on GitHub, one-click update trigger modal (`SystemUpdateModal.svelte`), release changelog inspection, download/restart progress bar, and automatic reconnect/reload upon completion.
    - ECharts multi-metric time-series telemetry charts (CPU, Memory, Goroutines, Disk I/O & Capacity).
    - Internal daemon services health, receiver packet/message counters, and runtime version details.
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
@@ -695,6 +696,35 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - Automatically copies custom scripts (`cmd/`) preserving executable permissions (`0755`).
   - Automatically copies TLS certificates and private keys (`cert.pem`, `key.pem`) preserving secure permissions (`0600` for key).
   - Omits built-in / deprecated files (`yasumi.txt`, `services.txt`, `mac-vendors-export.csv`, `tlsparams.csv`, `polling.json`, `mail_*.html`).
+
+---
+
+### 4.13 Self-Update & CLI Rollback Mechanism
+
+* **Architecture & Downtime Minimization**:
+  - Automatically checks GitHub Releases API (`https://api.github.com/repos/twsnmp/twsnmpneo/releases/latest`) using semver version comparisons.
+  - Background asset download (`.tar.gz` for Linux/macOS, `.zip` for Windows) and executable extraction while the server continues serving network traffic and Web users (zero downtime during download).
+  - Seamless in-place replacement:
+    - **Unix / macOS**: Stages new binary into identical filesystem directory and executes atomic file replacement (`os.Rename`), preserving current binary as `.bak`.
+    - **Windows**: Renames running `.exe` to `.old` / `.bak` to bypass Windows in-use file lock, staging and copying the new binary into place.
+  - **Sub-Second Restart Flow (No Socket Passing Required)**:
+    - Spawns the updated binary as a detached child process with inherited `os.Args` flags, environment variables, and working directory.
+    - Gracefully commits and closes bbolt and parquet log stores, followed by immediate process termination (`os.Exit(0)`).
+    - Minimizes operational port rebinding downtime to ~1-2 seconds without introducing high-complexity socket descriptor inheritance.
+* **Docker / Container Environment Awareness**:
+  - Automatically inspects container marker files (`/.dockerenv`, `/run/.containerenv`) and cgroup descriptors.
+  - Disables in-place file replacement inside containerized environments to prevent image drift.
+  - Displays a dedicated container upgrade panel in the UI with one-click copyable Docker commands (`docker compose pull && docker compose up -d`).
+* **Web UI & Role Permissions**:
+  - **Navigation Badge**: Displays real-time pulsing notification dot on the `System` navigation icon when a newer release is published.
+  - **System View Integration**: Summary card badge indicating the new version number, with a dedicated "アップデートを確認 / Check for Updates" action button.
+  - **Update Modal (`SystemUpdateModal.svelte`)**: Interactive dialog presenting version diffs, release dates, Markdown release notes / changelogs, live multi-stage progress bar (Downloading -> Extracting -> Restarting), and automatic health-check polling with page reload upon server return.
+  - **Authorization**: Update triggering (`POST /api/system/update/apply`) is strictly restricted to `admin` users; operators with `user` or `readonly` roles are rejected with `403 Forbidden`.
+* **CLI Rollback Functionality (`-rollback`)**:
+  - Provides a safe CLI mechanism to revert the executable when the server is stopped.
+  - **Previous Backup Restoration**: Running `./twsnmpneo -rollback` (or `-rollback previous`) instantly restores the pre-update backup (`twsnmpneo.bak` or `twsnmpneo.exe.bak`) offline.
+  - **Specific Version Rollback**: Running `./twsnmpneo -rollback <version>` (e.g. `./twsnmpneo -rollback v0.1.0`) downloads, extracts, and swaps the binary for the requested GitHub release tag.
+  - Container guard: Informs users to change image tags directly when executed within Docker/Podman containers.
 
 ---
 

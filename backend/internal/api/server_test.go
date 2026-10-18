@@ -18,6 +18,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/bbolt"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
+	"github.com/twsnmp/twsnmpneo/backend/internal/updater"
 )
 
 func setupTestAPIEnv(t *testing.T) (datastore.DataStore, *parquet.Store, *ai.MCPServer, func()) {
@@ -1221,5 +1222,100 @@ func TestServerCertStatusEndpoint(t *testing.T) {
 		t.Errorf("expected subject apitest.local, got %s", status.Subject)
 	}
 }
+
+func TestSelfUpdateEndpoints(t *testing.T) {
+	dir, err := os.MkdirTemp("", "twsnmpneo-update-test-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := bbolt.New(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	upd := updater.New(updater.Config{
+		CurrentVersion: "v0.1.0",
+		RepoOwner:      "twsnmp",
+		RepoName:       "twsnmpneo",
+	})
+
+	srv, err := api.NewServer(api.Config{
+		Port:    19099,
+		Store:   store,
+		Version: "v0.1.0",
+		Updater: upd,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := newAuthedEcho(t, srv)
+
+	// 1. GET /api/system/update/check
+	req := httptest.NewRequest(http.MethodGet, "/api/system/update/check", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/system/update/check failed with code %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var checkResp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &checkResp); err != nil {
+		t.Fatalf("unmarshal check resp: %v", err)
+	}
+	if checkResp["current_version"] != "v0.1.0" {
+		t.Errorf("expected current_version v0.1.0, got %v", checkResp["current_version"])
+	}
+
+	// 2. GET /api/system/update/status
+	req = httptest.NewRequest(http.MethodGet, "/api/system/update/status", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/system/update/status failed with code %d: %s", rec.Code, rec.Body.String())
+	}
+	var statusResp updater.UpdateStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &statusResp); err != nil {
+		t.Fatalf("unmarshal status resp: %v", err)
+	}
+	if statusResp.State != "idle" {
+		t.Errorf("expected state idle, got %s", statusResp.State)
+	}
+
+	// 3. POST /api/system/update/apply as readonly/normal user should fail with 403
+	// Create a regular user via admin API
+	createReq := httptest.NewRequest(http.MethodPost, "/api/users", strings.NewReader(`{"user":"operator","name":"Operator","password":"password123","role":"user"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRec := httptest.NewRecorder()
+	e.ServeHTTP(createRec, createReq)
+	if createRec.Code != http.StatusOK {
+		t.Fatalf("failed to create regular user: %d, %s", createRec.Code, createRec.Body.String())
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"user":"operator","password":"password123"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRec := httptest.NewRecorder()
+	srv.GetEcho().ServeHTTP(loginRec, loginReq)
+
+	var loginData struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(loginRec.Body.Bytes(), &loginData)
+
+	req = httptest.NewRequest(http.MethodPost, "/api/system/update/apply", nil)
+	req.Header.Set("Authorization", "Bearer "+loginData.Token)
+	rec = httptest.NewRecorder()
+	srv.GetEcho().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for non-admin user, got %d", rec.Code)
+	}
+}
+
 
 

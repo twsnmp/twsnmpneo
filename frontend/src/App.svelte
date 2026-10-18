@@ -13,7 +13,7 @@
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import HelpDialog from "./lib/components/HelpDialog.svelte";
   import GlobalModalHost from "./lib/components/common/GlobalModalHost.svelte";
-  import { fetchMapConf, fetchCustomIcons, fetchMe, logout, type UserEnt } from "./lib/api";
+  import { fetchMapConf, fetchCustomIcons, fetchMe, fetchUpdateCheck, logout, type UserEnt } from "./lib/api";
   import { setCustomIcons } from "./lib/common";
   import { _ } from "svelte-i18n";
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
@@ -36,6 +36,7 @@
     LogOut,
     UserCircle,
     Loader2,
+    Sparkles,
   } from "@lucide/svelte";
 
   type PageType = "map" | "location" | "list" | "logs" | "otel" | "mqtt" | "reports" | "system" | "pki";
@@ -54,6 +55,18 @@
   let isAuthenticated = $state(false);
   let currentUser = $state<UserEnt | null>(null);
   let authLoading = $state(true);
+  let hasUpdate = $state(false);
+
+  const checkForUpdates = async () => {
+    try {
+      const info = await fetchUpdateCheck(false);
+      if (info && info.has_update) {
+        hasUpdate = true;
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const refreshConf = async () => {
     try {
@@ -63,6 +76,7 @@
       ]);
       if (conf?.MapName) mapName = conf.MapName;
       if (icons) setCustomIcons(icons);
+      void checkForUpdates();
     } catch {
       // default
     }
@@ -206,8 +220,14 @@
         {#each navItems as item}
           <button
             onclick={() => (currentPage = item.id as PageType)}
-            class="flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60'}"
+            class="relative flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60'}"
           >
+            {#if item.id === 'system' && hasUpdate}
+              <span class="absolute top-1 right-1.5 flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+              </span>
+            {/if}
             {#if item.mdi}
               <span class="mdi {item.mdi} text-base leading-none mb-0.5 {currentPage === item.id ? 'text-white' : 'text-slate-500 dark:text-slate-400'}"></span>
             {:else}

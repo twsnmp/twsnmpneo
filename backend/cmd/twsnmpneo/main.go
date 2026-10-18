@@ -30,6 +30,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
+	"github.com/twsnmp/twsnmpneo/backend/internal/updater"
 )
 
 var (
@@ -81,6 +82,7 @@ func main() {
 		shutdownTimeout = flag.Int("shutdown-timeout", 5, "Graceful shutdown fallback timeout in seconds")
 		debug           = flag.Bool("debug", false, "Enable debug logging")
 		verFlag         = flag.Bool("version", false, "Show version and exit")
+		rollbackVersion = flag.String("rollback", "", "Rollback binary to previous backup (.bak) or specified GitHub version (e.g. 'v0.1.0')")
 
 		// TLS / ACME server certificate flags
 		tlsFlag       = flag.Bool("tls", false, "Enable TLS (HTTPS) for Web interface")
@@ -141,6 +143,22 @@ func main() {
 
 	if *verFlag {
 		fmt.Printf("twsnmpneo %s (commit: %s, date: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
+
+	if explicitFlags["rollback"] || *rollbackVersion != "" {
+		target := *rollbackVersion
+		if target == "" {
+			target = "previous"
+		}
+		u := updater.New(updater.Config{
+			CurrentVersion: version,
+		})
+		ctx := context.Background()
+		if err := u.Rollback(ctx, target); err != nil {
+			fmt.Printf("Rollback failed: %v\n", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
@@ -483,6 +501,19 @@ func main() {
 		}
 	}
 
+	// Initialize Self-Updater
+	upd := updater.New(updater.Config{
+		CurrentVersion: version,
+		OnShutdown: func() {
+			if store != nil {
+				_ = store.Close()
+			}
+			if pqStore != nil {
+				_ = pqStore.Close()
+			}
+		},
+	})
+
 	// Initialize Web/API server
 	server, err := api.NewServer(api.Config{
 		Port:           *port,
@@ -500,6 +531,7 @@ func main() {
 		PollingManager: pollMgr,
 		Receivers:      receiversInfo,
 		CertManager:    certMgr,
+		Updater:        upd,
 		HTTPPort:       *httpPort,
 		UseTLS:         useTLS,
 	})

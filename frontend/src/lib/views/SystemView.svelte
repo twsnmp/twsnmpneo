@@ -5,10 +5,14 @@
     fetchMonitorData,
     updateMonitorData,
     execBackup,
+    fetchUpdateCheck,
+    fetchMe,
     type SystemInfo,
     type MonitorDataEnt,
+    type UpdateInfo,
   } from "../api";
-  import { showConfirm, showLoading, hideLoading } from "../stores/modalStore";
+  import { showConfirm, showLoading, hideLoading, showAlert } from "../stores/modalStore";
+  import SystemUpdateModal from "../components/SystemUpdateModal.svelte";
   import { _ } from "svelte-i18n";
   import { renderBytes, renderSpeed, renderPercent, formatTimeStr } from "../common";
   import {
@@ -43,6 +47,8 @@
     AlertTriangle,
     BarChart3,
     Table as TableIcon,
+    Sparkles,
+    Download,
   } from "@lucide/svelte";
 
   type TabMode = "overview" | "table";
@@ -53,6 +59,10 @@
 
   let sysInfo = $state<SystemInfo | null>(null);
   let monitorLogs = $state<MonitorDataEnt[]>([]);
+  let updateInfo = $state<UpdateInfo | null>(null);
+  let checkingUpdate = $state(false);
+  let showUpdateModal = $state(false);
+  let isAdmin = $state(false);
 
   // Chart DOM elements
   let resChartElem = $state<HTMLElement | null>(null);
@@ -79,12 +89,16 @@
       if (triggerUpdate) {
         await updateMonitorData().catch(() => null);
       }
-      const [info, mon] = await Promise.all([
+      const [info, mon, upd, me] = await Promise.all([
         fetchSystemInfo().catch(() => null),
         fetchMonitorData().catch(() => []),
+        fetchUpdateCheck(false).catch(() => null),
+        fetchMe().catch(() => null),
       ]);
       if (info) sysInfo = info;
       monitorLogs = mon;
+      if (upd) updateInfo = upd;
+      if (me) isAdmin = me.role === "admin";
 
       if (activeTab === "overview") {
         await tick();
@@ -95,6 +109,23 @@
     } finally {
       loading = false;
       refreshing = false;
+    }
+  };
+
+  const handleCheckUpdate = async () => {
+    checkingUpdate = true;
+    try {
+      const info = await fetchUpdateCheck(true);
+      updateInfo = info;
+      showUpdateModal = true;
+    } catch (e: any) {
+      showAlert({
+        title: $_("system.checkUpdate") || "アップデート確認",
+        message: e.message || "アップデートの確認に失敗しました",
+        type: "danger",
+      });
+    } finally {
+      checkingUpdate = false;
     }
   };
 
@@ -358,6 +389,18 @@
         <span>{$_('system.btnCapacityForecast')}</span>
       </button>
 
+      <!-- Check for Updates Button -->
+      <button
+        type="button"
+        onclick={handleCheckUpdate}
+        disabled={checkingUpdate}
+        class="flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer shadow-xs {updateInfo?.has_update ? 'border-cyan-400 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 ring-2 ring-cyan-500/20 animate-pulse' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'}"
+        title={$_('system.checkUpdate')}
+      >
+        <Sparkles class="h-3.5 w-3.5 {updateInfo?.has_update ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-500 dark:text-slate-400'} {checkingUpdate ? 'animate-spin' : ''}" />
+        <span>{checkingUpdate ? $_('system.checkingUpdate') : (updateInfo?.has_update ? `${$_('system.updateAvailable')} (${updateInfo.latest_version})` : $_('system.checkUpdate'))}</span>
+      </button>
+
       <button
         type="button"
         onclick={handleBackup}
@@ -459,15 +502,39 @@
               <Activity class="h-3.5 w-3.5" />
               <span>{$_('system.version')}</span>
             </span>
+            {#if updateInfo?.has_update}
+              <button
+                type="button"
+                onclick={() => (showUpdateModal = true)}
+                class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 transition-colors cursor-pointer animate-pulse"
+                title={$_('system.updateAvailable')}
+              >
+                <Sparkles class="h-2.5 w-2.5" />
+                <span>{$_('system.updateAvailable')}: {updateInfo.latest_version}</span>
+              </button>
+            {/if}
           </div>
-          <div class="my-2 text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {sysInfo?.version || "v0.1.0"}
+          <div class="my-2 flex items-baseline gap-2">
+            <span class="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+              {sysInfo?.version || "v0.1.0"}
+            </span>
           </div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
-            {#if sysInfo?.commit}
-              ({sysInfo.commit})
-            {:else}
-              (none)
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate flex items-center justify-between">
+            <span>
+              {#if sysInfo?.commit}
+                ({sysInfo.commit})
+              {:else}
+                (none)
+              {/if}
+            </span>
+            {#if updateInfo?.has_update}
+              <button
+                type="button"
+                onclick={() => (showUpdateModal = true)}
+                class="text-[10px] text-cyan-600 dark:text-cyan-400 hover:underline font-medium"
+              >
+                詳細を見る &rarr;
+              </button>
             {/if}
           </div>
         </div>
@@ -956,3 +1023,12 @@
     </div>
   </div>
 {/if}
+
+<!-- System Update Modal -->
+<SystemUpdateModal
+  open={showUpdateModal}
+  {updateInfo}
+  {isAdmin}
+  onClose={() => (showUpdateModal = false)}
+/>
+
