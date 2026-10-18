@@ -713,9 +713,9 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
     - **Unix / macOS**: Stages new binary into identical filesystem directory and executes atomic file replacement (`os.Rename`), preserving current binary as `.bak`.
     - **Windows**: Renames running `.exe` to `.old` / `.bak` to bypass Windows in-use file lock, staging and copying the new binary into place.
   - **Sub-Second Restart Flow (No Socket Passing Required)**:
-    - Spawns the updated binary as a detached child process with inherited `os.Args` flags, environment variables, and working directory.
-    - Gracefully commits and closes bbolt and parquet log stores, followed by immediate process termination (`os.Exit(0)`).
-    - Minimizes operational port rebinding downtime to ~1-2 seconds without introducing high-complexity socket descriptor inheritance.
+    - **Standalone / Console**: Spawns the updated binary as a detached child process with inherited `os.Args` flags, environment variables, and working directory, followed by immediate process termination (`os.Exit(0)`).
+    - **Windows Service Integration**: When running under Windows Service Control Manager (`svc.IsWindowsService()`), does not spawn direct orphaned child processes. Instead, schedules an independent delayed SCM restart helper command (`timeout /t 3 & sc start twsnmpneo`) detached in the background, and exits gracefully (`svc.Stopped`), allowing SCM to restart the updated binary as a legitimate Windows service without port/DB contention.
+    - Minimizes operational port rebinding downtime to ~1-3 seconds without introducing high-complexity socket descriptor inheritance.
 * **Docker / Container Environment Awareness**:
   - Automatically inspects container marker files (`/.dockerenv`, `/run/.containerenv`) and cgroup descriptors.
   - Disables in-place file replacement inside containerized environments to prevent image drift.
@@ -730,6 +730,31 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - **Previous Backup Restoration**: Running `./twsnmpneo -rollback` (or `-rollback previous`) instantly restores the pre-update backup (`twsnmpneo.bak` or `twsnmpneo.exe.bak`) offline.
   - **Specific Version Rollback**: Running `./twsnmpneo -rollback <version>` (e.g. `./twsnmpneo -rollback v0.1.0`) downloads, extracts, and swaps the binary for the requested GitHub release tag.
   - Container guard: Informs users to change image tags directly when executed within Docker/Podman containers.
+
+---
+
+### 4.14 Windows Service Integration & CLI Operations
+
+* **Service Control Manager (SCM) Integration**:
+  - Implements native Windows Service interface via `golang.org/x/sys/windows/svc` and `golang.org/x/sys/windows/svc/mgr`.
+  - Service metadata:
+    - Service Name: `twsnmpneo`
+    - Display Name: `TWSNMP NEO Service`
+    - Description: `TWSNMP NEO Network Management Service`
+  - Automatic environment detection via `svc.IsWindowsService()`. When started by SCM, execution directory automatically switches to binary path to prevent `System32` working directory path resolution issues.
+  - Full support for SCM state transitions (`StartPending`, `Running`, `StopPending`, `Stopped`) and graceful resource termination (`bbolt`, `parquet`, and active listeners).
+* **CLI Management Commands**:
+  - `twsnmpneo.exe service install [options]`: Registers binary as Windows service with SCM. Forwarded server configuration arguments (e.g. `-datadir`, `-port`, `-tls`) are persisted into service binary path with relative paths automatically expanded to absolute paths.
+  - `twsnmpneo.exe service install -auto`: Sets startup type to `Automatic`.
+  - `twsnmpneo.exe service install -delayed`: Sets startup type to `Automatic (Delayed Start)`.
+  - `twsnmpneo.exe service remove` / `uninstall`: Safely stops service if running and unregisters from SCM.
+  - `twsnmpneo.exe service start`: Starts registered service via SCM.
+  - `twsnmpneo.exe service stop`: Stops running service via SCM.
+  - `twsnmpneo.exe service status`: Queries and reports live service status (`Running`, `Stopped`, `Not Installed`, etc.).
+  - Flag compatibility: Supports `-service <install|remove|start|stop|status>`, `-service-auto`, and `-service-delayed`.
+* **Cross-Platform Stubs**:
+  - Separated by `//go:build windows` and `//go:build !windows` tags. On non-Windows platforms (macOS / Linux / Container), service CLI commands gracefully display explanatory errors without breaking builds or tests.
+
 
 ---
 

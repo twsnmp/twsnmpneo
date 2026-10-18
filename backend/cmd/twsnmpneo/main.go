@@ -29,6 +29,7 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/pki"
 	"github.com/twsnmp/twsnmpneo/backend/internal/polling"
 	"github.com/twsnmp/twsnmpneo/backend/internal/receiver"
+	"github.com/twsnmp/twsnmpneo/backend/internal/service"
 	"github.com/twsnmp/twsnmpneo/backend/internal/topology"
 	"github.com/twsnmp/twsnmpneo/backend/internal/updater"
 )
@@ -65,47 +66,204 @@ func resolveCommit() string {
 	return "dev"
 }
 
+type serverConfig struct {
+	dataDir         string
+	lang            string
+	port            int
+	acmeURL         string
+	syslogUDP       int
+	syslogTCP       int
+	trapPort        int
+	netflowPort     int
+	sflowPort       int
+	otelPort        int
+	mqttPort        int
+	shutdownTimeout int
+	debug           bool
+	tlsFlag         bool
+	certPath        string
+	keyPath         string
+	acmeDomains     string
+	acmeCertURL     string
+	acmeEmail       string
+	acmeInsecure    bool
+	acmeRenewDays   int
+	httpPort        int
+	hostName        string
+	ipAddr          string
+	explicitFlags   map[string]bool
+}
+
+func handleServiceCommand(action string, remainingArgs []string) {
+	switch strings.ToLower(action) {
+	case "install":
+		var autoStart bool
+		var delayedStart bool
+		var serviceArgs []string
+
+		for i := 0; i < len(remainingArgs); i++ {
+			arg := remainingArgs[i]
+			if arg == "-auto" || arg == "--auto" {
+				autoStart = true
+			} else if arg == "-delayed" || arg == "--delayed" {
+				delayedStart = true
+			} else {
+				serviceArgs = append(serviceArgs, arg)
+			}
+		}
+
+		err := service.Install(service.InstallOptions{
+			AutoStart:    autoStart,
+			DelayedStart: delayedStart,
+			Arguments:    serviceArgs,
+		})
+		if err != nil {
+			fmt.Printf("Failed to install service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Service %q installed successfully.\n", service.ServiceName)
+		if delayedStart {
+			fmt.Println("Startup type: Automatic (Delayed Start)")
+		} else if autoStart {
+			fmt.Println("Startup type: Automatic")
+		} else {
+			fmt.Println("Startup type: Manual")
+		}
+		os.Exit(0)
+
+	case "remove", "uninstall":
+		if err := service.Remove(); err != nil {
+			fmt.Printf("Failed to remove service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Service %q removed successfully.\n", service.ServiceName)
+		os.Exit(0)
+
+	case "start":
+		if err := service.Start(); err != nil {
+			fmt.Printf("Failed to start service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Service %q started successfully.\n", service.ServiceName)
+		os.Exit(0)
+
+	case "stop":
+		if err := service.Stop(); err != nil {
+			fmt.Printf("Failed to stop service: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Service %q stopped successfully.\n", service.ServiceName)
+		os.Exit(0)
+
+	case "status":
+		st, err := service.Status()
+		if err != nil {
+			fmt.Printf("Failed to query service status: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Service %q status: %s\n", service.ServiceName, st)
+		os.Exit(0)
+
+	default:
+		fmt.Printf("Unknown service command %q. Available commands: install, remove, start, stop, status\n", action)
+		os.Exit(1)
+	}
+}
+
+type serviceRunner struct {
+	cfg    serverConfig
+	cancel context.CancelFunc
+	done   chan struct{}
+	err    error
+}
+
+func (s *serviceRunner) Start() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.done = make(chan struct{})
+	go func() {
+		defer close(s.done)
+		s.err = runServer(ctx, s.cfg)
+	}()
+	return nil
+}
+
+func (s *serviceRunner) Stop() error {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	<-s.done
+	return s.err
+}
+
 func main() {
 	commit = resolveCommit()
+
+	// Check if invoked as a subcommand: "twsnmpneo service <action> [args...]"
+	if len(os.Args) >= 2 && strings.ToLower(os.Args[1]) == "service" {
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: twsnmpneo service <install|remove|start|stop|status> [options]")
+			os.Exit(1)
+		}
+		action := os.Args[2]
+		remaining := os.Args[3:]
+		handleServiceCommand(action, remaining)
+		return
+	}
+
+	// If invoked as a Windows Service by SCM:
+	// Adjust current working directory to executable directory to avoid System32 path resolution
+	if service.IsWindowsService() {
+		if exe, err := os.Executable(); err == nil {
+			_ = os.Chdir(filepath.Dir(exe))
+		}
+	}
+
+	fs := flag.NewFlagSet("twsnmpneo", flag.ExitOnError)
 	var (
-		dataDir     = flag.String("datadir", "./data", "Directory to store database and log files")
-		lang        = flag.String("lang", "en", "Language (en or ja)")
-		port        = flag.Int("port", 8080, "Web interface port")
-		acmeURL     = flag.String("acme-url", "", "Override the PKI ACME HTTPS base URL and enable the listener")
-		syslogUDP   = flag.Int("syslog-udp", 0, "Syslog UDP port (0 to disable or default)")
-		syslogTCP   = flag.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
-		trapPort    = flag.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable or default 162)")
-		netflowPort = flag.Int("netflow-port", 0, "NetFlow UDP port (0 to disable or default 2055)")
-		sflowPort   = flag.Int("sflow-port", 0, "sFlow UDP port (0 to disable or default 6343)")
-		otelPort    = flag.Int("otel-port", 0, "OpenTelemetry OTLP HTTP port (0 to disable or default 4318)")
-		mqttPort        = flag.Int("mqtt-port", 0, "MQTT broker port (0 to disable or default 1883)")
-		shutdownTimeout = flag.Int("shutdown-timeout", 5, "Graceful shutdown fallback timeout in seconds")
-		debug           = flag.Bool("debug", false, "Enable debug logging")
-		verFlag         = flag.Bool("version", false, "Show version and exit")
-		rollbackVersion = flag.String("rollback", "", "Rollback binary to previous backup (.bak) or specified GitHub version (e.g. 'v0.1.0')")
+		dataDir         = fs.String("datadir", "./data", "Directory to store database and log files")
+		lang            = fs.String("lang", "en", "Language (en or ja)")
+		port            = fs.Int("port", 8080, "Web interface port")
+		acmeURL         = fs.String("acme-url", "", "Override the PKI ACME HTTPS base URL and enable the listener")
+		syslogUDP       = fs.Int("syslog-udp", 0, "Syslog UDP port (0 to disable or default)")
+		syslogTCP       = fs.Int("syslog-tcp", 0, "Syslog TCP port (0 to disable)")
+		trapPort        = fs.Int("trap-port", 0, "SNMP TRAP UDP port (0 to disable or default 162)")
+		netflowPort     = fs.Int("netflow-port", 0, "NetFlow UDP port (0 to disable or default 2055)")
+		sflowPort       = fs.Int("sflow-port", 0, "sFlow UDP port (0 to disable or default 6343)")
+		otelPort        = fs.Int("otel-port", 0, "OpenTelemetry OTLP HTTP port (0 to disable or default 4318)")
+		mqttPort        = fs.Int("mqtt-port", 0, "MQTT broker port (0 to disable or default 1883)")
+		shutdownTimeout = fs.Int("shutdown-timeout", 5, "Graceful shutdown fallback timeout in seconds")
+		debug           = fs.Bool("debug", false, "Enable debug logging")
+		verFlag         = fs.Bool("version", false, "Show version and exit")
+		rollbackVersion = fs.String("rollback", "", "Rollback binary to previous backup (.bak) or specified GitHub version (e.g. 'v0.1.0')")
+
+		// Service management flags
+		serviceCmd     = fs.String("service", "", "Windows service action (install, remove, start, stop, status)")
+		serviceAuto    = fs.Bool("service-auto", false, "Set service startup type to automatic when installing")
+		serviceDelayed = fs.Bool("service-delayed", false, "Set service startup type to automatic (delayed) when installing")
 
 		// TLS / ACME server certificate flags
-		tlsFlag       = flag.Bool("tls", false, "Enable TLS (HTTPS) for Web interface")
-		certPath      = flag.String("cert", "", "Path to server certificate file (PEM)")
-		keyPath       = flag.String("key", "", "Path to server private key file (PEM)")
-		acmeDomains   = flag.String("acme-domain", "", "Domains / SANs for ACME auto-update server cert")
-		acmeCertURL   = flag.String("acme-cert-url", "", "ACME Directory URL for server cert (default Let's Encrypt)")
-		acmeEmail     = flag.String("acme-email", "", "Contact email for ACME account registration")
-		acmeInsecure  = flag.Bool("acme-insecure", false, "Skip server certificate verification for ACME")
-		acmeRenewDays = flag.Int("acme-renew-days", 30, "Days before certificate expiry to trigger ACME renewal")
-		httpPort      = flag.Int("http-port", 80, "HTTP port for ACME challenge & HTTPS redirect (0 to disable)")
-		hostName      = flag.String("host", "", "Host name for self-signed certificate SAN")
-		ipAddr        = flag.String("ip", "", "IP address for self-signed certificate SAN")
+		tlsFlag       = fs.Bool("tls", false, "Enable TLS (HTTPS) for Web interface")
+		certPath      = fs.String("cert", "", "Path to server certificate file (PEM)")
+		keyPath       = fs.String("key", "", "Path to server private key file (PEM)")
+		acmeDomains   = fs.String("acme-domain", "", "Domains / SANs for ACME auto-update server cert")
+		acmeCertURL   = fs.String("acme-cert-url", "", "ACME Directory URL for server cert (default Let's Encrypt)")
+		acmeEmail     = fs.String("acme-email", "", "Contact email for ACME account registration")
+		acmeInsecure  = fs.Bool("acme-insecure", false, "Skip server certificate verification for ACME")
+		acmeRenewDays = fs.Int("acme-renew-days", 30, "Days before certificate expiry to trigger ACME renewal")
+		httpPort      = fs.Int("http-port", 80, "HTTP port for ACME challenge & HTTPS redirect (0 to disable)")
+		hostName      = fs.String("host", "", "Host name for self-signed certificate SAN")
+		ipAddr        = fs.String("ip", "", "IP address for self-signed certificate SAN")
 
 		// Migration flags
-		importFC       = flag.String("import-fc", "", "Path to legacy TWSNMP FC data directory or twsnmpfc.db to import and compact")
-		importEvents   = flag.Bool("import-events", true, "Import event logs during TWSNMP FC migration")
-		forceImport    = flag.Bool("force", false, "Force overwrite of target database during migration")
-		runAfterImport = flag.Bool("run-after-import", false, "Start TWSNMP NEO server after completing migration")
+		importFC       = fs.String("import-fc", "", "Path to legacy TWSNMP FC data directory or twsnmpfc.db to import and compact")
+		importEvents   = fs.Bool("import-events", true, "Import event logs during TWSNMP FC migration")
+		forceImport    = fs.Bool("force", false, "Force overwrite of target database during migration")
+		runAfterImport = fs.Bool("run-after-import", false, "Start TWSNMP NEO server after completing migration")
 	)
 
 	// Environment variable overrides (TWSNMP_<NAME> and legacy TWSNMPFC_<NAME>)
-	flag.VisitAll(func(f *flag.Flag) {
+	fs.VisitAll(func(f *flag.Flag) {
 		nameUpper := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		if s := os.Getenv("TWSNMP_" + nameUpper); s != "" {
 			_ = f.Value.Set(s)
@@ -132,11 +290,32 @@ func main() {
 		*acmeInsecure = true
 	}
 
-	flag.Parse()
+	_ = fs.Parse(os.Args[1:])
 	explicitFlags := make(map[string]bool)
-	flag.Visit(func(f *flag.Flag) {
+	fs.Visit(func(f *flag.Flag) {
 		explicitFlags[f.Name] = true
 	})
+
+	// Handle flag-based service management: -service <action>
+	if *serviceCmd != "" {
+		var extraArgs []string
+		if *serviceAuto {
+			extraArgs = append(extraArgs, "-auto")
+		}
+		if *serviceDelayed {
+			extraArgs = append(extraArgs, "-delayed")
+		}
+		// Forward any configuration flags passed alongside
+		for _, arg := range os.Args[1:] {
+			if strings.HasPrefix(arg, "-service") || strings.HasPrefix(arg, "--service") {
+				continue
+			}
+			extraArgs = append(extraArgs, arg)
+		}
+		handleServiceCommand(*serviceCmd, extraArgs)
+		return
+	}
+
 	if explicitFlags["lang"] {
 		i18n.SetLang(*lang)
 	}
@@ -232,69 +411,113 @@ func main() {
 		fmt.Println("\nStarting TWSNMP NEO server...")
 	}
 
+	cfg := serverConfig{
+		dataDir:         *dataDir,
+		lang:            *lang,
+		port:            *port,
+		acmeURL:         *acmeURL,
+		syslogUDP:       *syslogUDP,
+		syslogTCP:       *syslogTCP,
+		trapPort:        *trapPort,
+		netflowPort:     *netflowPort,
+		sflowPort:       *sflowPort,
+		otelPort:        *otelPort,
+		mqttPort:        *mqttPort,
+		shutdownTimeout: *shutdownTimeout,
+		debug:           *debug,
+		tlsFlag:         *tlsFlag,
+		certPath:        *certPath,
+		keyPath:         *keyPath,
+		acmeDomains:     *acmeDomains,
+		acmeCertURL:     *acmeCertURL,
+		acmeEmail:       *acmeEmail,
+		acmeInsecure:    *acmeInsecure,
+		acmeRenewDays:   *acmeRenewDays,
+		httpPort:        *httpPort,
+		hostName:        *hostName,
+		ipAddr:          *ipAddr,
+		explicitFlags:   explicitFlags,
+	}
+
+	// If running under Windows Service Control Manager, dispatch to service runner
+	if service.IsWindowsService() {
+		slog.Info("Starting TWSNMP NEO as Windows Service", "service", service.ServiceName)
+		runner := &serviceRunner{
+			cfg: cfg,
+		}
+		if err := service.Run(service.ServiceName, runner); err != nil {
+			slog.Error("Service execution failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Normal standalone console execution
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := runServer(ctx, cfg); err != nil {
+		slog.Error("Server error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func runServer(ctx context.Context, cfg serverConfig) error {
 	slog.Info("Starting TWSNMP NEO",
 		"version", version,
-		"datadir", *dataDir,
-		"port", *port,
-		"debug", *debug,
+		"datadir", cfg.dataDir,
+		"port", cfg.port,
+		"debug", cfg.debug,
 	)
 
 	// Ensure data directory exists
-	if err := os.MkdirAll(*dataDir, 0755); err != nil {
-		slog.Error("Failed to create data directory", "path", *dataDir, "error", err)
-		os.Exit(1)
+	if err := os.MkdirAll(cfg.dataDir, 0755); err != nil {
+		return fmt.Errorf("failed to create data directory %s: %w", cfg.dataDir, err)
 	}
 
 	// Initialize bbolt datastore
-	dbPath := filepath.Join(*dataDir, "twsnmpneo.db")
+	dbPath := filepath.Join(cfg.dataDir, "twsnmpneo.db")
 	store, err := bbolt.New(dbPath)
 	if err != nil {
-		slog.Error("Failed to initialize bbolt datastore", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to initialize bbolt datastore: %w", err)
 	}
 	defer store.Close()
 
 	// Initialize parquet log store
-	pqDir := filepath.Join(*dataDir, "logs")
+	pqDir := filepath.Join(cfg.dataDir, "logs")
 	pqStore, err := parquet.New(parquet.Config{
 		Dir:            pqDir,
 		BufferSize:     5000,
 		BufferInterval: 10 * time.Second,
 	})
 	if err != nil {
-		slog.Error("Failed to initialize parquet log store", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to initialize parquet log store: %w", err)
 	}
 	defer pqStore.Close()
 
 	// Initialize MIB subsystem
-	if err := mib.Init(*dataDir); err != nil {
+	if err := mib.Init(cfg.dataDir); err != nil {
 		slog.Warn("Failed to initialize MIB subsystem", "error", err)
 	}
 
 	// Initialize GeoIP subsystem
-	if err := datastore.InitGeoIP(*dataDir); err != nil {
+	if err := datastore.InitGeoIP(cfg.dataDir); err != nil {
 		slog.Warn("Failed to initialize GeoIP database", "error", err)
 	}
 
 	// Initialize Private PKI
 	pkiMgr, err := pki.New(store)
 	if err != nil {
-		slog.Error("Failed to initialize Private PKI", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to initialize Private PKI: %w", err)
 	}
 	defer pkiMgr.Stop()
-
-	// Setup context with graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	// Record system startup event log
 	_ = store.AddEventLog(ctx, &datastore.EventLogEnt{
 		Time:  time.Now().UnixNano(),
 		Type:  "system",
 		Level: "info",
-		Event: fmt.Sprintf(i18n.Trans("TWSNMP NEO %s started (Web port: %d)"), version, *port),
+		Event: fmt.Sprintf(i18n.Trans("TWSNMP NEO %s started (Web port: %d)"), version, cfg.port),
 	})
 
 	// Ensure default Ping polling exists for all nodes with IP
@@ -358,32 +581,32 @@ func main() {
 	// Resolve receiver ports from CLI flags and MapConf
 	mapConf, _ := store.GetMapConf(ctx)
 
-	sUDP := *syslogUDP
-	if !explicitFlags["syslog-udp"] && (mapConf == nil || mapConf.EnableSyslogd) {
+	sUDP := cfg.syslogUDP
+	if !cfg.explicitFlags["syslog-udp"] && (mapConf == nil || mapConf.EnableSyslogd) {
 		sUDP = 514
 	}
-	sTCP := *syslogTCP
-	if !explicitFlags["syslog-tcp"] && (mapConf == nil || mapConf.EnableSyslogd) {
+	sTCP := cfg.syslogTCP
+	if !cfg.explicitFlags["syslog-tcp"] && (mapConf == nil || mapConf.EnableSyslogd) {
 		sTCP = 514
 	}
-	tPort := *trapPort
-	if !explicitFlags["trap-port"] && (mapConf == nil || mapConf.EnableTrapd) {
+	tPort := cfg.trapPort
+	if !cfg.explicitFlags["trap-port"] && (mapConf == nil || mapConf.EnableTrapd) {
 		tPort = 162
 	}
-	nfPort := *netflowPort
-	if !explicitFlags["netflow-port"] && (mapConf == nil || mapConf.EnableNetflowd) {
+	nfPort := cfg.netflowPort
+	if !cfg.explicitFlags["netflow-port"] && (mapConf == nil || mapConf.EnableNetflowd) {
 		nfPort = 2055
 	}
-	sfPort := *sflowPort
-	if !explicitFlags["sflow-port"] && (mapConf == nil || mapConf.EnableSFlowd) {
+	sfPort := cfg.sflowPort
+	if !cfg.explicitFlags["sflow-port"] && (mapConf == nil || mapConf.EnableSFlowd) {
 		sfPort = 6343
 	}
-	oPort := *otelPort
-	if !explicitFlags["otel-port"] && (mapConf == nil || mapConf.EnableOTel) {
+	oPort := cfg.otelPort
+	if !cfg.explicitFlags["otel-port"] && (mapConf == nil || mapConf.EnableOTel) {
 		oPort = 4318
 	}
-	mPort := *mqttPort
-	if !explicitFlags["mqtt-port"] && (mapConf == nil || mapConf.EnableMqtt) {
+	mPort := cfg.mqttPort
+	if !cfg.explicitFlags["mqtt-port"] && (mapConf == nil || mapConf.EnableMqtt) {
 		mPort = 1883
 	}
 
@@ -442,7 +665,7 @@ func main() {
 
 	// Initialize System Resource Monitor
 	sysMon := monitor.New(monitor.Config{
-		DataDir:  *dataDir,
+		DataDir:  cfg.dataDir,
 		Store:    store,
 		Interval: 1 * time.Minute,
 	})
@@ -472,32 +695,31 @@ func main() {
 	}
 
 	// Resolve TLS and ACME server certificate
-	defaultCert := filepath.Join(*dataDir, "cert.pem")
-	defaultKey := filepath.Join(*dataDir, "key.pem")
-	hasCustomCert := *certPath != "" && *keyPath != "" && fileExists(*certPath) && fileExists(*keyPath)
+	defaultCert := filepath.Join(cfg.dataDir, "cert.pem")
+	defaultKey := filepath.Join(cfg.dataDir, "key.pem")
+	hasCustomCert := cfg.certPath != "" && cfg.keyPath != "" && fileExists(cfg.certPath) && fileExists(cfg.keyPath)
 	hasDefaultCert := fileExists(defaultCert) && fileExists(defaultKey)
-	useTLS := *tlsFlag || *acmeDomains != "" || hasCustomCert || hasDefaultCert
+	useTLS := cfg.tlsFlag || cfg.acmeDomains != "" || hasCustomCert || hasDefaultCert
 
 	certMgr := certmgr.New(certmgr.Config{
-		DataDir:       *dataDir,
-		CertPath:      *certPath,
-		KeyPath:       *keyPath,
-		Host:          *hostName,
-		IP:            *ipAddr,
-		ACMEDomains:   *acmeDomains,
-		ACMEURL:       *acmeCertURL,
-		ACMEEmail:     *acmeEmail,
-		ACMEInsecure:  *acmeInsecure,
-		ACMERenewDays: *acmeRenewDays,
-		HTTPPort:      *httpPort,
+		DataDir:       cfg.dataDir,
+		CertPath:      cfg.certPath,
+		KeyPath:       cfg.keyPath,
+		Host:          cfg.hostName,
+		IP:            cfg.ipAddr,
+		ACMEDomains:   cfg.acmeDomains,
+		ACMEURL:       cfg.acmeCertURL,
+		ACMEEmail:     cfg.acmeEmail,
+		ACMEInsecure:  cfg.acmeInsecure,
+		ACMERenewDays: cfg.acmeRenewDays,
+		HTTPPort:      cfg.httpPort,
 		TLSPort:       0,
 		EnableTLS:     useTLS,
 	}, store)
 
 	if useTLS {
 		if err := certMgr.LoadOrResolve(ctx); err != nil {
-			slog.Error("Failed to initialize TLS server certificate", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to initialize TLS server certificate: %w", err)
 		}
 	}
 
@@ -516,28 +738,27 @@ func main() {
 
 	// Initialize Web/API server
 	server, err := api.NewServer(api.Config{
-		Port:           *port,
-		Debug:          *debug,
+		Port:           cfg.port,
+		Debug:          cfg.debug,
 		Version:        version,
 		Commit:         commit,
-		DataDir:        *dataDir,
+		DataDir:        cfg.dataDir,
 		Store:          store,
 		LogStore:       pqStore,
 		MCPServer:      mcpServer,
 		PKI:            pkiMgr,
-		ACMEBaseURL:    *acmeURL,
+		ACMEBaseURL:    cfg.acmeURL,
 		ArpManager:     recvMgr,
 		Monitor:        sysMon,
 		PollingManager: pollMgr,
 		Receivers:      receiversInfo,
 		CertManager:    certMgr,
 		Updater:        upd,
-		HTTPPort:       *httpPort,
+		HTTPPort:       cfg.httpPort,
 		UseTLS:         useTLS,
 	})
 	if err != nil {
-		slog.Error("Failed to initialize API server", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to initialize API server: %w", err)
 	}
 
 	// Start server in background
@@ -558,14 +779,13 @@ func main() {
 
 	select {
 	case err := <-serverErr:
-		slog.Error("Server error", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("server error: %w", err)
 	case <-ctx.Done():
 		slog.Info("Shutdown signal received")
 	}
 
 	slog.Info("Shutting down TWSNMP NEO gracefully...")
-	timeout := time.Duration(*shutdownTimeout) * time.Second
+	timeout := time.Duration(cfg.shutdownTimeout) * time.Second
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
@@ -584,6 +804,7 @@ func main() {
 	}
 
 	slog.Info("TWSNMP NEO stopped.")
+	return nil
 }
 
 func fileExists(path string) bool {
@@ -593,4 +814,3 @@ func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }
-

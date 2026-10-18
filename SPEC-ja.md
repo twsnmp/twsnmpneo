@@ -378,6 +378,33 @@ TWSNMP NEO のすべての画面・コンポーネント開発において、統
 
 ---
 
+### 4.14 Windows サービス対応 & CLI 管理
+
+* **Service Control Manager (SCM) 完全連携**:
+  - `golang.org/x/sys/windows/svc` および `golang.org/x/sys/windows/svc/mgr` を採用。
+  - サービスメタデータ:
+    - サービス名: `twsnmpneo`
+    - 表示名: `TWSNMP NEO Service`
+    - 説明: `TWSNMP NEO Network Management Service`
+  - `svc.IsWindowsService()` による動的環境検知。SCM から起動された場合、作業ディレクトリを自動的に実行ファイルパスへ変更（`System32` 起因のパス解決問題を防止）。
+  - SCM の状態遷移（`StartPending`, `Running`, `StopPending`, `Stopped`）および停止シグナル（Stop / Shutdown）に応じた graceful shutdown（bbolt, parquet, 各種レシーバー・サーバーの正常コミット終了）。
+* **コマンドライン管理（サブコマンド & フラグ両対応）**:
+  - `twsnmpneo service install [options]`: SCM にサービス登録。同時指定された設定引数（`-datadir`, `-port`, `-tls` 等）を保持し、相対パスは自動的に絶対パスに解決して登録。
+  - `twsnmpneo service install -auto`: スタートアップの種類を「自動（Automatic）」に設定。
+  - `twsnmpneo service install -delayed`: スタートアップの種類を「自動（遅延開始: Delayed Start）」に設定。
+  - `twsnmpneo service remove` / `uninstall`: 稼働中であれば停止した上で SCM から登録解除。
+  - `twsnmpneo service start`: SCM 経由でサービスを開始。
+  - `twsnmpneo service stop`: SCM 経由でサービスを停止。
+  - `twsnmpneo service status`: サービス稼働状態（`Running`, `Stopped`, `Not Installed` 等）を照会・表示。
+  - フラグ形式（`-service <action>`, `-service-auto`, `-service-delayed`）も互換サポート。
+* **セルフアップデート時のサービス自動再起動連携**:
+  - サービス稼働中のセルフアップデート適用時、直接子プロセスを spawn すると SCM 管理外の孤立プロセスとなってポートや bbolt DB（`twsnmpneo.db`）がロック競合するため、サービス環境では**遅延 SCM 再起動コマンド（`timeout /t 3 & sc start twsnmpneo`）をデタッチ起動し、自サービスは SCM に正常停止（`svc.Stopped`）を通知して終了**。
+  - SCM 管理下で最新バイナリが正規サービスとして自動再開し、Web UI からのワンクリックアップデートが完結。
+* **非 Windows プラットフォーム対応**:
+  - `//go:build windows` と `//go:build !windows` により完全分離。macOS / Linux / Docker 環境では分かりやすいエラーメッセージを返却し、ビルドやテストへの影響を遮断。
+
+---
+
 ## 5. テスト & 品質保証方針
 
 * **テストカバレッジ**: Go バックエンドの全主要パッケージ（`polling`, `datastore`, `importer`, `receiver`, `api`, `report`, `pki`, `discover`, `topology`）において C1カバレッジ（分岐網羅）80%以上を維持する。

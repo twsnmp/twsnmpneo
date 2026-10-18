@@ -13,7 +13,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -772,18 +771,7 @@ func copyFile(src, dst string) error {
 
 // restartProcess launches the new executable with the same arguments and environment
 func restartProcess(exePath string) error {
-	args := os.Args[1:]
-	cmd := exec.Command(exePath, args...)
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	// Detach process on Unix / Windows if needed
-	setupProcessGroup(cmd)
-
-	slog.Info("Spawning updated TWSNMP NEO process", "binary", exePath, "args", args)
-	return cmd.Start()
+	return restart(exePath)
 }
 
 // Helper buffer for testing release JSON parsing
