@@ -238,7 +238,7 @@ func main() {
 		rollbackVersion = fs.String("rollback", "", "Rollback binary to previous backup (.bak) or specified GitHub version (e.g. 'v0.1.0')")
 
 		// Service management flags
-		serviceCmd     = fs.String("service", "", "Windows service action (install, remove, start, stop, status)")
+		serviceCmd     = fs.String("service", "", "Service action for Windows SCM or Linux systemd (install, remove, start, stop, status)")
 		serviceAuto    = fs.Bool("service-auto", false, "Set service startup type to automatic when installing")
 		serviceDelayed = fs.Bool("service-delayed", false, "Set service startup type to automatic (delayed) when installing")
 

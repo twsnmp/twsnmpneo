@@ -733,9 +733,9 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 
 ---
 
-### 4.14 Windows Service Integration & CLI Operations
+### 4.14 Service Integration & CLI Operations (Windows & Linux)
 
-* **Service Control Manager (SCM) Integration**:
+* **Windows Service Control Manager (SCM) Integration**:
   - Implements native Windows Service interface via `golang.org/x/sys/windows/svc` and `golang.org/x/sys/windows/svc/mgr`.
   - Service metadata:
     - Service Name: `twsnmpneo`
@@ -743,17 +743,26 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
     - Description: `TWSNMP NEO Network Management Service`
   - Automatic environment detection via `svc.IsWindowsService()`. When started by SCM, execution directory automatically switches to binary path to prevent `System32` working directory path resolution issues.
   - Full support for SCM state transitions (`StartPending`, `Running`, `StopPending`, `Stopped`) and graceful resource termination (`bbolt`, `parquet`, and active listeners).
-* **CLI Management Commands**:
-  - `twsnmpneo.exe service install [options]`: Registers binary as Windows service with SCM. Forwarded server configuration arguments (e.g. `-datadir`, `-port`, `-tls`) are persisted into service binary path with relative paths automatically expanded to absolute paths.
-  - `twsnmpneo.exe service install -auto`: Sets startup type to `Automatic`.
-  - `twsnmpneo.exe service install -delayed`: Sets startup type to `Automatic (Delayed Start)`.
-  - `twsnmpneo.exe service remove` / `uninstall`: Safely stops service if running and unregisters from SCM.
-  - `twsnmpneo.exe service start`: Starts registered service via SCM.
-  - `twsnmpneo.exe service stop`: Stops running service via SCM.
-  - `twsnmpneo.exe service status`: Queries and reports live service status (`Running`, `Stopped`, `Not Installed`, etc.).
+* **Linux systemd Integration**:
+  - Automatically generates, configures, and manages systemd service units (`/etc/systemd/system/twsnmpneo.service`).
+  - Unit configuration:
+    - `Type=simple` (processes `SIGTERM` gracefully via existing signal handlers)
+    - `Restart=always` with `RestartSec=5s`
+    - High-concurrency resource limits (`LimitNOFILE=65536`)
+    - Automatically resolves relative paths (e.g. `-datadir`) and sets `WorkingDirectory`
+  - Lifecycle management: Executes `systemctl` commands (`daemon-reload`, `enable`, `disable`, `start`, `stop`, `is-active`, `is-enabled`).
+  - Permission and environment enforcement: Validates root/sudo privileges (`os.Geteuid() == 0`) and systemd availability before performing privileged operations.
+* **CLI Management Commands (Cross-Platform Unified)**:
+  - `twsnmpneo service install [options]`: Registers binary as Windows service (SCM) or Linux service (systemd). Forwarded server configuration arguments (e.g. `-datadir`, `-port`, `-tls`) are persisted into service configuration with relative paths automatically expanded to absolute paths.
+  - `twsnmpneo service install -auto`: Sets startup type to `Automatic` (SCM) or enables autostart via `systemctl enable` (systemd).
+  - `twsnmpneo service install -delayed`: Sets startup type to `Automatic (Delayed Start)` (SCM) or enables autostart (systemd).
+  - `twsnmpneo service remove` / `uninstall`: Safely stops service if running, disables autostart, and unregisters/deletes unit.
+  - `twsnmpneo service start`: Starts registered service via SCM / systemctl.
+  - `twsnmpneo service stop`: Stops running service via SCM / systemctl.
+  - `twsnmpneo service status`: Queries and reports live service status (`Running (Automatic)`, `Stopped (Manual)`, `Not Installed`, etc.).
   - Flag compatibility: Supports `-service <install|remove|start|stop|status>`, `-service-auto`, and `-service-delayed`.
-* **Cross-Platform Stubs**:
-  - Separated by `//go:build windows` and `//go:build !windows` tags. On non-Windows platforms (macOS / Linux / Container), service CLI commands gracefully display explanatory errors without breaking builds or tests.
+* **Platform Separation**:
+  - Partitioned using `//go:build windows`, `//go:build linux`, and `//go:build !windows && !linux` build tags. Platforms without native background service support (macOS / containers) return explanatory error messages without impacting builds or tests.
 
 
 ---

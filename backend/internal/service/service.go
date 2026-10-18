@@ -7,7 +7,7 @@ const (
 	ServiceDescription = "TWSNMP NEO Network Management Service"
 )
 
-// InstallOptions holds options for installing the Windows service
+// InstallOptions holds options for installing the service (Windows or Linux systemd)
 type InstallOptions struct {
 	AutoStart    bool     // If true, start automatically on system boot
 	DelayedStart bool     // If true, start with delayed automatic start

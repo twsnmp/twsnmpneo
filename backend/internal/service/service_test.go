@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestServiceNonWindows(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping non-windows test on windows")
+func TestServiceUnsupported(t *testing.T) {
+	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
+		t.Skip("Skipping unsupported platform test on windows/linux")
 	}
 
 	if IsWindowsService() {

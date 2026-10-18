@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !linux
 
 package service
 
@@ -6,7 +6,7 @@ import (
 	"errors"
 )
 
-var errNotSupported = errors.New("Windows service operations are only supported on Windows")
+var errNotSupported = errors.New("service operations are only supported on Windows and Linux")
 
 // IsWindowsService reports false on non-Windows platforms.
 func IsWindowsService() bool {
