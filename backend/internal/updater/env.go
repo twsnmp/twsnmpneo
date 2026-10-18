@@ -75,8 +75,11 @@ func IsDebugEnv(version, commit string, debugFlag bool) bool {
 	exe, err := os.Executable()
 	if err == nil {
 		clean := filepath.ToSlash(strings.ToLower(exe))
-		if strings.Contains(clean, "/tmp/go-build") || strings.Contains(clean, "\\temp\\go-build") {
-			return true
+		// Ignore go test runner binaries
+		if !strings.HasSuffix(clean, ".test") && !strings.Contains(clean, ".test") {
+			if strings.Contains(clean, "/tmp/go-build") || strings.Contains(clean, "\\temp\\go-build") {
+				return true
+			}
 		}
 	}
 
