@@ -75,24 +75,52 @@ Launch with:
 docker compose up -d
 ```
 
-### Running as a Standalone Binary
-
-Download the executable binary for your OS from the [GitHub Releases page](https://github.com/twsnmp/twsnmpneo/releases).
+### Homebrew (macOS / Linux)
 
 ```bash
-./twsnmpneo -datastore ./data -port 8080
+brew install twsnmp/tap/twsnmpneo
+twsnmpneo -datastore ./data -port 8080
 ```
 
-### Linux Capabilities Configuration
+### Windows (Standalone & Background Service)
 
-When running as an unprivileged user on Linux, grant Capabilities for raw sockets (ICMP Ping) and privileged ports (Syslog 514, TRAP 162):
+Download `twsnmpneo_windows_amd64.zip` from [GitHub Releases](https://github.com/twsnmp/twsnmpneo/releases) and register as a native Windows service:
+
+```powershell
+# Register as service (Automatic start on boot)
+.\twsnmpneo.exe service install -service-auto -datastore C:\twsnmpneo\data -port 8080
+
+# Start service
+.\twsnmpneo.exe service start
+```
+
+### Linux (curl Installer & systemd Service)
 
 ```bash
-# Grant capabilities
-sudo setcap 'cap_net_bind_service,cap_net_raw+ep' ./twsnmpneo
+# One-liner curl install
+curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install.sh | sh
 
-# Run as normal user
-./twsnmpneo -datastore ./data -port 8080
+# Grant network capabilities
+sudo setcap 'cap_net_bind_service,cap_net_raw+ep' /usr/local/bin/twsnmpneo
+
+# Run directly
+twsnmpneo -datastore ./data -port 8080
+
+# Or register as a Linux systemd background service
+sudo twsnmpneo service install -auto -datastore /var/lib/twsnmpneo -port 8080
+sudo twsnmpneo service start
+```
+
+### Smart Self-Updater
+
+TWSNMP NEO detects its runtime environment (Docker, Homebrew, Standalone) and provides seamless self-updates:
+
+```bash
+# Check for updates
+twsnmpneo update -check
+
+# Update in-place and safely restart
+twsnmpneo update -y
 ```
 
 ---
@@ -108,7 +136,9 @@ TWSNMP NEO is engineered as a responsive Single Page Application (SPA).
   - **Light / Dark Mode Toggle** with immediate theme adaptation.
   - **Global Severity Counters** (Critical, Warning, Low, Unknown).
 - **Main Interactive Canvas**: Pan, zoom, drag-and-drop nodes, and multiselect.
-- **Context Menus**: Right-click any node or network container for immediate diagnostic tools and editors.
+- **Context Menus**: Right-click nodes, network switches, lines, or draw items. Menus follow a unified action system ("Info", "Edit", "Delete") and dynamically adapt options (such as showing "Wake On Lan" only when a valid MAC address is configured).
+
+![](./images/en/map_context_menu.png)
 
 ---
 
@@ -187,7 +217,7 @@ During execution, real-time discovery progress and categorized service detection
 
 ### Neighbor Topology Finder (Find Neighbor)
 
-Inspects switch ARP caches, Bridge MIB FDB tables, and LLDP/CDP neighbor tables to automatically identify and connect nodes to their exact switch ports.
+Inspects switch ARP caches, Bridge MIB FDB tables, and LLDP/CDP neighbor tables to automatically identify and connect nodes to their exact switch ports. The widened dialog eliminates text truncation and displays detection reasons (LLDP, FDB-Edge, ARP) alongside confidence percentages (%):
 
 ![](./images/en/find_neighbor_dialog.png)
 
@@ -195,13 +225,19 @@ Inspects switch ARP caches, Bridge MIB FDB tables, and LLDP/CDP neighbor tables 
 
 ## 6. Node & Polling Management
 
-### Node List & Properties
+### Node List & Node Details
 
 View and manage all monitored nodes, IP/MAC bindings, hardware vendors, and operational states in a real-time searchable inventory list:
 
 ![](./images/en/node_list.png)
 
-Configure hostname, IP, MAC address, SNMP credentials (v1/v2c/v3 with authPriv), and icons. Click **Auto Detect** to automatically inspect device roles and open ports.
+Right-clicking any node and selecting "Info" opens the Node Details view, displaying system health metrics and an **inline list of all configured pollings**. Users can inspect polling trend charts, jump directly into polling edits, or launch node editing via the dedicated top-level action button.
+
+### Node Property Editor (2-Column & Shared Auth)
+
+The node configuration dialog features an expansive two-column layout:
+- **Left Column (Primary Information)**: Hostname, IP address, MAC address, icon selector (MDI or custom graphics), and one-click auto-detection.
+- **Right Column (Protocols & Credentials)**: Protocol-sensitive input fields, multiple URL endpoints for web monitoring, and one-click credential application from global Shared Credentials presets.
 
 ![](./images/en/node_dialog.png)
 
@@ -260,7 +296,7 @@ Execute directly from the node's right-click context menu on the map or via the 
 
 ## 8. Analytics & Reporting Suite
 
-TWSNMP NEO incorporates 8 dedicated analytics engines:
+TWSNMP NEO incorporates 10 dedicated analytics engines:
 
 ![](./images/en/report_device_lan.png)
 
@@ -278,14 +314,25 @@ Top talkers, top ports, and Fumble anomalous connection tracking.
 ### Host Analysis (Windows Events / Processes)
 Windows Security event auditing, privilege escalation, and active processes.
 
-### IoT & Environmental Sensors (Temperature / Power / MQTT)
+### IoT & Environmental Sensors (Temperature / Power)
 Temperature, humidity, pressure, and energy consumption (Wh) trends.
+
+### MQTT Reports
+IoT/Smart device message volume statistics by topic, client connections, and AI trend summaries.
+
+### OpenTelemetry (OTel) Reports
+Distributed trace summaries, service latencies, and AI bottleneck diagnostics.
 
 ### TLS/SSL Certificate Monitoring
 Expiration countdown and revocation status verification.
 
 ### AI Anomaly Detection Scores
 Statistical anomaly scoring and ranking across nodes and pollings.
+
+### One-Click "AI Diagnosis" Across All Reports
+Click the "AI Diagnosis" button on any report toolbar (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) to trigger instant LLM analysis of the current statistical data, producing bottleneck insights and actionable remediation steps in structured Markdown with smooth loading animations.
+
+![](./images/en/ai_cause_diagnosis.png)
 
 ![](./images/en/report_polling_sla.png)
 
@@ -318,18 +365,18 @@ Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow
 ![](./images/en/settings_receivers.png)
 
 ### AI Root Cause Diagnosis
-When critical events occur, LLM-based intelligent analysis automatically summarizes correlated logs and provides immediate remediation recommendations. *(Experimental feature under development)*
+When critical events occur, one-click AI analysis summarizes correlated preceding and succeeding logs to identify the root cause and provide clear remediation steps in Markdown.
 
 ---
 
-## 10. Built-in PKI (Certificate Authority)
+## 10. Built-in PKI (Certificate Authority) & TLS Management
 
 A complete, self-contained Private PKI system embedded directly within your network manager. Modeled after the production-grade TWSNMP FC Web server architecture, it offers an intuitive left-sidebar interface with full protocol server integration.
 
 ![](./images/en/pki_root_ca.png)
 
 ### Root CA Setup & Certificate Ledger
-Generate Root CA keys and certificates securely (supporting RSA and ECDSA key curves) with explicit initialization. Features unified keyword search, column sorting, pagination, CSV export, individual PEM download, and revocation actions.
+Generate Root CA keys and certificates securely (supporting RSA and ECDSA key curves) with explicit initialization. Features unified keyword search, revoked certificate counts, column sorting, pagination, CSV export, individual PEM download, and revocation actions.
 
 ### In-Browser CSR Generation
 Simultaneously generate private keys and CSRs with immediate ZIP package downloads. Issue and download signed PEM certificates from uploaded CSR files.
@@ -337,7 +384,10 @@ Simultaneously generate private keys and CSRs with immediate ZIP package downloa
 ### CRL / OCSP / SCEP / ACME Services
 - **Plain HTTP Listener (Port 8082)**: Serves Root CA certificates (`/ca.pem`), SCEP CA certificates (`/scepca.pem`), CRL (`/crl`), OCSP (`/ocsp`), and SCEP (`/scep`) (preventing TLS bootstrap issues and circular dependencies).
 - **ACME Listener (Port 8083)**: RFC 8555-compliant Automated Certificate Management Environment (Let's Encrypt compatible).
-- Real-time service status monitoring and immediate runtime configuration updates.
+- Real-time service status monitoring with status-aware background coloring and immediate runtime configuration updates.
+
+### ACME Auto-Renewal Client & TLS Certificates
+When operating TWSNMP NEO over HTTPS (TLS), the built-in ACME client (powered by lego) can automatically acquire and renew certificates from public ACME providers like Let's Encrypt or the internal ACME server. It also supports manual PEM certificate/key file paths and seamless certificate migration from TWSNMP FC.
 
 ![](./images/en/pki_cert_manager.png)
 
@@ -352,14 +402,14 @@ Configure AI providers (Local `tensai` LLM, Gemini, OpenAI, Claude, Ollama) and 
 ![](./images/en/ai_settings.png)
 
 #### Local LLM & WebGPU Acceleration
-TWSNMP NEO includes a built-in offline inference engine requiring zero external cloud dependencies or API keys. Supports one-click Hugging Face model downloads and hardware-accelerated local WebGPU inference.
+TWSNMP NEO includes an offline inference engine (`tensai` v0.0.35+) requiring zero external cloud dependencies or API keys. Supports one-click Hugging Face model downloads, expanded model presets, hardware-accelerated local WebGPU inference, rich Markdown output formatting, language switching, and smooth loading animations.
 
 ![](./images/en/ai_gpu_manager.png)
 
 ### Native Streamable HTTP MCP Server
 
-TWSNMP NEO is designed to provide a **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
-Autonomous AI agents like Cursor, Claude Desktop, and Antigravity will connect directly to inspect network status, query logs, and troubleshoot incidents. *(Experimental feature under development)*
+TWSNMP NEO provides a built-in **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
+Autonomous AI agents like Cursor, Claude Desktop, and Antigravity connect directly to inspect network status, query logs, and execute diagnostic tools autonomously.
 
 Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](prompt.html)** for architecture details.
 
@@ -367,20 +417,23 @@ Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](
 
 ## 12. Settings & System Administration
 
-### System Status & Resource Monitor
+### System Status & Resource Monitor (Two-Tab Layout)
 
-Monitor server daemons, CPU/memory/swap/disk consumption, TCP connections, and database capacity in real time:
+The system administration interface is organized into two dedicated tabs:
 
 ![](./images/en/system_monitor.png)
 
-- **Daemon Status**: Live operational states for Syslog, SNMP TRAP, NetFlow, sFlow, ARP Watch, OpenTelemetry, MQTT, and MCP Server.
-- **Resource Trends**: CPU, memory heap, and process utilization time charts.
-- **Capacity Forecast & DB Backup**: One-click database backups and storage growth predictions.
+- **"System Status" Tab**:
+  - **Daemon Health**: Comprehensive overview of Syslog, TRAP, NetFlow, sFlow, ARP Watch, OpenTelemetry, MQTT, MCP server, and PKI/ACME daemons.
+  - **System Info & Self-Update**: Hardware specs (OS, CPU cores, architecture, uptime) and version information. Live update notification banners alert when new releases are available, enabling one-click in-place self-updates directly from the Web UI.
+  - **Capacity Forecast & DB Backup**: One-click database backups and storage growth predictions.
+- **"Resource Monitor" Tab**:
+  - Real-time telemetry charts for CPU utilization, memory heap, active Goroutines, swap, and disk I/O metrics.
 
 ### Notifications (Email / Webhook)
 
 Receive instant alerts and periodic reports across supported channels:
-- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries and daily operational reports.
+- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries (including direct access links back to TWSNMP NEO) and daily operational reports.
 - **Webhooks**: Real-time event notifications and daily report postings sent directly to your custom webhook endpoints or automation workflows.
 - **External Command Execution**: Execute arbitrary OS scripts or commands triggered on fault level state changes.
 

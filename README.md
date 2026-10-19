@@ -42,18 +42,19 @@
 
 ### 3. Native AI & Built-in MCP Server
 - **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 22+ diagnostic/management tools and 19 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
-- **Multi-LLM Engine (`tensai`)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models.
-- **In-App AI Assistance**: One-click AI root cause diagnosis for event logs, natural language polling creation, and node health assessments.
+- **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with WebGPU offline inference.
+- **In-App AI Diagnosis**: One-click AI diagnosis across all report views (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) with rich Markdown output, smooth loading animations, and automated root cause analysis.
 
 ### 4. Comprehensive Protocol Receivers & Built-in Services
 - **Syslog**: UDP, TCP, TLS (RFC 3164 / RFC 5424)
 - **SNMP TRAP**: v1, v2c, v3 with MIB name resolution
 - **Flow Monitoring**: NetFlow v5/v9/IPFIX, sFlow v5 (Flow & Counter samples), Fumble anomaly detection
 - **ARP Watch**: Continuous IP-to-MAC change and conflict detection
-- **OpenTelemetry**: OTel OTLP gRPC/HTTP log & trace collector
-- **MQTT Broker & Client**: Embedded broker for IoT sensors and metric polling
-- **Built-in PKI Certificate Authority**: Root CA management, web-based CSR creation, certificate issuance, and CRL / OCSP / SCEP / ACME servers
+- **OpenTelemetry**: OTel OTLP gRPC/HTTP log, trace & metrics collector with dedicated analytics
+- **MQTT Broker & Client**: Embedded broker for IoT sensors, topic statistics, and metric polling
+- **Built-in PKI & TLS Management**: Root CA management, web-based CSR creation, certificate issuance, CRL / OCSP / SCEP / ACME servers, and automated TLS certificate renewal via ACME client (lego)
 - **Diagnostic Tools**: Interactive Ping (ICMP/UDP), Smokeping, MTR with AI analysis, MIB Browser / Tree, gNMI, and Wake-on-LAN (WOL)
+- **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications and one-click in-place upgrades
 
 ---
 
@@ -118,16 +119,38 @@ Start the container:
 docker compose up -d
 ```
 
-### Running as a Standalone Binary
+### Running as a Standalone Binary or Background Service
 
 Download the executable for your platform from [GitHub Releases](https://github.com/twsnmp/twsnmpneo/releases).
 
-#### Linux Special Note:
-In Linux, privileged operations (raw socket ICMP ping, binding to ports below 1024 such as Syslog 514 or SNMP TRAP 162) require Linux Capabilities:
+#### Windows Service:
+```powershell
+# Register as a Windows service (Automatic startup)
+.\twsnmpneo.exe service install -service-auto -datastore C:\twsnmpneo\data -port 8080
+.\twsnmpneo.exe service start
+```
+
+#### Linux (Capabilities & systemd Service):
+In Linux, privileged operations (raw socket ICMP ping, privileged ports 514/162) require Capabilities:
+```bash
+sudo setcap 'cap_net_bind_service,cap_net_raw+ep' /usr/local/bin/twsnmpneo
+
+# Run directly
+twsnmpneo -datastore ./data -port 8080
+
+# Or register as a systemd service (Automatic startup on boot)
+sudo twsnmpneo service install -auto -datastore /var/lib/twsnmpneo -port 8080
+sudo twsnmpneo service start
+```
+
+### Smart Self-Updater
 
 ```bash
-sudo setcap 'cap_net_bind_service,cap_net_raw+ep' ./twsnmpneo
-./twsnmpneo -datastore ./data -port 8080
+# Check for latest release
+twsnmpneo update -check
+
+# Apply update and automatically restart
+twsnmpneo update -y
 ```
 
 ---

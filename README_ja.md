@@ -43,18 +43,19 @@
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
 - **Streamable HTTP MCP サーバー (`/api/mcp`)**: 22種以上の運用・診断ツールと19種のプロンプトテンプレートをAIエージェント（Cursor, Claude Desktop, Antigravity など）に提供。
-- **マルチLLMエンジン (`tensai`)**: Gemini, OpenAI, Claude, ローカル Ollama への接続に対応。
-- **ワンクリック AI アシスト**: イベントログの原因分析、自然言語によるポーリング作成アシスタント、ノード健全性診断、各レポートのAI解説。
+- **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini, OpenAI, Claude, ローカル Ollama への接続および WebGPU オフライン推論に対応。
+- **ワンクリック AI 診断**: イベントログの原因分析、全レポート画面（Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel 等）での統計データAI診断（Markdown表示、WAITアニメーション）、ノード健全性診断。
 
 ### 4. 充実したプロトコルレシーバー & 診断機能
 - **Syslog**: UDP, TCP, TLS (RFC 3164 / RFC 5424)
 - **SNMP TRAP**: v1, v2c, v3（MIB OID名前解決対応）
 - **フロー監視**: NetFlow v5/v9/IPFIX, sFlow v5（Flow/Counterサンプル）, Fumble異常通信検知
 - **ARP監視**: IP-MAC対応関係の変更・競合・新規検知
-- **OpenTelemetry**: OTel OTLP gRPC/HTTP レシーバー
-- **MQTT ブローカー & クライアント**: IoTセンサー監視・ポーリング対応
-- **内蔵 PKI 認証局**: Root CA構築、ブラウザ内CSR作成、証明書発行、CRL / OCSP / SCEP / ACME サーバー
+- **OpenTelemetry**: OTel OTLP gRPC/HTTP レシーバーおよびレポート分析
+- **MQTT ブローカー & クライアント**: IoTセンサー監視・トピック統計レポート
+- **内蔵 PKI & TLS 管理**: Root CA構築、ブラウザ内CSR作成、証明書発行、CRL / OCSP / SCEP / ACME サーバー、および自身の HTTPS 運用を自動化する ACME 自動更新クライアント（lego 統合）
 - **診断ツール**: リアルタイムPing (ICMP/UDP)、Smokeping、MTR（AI解説付き）、MIBブラウザ / MIBツリー、gNMI、Wake-on-LAN (WOL)
+- **システム管理**: システムステータス（デーモン稼働状態、DB容量予測、ワンクリックセルフアップデート）とリソースモニターの2タブ構成
 
 ---
 
@@ -111,6 +112,12 @@ curl -sS https://raw.githubusercontent.com/twsnmp/twsnmpneo/main/install/install
 Linux で一般ユーザーとして実行する場合の Capabilities 付与：
 ```bash
 sudo setcap 'cap_net_bind_service,cap_net_raw+ep' /usr/local/bin/twsnmpneo
+```
+
+Linux systemd サービスとして登録（常駐・OS起動時に自動起動）：
+```bash
+sudo /usr/local/bin/twsnmpneo service install -auto -datastore /var/lib/twsnmpneo -port 8080
+sudo /usr/local/bin/twsnmpneo service start
 ```
 
 ---

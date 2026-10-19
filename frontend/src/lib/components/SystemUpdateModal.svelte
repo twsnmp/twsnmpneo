@@ -218,7 +218,7 @@
               {$_("system.currentVersion")}
             </span>
             <span class="text-lg font-bold font-mono text-slate-800 dark:text-slate-200 mt-0.5">
-              {updateInfo.current_version || "v0.1.0"}
+              {updateInfo.current_version || "v0.2.0"}
             </span>
           </div>
 
