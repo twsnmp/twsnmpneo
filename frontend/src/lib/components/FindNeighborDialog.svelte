@@ -67,6 +67,21 @@
     }
   };
 
+  const formatReason = (reason?: string) => {
+    if (!reason) return "-";
+    const fdbMatch = reason.match(/FDB(?:-Heuristic)?\s*\((\d+)(?:\s*MACs?)?\)/i);
+    if (fdbMatch) return `FDB (${fdbMatch[1]})`;
+    if (reason.startsWith("FDB")) return "FDB";
+
+    const arpMatch = reason.match(/ARP(?:-Multi)?\s*\((\d+)\)/i);
+    if (arpMatch) return `ARP (${arpMatch[1]})`;
+    if (reason.startsWith("ARP")) return "ARP";
+
+    if (reason.startsWith("Subnet")) return "Subnet";
+
+    return reason;
+  };
+
   const loadNeighbors = async () => {
     if (!targetId) return;
     loading = true;
@@ -143,7 +158,7 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-auto max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
+    <div class="flex h-auto max-h-[85vh] w-full max-w-5xl flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4 shrink-0">
         <div class="flex items-center gap-3">
@@ -217,11 +232,11 @@
             <table class="w-full text-left text-xs text-slate-700 dark:text-slate-300">
               <thead class="bg-slate-100/80 dark:bg-slate-950/80 uppercase font-mono text-[11px] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th class="py-1 px-2 w-10 text-center">{$_('neighbor.colSelect')}</th>
-                  <th class="py-1 px-2">{$_('neighbor.colSrc')}</th>
-                  <th class="py-1 px-2">{$_('neighbor.colDst')}</th>
-                  <th class="py-1 px-2">{$_('neighbor.colReason')}</th>
-                  <th class="py-1 px-2 text-center">{$_('neighbor.colConfidence')}</th>
+                  <th class="py-2 px-3 w-10 text-center whitespace-nowrap">{$_('neighbor.colSelect')}</th>
+                  <th class="py-2 px-3 whitespace-nowrap">{$_('neighbor.colSrc')}</th>
+                  <th class="py-2 px-3 whitespace-nowrap">{$_('neighbor.colDst')}</th>
+                  <th class="py-2 px-3 whitespace-nowrap">{$_('neighbor.colReason')}</th>
+                  <th class="py-2 px-3 text-center whitespace-nowrap w-24">{$_('neighbor.colConfidence')}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/60">
@@ -233,7 +248,7 @@
                     onclick={() => toggleSelectIndex(idx)}
                     class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-50 dark:bg-cyan-950/20 text-cyan-900 dark:text-cyan-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}"
                   >
-                    <td class="py-1 px-2 text-center" onclick={(e) => e.stopPropagation()}>
+                    <td class="py-2 px-3 text-center whitespace-nowrap" onclick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -241,38 +256,38 @@
                         class="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-600 focus:ring-cyan-500/30 cursor-pointer"
                       />
                     </td>
-                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100">
-                      <div class="flex items-center gap-1.5">
+                    <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                      <div class="flex items-center gap-1.5 whitespace-nowrap">
                         {#if e1.isNet}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                         {:else}
                           <Laptop class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         {/if}
-                        <span class="truncate">{e1.name}</span>
+                        <span class="whitespace-nowrap">{e1.name}</span>
                         {#if e1.port}
-                          <span class="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono">[{e1.port}]</span>
+                          <span class="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono whitespace-nowrap shrink-0">[{e1.port}]</span>
                         {/if}
                       </div>
                     </td>
-                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100">
-                      <div class="flex items-center gap-1.5">
+                    <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                      <div class="flex items-center gap-1.5 whitespace-nowrap">
                         {#if e2.isNet}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                         {:else}
                           <Laptop class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         {/if}
-                        <span class="truncate">{e2.name}</span>
+                        <span class="whitespace-nowrap">{e2.name}</span>
                         {#if e2.port}
-                          <span class="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono">[{e2.port}]</span>
+                          <span class="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono whitespace-nowrap shrink-0">[{e2.port}]</span>
                         {/if}
                       </div>
                     </td>
-                    <td class="py-1 px-2 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                      {l.Reason || l.Info || "Heuristic"}
+                    <td class="py-2 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                      {formatReason(l.Reason || l.Info)}
                     </td>
-                    <td class="py-1 px-2 text-center">
+                    <td class="py-2 px-3 text-center whitespace-nowrap">
                       <span
-                        class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {l.Confidence === 'strict' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}"
+                        class="inline-flex items-center rounded-md px-2.5 py-0.5 text-[10px] font-bold border whitespace-nowrap {l.Confidence === 'strict' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}"
                       >
                         {l.Confidence === "strict" ? $_('neighbor.strict') : $_('neighbor.speculative')}
                       </span>

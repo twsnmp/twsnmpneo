@@ -18,7 +18,7 @@ import (
 type NeighborLineEnt struct {
 	datastore.LineEnt
 	Confidence string `json:"Confidence"` // "strict" | "speculative"
-	Reason     string `json:"Reason"`     // "LLDP" | "CDP" | "STP" | "FDB-Edge" | "FDB-Heuristic" | "ARP" | "Subnet Heuristic" | "AI"
+	Reason     string `json:"Reason"`     // "LLDP" | "CDP" | "STP" | "FDB" | "ARP" | "Subnet" | "AI"
 }
 
 // FindNeighborNetworksAndLinesResp returns detected candidate lines and neighboring networks.
@@ -738,11 +738,11 @@ func findFDBTopology(
 
 		macCount := portMacCount[e.IfIndex]
 		confidence := "strict"
-		reason := "FDB-Edge"
+		reason := "FDB"
 
 		if macCount > 2 {
 			confidence = "speculative"
-			reason = fmt.Sprintf("FDB-Heuristic (%d MACs)", macCount)
+			reason = fmt.Sprintf("FDB (%d)", macCount)
 		}
 
 		pid := findBestPollingIDForNode(allPollings, node, idxStr)
@@ -848,7 +848,7 @@ func findARPTopology(
 		reason := "ARP"
 		if portArpCount[e.IfIndex] > 2 {
 			confidence = "speculative"
-			reason = fmt.Sprintf("ARP-Multi (%d)", portArpCount[e.IfIndex])
+			reason = fmt.Sprintf("ARP (%d)", portArpCount[e.IfIndex])
 		}
 
 		pid := findBestPollingIDForNode(allPollings, node, e.IfIndex)
@@ -1124,7 +1124,7 @@ func inferSubnetLinesForSwitch(nw *datastore.NetworkEnt, nodes []*datastore.Node
 				portID = nw.Ports[portIdx].ID
 			}
 
-			reason := fmt.Sprintf("Subnet Heuristic (/24 - %s)", nw.Name)
+			reason := "Subnet"
 			results = append(results, NeighborLineEnt{
 				LineEnt: datastore.LineEnt{
 					NodeID1:    fmt.Sprintf("NET:%s", nw.ID),
@@ -1168,7 +1168,7 @@ func inferSubnetLinesForNode(node *datastore.NodeEnt, networks []*datastore.Netw
 		if len(bestNet.Ports) > 0 {
 			portID = bestNet.Ports[0].ID
 		}
-		reason := fmt.Sprintf("Subnet Heuristic (%s)", bestNet.Name)
+		reason := "Subnet"
 		results = append(results, NeighborLineEnt{
 			LineEnt: datastore.LineEnt{
 				NodeID1:    fmt.Sprintf("NET:%s", bestNet.ID),

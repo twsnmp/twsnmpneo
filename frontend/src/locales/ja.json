@@ -1018,8 +1018,8 @@
     "colDst": "接続先",
     "colReason": "判定理由",
     "colConfidence": "確信度",
-    "strict": "確実 (Strict)",
-    "speculative": "推測 (Speculative)",
+    "strict": "確実",
+    "speculative": "推測",
     "research": "再探索",
     "connectBtn": "選択したラインを接続",
     "connectSuccess": "本のラインを正常に接続しました。"
