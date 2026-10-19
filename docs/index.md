@@ -339,6 +339,8 @@ Temperature, humidity, pressure, and energy consumption (Wh) trends.
 ### MQTT Reports
 IoT/Smart device message volume statistics by topic, client connections, and AI trend summaries.
 
+![](./images/en/report_mqtt.png)
+
 ### OpenTelemetry (OTel) Reports
 Distributed trace summaries, service latencies, and AI bottleneck diagnostics.
 
