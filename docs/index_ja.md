@@ -157,6 +157,10 @@ TWSNMP NEO は直感的なシングルページアプリケーション（SPA）
 
 ![](./images/ja/map_network_ports.png)
 
+ネットワーク（SW-HUB）を右クリックすると専用メニューが開き、情報確認、PING、MIBブラウザー、接続先トポロジー探索、ネットワーク自体の編集、および接続ポートの「ライン編集」を直接実行できます：
+
+![](./images/ja/network_context_menu.png)
+
 登録されているスイッチングハブやネットワークは専用のインベントリ一覧でも管理できます：
 
 ![](./images/ja/network_list.png)

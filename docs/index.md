@@ -151,6 +151,10 @@ TWSNMP NEO is engineered as a responsive Single Page Application (SPA).
 
 ![](./images/en/map_network_ports.png)
 
+Right-clicking any network (SW-HUB) container opens a dedicated context menu providing direct access to information inspection, PING, MIB browser, neighbor topology finder, container property edits, and batch port-line editing:
+
+![](./images/en/network_context_menu.png)
+
 Switching hubs and networks can also be managed via the dedicated inventory list:
 
 ![](./images/en/network_list.png)
