@@ -405,6 +405,8 @@ Simultaneously generate private keys and CSRs with immediate ZIP package downloa
 - **ACME Listener (Port 8083)**: RFC 8555-compliant Automated Certificate Management Environment (Let's Encrypt compatible).
 - Real-time service status monitoring with status-aware background coloring and immediate runtime configuration updates.
 
+![](./images/en/pki_server_control.png)
+
 ### ACME Auto-Renewal Client & TLS Certificates
 When operating TWSNMP NEO over HTTPS (TLS), the built-in ACME client (powered by lego) can automatically acquire and renew certificates from public ACME providers like Let's Encrypt or the internal ACME server. It also supports manual PEM certificate/key file paths and seamless certificate migration from TWSNMP FC.
 
