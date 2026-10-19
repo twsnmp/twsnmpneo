@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Laptop,
@@ -57,6 +57,7 @@
   // Modal states
   let showAddNodeModal = $state(false);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
   let nodeToEdit = $state<NodeEnt | null>(null);
 
   // ECharts container & instance
@@ -784,13 +785,25 @@
     bind:show={showAiExplainModal}
     reportType="device"
     title={$_("report.aiDeviceTitle") || "LANデバイス & ネットワーク資産 AI診断"}
-    summary={`検出端末総数: ${allDevices.length}台 (登録ノード: ${nodes.length}台, ARP未管理: ${allDevices.filter(d => !d.isManaged).length}台, 仮想マシン: ${allDevices.filter(d => isVirtualMachine(d)).length}台), アラート検知: ${kpiCounts.duplicate + kpiCounts.changed + kpiCounts.dhcpError}件 (重複: ${kpiCounts.duplicate}, 変更: ${kpiCounts.changed}, DHCP異常: ${kpiCounts.dhcpError})`}
+    summary={isJaLocale
+      ? `検出端末総数: ${allDevices.length}台 (登録ノード: ${nodes.length}台, ARP未管理: ${allDevices.filter(d => !d.isManaged).length}台, 仮想マシン: ${allDevices.filter(d => isVirtualMachine(d)).length}台), アラート検知: ${kpiCounts.duplicate + kpiCounts.changed + kpiCounts.dhcpError}件 (重複: ${kpiCounts.duplicate}, 変更: ${kpiCounts.changed}, DHCP異常: ${kpiCounts.dhcpError})`
+      : `Total Devices: ${allDevices.length} (Registered: ${nodes.length}, Unmanaged ARP: ${allDevices.filter(d => !d.isManaged).length}, VMs: ${allDevices.filter(d => isVirtualMachine(d)).length}), Alerts: ${kpiCounts.duplicate + kpiCounts.changed + kpiCounts.dhcpError} (Duplicate: ${kpiCounts.duplicate}, Changed: ${kpiCounts.changed}, DHCP Error: ${kpiCounts.dhcpError})`}
     items={[
-      ...allDevices.filter(d => d.addressState === "duplicate").map(d => `[重複検知] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
-      ...allDevices.filter(d => d.addressState === "dhcpError").map(d => `[APIPA/DHCP異常] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
-      ...allDevices.filter(d => d.addressState === "ipChanged" || d.addressState === "macChanged").map(d => `[アドレス変更] 状態: ${d.addressState}, IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
-      ...allDevices.filter(d => !d.isManaged).slice(0, 30).map(d => `[未管理端末] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}`),
-      ...allDevices.filter(d => d.isManaged && d.state && d.state !== 'normal' && d.state !== 'info').map(d => `[障害ノード] 名前: ${d.name}, IP: ${d.ip}, 状態: ${d.state}`)
+      ...allDevices.filter(d => d.addressState === "duplicate").map(d => isJaLocale
+        ? `[重複検知] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`
+        : `[Duplicate IP] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
+      ...allDevices.filter(d => d.addressState === "dhcpError").map(d => isJaLocale
+        ? `[APIPA/DHCP異常] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`
+        : `[APIPA/DHCP Error] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
+      ...allDevices.filter(d => d.addressState === "ipChanged" || d.addressState === "macChanged").map(d => isJaLocale
+        ? `[アドレス変更] 状態: ${d.addressState}, IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`
+        : `[Address Changed] State: ${d.addressState}, IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}, Node: ${d.name}`),
+      ...allDevices.filter(d => !d.isManaged).slice(0, 30).map(d => isJaLocale
+        ? `[未管理端末] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}`
+        : `[Unmanaged Device] IP: ${d.ip}, MAC: ${d.mac}, Vendor: ${d.vendor}`),
+      ...allDevices.filter(d => d.isManaged && d.state && d.state !== 'normal' && d.state !== 'info').map(d => isJaLocale
+        ? `[障害ノード] 名前: ${d.name}, IP: ${d.ip}, 状態: ${d.state}`
+        : `[Problem Node] Name: ${d.name}, IP: ${d.ip}, State: ${d.state}`)
     ]}
   />
 {/if}

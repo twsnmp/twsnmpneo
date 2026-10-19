@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     ScrollText,
@@ -43,6 +43,7 @@
 
   let backendSyslogStats = $state<SyslogStatsSummary | null>(null);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   export const refresh = async () => {
     try {
@@ -856,10 +857,10 @@
       type="button"
       onclick={() => (showAiExplainModal = true)}
       class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
-      title="Syslogログ全体のセキュリティ・インシデントAI分析"
+      title={$_("report.btnAiSyslogTooltip") || "Syslogログ全体のセキュリティ・インシデントAI分析"}
     >
       <Sparkles class="w-4 h-4 text-cyan-500" />
-      <span>AI Syslogセキュリティ分析</span>
+      <span>{$_("report.btnAiSyslog") || "AI Syslogセキュリティ分析"}</span>
     </button>
   </div>
 
@@ -1490,13 +1491,19 @@
     <ReportAIExplainModal
       bind:show={showAiExplainModal}
       reportType="syslog"
-      title="Syslog インシデント & セキュリティAI分析"
-      summary={`総ログ数: ${kpiStats.total.toLocaleString()}件, エラー: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常: ${kpiStats.normal.toLocaleString()}件, 送信ホスト数: ${hostSummaries.length}台`}
+      title={$_("report.aiSyslogTitle") || "Syslog インシデント & セキュリティAI分析"}
+      summary={isJaLocale
+        ? `総ログ数: ${kpiStats.total.toLocaleString()}件, エラー: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常: ${kpiStats.normal.toLocaleString()}件, 送信ホスト数: ${hostSummaries.length}台`
+        : `Total Logs: ${kpiStats.total.toLocaleString()}, Error: ${kpiStats.high.toLocaleString()}, Warn: ${kpiStats.warn.toLocaleString()}, Normal: ${kpiStats.normal.toLocaleString()}, Source Hosts: ${hostSummaries.length}`}
       items={
         // Collect top error/warn tags, hosts, and sample raw messages
         [
-          ...tagSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => `[TAG] ${t.tag} (エラー: ${t.errorCount}, 警告: ${t.warnCount}, 総数: ${t.count})`),
-          ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).map(h => `[HOST] ${h.name || h.host} (${h.ip}) - エラー: ${h.errorCount}, 警告: ${h.warnCount}, タグ: ${h.topTags}`),
+          ...tagSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => isJaLocale
+            ? `[TAG] ${t.tag} (エラー: ${t.errorCount}, 警告: ${t.warnCount}, 総数: ${t.count})`
+            : `[TAG] ${t.tag} (Error: ${t.errorCount}, Warn: ${t.warnCount}, Total: ${t.count})`),
+          ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).map(h => isJaLocale
+            ? `[HOST] ${h.name || h.host} (${h.ip}) - エラー: ${h.errorCount}, 警告: ${h.warnCount}, タグ: ${h.topTags}`
+            : `[HOST] ${h.name || h.host} (${h.ip}) - Error: ${h.errorCount}, Warn: ${h.warnCount}, Tags: ${h.topTags}`),
           ...filteredLogs.filter(l => isSyslogError(l.severity, l.level) || isSyslogWarn(l.severity, l.level)).slice(0, 30).map(l => `[LOG ${l.level.toUpperCase()}] ${formatTimeStr(l.time)} ${l.host} [${l.tag}]: ${l.message}`)
         ]
       }

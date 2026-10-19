@@ -134,6 +134,7 @@
           <button
             type="button"
             onclick={handleClose}
+            aria-label={$_('common.close') || '閉じる'}
             class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
             <X class="h-5 w-5" />
@@ -147,11 +148,11 @@
         <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
           <div>
             {#if summary}
-              <span class="font-bold text-slate-700 dark:text-slate-300">集計状況: </span>
+              <span class="font-bold text-slate-700 dark:text-slate-300">{$_('report.aiSummaryStatus') || '集計状況: '}</span>
               <span class="text-slate-600 dark:text-slate-300 font-medium">{summary}</span>
             {/if}
             <span class="text-slate-400 text-[11px] block mt-0.5">
-              分析対象: {items.length} 件のデータレコード
+              {$_('report.aiTargetRecords', { values: { count: items.length } }) || `分析対象: ${items.length} 件のデータレコード`}
             </span>
           </div>
 
@@ -164,10 +165,10 @@
           >
             {#if aiLoading}
               <RefreshCw class="h-3.5 w-3.5 animate-spin" />
-              <span>AI推論中...</span>
+              <span>{$_('report.aiInferring') || 'AI推論中...'}</span>
             {:else}
               <Sparkles class="h-3.5 w-3.5" />
-              <span>{aiResult ? "再分析を実行" : "AIレポート分析を実行"}</span>
+              <span>{aiResult ? ($_('report.btnReanalyzeAi') || '再分析を実行') : ($_('report.btnRunAiReport') || 'AIレポート分析を実行')}</span>
             {/if}
           </button>
         </div>
@@ -176,8 +177,8 @@
         {#if aiLoading}
           <div class="flex flex-col items-center justify-center p-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
             <AnimatedCatLogo mode="loading" size="lg" />
-            <span class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 mt-3 animate-pulse">
-              マルチLLM推論中... (セキュリティリスク・運用影響・推奨対策を診断中)
+            <span class="text-xs font-semibold text-cyan-600 dark:text-cyan-400 mt-3 animate-pulse text-center">
+              {$_('report.aiReasoningDetailed') || 'マルチLLM推論中... (セキュリティリスク・運用影響・推奨対策を診断中)'}
             </span>
           </div>
         {/if}
@@ -194,7 +195,7 @@
         {#if !aiResult && !aiLoading && !aiError}
           <div class="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800">
             <FileText class="h-10 w-10 text-cyan-500/40 mb-3" />
-            <p class="text-xs font-medium">「AIレポート分析を実行」ボタンをクリックすると、現在のレポートデータに基づき、セキュリティリスク評価と運用アドバイスをAIが提示します。</p>
+            <p class="text-xs font-medium">{$_('report.aiEmptyDescription') || '「AIレポート分析を実行」ボタンをクリックすると、現在のレポートデータに基づき、セキュリティリスク評価と運用アドバイスをAIが提示します。'}</p>
           </div>
         {/if}
 
@@ -203,7 +204,7 @@
           <div class="space-y-4">
             <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 space-y-3">
               <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">AI分析レポート &amp; 是正アクション</span>
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">{$_('report.aiResultHeading') || 'AI分析レポート & 是正アクション'}</span>
                 <button
                   type="button"
                   onclick={handleCopyExplanation}
@@ -211,10 +212,10 @@
                 >
                   {#if copied}
                     <Check class="h-3.5 w-3.5 text-emerald-500" />
-                    <span class="text-emerald-600 font-semibold">コピー完了</span>
+                    <span class="text-emerald-600 font-semibold">{$_('report.copied') || $_('common.copied') || 'コピー完了'}</span>
                   {:else}
                     <Copy class="h-3.5 w-3.5" />
-                    <span>解説をコピー</span>
+                    <span>{$_('report.copyExplanation') || '解説をコピー'}</span>
                   {/if}
                 </button>
               </div>

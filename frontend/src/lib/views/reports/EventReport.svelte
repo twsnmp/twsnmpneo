@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     FileText,
@@ -35,6 +35,7 @@
   let pageSize = $state(25);
   let currentPage = $state(1);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   // ECharts container & instance
   let chartElem = $state<HTMLDivElement | null>(null);
@@ -1221,10 +1222,16 @@
       bind:show={showAiExplainModal}
       reportType="event"
       title={$_("report.aiEventTitle") || "システムイベント & 根本原因 AI診断"}
-      summary={`総イベント数: ${kpiStats.total.toLocaleString()}件, 重度障害: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常/復旧: ${kpiStats.normal.toLocaleString()}件, 関連ノード数: ${nodeSummaries.length}台`}
+      summary={isJaLocale
+        ? `総イベント数: ${kpiStats.total.toLocaleString()}件, 重度障害: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常/復旧: ${kpiStats.normal.toLocaleString()}件, 関連ノード数: ${nodeSummaries.length}台`
+        : `Total Events: ${kpiStats.total.toLocaleString()}, Outages: ${kpiStats.high.toLocaleString()}, Warnings: ${kpiStats.warn.toLocaleString()}, Normal/Info: ${kpiStats.normal.toLocaleString()}, Affected Nodes: ${nodeSummaries.length}`}
       items={[
-        ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => `[種別別イベント] ${t.type}: 障害 ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`),
-        ...nodeSummaries.filter(n => n.errorCount > 0 || n.warnCount > 0).slice(0, 20).map(n => `[障害発生ノード] ${n.name || n.nodeId}: 障害 ${n.errorCount}件, 警告 ${n.warnCount}件`),
+        ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0).map(t => isJaLocale
+          ? `[種別別イベント] ${t.type}: 障害 ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`
+          : `[Event by Type] ${t.type}: Error ${t.errorCount}, Warn ${t.warnCount}, Total ${t.count}`),
+        ...nodeSummaries.filter(n => n.errorCount > 0 || n.warnCount > 0).slice(0, 20).map(n => isJaLocale
+          ? `[障害発生ノード] ${n.name || n.nodeId}: 障害 ${n.errorCount}件, 警告 ${n.warnCount}件`
+          : `[Affected Node] ${n.name || n.nodeId}: Error ${n.errorCount}, Warn ${n.warnCount}`),
         ...filteredLogs.filter(l => isEventError(l.level) || isEventWarn(l.level)).slice(0, 30).map(l => `[EVENT] ${formatTimeStr(l.time)} ${nodeMap.get(l.nodeId)?.name || l.nodeId} [${l.type}/${l.level}]: ${l.event || ''}`)
       ]}
     />

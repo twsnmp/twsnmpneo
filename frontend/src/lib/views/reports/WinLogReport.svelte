@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     Terminal,
     KeyRound,
@@ -71,6 +71,7 @@
   let internalLoading = $state(false);
   let expandedId = $state<string | null>(null);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   let sortColumn = $state("LastTime");
   let sortDirection = $state<"asc" | "desc">("desc");
@@ -549,13 +550,25 @@
       bind:show={showAiExplainModal}
       reportType="winlog"
       title={$_("report.aiWinlogTitle") || "Windows イベントログ & 認証セキュリティ AI診断"}
-      summary={`イベントID集計: ${eventIDs.length}種, ログオン監査: ${logons.length}件, アカウント操作: ${accounts.length}件, Kerberos認証: ${kerberosList.length}件, 特権操作: ${privileges.length}件, プロセス監視: ${processes.length}件, タスク監視: ${tasks.length}件`}
+      summary={isJaLocale
+        ? `イベントID集計: ${eventIDs.length}種, ログオン監査: ${logons.length}件, アカウント操作: ${accounts.length}件, Kerberos認証: ${kerberosList.length}件, 特権操作: ${privileges.length}件, プロセス監視: ${processes.length}件, タスク監視: ${tasks.length}件`
+        : `Event IDs: ${eventIDs.length}, Logon Audits: ${logons.length}, Account Operations: ${accounts.length}, Kerberos Auth: ${kerberosList.length}, Privilege Operations: ${privileges.length}, Process Monitoring: ${processes.length}, Task Monitoring: ${tasks.length}`}
       items={[
-        ...eventIDs.slice(0, 15).map(e => `[EVENT ID ${e.EventID}] コンピュータ: ${e.Computer}, プロバイダ: ${e.Provider}, 件数: ${e.Count}`),
-        ...logons.slice(0, 15).map(l => `[LOGON] 対象アカウント: ${l.Target}, IP: ${l.IP || '-'}, コンピュータ: ${l.Computer}, 成功: ${l.Logon}, 失敗: ${l.Failed}`),
-        ...accounts.slice(0, 10).map(a => `[ACCOUNT] 操作対象: ${a.Target}, 実行者: ${a.Subject}, コンピュータ: ${a.Computer}, 件数: ${a.Count}`),
-        ...privileges.slice(0, 10).map(p => `[PRIVILEGE] 実行ユーザー: ${p.Subject}, コンピュータ: ${p.Computer}, 件数: ${p.Count}`),
-        ...kerberosList.slice(0, 10).map(k => `[KERBEROS] サービス: ${k.Service}, ユーザー: ${k.Target}, チケット: ${k.TicketType}, 失敗: ${k.Failed}`)
+        ...eventIDs.slice(0, 15).map(e => isJaLocale
+          ? `[EVENT ID ${e.EventID}] コンピュータ: ${e.Computer}, プロバイダ: ${e.Provider}, 件数: ${e.Count}`
+          : `[Event ID ${e.EventID}] Computer: ${e.Computer}, Provider: ${e.Provider}, Count: ${e.Count}`),
+        ...logons.slice(0, 15).map(l => isJaLocale
+          ? `[LOGON] 対象アカウント: ${l.Target}, IP: ${l.IP || '-'}, コンピュータ: ${l.Computer}, 成功: ${l.Logon}, 失敗: ${l.Failed}`
+          : `[Logon] Account: ${l.Target}, IP: ${l.IP || '-'}, Computer: ${l.Computer}, Success: ${l.Logon}, Failed: ${l.Failed}`),
+        ...accounts.slice(0, 10).map(a => isJaLocale
+          ? `[ACCOUNT] 操作対象: ${a.Target}, 実行者: ${a.Subject}, コンピュータ: ${a.Computer}, 件数: ${a.Count}`
+          : `[Account] Target: ${a.Target}, Subject: ${a.Subject}, Computer: ${a.Computer}, Count: ${a.Count}`),
+        ...privileges.slice(0, 10).map(p => isJaLocale
+          ? `[PRIVILEGE] 実行ユーザー: ${p.Subject}, コンピュータ: ${p.Computer}, 件数: ${p.Count}`
+          : `[Privilege] User: ${p.Subject}, Computer: ${p.Computer}, Count: ${p.Count}`),
+        ...kerberosList.slice(0, 10).map(k => isJaLocale
+          ? `[KERBEROS] サービス: ${k.Service}, ユーザー: ${k.Target}, チケット: ${k.TicketType}, 失敗: ${k.Failed}`
+          : `[Kerberos] Service: ${k.Service}, User: ${k.Target}, Ticket: ${k.TicketType}, Failed: ${k.Failed}`)
       ]}
     />
   {/if}

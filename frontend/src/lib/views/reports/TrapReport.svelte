@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Radio,
@@ -38,6 +38,7 @@
 
   let backendTrapStats = $state<TrapStatsSummary | null>(null);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   export const refresh = async () => {
     try {
@@ -1653,10 +1654,16 @@
       bind:show={showAiExplainModal}
       reportType="trap"
       title={$_("report.aiTrapTitle") || "SNMP TRAP インシデント AI診断"}
-      summary={`総TRAPログ数: ${kpiStats.total.toLocaleString()}件, エラー/障害: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常/情報: ${kpiStats.normal.toLocaleString()}件, 送信元ホスト数: ${hostSummaries.length}台, TRAP種別: ${typeSummaries.length}種`}
+      summary={isJaLocale
+        ? `総TRAPログ数: ${kpiStats.total.toLocaleString()}件, エラー/障害: ${kpiStats.high.toLocaleString()}件, 警告: ${kpiStats.warn.toLocaleString()}件, 正常/情報: ${kpiStats.normal.toLocaleString()}件, 送信元ホスト数: ${hostSummaries.length}台, TRAP種別: ${typeSummaries.length}種`
+        : `Total Traps: ${kpiStats.total.toLocaleString()}, Error/Critical: ${kpiStats.high.toLocaleString()}, Warn: ${kpiStats.warn.toLocaleString()}, Normal/Info: ${kpiStats.normal.toLocaleString()}, Source Hosts: ${hostSummaries.length}, Trap Types: ${typeSummaries.length}`}
       items={[
-        ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0 || t.count > 5).slice(0, 20).map(t => `[TRAP種別] ${t.trapType}: エラー ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`),
-        ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).slice(0, 20).map(h => `[送信元ホスト] ${h.name || h.host} (${h.ip}): エラー ${h.errorCount}件, 警告 ${h.warnCount}件, 主要TRAP: ${h.topTrapTypes || ''}`),
+        ...typeSummaries.filter(t => t.errorCount > 0 || t.warnCount > 0 || t.count > 5).slice(0, 20).map(t => isJaLocale
+          ? `[TRAP種別] ${t.trapType}: エラー ${t.errorCount}件, 警告 ${t.warnCount}件, 総数 ${t.count}件`
+          : `[Trap Type] ${t.trapType}: Error ${t.errorCount}, Warn ${t.warnCount}, Total ${t.count}`),
+        ...hostSummaries.filter(h => h.errorCount > 0 || h.warnCount > 0).slice(0, 20).map(h => isJaLocale
+          ? `[送信元ホスト] ${h.name || h.host} (${h.ip}): エラー ${h.errorCount}件, 警告 ${h.warnCount}件, 主要TRAP: ${h.topTrapTypes || ''}`
+          : `[Source Host] ${h.name || h.host} (${h.ip}): Error ${h.errorCount}, Warn ${h.warnCount}, Top Traps: ${h.topTrapTypes || ''}`),
         ...filteredLogs.slice(0, 30).map(l => `[TRAPログ] ${formatTimeStr(l.time)} ${l.host} [${l.trapType}]: ${l.variables || ''}`)
       ]}
     />

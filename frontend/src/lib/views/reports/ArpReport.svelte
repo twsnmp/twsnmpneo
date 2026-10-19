@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Eye,
@@ -37,6 +37,7 @@
   let pageSize = $state(25);
   let currentPage = $state(1);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   // ECharts container & instance
   let chartElem = $state<HTMLDivElement | null>(null);
@@ -1536,10 +1537,14 @@
       bind:show={showAiExplainModal}
       reportType="arp"
       title={$_("report.aiArpTitle") || "ARP監視 & L2セキュリティ AI診断"}
-      summary={`総ARPログ数: ${kpiStats.total.toLocaleString()}件, 異常/障害: ${kpiStats.high.toLocaleString()}件, MAC変更: ${kpiStats.warn.toLocaleString()}件, 正常/新規: ${kpiStats.normal.toLocaleString()}件, 監視IP数: ${ipSummaries.length}個`}
+      summary={isJaLocale
+        ? `総ARPログ数: ${kpiStats.total.toLocaleString()}件, 異常/障害: ${kpiStats.high.toLocaleString()}件, MAC変更: ${kpiStats.warn.toLocaleString()}件, 正常/新規: ${kpiStats.normal.toLocaleString()}件, 監視IP数: ${ipSummaries.length}個`
+        : `Total ARP Logs: ${kpiStats.total.toLocaleString()}, Anomaly/High: ${kpiStats.high.toLocaleString()}, MAC Changed: ${kpiStats.warn.toLocaleString()}, Normal/New: ${kpiStats.normal.toLocaleString()}, Monitored IPs: ${ipSummaries.length}`}
       items={[
-        ...stateSummaries.map(s => `[状態内訳] ${s.state}: ${s.count}件`),
-        ...ipSummaries.filter(ip => ip.errorCount > 0 || ip.warnCount > 0).slice(0, 30).map(ip => `[注目IP] ${ip.ip} (${ip.name || '未登録'}): エラー ${ip.errorCount}件, 変更 ${ip.warnCount}件, 最新MAC ${ip.newMac}, Vendor: ${ip.vendor}`),
+        ...stateSummaries.map(s => isJaLocale ? `[状態内訳] ${s.state}: ${s.count}件` : `[State] ${s.state}: ${s.count}`),
+        ...ipSummaries.filter(ip => ip.errorCount > 0 || ip.warnCount > 0).slice(0, 30).map(ip => isJaLocale
+          ? `[注目IP] ${ip.ip} (${ip.name || '未登録'}): エラー ${ip.errorCount}件, 変更 ${ip.warnCount}件, 最新MAC ${ip.newMac}, Vendor: ${ip.vendor}`
+          : `[Target IP] ${ip.ip} (${ip.name || 'Unregistered'}): Error ${ip.errorCount}, Changed ${ip.warnCount}, Latest MAC ${ip.newMac}, Vendor: ${ip.vendor}`),
         ...filteredLogs.filter(l => isArpError(l.state) || isArpWarn(l.state)).slice(0, 30).map(l => `[ARPログ] ${formatTimeStr(l.time)} IP: ${l.ip}, 状態: ${l.state}, MAC: ${l.newMac}, OldMAC: ${l.oldMac || '-'}`)
       ]}
     />

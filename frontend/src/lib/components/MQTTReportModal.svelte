@@ -20,7 +20,7 @@
     FolderTree,
     Sparkles,
   } from "@lucide/svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import { renderBytes } from "../common";
   import ReportAIExplainModal from "./ReportAIExplainModal.svelte";
 
@@ -46,21 +46,29 @@
   const uniqueClients = $derived(new Set((stats || []).map((s: MqttStatEnt) => s.ClientID).filter(Boolean)).size);
   const uniqueRemotes = $derived(new Set((stats || []).map((s: MqttStatEnt) => s.Remote).filter(Boolean)).size);
 
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
+
   const aiSummaryText = $derived(
-    `MQTTトピック総数: ${stats.length}件, 総メッセージ数: ${totalMessages.toLocaleString()}件, 総データ量: ${renderBytes(totalBytes)}, 接続クライアント数: ${uniqueClients}台 (接続元IP数: ${uniqueRemotes}), 異常状態(Warn/Low): ${warnOrLowStats.length}件, 現在表示タブ: ${activeTab}`
+    isJaLocale
+      ? `MQTTトピック総数: ${stats.length}件, 総メッセージ数: ${totalMessages.toLocaleString()}件, 総データ量: ${renderBytes(totalBytes)}, 接続クライアント数: ${uniqueClients}台 (接続元IP数: ${uniqueRemotes}), 異常状態(Warn/Low): ${warnOrLowStats.length}件, 現在表示タブ: ${activeTab}`
+      : `Total MQTT Topics: ${stats.length}, Total Messages: ${totalMessages.toLocaleString()}, Total Data: ${renderBytes(totalBytes)}, Connected Clients: ${uniqueClients} (Remote IPs: ${uniqueRemotes}), Problem State (Warn/Low): ${warnOrLowStats.length}, Active Tab: ${activeTab}`
   );
 
   const aiItemsList = $derived.by(() => {
     const items: string[] = [];
     // 1. Anomalous state topics
     for (const s of warnOrLowStats.slice(0, 20)) {
-      items.push(`[異常状態: ${s.State?.toUpperCase()}] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, Remote: ${s.Remote || "-"}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`);
+      items.push(isJaLocale
+        ? `[異常状態: ${s.State?.toUpperCase()}] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, Remote: ${s.Remote || "-"}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`
+        : `[Warning/Low: ${s.State?.toUpperCase()}] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, Remote: ${s.Remote || "-"}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`);
     }
     // 2. High message volume topics
     const topByCount = [...stats].sort((a, b) => (b.Count || 0) - (a.Count || 0)).slice(0, 15);
     for (const s of topByCount) {
       if (!warnOrLowStats.includes(s)) {
-        items.push(`[トラフィック上位] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, State: ${s.State}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`);
+        items.push(isJaLocale
+          ? `[トラフィック上位] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, State: ${s.State}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`
+          : `[Top Traffic] Topic: ${s.Topic}, Client: ${s.ClientID || "-"}, State: ${s.State}, MsgCount: ${s.Count || 0}, Bytes: ${renderBytes(s.Bytes || 0)}`);
       }
     }
     // 3. Client grouping

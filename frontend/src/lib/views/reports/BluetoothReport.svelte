@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Bluetooth,
@@ -61,6 +61,7 @@
   let pageSize = $state(25);
   let currentPage = $state(1);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   // ECharts container & instance for Top Vendors and RSSI Breakdown
   let vendorChartElem = $state<HTMLDivElement | null>(null);
@@ -1122,9 +1123,13 @@
     bind:show={showAiExplainModal}
     reportType="bluetooth"
     title={$_("report.aiWirelessTitle") || "Bluetooth (BLE) 無線セキュリティ AI診断"}
-    summary={`検出BLEデバイス総数: ${stats.total}台, 強い電波(稼働中): ${stats.strongCount}台, 検出ベンダー数: ${stats.uniqueVendors}種, 監視ホスト数: ${stats.uniqueHosts}台`}
+    summary={isJaLocale
+      ? `検出BLEデバイス総数: ${stats.total}台, 強い電波(稼働中): ${stats.strongCount}台, 検出ベンダー数: ${stats.uniqueVendors}種, 監視ホスト数: ${stats.uniqueHosts}台`
+      : `Total BLE Devices: ${stats.total}, Active / Strong RSSI: ${stats.strongCount}, Vendors: ${stats.uniqueVendors}, Monitored Hosts: ${stats.uniqueHosts}`}
     items={[
-      ...filteredList.slice(0, 30).map(d => `[BLE端末] 名前: ${d.Name || '(Unknown)'}, Address: ${d.Address}, Vendor: ${d.Vendor || '-'}, RSSI: ${d.RSSI} dBm, Count: ${d.Count}, Host: ${d.Host}`)
+      ...filteredList.slice(0, 30).map(d => isJaLocale
+        ? `[BLE端末] 名前: ${d.Name || '(不明)'}, Address: ${d.Address}, Vendor: ${d.Vendor || '-'}, RSSI: ${d.RSSI} dBm, Count: ${d.Count}, Host: ${d.Host}`
+        : `[BLE Device] Name: ${d.Name || '(Unknown)'}, Address: ${d.Address}, Vendor: ${d.Vendor || '-'}, RSSI: ${d.RSSI} dBm, Count: ${d.Count}, Host: ${d.Host}`)
     ]}
   />
 {/if}

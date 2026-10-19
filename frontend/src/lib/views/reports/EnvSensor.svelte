@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Thermometer,
@@ -61,6 +61,7 @@
   let motions = $state<MotionSensorEnt[]>([]);
   let internalLoading = $state(false);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   // Sorting & Pagination
   let sortColumn = $state("LastTime");
@@ -1928,11 +1929,19 @@
     bind:show={showAiExplainModal}
     reportType="sensor"
     title={$_("report.aiSensorTitle") || "環境・電力・人感センサー AI診断"}
-    summary={`環境センサー: ${envs.length}台, 電力センサー: ${powers.length}台, 人感センサー: ${motions.length}台, 監視ホスト数: ${nodes.length}台`}
+    summary={isJaLocale
+      ? `環境センサー: ${envs.length}台, 電力センサー: ${powers.length}台, 人感センサー: ${motions.length}台, 監視ホスト数: ${nodes.length}台`
+      : `Environmental: ${envs.length}, Power: ${powers.length}, Motion: ${motions.length}, Monitored Hosts: ${nodes.length}`}
     items={[
-      ...envs.slice(0, 15).map(e => `[環境] 名前: ${e.Name || e.Address}, 最新気温: ${e.EnvData?.[e.EnvData.length - 1]?.Temp ?? '-'}℃, 湿度: ${e.EnvData?.[e.EnvData.length - 1]?.Humidity ?? '-'}%, 照度: ${e.EnvData?.[e.EnvData.length - 1]?.Illuminance ?? '-'}lx, 電池: ${e.EnvData?.[e.EnvData.length - 1]?.Battery ?? '-'}V`),
-      ...powers.slice(0, 15).map(p => `[電力] 名前: ${p.Name || p.Address}, 最新電力: ${p.Data?.[p.Data.length - 1]?.Load ?? '-'}W, スイッチ: ${p.Data?.[p.Data.length - 1]?.Switch ? 'ON' : 'OFF'}`),
-      ...motions.slice(0, 10).map(m => `[人感] 名前: ${m.Name || m.Address}, 動体検知回数: ${m.Count ?? 0}回, 最新状態: ${m.Data?.[m.Data.length - 1]?.Moving ? '動体検知' : '静止'}`)
+      ...envs.slice(0, 15).map(e => isJaLocale
+        ? `[環境] 名前: ${e.Name || e.Address}, 最新気温: ${e.EnvData?.[e.EnvData.length - 1]?.Temp ?? '-'}℃, 湿度: ${e.EnvData?.[e.EnvData.length - 1]?.Humidity ?? '-'}%, 照度: ${e.EnvData?.[e.EnvData.length - 1]?.Illuminance ?? '-'}lx, 電池: ${e.EnvData?.[e.EnvData.length - 1]?.Battery ?? '-'}V`
+        : `[Environmental] Name: ${e.Name || e.Address}, Temp: ${e.EnvData?.[e.EnvData.length - 1]?.Temp ?? '-'}C, Humidity: ${e.EnvData?.[e.EnvData.length - 1]?.Humidity ?? '-'}%, Illuminance: ${e.EnvData?.[e.EnvData.length - 1]?.Illuminance ?? '-'}lx, Battery: ${e.EnvData?.[e.EnvData.length - 1]?.Battery ?? '-'}V`),
+      ...powers.slice(0, 15).map(p => isJaLocale
+        ? `[電力] 名前: ${p.Name || p.Address}, 最新電力: ${p.Data?.[p.Data.length - 1]?.Load ?? '-'}W, スイッチ: ${p.Data?.[p.Data.length - 1]?.Switch ? 'ON' : 'OFF'}`
+        : `[Power] Name: ${p.Name || p.Address}, Load: ${p.Data?.[p.Data.length - 1]?.Load ?? '-'}W, Switch: ${p.Data?.[p.Data.length - 1]?.Switch ? 'ON' : 'OFF'}`),
+      ...motions.slice(0, 10).map(m => isJaLocale
+        ? `[人感] 名前: ${m.Name || m.Address}, 動体検知回数: ${m.Count ?? 0}回, 最新状態: ${m.Data?.[m.Data.length - 1]?.Moving ? '動体検知' : '静止'}`
+        : `[Motion] Name: ${m.Name || m.Address}, Detections: ${m.Count ?? 0}, State: ${m.Data?.[m.Data.length - 1]?.Moving ? 'Moving' : 'Stationary'}`)
     ]}
   />
 {/if}

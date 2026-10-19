@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     BarChart3,
     Flame,
@@ -40,6 +40,7 @@
   let backendServers = $state<ServerEnt[]>([]);
   let backendFumbles = $state<FumbleEnt[]>([]);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   export const refresh = async () => {
     try {
@@ -1327,11 +1328,19 @@
       bind:show={showAiExplainModal}
       reportType="netflow"
       title={$_("report.aiFlowTitle") || "トラフィックフロー AI分析"}
-      summary={`総転送量: ${renderBytes(flowStats.totalBytes)}, セッション総数: ${flowStats.totalSessions.toLocaleString()} flows, 主要プロトコル: ${flowStats.topProtocol}, ピーク帯域: ${flowStats.peakBandwidth}, サーバー数: ${rawFlowServers.length}台, サービス数: ${rawFlowServices.length}種, 異常Fumble: ${rawFlowFumbles.length}件`}
+      summary={isJaLocale
+        ? `総転送量: ${renderBytes(flowStats.totalBytes)}, セッション総数: ${flowStats.totalSessions.toLocaleString()} flows, 主要プロトコル: ${flowStats.topProtocol}, ピーク帯域: ${flowStats.peakBandwidth}, サーバー数: ${rawFlowServers.length}台, サービス数: ${rawFlowServices.length}種, 異常Fumble: ${rawFlowFumbles.length}件`
+        : `Total Traffic: ${renderBytes(flowStats.totalBytes)}, Total Sessions: ${flowStats.totalSessions.toLocaleString()} flows, Primary Protocol: ${flowStats.topProtocol}, Peak Bandwidth: ${flowStats.peakBandwidth}, Servers: ${rawFlowServers.length}, Services: ${rawFlowServices.length}, Anomalous Fumble: ${rawFlowFumbles.length}`}
       items={[
-        ...rawFlowConversations.slice(0, 30).map(c => `[FLOW] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, スコア: ${c.score}`),
-        ...rawFlowServers.slice(0, 15).map(s => `[SERVER] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
-        ...rawFlowFumbles.slice(0, 15).map(f => `[FUMBLE] ${f.src} -> ${f.dst}: ${f.reason || 'Anomalous communication'}`)
+        ...rawFlowConversations.slice(0, 30).map(c => isJaLocale
+          ? `[FLOW] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, スコア: ${c.score}`
+          : `[Flow] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, Score: ${c.score}`),
+        ...rawFlowServers.slice(0, 15).map(s => isJaLocale
+          ? `[SERVER] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`
+          : `[Server] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
+        ...rawFlowFumbles.slice(0, 15).map(f => isJaLocale
+          ? `[FUMBLE] ${f.src} -> ${f.dst}: ${f.reason || '通信異常/拒絶'}`
+          : `[Fumble] ${f.src} -> ${f.dst}: ${f.reason || 'Anomalous communication'}`)
       ]}
     />
   {/if}

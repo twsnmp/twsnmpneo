@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Radio,
@@ -73,6 +73,7 @@
   let showInfoModal = $state(false);
   let showDeleteModal = $state(false);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
   let selectedTreeType = $state<string>("");
 
   // Chart modals
@@ -1558,10 +1559,16 @@
     bind:show={showAiExplainModal}
     reportType="sensor"
     title={$_("report.aiSensorTitle") || "センサー監視 AI診断"}
-    summary={`登録センサー総数: ${sensors.length}台, 正常稼働: ${kpiCounts.normal}台, 障害/警告: ${kpiCounts.problem}台, センサー種別: ${uniqueTypes.length}種, 監視ホスト: ${uniqueHosts.length}台`}
+    summary={isJaLocale
+      ? `登録センサー総数: ${sensors.length}台, 正常稼働: ${kpiCounts.normal}台, 障害/警告: ${kpiCounts.problem}台, センサー種別: ${uniqueTypes.length}種, 監視ホスト: ${uniqueHosts.length}台`
+      : `Total Sensors: ${sensors.length}, Normal: ${kpiCounts.normal}, Problem/Warning: ${kpiCounts.problem}, Sensor Types: ${uniqueTypes.length}, Monitored Hosts: ${uniqueHosts.length}`}
     items={[
-      ...filteredSensors.filter(s => s.State && s.State !== 'normal').map(s => `[障害/警告センサー] ID: ${s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, 状態: ${getStateName(s.State) || s.State}`),
-      ...filteredSensors.slice(0, 25).map(s => `[センサー] ID: ${s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, パラメータ: ${s.Param || '-'}`)
+      ...filteredSensors.filter(s => s.State && s.State !== 'normal').map(s => isJaLocale
+        ? `[障害/警告センサー] ID: ${s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, 状態: ${getStateName(s.State) || s.State}`
+        : `[Problem Sensor] ID: ${s.ID}, Type: ${s.Type}, Host: ${s.Host}, State: ${getStateName(s.State) || s.State}`),
+      ...filteredSensors.slice(0, 25).map(s => isJaLocale
+        ? `[センサー] ID: ${s.ID}, 種別: ${s.Type}, ホスト: ${s.Host}, パラメータ: ${s.Param || '-'}`
+        : `[Sensor] ID: ${s.ID}, Type: ${s.Type}, Host: ${s.Host}, Parameter: ${s.Param || '-'}`)
     ]}
   />
 {/if}

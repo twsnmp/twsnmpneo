@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     ShieldCheck,
     Edit3,
@@ -43,6 +43,7 @@
   let showAiExplainModal = $state(false);
   let showGlobalAiExplain = $state(false);
   let aiExplainTarget = $state<any>(null);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   // Pagination & Sorting state
   let pageSize = $state(25);
@@ -693,8 +694,12 @@
     <ReportAIExplainModal
       bind:show={showAiExplainModal}
       reportType="cert"
-      title={aiExplainTarget ? `TLS証明書診断: ${aiExplainTarget.target}:${aiExplainTarget.port}` : "TLS証明書診断"}
-      summary={aiExplainTarget ? `状態: ${aiExplainTarget.status}, 残り: ${aiExplainTarget.days}日, 有効期限: ${aiExplainTarget.end}, Subject: ${aiExplainTarget.subject}, Issuer: ${aiExplainTarget.issuer}` : ""}
+      title={aiExplainTarget
+        ? (isJaLocale ? `TLS証明書診断: ${aiExplainTarget.target}:${aiExplainTarget.port}` : `TLS Certificate Diagnosis: ${aiExplainTarget.target}:${aiExplainTarget.port}`)
+        : (isJaLocale ? "TLS証明書診断" : "TLS Certificate Diagnosis")}
+      summary={aiExplainTarget ? (isJaLocale
+        ? `状態: ${aiExplainTarget.status}, 残り: ${aiExplainTarget.days}日, 有効期限: ${aiExplainTarget.end}, Subject: ${aiExplainTarget.subject}, Issuer: ${aiExplainTarget.issuer}`
+        : `Status: ${aiExplainTarget.status}, Remaining: ${aiExplainTarget.days} days, Expires: ${aiExplainTarget.end}, Subject: ${aiExplainTarget.subject}, Issuer: ${aiExplainTarget.issuer}`) : ""}
       items={aiExplainTarget ? [
         `Target: ${aiExplainTarget.target}:${aiExplainTarget.port}`,
         `Subject: ${aiExplainTarget.subject}`,
@@ -715,9 +720,13 @@
     <ReportAIExplainModal
       bind:show={showGlobalAiExplain}
       reportType="cert"
-      title="TLS/SSL証明書 全体セキュリティ監査"
-      summary={`監視総数: ${rawCertItems.length}件, 正常: ${rawCertItems.filter(c => c.status === 'normal').length}件, 警告/障害: ${rawCertItems.filter(c => c.status === 'warn' || c.status === 'high').length}件`}
-      items={rawCertItems.map(c => `[${c.status.toUpperCase()}] ${c.target}:${c.port} (残り: ${c.days}日, Subject: ${c.subject}, Issuer: ${c.issuer}${c.error ? ', エラー: ' + c.error : ''})`)}
+      title={isJaLocale ? "TLS/SSL証明書 全体セキュリティ監査" : "TLS/SSL Certificate Overall Security Audit"}
+      summary={isJaLocale
+        ? `監視総数: ${rawCertItems.length}件, 正常: ${rawCertItems.filter(c => c.status === 'normal').length}件, 警告/障害: ${rawCertItems.filter(c => c.status === 'warn' || c.status === 'high').length}件`
+        : `Total Monitored: ${rawCertItems.length}, Normal: ${rawCertItems.filter(c => c.status === 'normal').length}, Warning/Critical: ${rawCertItems.filter(c => c.status === 'warn' || c.status === 'high').length}`}
+      items={rawCertItems.map(c => isJaLocale
+        ? `[${c.status.toUpperCase()}] ${c.target}:${c.port} (残り: ${c.days}日, Subject: ${c.subject}, Issuer: ${c.issuer}${c.error ? ', エラー: ' + c.error : ''})`
+        : `[${c.status.toUpperCase()}] ${c.target}:${c.port} (Remaining: ${c.days} days, Subject: ${c.subject}, Issuer: ${c.issuer}${c.error ? ', Error: ' + c.error : ''})`)}
     />
   {/if}
 </div>

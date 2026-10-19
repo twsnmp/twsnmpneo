@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     Sparkles,
     BarChart3,
@@ -42,6 +42,7 @@
   let loading = $state(false);
   let showReportModal = $state(false);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
   let selectedReportId = $state("");
   let selectedReportTitle = $state("");
 
@@ -454,10 +455,16 @@
     bind:show={showAiExplainModal}
     reportType="anomaly"
     title={$_("report.aiAnomalyTitle") || "AI異常スコア & 相関分析"}
-    summary={`異常検知分析対象ポーリング: ${data.length}件, 異常スパイク検知: ${highAnomalyCount}件, 対象ノード: ${uniqueNodeCount}台, 平均スコア: ${avgScore}, 最高スコア: ${maxScore}`}
+    summary={isJaLocale
+      ? `異常検知分析対象ポーリング: ${data.length}件, 異常スパイク検知: ${highAnomalyCount}件, 対象ノード: ${uniqueNodeCount}台, 平均スコア: ${avgScore}, 最高スコア: ${maxScore}`
+      : `Target Pollings: ${data.length}, Anomaly Spikes: ${highAnomalyCount}, Target Nodes: ${uniqueNodeCount}, Avg Score: ${avgScore}, Max Score: ${maxScore}`}
     items={[
-      ...data.filter(d => d.Score >= 66).slice(0, 20).map(d => `[高異常スコア] ノード: ${d.Node}, ポーリング: ${d.Polling}, スコア: ${d.Score.toFixed(1)}, 件数: ${d.Count}`),
-      ...data.filter(d => d.Score >= 42 && d.Score < 66).slice(0, 15).map(d => `[中異常スコア] ノード: ${d.Node}, ポーリング: ${d.Polling}, スコア: ${d.Score.toFixed(1)}, 件数: ${d.Count}`)
+      ...data.filter(d => d.Score >= 66).slice(0, 20).map(d => isJaLocale
+        ? `[高異常スコア] ノード: ${d.Node}, ポーリング: ${d.Polling}, スコア: ${d.Score.toFixed(1)}, 件数: ${d.Count}`
+        : `[High Anomaly] Node: ${d.Node}, Polling: ${d.Polling}, Score: ${d.Score.toFixed(1)}, Count: ${d.Count}`),
+      ...data.filter(d => d.Score >= 42 && d.Score < 66).slice(0, 15).map(d => isJaLocale
+        ? `[中異常スコア] ノード: ${d.Node}, ポーリング: ${d.Polling}, スコア: ${d.Score.toFixed(1)}, 件数: ${d.Count}`
+        : `[Medium Anomaly] Node: ${d.Node}, Polling: ${d.Polling}, Score: ${d.Score.toFixed(1)}, Count: ${d.Count}`)
     ]}
   />
 {/if}

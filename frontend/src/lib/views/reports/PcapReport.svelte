@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Activity,
@@ -59,6 +59,7 @@
   // Detail Modal State
   let infoModalOpen = $state(false);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
   let selectedItem = $state<any>(null);
 
   // Full Chart Modal State
@@ -1711,12 +1712,22 @@
       bind:show={showAiExplainModal}
       reportType="pcap"
       title={$_("report.aiPcapTitle") || "パケット解析 & トラフィック品質 AI診断"}
-      summary={`EtherType集計: ${ethers.length}種, DNSクエリ数: ${dnsList.length}件, RADIUSフロー: ${radiusFlows.length}件, TLSフロー: ${tlsFlows.length}件, 監視ノード数: ${nodes.length}台`}
+      summary={isJaLocale
+        ? `EtherType集計: ${ethers.length}種, DNSクエリ数: ${dnsList.length}件, RADIUSフロー: ${radiusFlows.length}件, TLSフロー: ${tlsFlows.length}件, 監視ノード数: ${nodes.length}台`
+        : `EtherTypes: ${ethers.length}, DNS Queries: ${dnsList.length}, RADIUS Flows: ${radiusFlows.length}, TLS Flows: ${tlsFlows.length}, Monitored Nodes: ${nodes.length}`}
       items={[
-        ...ethers.slice(0, 10).map(e => `[ETHER] タイプ: ${e.Type || e.Name}, カウント: ${e.Count}`),
-        ...dnsList.slice(0, 15).map(d => `[DNS] ドメイン: ${d.Name}, タイプ: ${d.Type}, カウント: ${d.Count}, サーバー: ${d.Server}`),
-        ...tlsFlows.slice(0, 10).map(t => `[TLS] クライアント: ${t.ClientName || t.Client}, サーバー: ${t.ServerName || t.Server}, バージョン: ${t.Version}, 暗号: ${t.Cipher}`),
-        ...radiusFlows.slice(0, 10).map(r => `[RADIUS] クライアント: ${r.ClientName || r.Client}, サーバー: ${r.ServerName || r.Server}, 要求: ${r.Request}, 許可: ${r.Accept}, 拒否: ${r.Reject}`)
+        ...ethers.slice(0, 10).map(e => isJaLocale
+          ? `[ETHER] タイプ: ${e.Type || e.Name}, カウント: ${e.Count}`
+          : `[EtherType] Type: ${e.Type || e.Name}, Count: ${e.Count}`),
+        ...dnsList.slice(0, 15).map(d => isJaLocale
+          ? `[DNS] ドメイン: ${d.Name}, タイプ: ${d.Type}, カウント: ${d.Count}, サーバー: ${d.Server}`
+          : `[DNS] Domain: ${d.Name}, Type: ${d.Type}, Count: ${d.Count}, Server: ${d.Server}`),
+        ...tlsFlows.slice(0, 10).map(t => isJaLocale
+          ? `[TLS] クライアント: ${t.ClientName || t.Client}, サーバー: ${t.ServerName || t.Server}, バージョン: ${t.Version}, 暗号: ${t.Cipher}`
+          : `[TLS] Client: ${t.ClientName || t.Client}, Server: ${t.ServerName || t.Server}, Version: ${t.Version}, Cipher: ${t.Cipher}`),
+        ...radiusFlows.slice(0, 10).map(r => isJaLocale
+          ? `[RADIUS] クライアント: ${r.ClientName || r.Client}, サーバー: ${r.ServerName || r.Server}, 要求: ${r.Request}, 許可: ${r.Accept}, 拒否: ${r.Reject}`
+          : `[RADIUS] Client: ${r.ClientName || r.Client}, Server: ${r.ServerName || r.Server}, Request: ${r.Request}, Accept: ${r.Accept}, Reject: ${r.Reject}`)
       ]}
     />
   {/if}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     Share2,
     Flame,
@@ -39,6 +39,7 @@
   let backendServers = $state<ServerEnt[]>([]);
   let backendFumbles = $state<FumbleEnt[]>([]);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   export const refresh = async () => {
     try {
@@ -1329,11 +1330,19 @@
       bind:show={showAiExplainModal}
       reportType="sflow"
       title={$_("report.aiFlowTitle") || "トラフィックフロー AI分析 (sFlow)"}
-      summary={`総転送量: ${renderBytes(sflowStats.totalBytes)}, サンプリングセッション総数: ${sflowStats.totalSessions.toLocaleString()} flows, 主要プロトコル: ${sflowStats.topProtocol}, ピーク帯域: ${sflowStats.peakBandwidth}, サーバー数: ${rawSFlowServers.length}台, サービス数: ${rawSFlowServices.length}種, 異常Fumble: ${rawSFlowFumbles.length}件`}
+      summary={isJaLocale
+        ? `総転送量: ${renderBytes(sflowStats.totalBytes)}, サンプリングセッション総数: ${sflowStats.totalSessions.toLocaleString()} flows, 主要プロトコル: ${sflowStats.topProtocol}, ピーク帯域: ${sflowStats.peakBandwidth}, サーバー数: ${rawSFlowServers.length}台, サービス数: ${rawSFlowServices.length}種, 異常Fumble: ${rawSFlowFumbles.length}件`
+        : `Total Traffic: ${renderBytes(sflowStats.totalBytes)}, Sampled Sessions: ${sflowStats.totalSessions.toLocaleString()} flows, Primary Protocol: ${sflowStats.topProtocol}, Peak Bandwidth: ${sflowStats.peakBandwidth}, Servers: ${rawSFlowServers.length}, Services: ${rawSFlowServices.length}, Anomalous Fumble: ${rawSFlowFumbles.length}`}
       items={[
-        ...rawSFlowConversations.slice(0, 30).map(c => `[SFLOW] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, スコア: ${c.score}`),
-        ...rawSFlowServers.slice(0, 15).map(s => `[SERVER] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
-        ...rawSFlowFumbles.slice(0, 15).map(f => `[FUMBLE] ${f.src} -> ${f.dst}: ${f.reason || 'Anomalous communication'}`)
+        ...rawSFlowConversations.slice(0, 30).map(c => isJaLocale
+          ? `[SFLOW] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, スコア: ${c.score}`
+          : `[sFlow] ${c.src} -> ${c.dst} (${c.proto}): ${renderBytes(c.bytes)}, ${c.packets.toLocaleString()} pkts, Score: ${c.score}`),
+        ...rawSFlowServers.slice(0, 15).map(s => isJaLocale
+          ? `[SERVER] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`
+          : `[Server] ${s.serverName || s.server} (${s.services}): ${renderBytes(s.bytes)}, ${s.packets.toLocaleString()} pkts`),
+        ...rawSFlowFumbles.slice(0, 15).map(f => isJaLocale
+          ? `[FUMBLE] ${f.src} -> ${f.dst}: ${f.reason || '通信異常/拒絶'}`
+          : `[Fumble] ${f.src} -> ${f.dst}: ${f.reason || 'Anomalous communication'}`)
       ]}
     />
   {/if}

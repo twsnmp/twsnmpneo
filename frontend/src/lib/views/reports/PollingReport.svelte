@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Activity,
@@ -34,6 +34,7 @@
   let pollingPageSize = $state(25);
   let pollingCurrentPage = $state(1);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   let pollingChartElem = $state<HTMLDivElement | null>(null);
   let pollingChartInstance: echarts.ECharts | null = null;
@@ -519,11 +520,19 @@
       bind:show={showAiExplainModal}
       reportType="polling"
       title={$_("report.aiPollingTitle") || "ポーリング稼働率 & SLA AI診断"}
-      summary={`監視ポーリング総数: ${pollingStats.total}件, 正常稼働率: ${pollingStats.rate}%, 障害: ${pollingStats.error}件, 警告: ${pollingStats.warn}件, 正常: ${pollingStats.normal}件, 監視ノード数: ${nodes.length}台`}
+      summary={isJaLocale
+        ? `監視ポーリング総数: ${pollingStats.total}件, 正常稼働率: ${pollingStats.rate}%, 障害: ${pollingStats.error}件, 警告: ${pollingStats.warn}件, 正常: ${pollingStats.normal}件, 監視ノード数: ${nodes.length}台`
+        : `Total Pollings: ${pollingStats.total}, Availability: ${pollingStats.rate}%, Outage: ${pollingStats.error}, Warning: ${pollingStats.warn}, Normal: ${pollingStats.normal}, Monitored Nodes: ${nodes.length}`}
       items={[
-        ...activePollings.filter(p => isPollingError(p.state || "")).map(p => `[障害] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}, 状態: ${p.state}, 結果: ${p.result || ''}`),
-        ...activePollings.filter(p => isPollingWarn(p.state || "")).map(p => `[警告] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}, 状態: ${p.state}, 結果: ${p.result || ''}`),
-        ...activePollings.filter(p => p.state === 'normal' || p.state === 'up').slice(0, 20).map(p => `[正常稼働] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}`)
+        ...activePollings.filter(p => isPollingError(p.state || "")).map(p => isJaLocale
+          ? `[障害] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}, 状態: ${p.state}, 結果: ${p.result || ''}`
+          : `[Outage] Node: ${nodeMap.get(p.node_id) || p.node_id}, Name: ${p.name}, Type: ${p.type}, State: ${p.state}, Result: ${p.result || ''}`),
+        ...activePollings.filter(p => isPollingWarn(p.state || "")).map(p => isJaLocale
+          ? `[警告] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}, 状態: ${p.state}, 結果: ${p.result || ''}`
+          : `[Warning] Node: ${nodeMap.get(p.node_id) || p.node_id}, Name: ${p.name}, Type: ${p.type}, State: ${p.state}, Result: ${p.result || ''}`),
+        ...activePollings.filter(p => p.state === 'normal' || p.state === 'up').slice(0, 20).map(p => isJaLocale
+          ? `[正常稼働] ノード: ${nodeMap.get(p.node_id) || p.node_id}, 名前: ${p.name}, 種別: ${p.type}`
+          : `[Normal] Node: ${nodeMap.get(p.node_id) || p.node_id}, Name: ${p.name}, Type: ${p.type}`)
       ]}
     />
   {/if}

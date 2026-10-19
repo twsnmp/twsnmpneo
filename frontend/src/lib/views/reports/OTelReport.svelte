@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import {
     Activity,
     Server,
@@ -113,9 +113,13 @@
     Math.max(1, Math.ceil(filteredMetrics.length / pageSize))
   );
 
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
+
   // AI Summary & Items
   const aiSummaryText = $derived(
-    `OpenTelemetry 総合メトリクス系列数: ${metrics.length}系列, 稼働サービス数: ${uniqueServices}サービス, 監視ホスト数: ${uniqueHosts}台, 収集トレース数: ${traces.length}件, レイテンシ遅延トレース(≥500ms): ${slowTraces.length}件`
+    isJaLocale
+      ? `OpenTelemetry 総合メトリクス系列数: ${metrics.length}系列, 稼働サービス数: ${uniqueServices}サービス, 監視ホスト数: ${uniqueHosts}台, 収集トレース数: ${traces.length}件, レイテンシ遅延トレース(≥500ms): ${slowTraces.length}件`
+      : `Total OTel Metric Series: ${metrics.length}, Active Services: ${uniqueServices}, Monitored Hosts: ${uniqueHosts}, Collected Traces: ${traces.length}, High Latency Traces (≥500ms): ${slowTraces.length}`
   );
 
   const aiItemsList = $derived.by(() => {
@@ -133,18 +137,24 @@
     }
 
     for (const [srv, info] of [...serviceMap.entries()].sort((a, b) => b[1].metrics - a[1].metrics).slice(0, 10)) {
-      items.push(`[サービス概況] Service: ${srv}, メトリック系列数: ${info.metrics}, ホスト数: ${info.hosts.size}, 種別: ${Array.from(info.types).join("/")}`);
+      items.push(isJaLocale
+        ? `[サービス概況] Service: ${srv}, メトリック系列数: ${info.metrics}, ホスト数: ${info.hosts.size}, 種別: ${Array.from(info.types).join("/")}`
+        : `[Service Overview] Service: ${srv}, Metric Series: ${info.metrics}, Hosts: ${info.hosts.size}, Types: ${Array.from(info.types).join("/")}`);
     }
 
     // Slow traces
     for (const tr of slowTraces.slice(0, 10)) {
-      items.push(`[遅延トレース警告] TraceID: ${tr.TraceID}, 所要時間: ${(tr.Dur * 1000).toFixed(2)} ms, スパン数: ${tr.NumSpan || 0}, サービス: ${tr.Services || "-"}`);
+      items.push(isJaLocale
+        ? `[遅延トレース警告] TraceID: ${tr.TraceID}, 所要時間: ${(tr.Dur * 1000).toFixed(2)} ms, スパン数: ${tr.NumSpan || 0}, サービス: ${tr.Services || "-"}`
+        : `[Slow Trace Warning] TraceID: ${tr.TraceID}, Duration: ${(tr.Dur * 1000).toFixed(2)} ms, Spans: ${tr.NumSpan || 0}, Services: ${tr.Services || "-"}`);
     }
 
     // Top metrics by update count
     const topMetrics = [...metrics].sort((a, b) => (b.Count || 0) - (a.Count || 0)).slice(0, 10);
     for (const m of topMetrics) {
-      items.push(`[頻出メトリック] Name: ${m.Name}, Service: ${m.Service}, Host: ${m.Host}, Type: ${m.Type}, Count: ${m.Count}`);
+      items.push(isJaLocale
+        ? `[頻出メトリック] Name: ${m.Name}, Service: ${m.Service}, Host: ${m.Host}, Type: ${m.Type}, Count: ${m.Count}`
+        : `[Top Metric] Name: ${m.Name}, Service: ${m.Service}, Host: ${m.Host}, Type: ${m.Type}, Count: ${m.Count}`);
     }
 
     return items;

@@ -53,7 +53,7 @@
     AlertTriangle,
     Sparkles,
   } from "@lucide/svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import ReportAIExplainModal from "../components/ReportAIExplainModal.svelte";
 
   type TabType = "metric" | "trace" | "log";
@@ -353,11 +353,14 @@
   // --- AI Analysis States & Summaries for Metric & Trace ---
   let showMetricAiModal = $state(false);
   let showTraceAiModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   const metricAiSummary = $derived.by(() => {
     if (!metricDetail) return "";
     const count = filteredModalDataPoints.length;
-    return `メトリック名: ${metricDetail.Name} (${metricDetail.Type}), サービス: ${metricDetail.Service}, ホスト: ${metricDetail.Host}, スコープ: ${metricDetail.Scope || "-"}, 単位: ${metricDetail.Unit || "-"}, データポイント総数: ${count}件, 適用属性フィルタ: ${selectedAttributeFilter}`;
+    return isJaLocale
+      ? `メトリック名: ${metricDetail.Name} (${metricDetail.Type}), サービス: ${metricDetail.Service}, ホスト: ${metricDetail.Host}, スコープ: ${metricDetail.Scope || "-"}, 単位: ${metricDetail.Unit || "-"}, データポイント総数: ${count}件, 適用属性フィルタ: ${selectedAttributeFilter}`
+      : `Metric Name: ${metricDetail.Name} (${metricDetail.Type}), Service: ${metricDetail.Service}, Host: ${metricDetail.Host}, Scope: ${metricDetail.Scope || "-"}, Unit: ${metricDetail.Unit || "-"}, Total Data Points: ${count}, Attribute Filter: ${selectedAttributeFilter}`;
   });
 
   const metricAiItems = $derived.by(() => {
@@ -408,7 +411,9 @@
     const totalMs = (traceDetail.Dur * 1000).toFixed(3);
     const spanCount = traceDetail.Spans?.length || 0;
     const services = new Set((traceDetail.Spans || []).map((s) => s.Service).filter(Boolean));
-    return `TraceID: ${traceDetail.TraceID}, 総所要時間: ${totalMs} ms, 総スパン数: ${spanCount}件, 関連サービス: ${Array.from(services).join(", ") || "-"}`;
+    return isJaLocale
+      ? `TraceID: ${traceDetail.TraceID}, 総所要時間: ${totalMs} ms, 総スパン数: ${spanCount}件, 関連サービス: ${Array.from(services).join(", ") || "-"}`
+      : `TraceID: ${traceDetail.TraceID}, Duration: ${totalMs} ms, Total Spans: ${spanCount}, Services: ${Array.from(services).join(", ") || "-"}`;
   });
 
   const traceAiItems = $derived.by(() => {

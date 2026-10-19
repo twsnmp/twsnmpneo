@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import * as echarts from "echarts";
   import {
     Wifi,
@@ -43,6 +43,7 @@
   } = $props();
 
   let apList = $state<WifiAPEnt[]>([]);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
   let internalLoading = $state(false);
   let expandedId = $state<string | null>(null);
   let showAiExplainModal = $state(false);
@@ -562,7 +563,9 @@
       bind:show={showAiExplainModal}
       reportType="wifi"
       title={$_("report.aiWirelessTitle") || "Wi-Fi 無線セキュリティ AI診断"}
-      summary={`検出AP総数: ${stats.total}台, ユニークSSID数: ${stats.uniqueSSIDs}種, 監視ホスト数: ${stats.uniqueHosts}台, 最多利用チャネル: ${stats.topChannel}`}
+      summary={isJaLocale
+        ? `検出AP総数: ${stats.total}台, ユニークSSID数: ${stats.uniqueSSIDs}種, 監視ホスト数: ${stats.uniqueHosts}台, 最多利用チャネル: ${stats.topChannel}`
+        : `Total APs: ${stats.total}, Unique SSIDs: ${stats.uniqueSSIDs}, Monitored Hosts: ${stats.uniqueHosts}, Top Channel: ${stats.topChannel}`}
       items={[
         ...filteredAPs.slice(0, 30).map(ap => `[Wi-Fi AP] SSID: ${ap.SSID || '(hidden)'}, BSSID: ${ap.BSSID}, Ch: ${ap.Channel || '-'}, Vendor: ${ap.Vendor || '-'}, RSSI: ${ap.RSSI || '-'} dBm, Info: ${ap.Info || '-'}`)
       ]}

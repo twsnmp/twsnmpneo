@@ -37,6 +37,7 @@
   let selectedSubnetBlock = $state<string | null>(null);
   let selectedHostInfo = $state<any | null>(null);
   let showAiExplainModal = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   let ipamChartElem = $state<HTMLElement | null>(null);
   let ipamChartInstance: echarts.ECharts | null = null;
@@ -270,10 +271,10 @@
       type="button"
       onclick={() => (showAiExplainModal = true)}
       class="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 px-3.5 py-1.5 text-xs font-bold text-cyan-600 dark:text-cyan-400 shadow-xs transition-all cursor-pointer"
-      title="サブネット空間と端末台帳のAI分析"
+      title={$_("report.btnAiIpamTooltip") || "サブネット空間と端末台帳のAI分析"}
     >
       <Sparkles class="w-4 h-4 text-cyan-500" />
-      <span>AI IPAM・端末分析</span>
+      <span>{$_("report.btnAiIpam") || "AI IPAM・端末分析"}</span>
     </button>
   </div>
 
@@ -587,11 +588,17 @@
     <ReportAIExplainModal
       bind:show={showAiExplainModal}
       reportType="address"
-      title="IPAM & アドレス台帳 AI診断"
-      summary={`サブネット総数: ${ipamReport.TotalRanges}個, 総アドレス枠: ${ipamReport.TotalSize.toLocaleString()}個, 使用中: ${ipamReport.TotalUsed.toLocaleString()}個 (${ipamReport.TotalUsage.toFixed(1)}%), 空き: ${(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}個`}
+      title={$_("report.aiIpamTitle") || "IPAM & アドレス台帳 AI診断"}
+      summary={isJaLocale
+        ? `サブネット総数: ${ipamReport.TotalRanges}個, 総アドレス枠: ${ipamReport.TotalSize.toLocaleString()}個, 使用中: ${ipamReport.TotalUsed.toLocaleString()}個 (${ipamReport.TotalUsage.toFixed(1)}%), 空き: ${(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}個`
+        : `Total Subnets: ${ipamReport.TotalRanges}, Total Address Pool: ${ipamReport.TotalSize.toLocaleString()}, Used: ${ipamReport.TotalUsed.toLocaleString()} (${ipamReport.TotalUsage.toFixed(1)}%), Free: ${(ipamReport.TotalSize - ipamReport.TotalUsed).toLocaleString()}`}
       items={[
-        ...ipamReport.Ranges.map(r => `[SUBNET] ${r.Range} (${r.StartIP} - ${r.EndIP}): 使用率 ${r.Usage.toFixed(1)}% (${r.Used}/${r.Size})`),
-        ...effectiveDevices.slice(0, 50).map(d => `[DEVICE] IP: ${d.ip}, MAC: ${d.mac}, Name: ${d.name || '-'}, Vendor: ${d.vendor || '-'}, Managed: ${d.isManaged ? '管理対象' : '未管理/野良'}`)
+        ...ipamReport.Ranges.map(r => isJaLocale
+          ? `[SUBNET] ${r.Range} (${r.StartIP} - ${r.EndIP}): 使用率 ${r.Usage.toFixed(1)}% (${r.Used}/${r.Size})`
+          : `[Subnet] ${r.Range} (${r.StartIP} - ${r.EndIP}): Usage ${r.Usage.toFixed(1)}% (${r.Used}/${r.Size})`),
+        ...effectiveDevices.slice(0, 50).map(d => isJaLocale
+          ? `[DEVICE] IP: ${d.ip}, MAC: ${d.mac}, Name: ${d.name || '-'}, Vendor: ${d.vendor || '-'}, Managed: ${d.isManaged ? '管理対象' : '未管理/野良'}`
+          : `[Device] IP: ${d.ip}, MAC: ${d.mac}, Name: ${d.name || '-'}, Vendor: ${d.vendor || '-'}, Managed: ${d.isManaged ? 'Managed' : 'Unmanaged'}`)
       ]}
     />
   {/if}
