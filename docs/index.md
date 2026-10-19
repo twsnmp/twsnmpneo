@@ -191,9 +191,18 @@ Right-click any switch node and select **Virtual Panel** to launch the 3D WebGL 
 - Full 3D orbital rotation and zoom (Orbit Controls).
 - High-resolution RJ45 port textures with active Link UP/DOWN green LEDs, 1Gbps+ speed amber LEDs, and Power LEDs.
 
+### Map Canvas Menu & Automatic Layout
+
+Right-clicking the empty map background opens the canvas context menu:
+- **Instant Element Creation**: Quickly add nodes, networks, draw items, and lines directly to the canvas.
+- **Bulk Recheck & Auto-Discovery**: Immediate polling recheck and discovery sweeps.
+- **Automatic Layout**: Reorganize cluttered node topologies with algorithm-driven layouts (Hierarchical, Clustered, Categorized, Grid Alignment).
+
+![](./images/en/map_auto_layout_menu.png)
+
 ### Map Settings & Background Images
 
-Right-click empty canvas space or open Settings to configure map properties:
+Configure global map appearance and underlying canvas properties:
 - **Map Name & Canvas Size**: Auto-scaling or fixed virtual dimensions.
 - **Node Icon Size**: 1 (Tiny) to 5 (Huge) slider adjustment.
 - **Background Image**: Overlay network topologies onto architectural blueprints or regional maps with custom coordinate offsets and dimensions.
