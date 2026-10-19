@@ -111,6 +111,7 @@
   let notifyClientID = $state("");
   let notifyClientSecret = $state("");
   let notifyMSTenant = $state("");
+  let notifyURL = $state("");
   let notifyOAuth2HasToken = $state(false);
 
   // AI / LLM configuration
@@ -232,6 +233,7 @@
         notifyClientID = nConf.ClientID || "";
         notifyClientSecret = nConf.ClientSecret || "";
         notifyMSTenant = nConf.MSTenant || "";
+        notifyURL = nConf.URL || "";
       }
 
       const oauth2Status = await fetchNotifyOAuth2Status().catch(() => null);
@@ -327,6 +329,7 @@
         ClientID: notifyClientID,
         ClientSecret: notifyClientSecret,
         MSTenant: notifyMSTenant,
+        URL: notifyURL,
       });
 
       // 3. Save BackImage Conf
@@ -537,6 +540,7 @@
               bind:notifyClientID
               bind:notifyClientSecret
               bind:notifyMSTenant
+              bind:notifyURL
               bind:notifyOAuth2HasToken
             />
           {:else if activeTab === "ai"}

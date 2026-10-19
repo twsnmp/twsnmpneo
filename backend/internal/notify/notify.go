@@ -283,6 +283,7 @@ func (m *Manager) eventLogListToString(repair bool, list []*datastore.EventLogEn
 	buffer := new(bytes.Buffer)
 	if err = t.Execute(buffer, map[string]interface{}{
 		"Title": title,
+		"URL":   conf.URL,
 		"Logs":  list,
 	}); err != nil {
 		return fmt.Sprintf("make mail err=%v", err)

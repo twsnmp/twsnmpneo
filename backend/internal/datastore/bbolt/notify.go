@@ -84,17 +84,19 @@ var embeddedMailTemplates embed.FS
 
 // defaultMailTemplates contains minimal fallback HTML templates.
 var defaultMailTemplates = map[string]string{
-	"test": `<!DOCTYPE html><html><body><h1>{{.Title}}</h1><p>This is a test mail from TWSNMP NEO.</p></body></html>`,
+	"test": `<!DOCTYPE html><html><body><h1>{{.Title}}</h1><p>This is a test mail from TWSNMP NEO.</p>{{if .URL}}<p><a href="{{.URL}}">TWSNMP NEO</a></p>{{end}}</body></html>`,
 	"notify": `<!DOCTYPE html><html><body>
 <h1>{{.Title}}</h1>
 {{range .Logs}}
 <p>{{formatLogTime .Time}} [{{levelName .Level}}] {{.NodeName}} {{.Event}}</p>
 {{end}}
+{{if .URL}}<p><a href="{{.URL}}">TWSNMP NEO</a></p>{{end}}
 </body></html>`,
 	"report": `<!DOCTYPE html><html><body>
 <h1>{{.Title}}</h1>
 {{range .Info}}<p><b>{{.Name}}</b>: {{.Value}}</p>{{end}}
 {{if .LLMSummary}}<h2>AI Summary</h2><pre>{{.LLMSummary}}</pre>{{end}}
+{{if .URL}}<p><a href="{{.URL}}">TWSNMP NEO</a></p>{{end}}
 </body></html>`,
 }
 

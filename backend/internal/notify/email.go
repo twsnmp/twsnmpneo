@@ -253,6 +253,7 @@ func (m *Manager) sendTestMailSMTP(testConf *datastore.NotifyConfEnt) error {
 	buffer := new(bytes.Buffer)
 	if err = t.Execute(buffer, map[string]interface{}{
 		"Title": testConf.Subject + i18n.Trans("(test mail)"),
+		"URL":   testConf.URL,
 	}); err != nil {
 		return err
 	}
@@ -363,6 +364,7 @@ func (m *Manager) sendTestMailOAuth2(server string, testConf *datastore.NotifyCo
 	buffer := new(bytes.Buffer)
 	if err = t.Execute(buffer, map[string]interface{}{
 		"Title": testConf.Subject + i18n.Trans("(test mail)"),
+		"URL":   testConf.URL,
 	}); err != nil {
 		return err
 	}

@@ -41,6 +41,7 @@
     notifyClientID = $bindable(""),
     notifyClientSecret = $bindable(""),
     notifyMSTenant = $bindable(""),
+    notifyURL = $bindable(""),
     notifyOAuth2HasToken = $bindable(false),
   }: {
     notifyProvider: string;
@@ -63,6 +64,7 @@
     notifyClientID: string;
     notifyClientSecret: string;
     notifyMSTenant: string;
+    notifyURL: string;
     notifyOAuth2HasToken: boolean;
   } = $props();
 
@@ -92,6 +94,7 @@
     ClientID: notifyClientID,
     ClientSecret: notifyClientSecret,
     MSTenant: notifyMSTenant,
+    URL: notifyURL,
   });
 
   const handleTestMail = async () => {
@@ -459,6 +462,19 @@
           class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
         />
       </div>
+    </div>
+
+    <!-- TWSNMP NEO URL in Email -->
+    <div class="pt-1">
+      <label for="notify-url" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.notifyURL')}</label>
+      <input
+        id="notify-url"
+        type="text"
+        bind:value={notifyURL}
+        placeholder={$_('config.notifyURLPlaceholder')}
+        class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+      />
+      <p class="text-[11px] text-slate-400 mt-1">{$_('config.notifyURLDesc')}</p>
     </div>
   </div>
 

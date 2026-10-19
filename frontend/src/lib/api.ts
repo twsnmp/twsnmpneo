@@ -1424,6 +1424,7 @@ export interface NotifyConfEnt {
   ClientID?: string;
   ClientSecret?: string;
   MSTenant?: string;
+  URL?: string;
 }
 
 export async function fetchNotifyConf(): Promise<NotifyConfEnt> {

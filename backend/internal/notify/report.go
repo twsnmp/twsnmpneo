@@ -341,6 +341,7 @@ func (m *Manager) sendReport(ctx context.Context) {
 	body := new(bytes.Buffer)
 	if err = t.Execute(body, map[string]interface{}{
 		"Title":      title,
+		"URL":        conf.URL,
 		"Info":       info,
 		"AIList":     aiList,
 		"LLMSummary": m.getLLMSummary(ctx, &info),

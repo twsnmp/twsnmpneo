@@ -379,6 +379,7 @@ type NotifyConfEnt struct {
 	ClientID           string `json:"ClientID"`
 	ClientSecret       string `json:"ClientSecret"`
 	MSTenant           string `json:"MSTenant"`
+	URL                string `json:"URL"`
 }
 
 func (n *NotifyConfEnt) UnmarshalJSON(data []byte) error {
