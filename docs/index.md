@@ -248,6 +248,10 @@ Right-clicking any node and selecting "Info" opens the Node Details view, displa
 
 ![](./images/en/node_detail.png)
 
+Clicking the **AI Node Health Diagnosis** button triggers an LLM evaluation of node status, active polling warnings, and risk factors, rendering root cause explanations and recommended remediation actions in structured Markdown with bilingual (Japanese/English) toggling:
+
+![](./images/en/node_health_ai.png)
+
 ### Node Property Editor (2-Column & Shared Auth)
 
 The node configuration dialog features an expansive two-column layout:
