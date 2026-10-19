@@ -354,6 +354,8 @@ IoT/スマートデバイス向け MQTT のトピック別メッセージ頻度�
 ### OpenTelemetry (OTel) レポート
 分散トレーシングや OTel メトリクスのサービス別集計、レイテンシ傾向、および AI によるボトルネック分析。
 
+![](./images/ja/report_opentelemetry.png)
+
 ### セキュリティ & 証明書監視
 TLS/SSL 証明書の有効期限残日数追跡、失効（CRL/OCSP）状態チェック。
 
