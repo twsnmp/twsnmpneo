@@ -342,6 +342,8 @@ IoT/Smart device message volume statistics by topic, client connections, and AI 
 ### OpenTelemetry (OTel) Reports
 Distributed trace summaries, service latencies, and AI bottleneck diagnostics.
 
+![](./images/en/report_opentelemetry.png)
+
 ### TLS/SSL Certificate Monitoring
 Expiration countdown and revocation status verification.
 
