@@ -892,7 +892,7 @@
     <div
       role="menu"
       tabindex="-1"
-      class="fixed z-50 max-h-[calc(100vh-1rem)] min-w-[180px] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md"
+      class="fixed z-50 min-w-[180px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md {contextTargetNode ? 'max-h-[calc(100vh-1rem)] overflow-y-auto' : 'overflow-visible'}"
       style="left: {contextX}px; top: {contextY}px;"
       onclick={(e) => e.stopPropagation()}
       oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -1065,7 +1065,7 @@
             <div
               role="menu"
               tabindex="-1"
-              class="absolute {contextX + 370 > (typeof window !== 'undefined' ? window.innerWidth : 1200) ? 'right-full mr-1' : 'left-full ml-1'} top-0 min-w-[170px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md z-50"
+              class="absolute {contextX + 370 > (typeof window !== 'undefined' ? window.innerWidth : 1200) ? 'right-full mr-1 before:absolute before:-right-2 before:top-0 before:bottom-0 before:w-2 before:content-[\'\']' : 'left-full ml-1 before:absolute before:-left-2 before:top-0 before:bottom-0 before:w-2 before:content-[\'\']'} top-0 min-w-[170px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md z-50"
             >
               <!-- 階層型 (Hierarchical) -->
               <button
