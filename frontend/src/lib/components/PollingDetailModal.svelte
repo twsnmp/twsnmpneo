@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { _ } from "svelte-i18n";
+  import { _, locale } from "svelte-i18n";
   import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
   import type { PollingEnt, NodeEnt } from "../api";
   import {
@@ -31,6 +31,7 @@
   }>();
 
   let copied = $state(false);
+  const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
 
   const copyResultJson = async () => {
     if (!polling?.result) return;
@@ -126,7 +127,7 @@
           </div>
           <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
             <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-              次回予定
+              {$_('pollingDetail.nextTime') || (isJaLocale ? '次回予定' : 'Next Schedule')}
             </span>
             <span class="text-xs font-mono text-slate-700 dark:text-slate-300">
               {polling.next_time ? formatTimeStr(polling.next_time) : "-"}
@@ -134,7 +135,7 @@
           </div>
           <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-3 shadow-sm">
             <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-              障害発生日時
+              {$_('pollingDetail.failTime') || (isJaLocale ? '障害発生日時' : 'Failure Timestamp')}
             </span>
             <span class="text-xs font-mono {polling.fail_time ? 'text-rose-500 font-semibold' : 'text-slate-400'}">
               {polling.fail_time ? formatTimeStr(polling.fail_time) : "-"}
@@ -150,25 +151,25 @@
           </div>
           <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <span class="text-slate-500 text-[11px] block mb-0.5">パラメータ / ターゲット:</span>
+              <span class="text-slate-500 text-[11px] block mb-0.5">{$_('pollingDetail.paramsTarget') || (isJaLocale ? 'パラメータ / ターゲット:' : 'Parameters / Target:')}</span>
               <div class="font-mono text-xs bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 break-all select-all">
                 {polling.params || (polling as any).Params || polling.target || (polling as any).Target || "-"}
               </div>
             </div>
             <div>
-              <span class="text-slate-500 text-[11px] block mb-0.5">動作モード / オプション:</span>
+              <span class="text-slate-500 text-[11px] block mb-0.5">{$_('pollingDetail.modeOption') || (isJaLocale ? '動作モード / オプション:' : 'Mode / Options:')}</span>
               <div class="font-mono text-xs bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 break-all">
                 {polling.mode || (polling as any).Mode || "-"}
               </div>
             </div>
             <div>
-              <span class="text-slate-500 text-[11px] block mb-0.5">フィルター条件:</span>
+              <span class="text-slate-500 text-[11px] block mb-0.5">{$_('pollingDetail.filterCondition') || (isJaLocale ? 'フィルター条件:' : 'Filter Condition:')}</span>
               <div class="font-mono text-xs bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 break-all">
                 {polling.filter || (polling as any).Filter || "-"}
               </div>
             </div>
             <div>
-              <span class="text-slate-500 text-[11px] block mb-0.5">抽出パターン (Extractor):</span>
+              <span class="text-slate-500 text-[11px] block mb-0.5">{$_('pollingDetail.extractorPattern') || (isJaLocale ? '抽出パターン (Extractor):' : 'Extraction Pattern (Extractor):')}</span>
               <div class="font-mono text-xs bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 break-all">
                 {polling.extractor || (polling as any).Extractor || "-"}
               </div>
@@ -197,32 +198,32 @@
           </div>
           <div class="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
-              <span class="text-slate-500 text-[10px] block">ポーリング間隔</span>
-              <span class="font-mono font-semibold">{polling.poll_int || (polling as any).PollInt || 60} 秒</span>
+              <span class="text-slate-500 text-[10px] block">{$_('pollingDetail.pollInterval') || (isJaLocale ? 'ポーリング間隔' : 'Polling Interval')}</span>
+              <span class="font-mono font-semibold">{polling.poll_int || (polling as any).PollInt || 60} {$_('pollingDetail.unitSeconds') || (isJaLocale ? '秒' : 'sec')}</span>
             </div>
             <div>
-              <span class="text-slate-500 text-[10px] block">タイムアウト</span>
-              <span class="font-mono font-semibold">{polling.timeout || (polling as any).Timeout || 1} 秒</span>
+              <span class="text-slate-500 text-[10px] block">{$_('pollingDetail.timeout') || (isJaLocale ? 'タイムアウト' : 'Timeout')}</span>
+              <span class="font-mono font-semibold">{polling.timeout || (polling as any).Timeout || 1} {$_('pollingDetail.unitSeconds') || (isJaLocale ? '秒' : 'sec')}</span>
             </div>
             <div>
-              <span class="text-slate-500 text-[10px] block">リトライ回数</span>
-              <span class="font-mono font-semibold">{polling.retry || (polling as any).Retry || 1} 回</span>
+              <span class="text-slate-500 text-[10px] block">{$_('pollingDetail.retryCount') || (isJaLocale ? 'リトライ回数' : 'Retry Count')}</span>
+              <span class="font-mono font-semibold">{polling.retry || (polling as any).Retry || 1} {$_('pollingDetail.unitTimes') || (isJaLocale ? '回' : 'times')}</span>
             </div>
             <div>
-              <span class="text-slate-500 text-[10px] block">ログ保存モード</span>
+              <span class="text-slate-500 text-[10px] block">{$_('pollingDetail.logSaveMode') || (isJaLocale ? 'ログ保存モード' : 'Log Mode')}</span>
               <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold border {getLogModeBadgeClass(polling.log_mode ?? (polling as any).LogMode)}">
                 {getLogModeName(polling.log_mode ?? (polling as any).LogMode, $_)}
               </span>
             </div>
             {#if polling.fail_action || (polling as any).FailAction}
               <div class="col-span-2">
-                <span class="text-slate-500 text-[10px] block">障害時アクション</span>
+                <span class="text-slate-500 text-[10px] block">{$_('pollingDetail.failAction') || (isJaLocale ? '障害時アクション' : 'Failure Action')}</span>
                 <span class="font-mono text-[11px] text-rose-600 dark:text-rose-400 break-all">{polling.fail_action || (polling as any).FailAction}</span>
               </div>
             {/if}
             {#if polling.repair_action || (polling as any).RepairAction}
               <div class="col-span-2">
-                <span class="text-slate-500 text-[10px] block">復帰時アクション</span>
+                <span class="text-slate-500 text-[10px] block">{$_('pollingDetail.repairAction') || (isJaLocale ? '復帰時アクション' : 'Recovery Action')}</span>
                 <span class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 break-all">{polling.repair_action || (polling as any).RepairAction}</span>
               </div>
             {/if}
@@ -244,10 +245,10 @@
               >
                 {#if copied}
                   <Check class="h-3.5 w-3.5 text-emerald-500" />
-                  <span class="text-emerald-500">コピーしました</span>
+                  <span class="text-emerald-500">{$_('common.copied') || (isJaLocale ? 'コピーしました' : 'Copied')}</span>
                 {:else}
                   <Copy class="h-3.5 w-3.5" />
-                  <span>JSONをコピー</span>
+                  <span>{$_('pollingDetail.copyJson') || (isJaLocale ? 'JSONをコピー' : 'Copy JSON')}</span>
                 {/if}
               </button>
             {/if}
@@ -258,8 +259,8 @@
                 <table class="w-full text-left text-xs border-collapse">
                   <thead class="bg-slate-50 dark:bg-slate-950/50 text-[10px] uppercase font-semibold text-slate-500 border-b border-slate-200 dark:border-slate-800">
                     <tr>
-                      <th class="py-1 px-3 w-1/3">キー (Key)</th>
-                      <th class="py-1 px-3">値 (Value)</th>
+                      <th class="py-1 px-3 w-1/3">{$_('pollingDetail.key') || (isJaLocale ? 'キー (Key)' : 'Key')}</th>
+                      <th class="py-1 px-3">{$_('pollingDetail.value') || (isJaLocale ? '値 (Value)' : 'Value')}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-[11px]">

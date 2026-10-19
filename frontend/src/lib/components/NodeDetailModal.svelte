@@ -374,7 +374,17 @@
     }
 
     const nName = node?.name || (node as any)?.Name || "Node";
-    const summaryText = `${nName} - 設定ポーリング: ${nodePollings.length}件 (正常: ${normalCount}, 警告: ${warnCount}, 障害: ${criticalCount})`;
+    const summaryText = $_('nodeDetail.pollingSummary', {
+      values: {
+        name: nName,
+        total: nodePollings.length,
+        normal: normalCount,
+        warn: warnCount,
+        critical: criticalCount,
+      },
+    }) || (isJaLocale
+      ? `${nName} - 設定ポーリング: ${nodePollings.length}件 (正常: ${normalCount}, 警告: ${warnCount}, 障害: ${criticalCount})`
+      : `${nName} - Configured Pollings: ${nodePollings.length} (Healthy: ${normalCount}, Warning: ${warnCount}, Critical: ${criticalCount})`);
 
     return {
       status,
@@ -716,6 +726,7 @@
         rmonError = "";
         aiDiagnoseResult = "";
         aiDiagnoseError = "";
+        aiLanguage = isJaLocale ? "ja" : "en";
 
         // If SNMP is configured, probe ports from backend
         if (isSnmpConfigured && targetNodeId) {
@@ -1053,7 +1064,7 @@
                   class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-500"
                 >
                   <RotateCw class="h-2.5 w-2.5 animate-spin" />
-                  確認中
+                  {$_('common.checking') || (isJaLocale ? '確認中' : 'Checking...')}
                 </span>
               {:else}
                 <span
