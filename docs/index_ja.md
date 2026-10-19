@@ -397,6 +397,8 @@ TWSNMP NEO は、ログストレージに **Apache Parquet** 列指向圧縮フ�
 ### AI原因調査
 重大アラートが発生した際、ワンクリックで関連する前後ログを LLM が瞬時に要約・分析し、推定原因と推奨対処手順を Markdown 形式で分かりやすく提示します。
 
+![](./images/ja/ai_cause_diagnosis.png)
+
 ---
 
 ## 10. 内蔵 PKI (認証局) & TLS 管理

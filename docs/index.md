@@ -386,6 +386,8 @@ Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow
 ### AI Root Cause Diagnosis
 When critical events occur, one-click AI analysis summarizes correlated preceding and succeeding logs to identify the root cause and provide clear remediation steps in Markdown.
 
+![](./images/en/ai_cause_diagnosis.png)
+
 ---
 
 ## 10. Built-in PKI (Certificate Authority) & TLS Management
