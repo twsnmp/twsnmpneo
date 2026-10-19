@@ -430,6 +430,8 @@ The system administration interface is organized into two dedicated tabs:
 - **"Resource Monitor" Tab**:
   - Real-time telemetry charts for CPU utilization, memory heap, active Goroutines, swap, and disk I/O metrics.
 
+![](./images/en/system_resource_monitor.png)
+
 ### Notifications (Email / Webhook)
 
 Receive instant alerts and periodic reports across supported channels:

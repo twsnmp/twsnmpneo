@@ -439,6 +439,8 @@ Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標
 - **「リソースモニター」タブ**:
   - プロセス別・システム全体の CPU 負荷、メモリヒープ、Goroutine 数、ディスク I/O 推移を高精度チャートでリアルタイム監視。
 
+![](./images/ja/system_resource_monitor.png)
+
 ### 通知設定（Email / Webhook）
 
 障害検知時や定期レポートの送信先として、以下の通知方式に対応しています：
