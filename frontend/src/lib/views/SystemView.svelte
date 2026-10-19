@@ -3,7 +3,6 @@
   import {
     fetchSystemInfo,
     fetchMonitorData,
-    updateMonitorData,
     execBackup,
     fetchUpdateCheck,
     fetchMe,
@@ -51,9 +50,9 @@
     Download,
   } from "@lucide/svelte";
 
-  type TabMode = "overview" | "table";
+  type TabMode = "status" | "monitor";
 
-  let activeTab = $state<TabMode>("overview");
+  let activeTab = $state<TabMode>("status");
   let loading = $state(false);
   let refreshing = $state(false);
 
@@ -83,27 +82,29 @@
   let sortDirection = $state<"asc" | "desc">("desc");
 
   // Load initial data
-  const loadData = async (triggerUpdate = false) => {
+  const loadData = async () => {
     loading = true;
     try {
-      if (triggerUpdate) {
-        await updateMonitorData().catch(() => null);
-      }
-      const [info, mon, upd, me] = await Promise.all([
+      const [info, mon, me] = await Promise.all([
         fetchSystemInfo().catch(() => null),
         fetchMonitorData().catch(() => []),
-        fetchUpdateCheck(false).catch(() => null),
         fetchMe().catch(() => null),
       ]);
       if (info) sysInfo = info;
       monitorLogs = mon;
-      if (upd) updateInfo = upd;
       if (me) isAdmin = me.role === "admin";
 
-      if (activeTab === "overview") {
+      if (activeTab === "monitor") {
         await tick();
         renderOverviewCharts();
       }
+
+      // Check for updates asynchronously in background without blocking monitor rendering
+      fetchUpdateCheck(false)
+        .then((upd) => {
+          if (upd) updateInfo = upd;
+        })
+        .catch(() => null);
     } catch (e) {
       console.error("Failed to load system monitor data:", e);
     } finally {
@@ -131,7 +132,7 @@
 
   const handleRefresh = async () => {
     refreshing = true;
-    await loadData(true);
+    await loadData();
   };
 
   const renderOverviewCharts = () => {
@@ -146,9 +147,11 @@
   // Switch Tab
   const setTab = async (tab: TabMode) => {
     activeTab = tab;
-    if (tab === "overview") {
+    if (tab === "monitor") {
       await tick();
       renderOverviewCharts();
+    } else {
+      disposeMonitorCharts();
     }
   };
 
@@ -320,7 +323,7 @@
 
     // Watch for dark/light class change on html root
     const observer = new MutationObserver(() => {
-      if (activeTab === "overview") {
+      if (activeTab === "monitor") {
         renderOverviewCharts();
       }
       if (showForecastModal && forecastChartElem && monitorLogs.length > 0) {
@@ -354,22 +357,22 @@
       <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800">
         <button
           type="button"
-          onclick={() => setTab("overview")}
-          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'overview' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+          onclick={() => setTab("status")}
+          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'status' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
-          <BarChart3 class="h-3.5 w-3.5" />
+          <Activity class="h-3.5 w-3.5" />
           <span>{$_('system.tabOverview')}</span>
         </button>
 
         <button
           type="button"
-          onclick={() => setTab("table")}
-          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'table' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+          onclick={() => setTab("monitor")}
+          class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'monitor' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
-          <TableIcon class="h-3.5 w-3.5" />
+          <BarChart3 class="h-3.5 w-3.5" />
           <span>{$_('system.tabHistory')}</span>
           {#if monitorLogs.length > 0}
-            <span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono {activeTab === 'table' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
+            <span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-mono {activeTab === 'monitor' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}">
               {monitorLogs.length}
             </span>
           {/if}
@@ -412,7 +415,7 @@
         <span>{$_('system.btnBackup')}</span>
       </button>
 
-      {#if activeTab === "table"}
+      {#if activeTab === "monitor"}
         <button
           type="button"
           onclick={exportCSV}
@@ -465,8 +468,8 @@
     </div>
   {/if}
 
-  <!-- Tab Content: Overview & Telemetry -->
-  {#if activeTab === "overview"}
+  <!-- Tab Content: System Status -->
+  {#if activeTab === "status"}
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
       <!-- 6-Card High-Level Overview Grid -->
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -620,41 +623,6 @@
         </div>
       </div>
 
-      <!-- Telemetry Charts Section (twsnmpfk style) -->
-      <div class="flex flex-col gap-6">
-        <!-- Resource Chart -->
-        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg flex flex-col">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-2">
-            <div class="flex items-center gap-2">
-              <Cpu class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                {$_('system.resChartTitle')}
-              </h3>
-            </div>
-            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              {monitorLogs.length} {$_('system.samples')}
-            </span>
-          </div>
-          <div bind:this={resChartElem} class="w-full h-72"></div>
-        </div>
-
-        <!-- Network & Connections Chart -->
-        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg flex flex-col">
-          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-2">
-            <div class="flex items-center gap-2">
-              <Radio class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                {$_('system.netChartTitle')}
-              </h3>
-            </div>
-            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              {$_('system.current')} {renderSpeed(latestSnapshot?.Net || 0)} / {latestSnapshot?.Conn || 0} conn
-            </span>
-          </div>
-          <div bind:this={netChartElem} class="w-full h-72"></div>
-        </div>
-      </div>
-
       <!-- Protocol Servers Overview Card -->
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -668,7 +636,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
           <!-- Syslog -->
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
@@ -801,47 +769,94 @@
     </div>
   {/if}
 
-  <!-- Tab Content: Data History Table -->
-  {#if activeTab === "table"}
-    <div class="flex-1 flex flex-col overflow-hidden p-6 space-y-4">
-      <!-- Table Filter Bar -->
-      <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg shrink-0">
-        <div class="flex items-center gap-3">
-          <div class="relative w-72">
-            <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder={$_('system.searchPlaceholder')}
-              bind:value={tableSearch}
-              oninput={() => (tablePage = 1)}
-              class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
-            />
+  <!-- Tab Content: Resource Monitor (Charts & History Table) -->
+  {#if activeTab === "monitor"}
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+      <!-- Telemetry Charts Section (2-Column Grid) -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <!-- Resource Chart -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg flex flex-col">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-2">
+            <div class="flex items-center gap-2">
+              <Cpu class="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                {$_('system.resChartTitle')}
+              </h3>
+            </div>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              {monitorLogs.length} {$_('system.samples')}
+            </span>
           </div>
-          <span class="text-xs text-slate-500 dark:text-slate-400">
-            {$_('system.recordsCount', { values: { count: filteredLogs.length } })}
-          </span>
+          <div bind:this={resChartElem} class="w-full h-72"></div>
         </div>
 
-        <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>{$_('system.displayCount')}</span>
-          <select
-            bind:value={tablePageSize}
-            onchange={() => (tablePage = 1)}
-            class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none cursor-pointer shadow-xs"
-          >
-            <option value={15}>15 {$_('system.items')}</option>
-            <option value={25}>25 {$_('system.items')}</option>
-            <option value={50}>50 {$_('system.items')}</option>
-            <option value={100}>100 {$_('system.items')}</option>
-            <option value={-1}>{$_('system.all')}</option>
-          </select>
+        <!-- Network & Connections Chart -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg flex flex-col">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-2">
+            <div class="flex items-center gap-2">
+              <Radio class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                {$_('system.netChartTitle')}
+              </h3>
+            </div>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              {$_('system.current')} {renderSpeed(latestSnapshot?.Net || 0)} / {latestSnapshot?.Conn || 0} conn
+            </span>
+          </div>
+          <div bind:this={netChartElem} class="w-full h-72"></div>
         </div>
       </div>
 
-      <!-- Table Container -->
-      <div class="flex-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
-        <div class="flex-1 overflow-auto">
-          <table class="w-full border-collapse text-left text-xs">
+      <!-- Data History Table Section -->
+      <div class="space-y-4">
+        <!-- Table Filter Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-4 shadow-sm dark:shadow-lg shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="relative w-72">
+              <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder={$_('system.searchPlaceholder')}
+                bind:value={tableSearch}
+                oninput={() => (tablePage = 1)}
+                class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
+              />
+            </div>
+            <span class="text-xs text-slate-500 dark:text-slate-400">
+              {$_('system.recordsCount', { values: { count: filteredLogs.length } })}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <button
+              type="button"
+              onclick={exportCSV}
+              class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
+              title={$_('system.btnExportCsvTitle')}
+            >
+              <FileSpreadsheet class="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
+              <span>{$_('system.btnExportCsv')}</span>
+            </button>
+
+            <span>{$_('system.displayCount')}</span>
+            <select
+              bind:value={tablePageSize}
+              onchange={() => (tablePage = 1)}
+              class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none cursor-pointer shadow-xs"
+            >
+              <option value={15}>15 {$_('system.items')}</option>
+              <option value={25}>25 {$_('system.items')}</option>
+              <option value={50}>50 {$_('system.items')}</option>
+              <option value={100}>100 {$_('system.items')}</option>
+              <option value={-1}>{$_('system.all')}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-sm dark:shadow-lg overflow-hidden flex flex-col">
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse text-left text-xs">
             <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 text-[10px] font-semibold uppercase tracking-wider select-none">
               <tr>
                 <th onclick={() => handleSort("Time")} class="px-1 py-2 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
@@ -980,7 +995,8 @@
         {/if}
       </div>
     </div>
-  {/if}
+  </div>
+{/if}
 </div>
 
 <!-- Size Forecast Modal -->

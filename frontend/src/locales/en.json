@@ -1437,8 +1437,8 @@
   "system": {
     "title": "System Status & Resource Monitor",
     "subtitle": "TWSNMP NEO daemon processes and resource operating conditions",
-    "tabOverview": "Overview & Resource Trends",
-    "tabHistory": "Resource History Table",
+    "tabOverview": "System Status",
+    "tabHistory": "Resource Monitor",
     "btnCapacityForecast": "Capacity Forecast",
     "btnCapacityForecastTitle": "1-Year Storage & DB Usage Projection",
     "btnBackup": "DB Backup",

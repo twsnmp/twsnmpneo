@@ -56,12 +56,16 @@ type Config struct {
 
 // Monitor manages system resource tracking.
 type Monitor struct {
-	dataDir   string
-	store     datastore.DataStore
-	interval  time.Duration
-	mu        sync.RWMutex
-	data      []*MonitorDataEnt
-	startTime time.Time
+	dataDir        string
+	store          datastore.DataStore
+	interval       time.Duration
+	mu             sync.RWMutex
+	data           []*MonitorDataEnt
+	startTime      time.Time
+	lastDBSize     int64
+	lastDBCalcTime time.Time
+	isCalcRunning  bool
+	dbCalcMu       sync.Mutex
 }
 
 // New creates a new resource monitor.
@@ -147,22 +151,10 @@ func (m *Monitor) UpdateNow() *MonitorDataEnt {
 	}
 
 	// Net IO counters & traffic rate
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if n, err := gopsnet.IOCounters(true); err == nil {
 		for _, nif := range n {
 			if isMonitorIF(nif.Name) {
 				ent.Bytes += float64(nif.BytesRecv) + float64(nif.BytesSent)
-			}
-		}
-		if len(m.data) > 0 {
-			prev := m.data[len(m.data)-1]
-			if ent.Bytes >= prev.Bytes && ent.Time > prev.Time {
-				timeDiffSec := float64(ent.Time-prev.Time) / 1e9
-				if timeDiffSec > 0 {
-					ent.Net = (ent.Bytes - prev.Bytes) * 8.0 / timeDiffSec
-				}
 			}
 		}
 	}
@@ -188,16 +180,77 @@ func (m *Monitor) UpdateNow() *MonitorDataEnt {
 		}
 	}
 
-	// Database Size
-	ent.DBSize = m.calculateDBSize()
+	// Database Size (asynchronously cached to prevent disk walk contention)
+	ent.DBSize = m.getDBSize()
 
-	// Ring buffer maintain
+	// Ring buffer maintain under mutex lock
+	m.mu.Lock()
+	if len(m.data) > 0 {
+		prev := m.data[len(m.data)-1]
+		if ent.Bytes >= prev.Bytes && ent.Time > prev.Time {
+			timeDiffSec := float64(ent.Time-prev.Time) / 1e9
+			if timeDiffSec > 0 {
+				ent.Net = (ent.Bytes - prev.Bytes) * 8.0 / timeDiffSec
+			}
+		}
+
+		// Avoid adding duplicate samples if called before half the configured interval
+		minInterval := m.interval / 2
+		if minInterval < 50*time.Millisecond {
+			minInterval = 50 * time.Millisecond
+		}
+		if time.Since(time.Unix(0, prev.Time)) < minInterval {
+			m.data[len(m.data)-1] = ent
+			m.mu.Unlock()
+			return ent
+		}
+	}
 	if len(m.data) >= maxMonitorData {
 		m.data = append(m.data[:0], m.data[1:]...)
 	}
 	m.data = append(m.data, ent)
+	m.mu.Unlock()
 
 	return ent
+}
+
+func (m *Monitor) getDBSize() int64 {
+	m.dbCalcMu.Lock()
+	cached := m.lastDBSize
+	lastTime := m.lastDBCalcTime
+	isCalculating := m.isCalcRunning
+	needCalc := (cached == 0 || time.Since(lastTime) >= 10*time.Minute) && !isCalculating
+	if needCalc {
+		m.isCalcRunning = true
+	}
+	m.dbCalcMu.Unlock()
+
+	if !needCalc {
+		return cached
+	}
+
+	if cached == 0 {
+		// First time: calculate synchronously to establish baseline
+		size := m.calculateDBSize()
+		m.dbCalcMu.Lock()
+		m.lastDBSize = size
+		m.lastDBCalcTime = time.Now()
+		m.isCalcRunning = false
+		m.dbCalcMu.Unlock()
+		return size
+	}
+
+	// Subsequent runs: calculate asynchronously in background
+	go func() {
+		size := m.calculateDBSize()
+		m.dbCalcMu.Lock()
+		m.lastDBSize = size
+		m.lastDBCalcTime = time.Now()
+		m.isCalcRunning = false
+		m.dbCalcMu.Unlock()
+	}()
+
+	return cached
 }
 
 func (m *Monitor) calculateDBSize() int64 {
@@ -207,9 +260,11 @@ func (m *Monitor) calculateDBSize() int64 {
 		totalSize += fi.Size()
 	}
 	logDir := filepath.Join(m.dataDir, "logs")
-	_ = filepath.Walk(logDir, func(_ string, info os.FileInfo, err error) error {
-		if err == nil && info != nil && !info.IsDir() {
-			totalSize += info.Size()
+	_ = filepath.WalkDir(logDir, func(_ string, d os.DirEntry, err error) error {
+		if err == nil && d != nil && !d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				totalSize += info.Size()
+			}
 		}
 		return nil
 	})

@@ -10,21 +10,21 @@ let netChartInstance: echarts.ECharts | null = null;
 let forecastChartInstance: echarts.ECharts | null = null;
 
 export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt[]): echarts.ECharts => {
-  if (resChartInstance) {
-    resChartInstance.dispose();
-  }
   const isDark = isDarkMode();
+  if (!resChartInstance || resChartInstance.isDisposed() || resChartInstance.getDom() !== el) {
+    if (resChartInstance && !resChartInstance.isDisposed()) {
+      resChartInstance.dispose();
+    }
+    resChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
+  }
   const isJa = (get(locale) || 'ja').startsWith('ja');
   const memLegend = isJa ? 'Mem (ホストメモリ)' : 'Mem (Host Memory)';
   const loadLegend = isJa ? 'Load (平均負荷)' : 'Load (Avg Load)';
   const rateAxis = isJa ? '使用率 (%)' : 'Usage (%)';
   const loadAxis = isJa ? 'Load (負荷)' : 'Load';
-  resChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const cpuData: [Date, number][] = [];
   const memData: [Date, number][] = [];
-  const myCpuData: [Date, number][] = [];
-  const myMemData: [Date, number][] = [];
   const swapData: [Date, number][] = [];
   const diskData: [Date, number][] = [];
   const loadData: [Date, number][] = [];
@@ -33,14 +33,13 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
     const t = new Date(Math.floor(m.Time / 1e6));
     cpuData.push([t, m.CPU || 0]);
     memData.push([t, m.Mem || 0]);
-    myCpuData.push([t, m.MyCPU || 0]);
-    myMemData.push([t, m.MyMem || 0]);
     swapData.push([t, m.Swap || 0]);
     diskData.push([t, m.Disk || 0]);
     loadData.push([t, m.Load || 0]);
   });
 
   const option: echarts.EChartsOption = {
+    animation: false,
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
@@ -69,7 +68,7 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
     legend: {
       top: 8,
       textStyle: { color: '#94a3b8', fontSize: 11 },
-      data: ['CPU', memLegend, 'My CPU (TWSNMP)', 'My Mem (TWSNMP)', 'Swap', 'Disk', loadLegend],
+      data: ['CPU', memLegend, 'Swap', 'Disk', loadLegend],
     },
     grid: {
       left: '4%',
@@ -143,24 +142,6 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
         data: memData,
       },
       {
-        name: 'My CPU (TWSNMP)',
-        type: 'line',
-        showSymbol: false,
-        smooth: true,
-        itemStyle: { color: '#06b6d4' }, // cyan-500
-        lineStyle: { width: 1.5, type: 'dashed' },
-        data: myCpuData,
-      },
-      {
-        name: 'My Mem (TWSNMP)',
-        type: 'line',
-        showSymbol: false,
-        smooth: true,
-        itemStyle: { color: '#ec4899' }, // pink-500
-        lineStyle: { width: 1.5, type: 'dashed' },
-        data: myMemData,
-      },
-      {
         name: 'Swap',
         type: 'line',
         showSymbol: false,
@@ -194,17 +175,18 @@ export const showMonitorResChart = (el: HTMLElement, monitorData: MonitorDataEnt
 };
 
 export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt[]): echarts.ECharts => {
-  if (netChartInstance) {
-    netChartInstance.dispose();
-  }
   const isDark = isDarkMode();
+  if (!netChartInstance || netChartInstance.isDisposed() || netChartInstance.getDom() !== el) {
+    if (netChartInstance && !netChartInstance.isDisposed()) {
+      netChartInstance.dispose();
+    }
+    netChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
+  }
   const isJa = (get(locale) || 'ja').startsWith('ja');
   const speedLegend = isJa ? 'トラフィック速度 (Speed)' : 'Traffic Speed';
   const connLegend = isJa ? 'TCP 接続数' : 'TCP Connections';
   const speedAxis = isJa ? '速度 (bps)' : 'Speed (bps)';
   const connAxis = isJa ? '接続数 (Conn)' : 'Connections';
-
-  netChartInstance = echarts.init(el, isDark ? 'dark' : undefined);
 
   const speedData: [Date, number][] = [];
   const connData: [Date, number][] = [];
@@ -216,6 +198,7 @@ export const showMonitorNetChart = (el: HTMLElement, monitorData: MonitorDataEnt
   });
 
   const option: echarts.EChartsOption = {
+    animation: false,
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',

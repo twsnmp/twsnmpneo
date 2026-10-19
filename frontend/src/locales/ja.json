@@ -1437,8 +1437,8 @@
   "system": {
     "title": "システムステータス & リソースモニター",
     "subtitle": "TWSNMP NEO デーモンプロセスおよびリソース稼働状況",
-    "tabOverview": "概要 & リソース推移",
-    "tabHistory": "リソース履歴テーブル",
+    "tabOverview": "システムステータス",
+    "tabHistory": "リソースモニター",
     "btnCapacityForecast": "容量予測",
     "btnCapacityForecastTitle": "1年間のストレージ・DB使用量予測",
     "btnBackup": "DBバックアップ",
