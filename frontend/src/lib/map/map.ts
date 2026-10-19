@@ -1150,30 +1150,6 @@ const mapMain = (p5: P5) => {
       p5.stroke(stColor2);
       p5.line(xm, ym, p2.X, p2.Y);
 
-      // Packet animation dot
-      const t = (p5.frameCount % 40) / 40;
-      const dotX = p1.X + (p2.X - p1.X) * t;
-      const dotY = p1.Y + (p2.Y - p1.Y) * t;
-      p5.noStroke();
-      p5.fill(stColor);
-      p5.circle(dotX, dotY, lw + 4);
-
-      // Port terminal jack indicator on network so connection is clearly visible
-      if (nid1.startsWith("NET:")) {
-        p5.noStroke();
-        p5.fill(stColor1);
-        p5.circle(p1.X, p1.Y, lw + 6);
-        p5.fill("#38bdf8");
-        p5.circle(p1.X, p1.Y, Math.max(3, lw));
-      }
-      if (nid2.startsWith("NET:")) {
-        p5.noStroke();
-        p5.fill(stColor2);
-        p5.circle(p2.X, p2.Y, lw + 6);
-        p5.fill("#38bdf8");
-        p5.circle(p2.X, p2.Y, Math.max(3, lw));
-      }
-
       // Line Info label if present
       const infoText = l.info || (l as any).Info;
       if (infoText) {
