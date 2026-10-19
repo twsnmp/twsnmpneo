@@ -246,6 +246,8 @@ View and manage all monitored nodes, IP/MAC bindings, hardware vendors, and oper
 
 Right-clicking any node and selecting "Info" opens the Node Details view, displaying system health metrics and an **inline list of all configured pollings**. Users can inspect polling trend charts, jump directly into polling edits, or launch node editing via the dedicated top-level action button.
 
+![](./images/en/node_detail.png)
+
 ### Node Property Editor (2-Column & Shared Auth)
 
 The node configuration dialog features an expansive two-column layout:
