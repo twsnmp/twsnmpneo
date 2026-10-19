@@ -270,9 +270,9 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 * **Map Operations**:
   - Left-click drag to select and move nodes/items.
   - Mouse wheel zoom in/out, strict boundary clamping, and top-right pinned reload control.
-  - Node right-click operations aligned strictly with `twsnmpfk`: report, PING, MIBブラウザー, gNMIツール, Wake On Lan, 編集, ポーリング, 再確認, 接続先を探す, コピー, 削除, and configured URL open.
+  - Node right-click operations: info (情報), 再確認, PING, MIBブラウザー, gNMIツール, Wake On Lan (MACアドレスがあるノードのみ表示), 編集, 接続先を探す, コピー, 削除, and configured URL open.
   - Dedicated full-featured dialogs ported from `twsnmpfk`: `PingDialog` (Normal, Smoke, Trace, and MTR modes with realtime response charts, hop flow diagrams, and statistics), `MIBBrowserDialog` (hierarchical MIB tree selector, SNMP Get/GetNext/Walk/Table queries, and polling generation), and `GNMIToolDialog` (gNMI capabilities, path Get queries, and polling generation).
-  - SW-HUB right-click menu aligned with `twsnmpfk`: report, immediate recheck, PING, SNMP MIB Browser, neighbor discovery, network editing, port-line editing, and deletion.
+  - SW-HUB right-click menu: info (情報), immediate recheck (再確認), PING, SNMP MIB Browser, neighbor discovery (接続先を探す), 編集, port-line editing (ライン編集), and 削除.
   - SW-HUB reports summarize configured ports and connected lines; unmanaged networks recheck by PING and managed networks recheck port state via SNMP.
   - Shift-click on nodes/network endpoints for interactive line creation, modification, and disconnection (`LineDialog`).
   - Network (SW-HUB) context menu action for batch port line management (`NetworkLinesDialog`).

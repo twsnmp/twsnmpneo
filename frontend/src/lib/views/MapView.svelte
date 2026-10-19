@@ -501,10 +501,19 @@
     showContextMenu = false;
   };
 
+  const contextTargetNodeObj = $derived.by(() => {
+    if (!contextTargetNode) return null;
+    return nodes.find((item) => (item.id || item.ID) === contextTargetNode) || null;
+  });
+
+  const contextNodeHasMac = $derived.by(() => {
+    const mac = (contextTargetNodeObj?.mac || (contextTargetNodeObj as any)?.MAC || "").split("(", 1)[0].trim();
+    return mac.length > 0;
+  });
+
   const contextNodeUrls = $derived.by(() => {
-    if (!contextTargetNode) return [];
-    const n = nodes.find((item) => (item.id || item.ID) === contextTargetNode);
-    const rawUrl = n?.url || (n as any)?.URL || "";
+    if (!contextTargetNodeObj) return [];
+    const rawUrl = contextTargetNodeObj.url || (contextTargetNodeObj as any).URL || "";
     if (!rawUrl) return [];
     return rawUrl
       .split(/[,;\n]/)
@@ -892,7 +901,11 @@
       {#if contextTargetNode}
         <button onclick={handleShowNodeReport} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <FileText class="h-3.5 w-3.5 text-sky-500" />
-          {$_('map.context.report')}
+          {$_('map.context.info')}
+        </button>
+        <button onclick={handleRecheckTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <RefreshCw class="h-3.5 w-3.5 text-blue-500" />
+          {$_('map.context.recheck')}
         </button>
         <button onclick={handleOpenNodePing} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Activity class="h-3.5 w-3.5 text-emerald-500" />PING
@@ -905,18 +918,16 @@
           <Radio class="h-3.5 w-3.5 text-cyan-500" />
           {$_('map.context.gnmiTool')}
         </button>
-        <button onclick={handleWakeTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <Power class="h-3.5 w-3.5 text-amber-500" />
-          {$_('map.context.wakeOnLan')}
-        </button>
+        {#if contextNodeHasMac}
+          <button onclick={handleWakeTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <Power class="h-3.5 w-3.5 text-amber-500" />
+            {$_('map.context.wakeOnLan')}
+          </button>
+        {/if}
         <div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>
         <button onclick={handleEditTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Edit3 class="h-3.5 w-3.5 text-slate-400" />
           {$_('map.context.editNode')}
-        </button>
-        <button onclick={handleRecheckTargetNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <RefreshCw class="h-3.5 w-3.5 text-blue-500" />
-          {$_('map.context.recheck')}
         </button>
         <button onclick={handleFindNeighborNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <Compass class="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
@@ -951,7 +962,7 @@
       {:else if contextTargetNet}
         <button onclick={handleShowNetworkReport} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <FileText class="h-3.5 w-3.5 text-sky-500" />
-          {$_('map.context.report')}
+          {$_('map.context.info')}
         </button>
         <button onclick={handleCheckTargetNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
           <RefreshCw class="h-3.5 w-3.5 text-emerald-500" />
