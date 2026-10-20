@@ -16,13 +16,13 @@
     nodes = [],
     networks = [],
     onConnect = () => {},
-  } = $props<{
+  }: {
     show: boolean;
     targetId: string;
     nodes?: NodeEnt[];
     networks?: NetworkEnt[];
     onConnect?: () => void;
-  }>();
+  } = $props();
 
   let loading = $state(false);
   let errorMsg = $state("");
@@ -248,7 +248,7 @@
                     onclick={() => toggleSelectIndex(idx)}
                     class="cursor-pointer transition-colors {isSelected ? 'bg-cyan-50 dark:bg-cyan-950/20 text-cyan-900 dark:text-cyan-100' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}"
                   >
-                    <td class="py-2 px-3 text-center whitespace-nowrap" onclick={(e) => e.stopPropagation()}>
+                    <td class="py-1 px-2 text-center whitespace-nowrap" onclick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -256,7 +256,7 @@
                         class="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-cyan-600 focus:ring-cyan-500/30 cursor-pointer"
                       />
                     </td>
-                    <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">
                       <div class="flex items-center gap-1.5 whitespace-nowrap">
                         {#if e1.isNet}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
@@ -269,7 +269,7 @@
                         {/if}
                       </div>
                     </td>
-                    <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                    <td class="py-1 px-2 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">
                       <div class="flex items-center gap-1.5 whitespace-nowrap">
                         {#if e2.isNet}
                           <Server class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
@@ -282,10 +282,10 @@
                         {/if}
                       </div>
                     </td>
-                    <td class="py-2 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    <td class="py-1 px-2 font-mono text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {formatReason(l.Reason || l.Info)}
                     </td>
-                    <td class="py-2 px-3 text-center whitespace-nowrap">
+                    <td class="py-1 px-2 text-center whitespace-nowrap">
                       <span
                         class="inline-flex items-center rounded-md px-2.5 py-0.5 text-[10px] font-bold border whitespace-nowrap {l.Confidence === 'strict' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}"
                       >

@@ -294,25 +294,25 @@
           {:else}
             {#each pagedStats as s}
               <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[280px]" title={s.Topic}>
+                <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[280px]" title={s.Topic}>
                   {s.Topic}
                 </td>
-                <td class="py-2 px-3 text-slate-600 dark:text-slate-400 truncate max-w-[180px]">
+                <td class="py-1 px-2 text-slate-600 dark:text-slate-400 truncate max-w-[180px]">
                   {s.ClientID || "-"}
                 </td>
-                <td class="py-2 px-3 text-slate-500">{s.Remote || "-"}</td>
-                <td class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">
+                <td class="py-1 px-2 text-slate-500">{s.Remote || "-"}</td>
+                <td class="py-1 px-2 text-right text-emerald-600 dark:text-emerald-400 font-bold">
                   {(s.Count || 0).toLocaleString()}
                 </td>
-                <td class="py-2 px-3 text-right text-slate-600 dark:text-slate-400">
+                <td class="py-1 px-2 text-right text-slate-600 dark:text-slate-400">
                   {renderBytes(s.Bytes || 0)}
                 </td>
-                <td class="py-2 px-3 text-center">
+                <td class="py-1 px-2 text-center">
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold {s.State === 'normal' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : s.State === 'warn' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : s.State === 'low' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}">
                     {s.State || "normal"}
                   </span>
                 </td>
-                <td class="py-2 px-3 text-slate-500 whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-500 whitespace-nowrap">
                   {formatTimeStr(s.Last)}
                 </td>
               </tr>

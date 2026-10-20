@@ -1306,7 +1306,7 @@
                 <table class="w-full text-left text-xs border-collapse font-mono">
                   <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-200 dark:border-slate-800">
                     <tr>
-                      <th class="p-3 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("Name")}>
+                      <th class="p-2 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("Name")}>
                         <div class="inline-flex items-center gap-1">
                           <span>{$_('nodeDetail.colPort')}</span>
                           {#if portsSortCol === "Name"}
@@ -1316,7 +1316,7 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="p-3 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("State")}>
+                      <th class="p-2 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("State")}>
                         <div class="inline-flex items-center gap-1">
                           <span>{$_('nodeDetail.colStatus')}</span>
                           {#if portsSortCol === "State"}
@@ -1326,7 +1326,7 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="p-3 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("Speed")}>
+                      <th class="p-2 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("Speed")}>
                         <div class="inline-flex items-center gap-1">
                           <span>{$_('nodeDetail.colSpeed')}</span>
                           {#if portsSortCol === "Speed"}
@@ -1336,7 +1336,7 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="p-3 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("InBytes")}>
+                      <th class="p-2 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("InBytes")}>
                         <div class="inline-flex items-center gap-1">
                           <span>{$_('nodeDetail.colIn')}</span>
                           {#if portsSortCol === "InBytes"}
@@ -1346,7 +1346,7 @@
                           {/if}
                         </div>
                       </th>
-                      <th class="p-3 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("OutBytes")}>
+                      <th class="p-2 cursor-pointer select-none hover:text-slate-900 dark:hover:text-slate-200" onclick={() => handlePortsSort("OutBytes")}>
                         <div class="inline-flex items-center gap-1">
                           <span>{$_('nodeDetail.colOut')}</span>
                           {#if portsSortCol === "OutBytes"}
@@ -1361,8 +1361,8 @@
                   <tbody class="divide-y divide-slate-200 dark:divide-slate-800/60">
                     {#each paginatedPorts as pt}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td class="p-3 font-semibold text-slate-900 dark:text-slate-100">{pt.Name}</td>
-                        <td class="p-3">
+                        <td class="px-2 py-1 font-semibold text-slate-900 dark:text-slate-100">{pt.Name}</td>
+                        <td class="px-2 py-1">
                           <span
                             class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-semibold text-[11px] {pt.State === 'up' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700'}"
                           >
@@ -1370,9 +1370,9 @@
                             {pt.State.toUpperCase()}
                           </span>
                         </td>
-                        <td class="p-3 text-blue-600 dark:text-cyan-400">{pt.Speed > 0 ? `${(pt.Speed / 1000000).toFixed(0)} Mbps` : "-"}</td>
-                        <td class="p-3 text-slate-700 dark:text-slate-300">{pt.InBytes ? `${(pt.InBytes / 1024 / 1024).toFixed(2)} MB` : "-"}</td>
-                        <td class="p-3 text-slate-700 dark:text-slate-300">{pt.OutBytes ? `${(pt.OutBytes / 1024 / 1024).toFixed(2)} MB` : "-"}</td>
+                        <td class="px-2 py-1 text-blue-600 dark:text-cyan-400">{pt.Speed > 0 ? `${(pt.Speed / 1000000).toFixed(0)} Mbps` : "-"}</td>
+                        <td class="px-2 py-1 text-slate-700 dark:text-slate-300">{pt.InBytes ? `${(pt.InBytes / 1024 / 1024).toFixed(2)} MB` : "-"}</td>
+                        <td class="px-2 py-1 text-slate-700 dark:text-slate-300">{pt.OutBytes ? `${(pt.OutBytes / 1024 / 1024).toFixed(2)} MB` : "-"}</td>
                       </tr>
                     {/each}
                   </tbody>
@@ -2016,15 +2016,15 @@
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                     {#each paginatedRmon as r}
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                        <td class="py-1.5 px-2.5 font-bold text-slate-900 dark:text-slate-100">{r.Index}</td>
-                        <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-400 font-sans">{r.DataSource || "-"}</td>
-                        <td class="py-1.5 px-2.5 text-right {r.DropEvents > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">{r.DropEvents.toLocaleString()}</td>
-                        <td class="py-1.5 px-2.5 text-right text-slate-700 dark:text-slate-300">{r.Octets.toLocaleString()}</td>
-                        <td class="py-1.5 px-2.5 text-right font-bold text-blue-600 dark:text-cyan-400">{r.Pkts.toLocaleString()}</td>
-                        <td class="py-1.5 px-2.5 text-right text-slate-600 dark:text-slate-400">{r.BroadcastPkts.toLocaleString()}</td>
-                        <td class="py-1.5 px-2.5 text-right text-slate-600 dark:text-slate-400">{r.MulticastPkts.toLocaleString()}</td>
-                        <td class="py-1.5 px-2.5 text-right {r.CRCAlignErrors > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">{r.CRCAlignErrors.toLocaleString()}</td>
-                        <td class="py-1.5 px-2.5 text-right {r.Collisions > 0 ? 'text-amber-600 font-bold' : 'text-slate-500'}">{r.Collisions.toLocaleString()}</td>
+                        <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100">{r.Index}</td>
+                        <td class="py-1 px-2 text-slate-600 dark:text-slate-400 font-sans">{r.DataSource || "-"}</td>
+                        <td class="py-1 px-2 text-right {r.DropEvents > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">{r.DropEvents.toLocaleString()}</td>
+                        <td class="py-1 px-2.5 text-right text-slate-700 dark:text-slate-300">{r.Octets.toLocaleString()}</td>
+                        <td class="py-1 px-2 text-right font-bold text-blue-600 dark:text-cyan-400">{r.Pkts.toLocaleString()}</td>
+                        <td class="py-1 px-2 text-right text-slate-600 dark:text-slate-400">{r.BroadcastPkts.toLocaleString()}</td>
+                        <td class="py-1 px-2 text-right text-slate-600 dark:text-slate-400">{r.MulticastPkts.toLocaleString()}</td>
+                        <td class="py-1 px-2 text-right {r.CRCAlignErrors > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}">{r.CRCAlignErrors.toLocaleString()}</td>
+                        <td class="py-1 px-2 text-right {r.Collisions > 0 ? 'text-amber-600 font-bold' : 'text-slate-500'}">{r.Collisions.toLocaleString()}</td>
                       </tr>
                     {/each}
                   </tbody>

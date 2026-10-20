@@ -334,25 +334,25 @@
           {:else}
             {#each pagedMetrics as m}
               <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[280px]" title={m.Name}>
+                <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[280px]" title={m.Name}>
                   {m.Name}
                   {#if m.Unit}
                     <span class="ml-1 text-[10px] text-cyan-600 dark:text-cyan-400 font-normal">({m.Unit})</span>
                   {/if}
                 </td>
-                <td class="py-2 px-3">
+                <td class="py-1 px-2">
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                     {m.Type}
                   </span>
                 </td>
-                <td class="py-2 px-3 text-cyan-600 dark:text-cyan-300 font-sans truncate max-w-[160px]">
+                <td class="py-1 px-2 text-cyan-600 dark:text-cyan-300 font-sans truncate max-w-[160px]">
                   {m.Service}
                 </td>
-                <td class="py-2 px-3 text-slate-600 dark:text-slate-400">{m.Host}</td>
-                <td class="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">
+                <td class="py-1 px-2 text-slate-600 dark:text-slate-400">{m.Host}</td>
+                <td class="py-1 px-2 text-right text-emerald-600 dark:text-emerald-400 font-bold">
                   {(m.Count || 0).toLocaleString()}
                 </td>
-                <td class="py-2 px-3 text-slate-500 whitespace-nowrap">
+                <td class="py-1 px-2 text-slate-500 whitespace-nowrap">
                   {formatTimeStr(m.Last)}
                 </td>
               </tr>
