@@ -50,6 +50,8 @@
     Sparkles,
     Languages,
     AlertCircle,
+    AlertTriangle,
+    HelpCircle,
     CheckCircle2,
     ArrowUp,
     ArrowDown,
@@ -323,78 +325,64 @@
     hasSnmpPolling || (isSnmpConfigured && !isLoadingPorts && realPorts.length > 0)
   );
 
-  // Polling-based diagnosis summary
+  // Polling-based diagnosis summary (Aligned strictly with Node State)
   const pollingHealthSummary = $derived.by(() => {
+    const nodeState = (node?.state || (node as any)?.State || "unknown").toLowerCase();
+
     if (nodePollings.length === 0) {
       return {
-        status: "none" as const,
+        nodeState: "unknown",
         statusLabel: $_('nodeDetail.pollingStatusNone') || "未監視 (NO POLLING)",
-        badgeClass: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/30",
-        iconBg: "bg-slate-500/10 text-slate-500 border border-slate-500/20",
+        badgeStyle: "background-color: #99999918; border-color: #99999950; color: #999999",
+        iconStyle: "background-color: #99999918; border-color: #99999940; color: #999999",
         summaryText: $_('nodeDetail.noPollingConfiguredDesc') || "このノードには監視ポーリングが設定されていません。",
-        normalCount: 0,
-        warnCount: 0,
-        criticalCount: 0,
         total: 0,
       };
     }
 
-    let normalCount = 0;
-    let warnCount = 0;
-    let criticalCount = 0;
+    const counts: Record<string, number> = {
+      normal: 0,
+      repair: 0,
+      warn: 0,
+      low: 0,
+      high: 0,
+      unknown: 0,
+      off: 0,
+    };
 
     for (const p of nodePollings) {
-      const st = (p.state || (p as any).State || "").toLowerCase();
-      if (st === "normal" || st === "repair") {
-        normalCount++;
-      } else if (st === "warn" || st === "low") {
-        warnCount++;
-      } else if (st === "high" || st === "critical") {
-        criticalCount++;
+      const st = (p.state || (p as any).State || "unknown").toLowerCase();
+      if (counts[st] !== undefined) {
+        counts[st]++;
       } else {
-        warnCount++;
+        counts.unknown++;
       }
     }
 
-    let status: "healthy" | "warning" | "critical" = "healthy";
-    let badgeClass = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30";
-    let iconBg = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
-    let statusLabel = $_('nodeDetail.pollingStatusHealthy') || "正常 (HEALTHY)";
-
-    if (criticalCount > 0) {
-      status = "critical";
-      badgeClass = "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30";
-      iconBg = "bg-rose-500/10 text-rose-500 border border-rose-500/20";
-      statusLabel = $_('nodeDetail.pollingStatusCritical') || "障害 (CRITICAL)";
-    } else if (warnCount > 0) {
-      status = "warning";
-      badgeClass = "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30";
-      iconBg = "bg-amber-500/10 text-amber-500 border border-amber-500/20";
-      statusLabel = $_('nodeDetail.pollingStatusWarning') || "警告 (WARNING)";
-    }
+    const color = getStateColor(nodeState);
+    const statusLabel = getStateName(nodeState, $_);
+    const badgeStyle = `background-color: ${color}18; border-color: ${color}50; color: ${color};`;
+    const iconStyle = `background-color: ${color}18; border-color: ${color}40; color: ${color};`;
 
     const nName = node?.name || (node as any)?.Name || "Node";
-    const summaryText = $_('nodeDetail.pollingSummary', {
-      values: {
-        name: nName,
-        total: nodePollings.length,
-        normal: normalCount,
-        warn: warnCount,
-        critical: criticalCount,
-      },
-    }) || (isJaLocale
-      ? `${nName} - 設定ポーリング: ${nodePollings.length}件 (正常: ${normalCount}, 警告: ${warnCount}, 障害: ${criticalCount})`
-      : `${nName} - Configured Pollings: ${nodePollings.length} (Healthy: ${normalCount}, Warning: ${warnCount}, Critical: ${criticalCount})`);
+    const detailParts: string[] = [];
+    const stateOrder = ["normal", "repair", "warn", "low", "high", "unknown", "off"];
+    for (const s of stateOrder) {
+      if (counts[s] > 0) {
+        detailParts.push(`${getStateName(s, $_)}: ${counts[s]}`);
+      }
+    }
+    const breakdown = detailParts.length > 0 ? detailParts.join(", ") : `${getStateName("normal", $_)}: 0`;
+    const summaryText = isJaLocale
+      ? `${nName} - 設定ポーリング: ${nodePollings.length}件 (${breakdown})`
+      : `${nName} - Configured Pollings: ${nodePollings.length} (${breakdown})`;
 
     return {
-      status,
+      nodeState,
       statusLabel,
-      badgeClass,
-      iconBg,
+      badgeStyle,
+      iconStyle,
       summaryText,
-      normalCount,
-      warnCount,
-      criticalCount,
       total: nodePollings.length,
     };
   });
@@ -714,74 +702,87 @@
   }
 
   // Load ports & host resource when modal opens
+  let lastOpened = false;
+  let lastNodeId = "";
+
   $effect(() => {
-    if (show && node) {
-      untrack(() => {
-        // Reset states
-        activeTab = initialTab as TabType;
-        realPorts = [];
-        hostResource = null;
-        isHostResourceLoaded = false;
-        // Reset RMON and diagnose states
-        rmonStats = [];
-        isRmonLoaded = false;
-        rmonError = "";
-        aiDiagnoseResult = "";
-        aiDiagnoseError = "";
-        aiLanguage = isJaLocale ? "ja" : "en";
+    const isShowing = show;
+    const currentId = node ? (node.id || (node as any).ID || "") : "";
 
-        // If SNMP is configured, probe ports from backend
-        if (isSnmpConfigured && targetNodeId) {
-          isLoadingPorts = true;
-          fetchNodePorts(targetNodeId)
-            .then((res) => {
-              if (res.supported && Array.isArray(res.ports)) {
-                realPorts = res.ports;
-              } else {
+    if (isShowing && currentId) {
+      if (!lastOpened || lastNodeId !== currentId) {
+        lastOpened = true;
+        lastNodeId = currentId;
+
+        untrack(() => {
+          // Reset states
+          activeTab = initialTab as TabType;
+          realPorts = [];
+          hostResource = null;
+          isHostResourceLoaded = false;
+          // Reset RMON and diagnose states
+          rmonStats = [];
+          isRmonLoaded = false;
+          rmonError = "";
+          aiDiagnoseResult = "";
+          aiDiagnoseError = "";
+          aiLanguage = isJaLocale ? "ja" : "en";
+
+          // If SNMP is configured, probe ports from backend
+          if (isSnmpConfigured && targetNodeId) {
+            isLoadingPorts = true;
+            fetchNodePorts(targetNodeId)
+              .then((res) => {
+                if (res.supported && Array.isArray(res.ports)) {
+                  realPorts = res.ports;
+                } else {
+                  realPorts = [];
+                }
+                // If SNMP is confirmed (either by polling or ports found), load HostResource & RMON
+                if (hasSnmpPolling || realPorts.length > 0) {
+                  loadHostResourceData();
+                  loadRmonData();
+                }
+              })
+              .catch(() => {
                 realPorts = [];
-              }
-              // If SNMP is confirmed (either by polling or ports found), load HostResource & RMON
-              if (hasSnmpPolling || realPorts.length > 0) {
-                loadHostResourceData();
-                loadRmonData();
-              }
-            })
-            .catch(() => {
-              realPorts = [];
-              if (hasSnmpPolling) {
-                loadHostResourceData();
-                loadRmonData();
-              }
-            })
-            .finally(() => {
-              isLoadingPorts = false;
-            });
+                if (hasSnmpPolling) {
+                  loadHostResourceData();
+                  loadRmonData();
+                }
+              })
+              .finally(() => {
+                isLoadingPorts = false;
+              });
 
-          if (hasSnmpPolling) {
-            loadHostResourceData();
-            loadRmonData();
+            if (hasSnmpPolling) {
+              loadHostResourceData();
+              loadRmonData();
+            }
           }
-        }
 
-        // Auto-fetch pollings if not passed
-        if (pollings.length === 0 && !isLoadingPollings) {
-          isLoadingPollings = true;
-          fetchPollings()
-            .then((res) => (internalPollings = res))
-            .catch(() => {})
-            .finally(() => (isLoadingPollings = false));
-        }
+          // Auto-fetch pollings if not passed
+          if (pollings.length === 0 && !isLoadingPollings) {
+            isLoadingPollings = true;
+            fetchPollings()
+              .then((res) => (internalPollings = res))
+              .catch(() => {})
+              .finally(() => (isLoadingPollings = false));
+          }
 
-        // Auto-fetch logs if not passed
-        if (logs.length === 0 && !isLoadingLogs) {
-          isLoadingLogs = true;
-          fetchEventLogs({ limit: 200 })
-            .then((res) => (internalLogs = res))
-            .catch(() => {})
-            .finally(() => (isLoadingLogs = false));
-        }
-      });
-    } else {
+          // Auto-fetch logs if not passed
+          if (logs.length === 0 && !isLoadingLogs) {
+            isLoadingLogs = true;
+            fetchEventLogs({ limit: 200 })
+              .then((res) => (internalLogs = res))
+              .catch(() => {})
+              .finally(() => (isLoadingLogs = false));
+          }
+        });
+      }
+    } else if (!isShowing) {
+      lastOpened = false;
+      lastNodeId = "";
       untrack(() => {
         deleteVPanel();
         copiedIP = false;
@@ -2063,13 +2064,20 @@
             <!-- Header Action Card -->
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm">
               <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl {pollingHealthSummary.iconBg}">
+                <div
+                  class="flex h-10 w-10 items-center justify-center rounded-xl border shrink-0"
+                  style={pollingHealthSummary.iconStyle}
+                >
                   <Stethoscope class="h-5 w-5" />
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-bold text-slate-900 dark:text-slate-100">{$_('nodeDetail.diagnoseTitle') || '診断情報'}</span>
-                    <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase {pollingHealthSummary.badgeClass}">
+                    <span
+                      class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border"
+                      style={pollingHealthSummary.badgeStyle}
+                    >
+                      <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(pollingHealthSummary.nodeState)}"></span>
                       {pollingHealthSummary.statusLabel}
                     </span>
                   </div>
@@ -2236,27 +2244,25 @@
                         </div>
 
                         <!-- Status Badge -->
-                        {#if card.isNormal}
-                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+                        <span
+                          class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
+                          style="background-color: {getStateColor(card.st)}18; border-color: {getStateColor(card.st)}50; color: {getStateColor(card.st)}"
+                        >
+                          {#if card.isNormal}
                             <CheckCircle2 class="h-3 w-3" />
-                            {getStateName(card.st)}
-                          </span>
-                        {:else if card.isRepair}
-                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20 shrink-0">
+                          {:else if card.isRepair}
                             <Activity class="h-3 w-3" />
-                            {getStateName(card.st)}
-                          </span>
-                        {:else if card.isCritical}
-                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 shrink-0">
+                          {:else if card.isCritical || card.st === "low"}
                             <AlertCircle class="h-3 w-3" />
-                            {getStateName(card.st)}
-                          </span>
-                        {:else}
-                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 shrink-0">
+                          {:else if card.st === "warn"}
+                            <AlertTriangle class="h-3 w-3" />
+                          {:else if card.st === "unknown"}
+                            <HelpCircle class="h-3 w-3" />
+                          {:else}
                             <AlertCircle class="h-3 w-3" />
-                            {getStateName(card.st)}
-                          </span>
-                        {/if}
+                          {/if}
+                          {getStateName(card.st, $_)}
+                        </span>
                       </div>
 
                       <!-- Card Details -->
