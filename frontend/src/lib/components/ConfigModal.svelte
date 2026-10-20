@@ -23,6 +23,7 @@
   import ConfigTabMib from "./config/ConfigTabMib.svelte";
   import ConfigTabIcons from "./config/ConfigTabIcons.svelte";
   import ConfigTabUsers from "./config/ConfigTabUsers.svelte";
+  import ConfigTabLoc from "./config/ConfigTabLoc.svelte";
   import {
     X,
     Save,
@@ -36,6 +37,7 @@
     Network,
     FolderTree,
     Users,
+    MapPin,
   } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
 
@@ -43,13 +45,21 @@
     show = $bindable(false),
     onSaved,
     currentUser = null,
+    initialTab = "map",
   }: {
     show: boolean;
     onSaved?: () => void;
     currentUser?: UserEnt | null;
+    initialTab?: "map" | "loc" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users";
   } = $props();
 
-  let activeTab = $state<"map" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users">("map");
+  let activeTab = $state<"map" | "loc" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users">("map");
+
+  $effect(() => {
+    if (show && initialTab) {
+      activeTab = initialTab;
+    }
+  });
 
   let saveMsg = $state("");
   let saveError = $state("");
@@ -399,6 +409,14 @@
           </button>
           <button
             type="button"
+            onclick={() => (activeTab = "loc")}
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'loc' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
+          >
+            <MapPin class="h-4 w-4" />
+            {$_('config.tabLoc') || 'GIS地図'}
+          </button>
+          <button
+            type="button"
             onclick={() => (activeTab = "polling")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'polling' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -493,6 +511,13 @@
               bind:lockRatio
               onOpenImportMap={() => (showImportModal = true)}
               onError={(err) => (saveError = err)}
+            />
+          {:else if activeTab === "loc"}
+            <ConfigTabLoc
+              onSaved={() => {
+                saveMsg = $_('location.saved') || 'Saved map configuration.';
+                if (onSaved) onSaved();
+              }}
             />
           {:else if activeTab === "polling"}
             <ConfigTabPolling
@@ -593,7 +618,7 @@
 
       <!-- Modal Footer -->
       <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5">
-        {#if activeTab === 'mib' || activeTab === 'icons' || activeTab === 'users'}
+        {#if activeTab === 'mib' || activeTab === 'icons' || activeTab === 'users' || activeTab === 'loc'}
           <div></div>
           <div class="flex items-center gap-3">
             <button

@@ -74,12 +74,16 @@ func (n *NodeEnt) UnmarshalJSON(data []byte) error {
 		SnakeGNMIEncoding *string `json:"gnmi_encoding"`
 		SnakeGNMIUser     *string `json:"gnmi_user"`
 		SnakeGNMIPassword *string `json:"gnmi_password"`
+		SnakeLoc          *string `json:"loc"`
 		*Alias
 	}{
 		Alias: (*Alias)(n),
 	}
 	if err := json.Unmarshal(data, aux); err != nil {
 		return err
+	}
+	if aux.SnakeLoc != nil {
+		n.Loc = *aux.SnakeLoc
 	}
 	if aux.SnakeAddrMode != nil && *aux.SnakeAddrMode != "" {
 		n.AddrMode = *aux.SnakeAddrMode

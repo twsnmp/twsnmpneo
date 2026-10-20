@@ -664,6 +664,7 @@ export function normalizeNode(raw: any): NodeEnt {
   const gnmi_encoding = raw.gnmi_encoding || raw.GNMIEncoding || '';
   const gnmi_user = raw.gnmi_user || raw.GNMIUser || '';
   const gnmi_password = raw.gnmi_password || raw.GNMIPassword || '';
+  const loc = raw.loc || raw.Loc || '';
 
   return {
     ...raw,
@@ -692,6 +693,7 @@ export function normalizeNode(raw: any): NodeEnt {
     gnmi_encoding, GNMIEncoding: gnmi_encoding,
     gnmi_user, GNMIUser: gnmi_user,
     gnmi_password, GNMIPassword: gnmi_password,
+    loc, Loc: loc,
   };
 }
 
@@ -1060,6 +1062,7 @@ export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
     GNMIEncoding: node.gnmi_encoding || node.GNMIEncoding || '',
     GNMIUser: node.gnmi_user || node.GNMIUser || '',
     GNMIPassword: node.gnmi_password || node.GNMIPassword || '',
+    Loc: node.loc !== undefined ? node.loc : (node.Loc || ''),
   };
   const res = await apiFetch(`${API_BASE}/nodes`, {
     method: 'POST',
@@ -2847,7 +2850,6 @@ export interface LocConfEnt {
   Center: string;
   Zoom: number;
   IconSize: number;
-  Url?: string;
 }
 
 export async function fetchLocConf(): Promise<LocConfEnt> {
@@ -2857,8 +2859,8 @@ export async function fetchLocConf(): Promise<LocConfEnt> {
     return await res.json();
   } catch {
     return {
-      Style: "osm",
-      Center: "139.6917,35.6895",
+      Style: "",
+      Center: "139.75,35.68",
       Zoom: 10,
       IconSize: 24,
     };

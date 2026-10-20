@@ -1999,6 +1999,29 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.JSON(http.StatusOK, &conf)
 		})
 
+		// Loc (GIS Map) Conf
+		getLocConfHandler := func(c echo.Context) error {
+			conf, err := cfg.Store.GetLocConf(c.Request().Context())
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, conf)
+		}
+		apiGroup.GET("/conf/loc", getLocConfHandler)
+		apiGroup.GET("/loc/conf", getLocConfHandler)
+		postLocConfHandler := func(c echo.Context) error {
+			var conf datastore.LocConfEnt
+			if err := c.Bind(&conf); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			if err := cfg.Store.SaveLocConf(c.Request().Context(), &conf); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusOK, &conf)
+		}
+		apiGroup.POST("/conf/loc", postLocConfHandler)
+		apiGroup.POST("/loc/conf", postLocConfHandler)
+
 		// Custom Icons
 		apiGroup.GET("/icons", func(c echo.Context) error {
 			icons, err := cfg.Store.GetCustomIcons(c.Request().Context())

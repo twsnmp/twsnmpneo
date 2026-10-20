@@ -299,6 +299,23 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("get map conf failed: code %d", rec.Code)
 	}
 
+	// 6b. Loc Conf (GIS Map): GET, POST
+	locPayload := `{"Style":"https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json","Center":"139.75,35.68","Zoom":12,"IconSize":32}`
+	req = httptest.NewRequest(http.MethodPost, "/api/conf/loc", strings.NewReader(locPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("post loc conf returned %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/conf/loc", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "osm-bright-ja") {
+		t.Errorf("get loc conf failed: code %d", rec.Code)
+	}
+
 	// 7. Event Logs & Parquet Query
 	_ = bStore.AddEventLog(context.Background(), &datastore.EventLogEnt{
 		Time:  time.Now().UnixNano(),

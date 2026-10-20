@@ -306,6 +306,17 @@ func (s *Store) loadCache() error {
 			}
 			if v := b.Get(keyLocConf); v != nil {
 				_ = json.Unmarshal(v, &s.locConf)
+				if s.locConf.Center == "" {
+					s.locConf.Center = "139.75,35.68"
+				}
+				if s.locConf.Zoom <= 0 {
+					s.locConf.Zoom = 10
+				}
+				if s.locConf.IconSize <= 0 {
+					s.locConf.IconSize = 24
+				}
+			} else {
+				s.initDefaultLocConf()
 			}
 			if v := b.Get(keyBackImage); v != nil {
 				_ = json.Unmarshal(v, &s.backImage)
@@ -486,6 +497,15 @@ func (s *Store) initDefaultNotifyConf() {
 		Subject:            i18n.Trans("Notify from TWSNMP"),
 		Level:              "none",
 		Provider:           "smtp",
+	}
+}
+
+func (s *Store) initDefaultLocConf() {
+	s.locConf = datastore.LocConfEnt{
+		Style:    "",
+		Center:   "139.75,35.68",
+		Zoom:     10,
+		IconSize: 24,
 	}
 }
 

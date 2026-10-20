@@ -175,7 +175,11 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Background image configuration via `ConfigModal.svelte` featuring natural dimension detection, aspect ratio locking, scaled miniature canvas placement preview, and immediate live reload without manual browser refresh.
    - Map import capability via `ImportMapModal.svelte` supporting both JSON and legacy TWSNMP v4 `.spm` formats with automatic encoding detection (Shift-JIS & UTF-8).
 2. **Location View (`LocationView.svelte`)**:
-   - Geographic GIS map powered by MapLibre / OpenStreetMap displaying nodes plotted by coordinates (`Loc` property).
+   - Geographic GIS map powered by MapLibre displaying nodes plotted by coordinates (`Loc` property) with state-colored icons and labels.
+   - Comprehensive GIS map configuration via `ConfigModal.svelte` and quick-access `LocConfModal.svelte`: custom style JSON/URL with built-in presets (GSI Pale/Standard/Photo, CARTO Dark/Light, OSM Bright, MIERUNE Mono, OSM Standard), default center coordinates, initial zoom, and selectable icon sizes (16-64px).
+   - "Save Default View" (`SaveDef`) persists the current map center and zoom level as the default startup viewpoint.
+   - Interactive placement: dropdown placement, blank-area right-click context menu modal, marker drag-and-drop repositioning with instant coordinate persistence, and selection actions (Edit node detail, Clear GIS coordinates / remove from map).
+   - Lock/Unlock interaction toggle to prevent accidental dragging.
 3. **List View (`ListView.svelte`)**:
    - Integrated inventory management view featuring a left sidebar category switcher matching `ReportView.svelte`.
    - Supports 5 resource categories: **Nodes**, **Pollings**, **Networks**, **Lines**, and **Draw Items**.
