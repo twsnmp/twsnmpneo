@@ -255,7 +255,7 @@ Clicking the **AI Node Health Diagnosis** button triggers an LLM evaluation of n
 ### Node Property Editor (2-Column & Shared Auth)
 
 The node configuration dialog features an expansive two-column layout:
-- **Left Column (Primary Information)**: Hostname, IP address, MAC address, icon selector (MDI or custom graphics), and one-click auto-detection.
+- **Left Column (Primary Information)**: Hostname, IP address, MAC address, address mode, icon selector (MDI or custom graphics), description, and auto-recheck option.
 - **Right Column (Protocols & Credentials)**: Protocol-sensitive input fields, multiple URL endpoints for web monitoring, and one-click credential application from global Shared Credentials presets.
 
 ![](./images/en/node_dialog.png)
