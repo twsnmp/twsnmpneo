@@ -488,3 +488,19 @@ export const getLogModeBadgeClass = (val: number | undefined | null): string => 
       return 'bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700';
   }
 };
+
+/**
+ * Formats a version string to ensure a leading 'v' prefix for semantic versioning display (e.g. '0.2.0' -> 'v0.2.0').
+ * Leaves special indicators like 'dev' and 'unknown' intact.
+ */
+export const formatVersion = (ver?: string | null): string => {
+  if (!ver) return '';
+  const trimmed = ver.trim();
+  if (trimmed === 'dev' || trimmed === 'unknown' || trimmed.startsWith('v')) {
+    return trimmed;
+  }
+  if (/^\d/.test(trimmed)) {
+    return `v${trimmed}`;
+  }
+  return trimmed;
+};

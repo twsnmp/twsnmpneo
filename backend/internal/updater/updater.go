@@ -299,8 +299,8 @@ func (u *Updater) buildUpdateInfo(rel *GitHubRelease) *UpdateInfo {
 	}
 
 	info := &UpdateInfo{
-		CurrentVersion: u.currentVersion,
-		LatestVersion:  rel.TagName,
+		CurrentVersion: cur,
+		LatestVersion:  latest,
 		HasUpdate:      hasUpdate,
 		ReleaseTitle:   rel.Name,
 		ReleaseBody:    rel.Body,

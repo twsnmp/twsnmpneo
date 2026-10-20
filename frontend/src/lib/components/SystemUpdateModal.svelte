@@ -9,6 +9,7 @@
     type UpdateStatus,
   } from "../api";
   import { showConfirm, showAlert } from "../stores/modalStore";
+  import { formatVersion } from "../common";
   import {
     Download,
     RefreshCw,
@@ -218,7 +219,7 @@
               {$_("system.currentVersion")}
             </span>
             <span class="text-lg font-bold font-mono text-slate-800 dark:text-slate-200 mt-0.5">
-              {updateInfo.current_version || "v0.2.0"}
+              {formatVersion(updateInfo.current_version) || "v0.2.0"}
             </span>
           </div>
 
@@ -230,7 +231,7 @@
               {$_("system.latestVersion")}
             </span>
             <span class="text-lg font-bold font-mono text-cyan-700 dark:text-cyan-300 mt-0.5">
-              {updateInfo.latest_version}
+              {formatVersion(updateInfo.latest_version)}
             </span>
           </div>
         </div>

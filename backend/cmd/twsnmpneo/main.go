@@ -40,6 +40,12 @@ var (
 	date    = "unknown"
 )
 
+func init() {
+	if version != "" && !strings.HasPrefix(version, "v") && version != "dev" && version != "unknown" {
+		version = "v" + version
+	}
+}
+
 func resolveCommit() string {
 	if commit != "" && commit != "none" {
 		return commit

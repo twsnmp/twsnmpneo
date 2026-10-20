@@ -13,7 +13,7 @@
   import { showConfirm, showLoading, hideLoading, showAlert } from "../stores/modalStore";
   import SystemUpdateModal from "../components/SystemUpdateModal.svelte";
   import { _ } from "svelte-i18n";
-  import { renderBytes, renderSpeed, renderPercent, formatTimeStr } from "../common";
+  import { renderBytes, renderSpeed, renderPercent, formatTimeStr, formatVersion } from "../common";
   import {
     showMonitorResChart,
     showMonitorNetChart,
@@ -401,7 +401,7 @@
         title={$_('system.checkUpdate')}
       >
         <Sparkles class="h-3.5 w-3.5 {updateInfo?.has_update ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-500 dark:text-slate-400'} {checkingUpdate ? 'animate-spin' : ''}" />
-        <span>{checkingUpdate ? $_('system.checkingUpdate') : (updateInfo?.has_update ? `${$_('system.updateAvailable')} (${updateInfo.latest_version})` : $_('system.checkUpdate'))}</span>
+        <span>{checkingUpdate ? $_('system.checkingUpdate') : (updateInfo?.has_update ? `${$_('system.updateAvailable')} (${formatVersion(updateInfo.latest_version)})` : $_('system.checkUpdate'))}</span>
       </button>
 
       <button
@@ -513,13 +513,13 @@
                 title={$_('system.updateAvailable')}
               >
                 <Sparkles class="h-2.5 w-2.5" />
-                <span>{$_('system.updateAvailable')}: {updateInfo.latest_version}</span>
+                <span>{$_('system.updateAvailable')}: {formatVersion(updateInfo.latest_version)}</span>
               </button>
             {/if}
           </div>
           <div class="my-2 flex items-baseline gap-2">
             <span class="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {sysInfo?.version || "v0.2.0"}
+              {formatVersion(sysInfo?.version) || "v0.2.0"}
             </span>
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate flex items-center justify-between">

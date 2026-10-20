@@ -52,6 +52,7 @@ func TestBuildUpdateInfo(t *testing.T) {
 		{"dev version", "dev", true},
 		{"unknown version", "unknown", true},
 		{"without v prefix", "0.1.0", true},
+		{"same version without v prefix", "0.2.0", false},
 	}
 
 	for _, tt := range tests {
@@ -68,6 +69,9 @@ func TestBuildUpdateInfo(t *testing.T) {
 			}
 			if info.LatestVersion != "v0.2.0" {
 				t.Errorf("LatestVersion = %s, want v0.2.0", info.LatestVersion)
+			}
+			if tt.curVersion == "0.2.0" && info.CurrentVersion != "v0.2.0" {
+				t.Errorf("CurrentVersion = %s, want v0.2.0", info.CurrentVersion)
 			}
 
 			// Check asset match for current platform
