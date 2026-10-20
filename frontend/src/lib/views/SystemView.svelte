@@ -58,6 +58,24 @@
 
   let sysInfo = $state<SystemInfo | null>(null);
   let monitorLogs = $state<MonitorDataEnt[]>([]);
+
+  const formatReceiverPort = (port?: string) => {
+    if (!port || port === "-") return $_('system.notConfigured');
+    return port;
+  };
+
+  const getTimezoneLabel = (timeStr?: string) => {
+    if (!timeStr) return "";
+    const match = timeStr.match(/([+-]\d{2}:\d{2}|Z)$/);
+    const offset = match ? (match[1] === "Z" ? "UTC" : match[1]) : "";
+    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tzName && offset) {
+      return `${$_('system.tz')}: ${tzName} (${offset})`;
+    } else if (offset) {
+      return `${$_('system.tz')}: ${offset}`;
+    }
+    return tzName ? `${$_('system.tz')}: ${tzName}` : "";
+  };
   let updateInfo = $state<UpdateInfo | null>(null);
   let checkingUpdate = $state(false);
   let showUpdateModal = $state(false);
@@ -490,11 +508,6 @@
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center justify-between">
             <span>{$_('system.uptime')} <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || $_('system.starting')}</span></span>
-            {#if sysInfo?.ping_mode}
-              <span class="rounded px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase {sysInfo.ping_mode === 'icmp' ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'}" title="PING動作モード">
-                PING: {sysInfo.ping_mode}
-              </span>
-            {/if}
           </div>
         </div>
 
@@ -549,13 +562,12 @@
               <Clock class="h-3.5 w-3.5" />
               <span>{$_('system.serverTime')}</span>
             </span>
-            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">{$_('system.ntpSync')}</span>
           </div>
           <div class="my-2 text-base font-bold font-mono text-slate-900 dark:text-slate-100 leading-tight">
             {formatTimeStr(sysInfo?.time || new Date().toISOString())}
           </div>
-          <div class="text-[11px] text-slate-500 dark:text-slate-400">
-            {$_('system.tzLocalSync')}
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+            {getTimezoneLabel(sysInfo?.time)}
           </div>
         </div>
 
@@ -636,17 +648,31 @@
           </div>
         </div>
 
+        {#snippet statusBadge(status?: string)}
+          {#if status === "running"}
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+              {$_('system.running')}
+            </span>
+          {:else if status === "disabled"}
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700/60 px-2 py-0.2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+              {$_('system.disabled')}
+            </span>
+          {:else}
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700/60 px-2 py-0.2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+              {$_('system.stopped')}
+            </span>
+          {/if}
+        {/snippet}
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
           <!-- Syslog -->
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">Syslog</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.syslog?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {sysInfo?.receivers?.syslog?.port || "UDP :514 / TCP :514"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.syslog?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.syslog?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">RFC 3164 / RFC 5424</div>
           </div>
@@ -655,12 +681,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">SNMP TRAP</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.trap?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {sysInfo?.receivers?.trap?.port || "UDP :162 (v1/v2c/v3)"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.trap?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.trap?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">SNMP TRAP / InformRequest</div>
           </div>
@@ -669,12 +693,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">NetFlow / IPFIX</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.netflow?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {sysInfo?.receivers?.netflow?.port || "UDP :2055"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.netflow?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.netflow?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">NetFlow v5 / v9 / IPFIX</div>
           </div>
@@ -683,12 +705,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.mcpServer')}</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.mcp?.status)}
             </div>
-            <div class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-              {sysInfo?.receivers?.mcp?.port || "SSE /api/mcp/sse"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.mcp?.status === 'running' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.mcp?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.mcpDesc')}</div>
           </div>
@@ -697,12 +717,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">OpenTelemetry</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.otel?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {sysInfo?.receivers?.otel?.port || "HTTP :4318 (OTLP)"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.otel?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.otel?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">OTLP Traces / Metrics / Logs</div>
           </div>
@@ -711,12 +729,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.mqttBroker')}</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.mqtt?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {sysInfo?.receivers?.mqtt?.port || "TCP :1883"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.mqtt?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.mqtt?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.mqttDesc')}</div>
           </div>
@@ -725,12 +741,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">sFlow</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.sflow?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {sysInfo?.receivers?.sflow?.port || "UDP :6343"}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.sflow?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {formatReceiverPort(sysInfo?.receivers?.sflow?.port)}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.sflowDesc')}</div>
           </div>
@@ -739,12 +753,10 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">ARP Watch</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.receivers?.arp?.status)}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-              {$_('system.arpScan')}
+            <div class="font-mono font-semibold {sysInfo?.receivers?.arp?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+              {sysInfo?.receivers?.arp?.status === 'running' ? (sysInfo?.receivers?.arp?.range || $_('system.arpScan')) : $_('system.disabled')}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.arpDesc')}</div>
           </div>
@@ -753,11 +765,9 @@
           <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.pingEngine') || "PING (ICMP)"}</span>
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                {$_('system.running')}
-              </span>
+              {@render statusBadge(sysInfo?.ping_mode ? 'running' : 'stopped')}
             </div>
-            <div class="font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
+            <div class="font-mono font-semibold {sysInfo?.ping_mode ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
               Mode: {sysInfo?.ping_mode?.toUpperCase() || "UDP"}
             </div>
             <div class="text-[10px] text-slate-500 dark:text-slate-400">

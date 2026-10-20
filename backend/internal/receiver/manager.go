@@ -2,6 +2,7 @@ package receiver
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -244,5 +245,126 @@ func (m *Manager) ResetArpTable() {
 	if m.arpWatch != nil {
 		m.arpWatch.ResetTable()
 	}
+}
+
+// GetReceiverStatus returns a map describing ports and running statuses of all managed receivers.
+func (m *Manager) GetReceiverStatus(mcpEnabled bool) map[string]any {
+	result := make(map[string]any)
+
+	// Syslog
+	if m.cfg.SyslogUDP > 0 && m.cfg.SyslogTCP > 0 {
+		result["syslog"] = map[string]any{
+			"port":   fmt.Sprintf("UDP :%d / TCP :%d", m.cfg.SyslogUDP, m.cfg.SyslogTCP),
+			"status": "running",
+		}
+	} else if m.cfg.SyslogUDP > 0 {
+		result["syslog"] = map[string]any{
+			"port":   fmt.Sprintf("UDP :%d", m.cfg.SyslogUDP),
+			"status": "running",
+		}
+	} else if m.cfg.SyslogTCP > 0 {
+		result["syslog"] = map[string]any{
+			"port":   fmt.Sprintf("TCP :%d", m.cfg.SyslogTCP),
+			"status": "running",
+		}
+	} else {
+		result["syslog"] = map[string]any{
+			"port":   "-",
+			"status": "stopped",
+		}
+	}
+
+	// SNMP Trap
+	if m.cfg.TrapPort > 0 {
+		result["trap"] = map[string]any{
+			"port":   fmt.Sprintf("UDP :%d (v1/v2c/v3)", m.cfg.TrapPort),
+			"status": "running",
+		}
+	} else {
+		result["trap"] = map[string]any{
+			"port":   "-",
+			"status": "stopped",
+		}
+	}
+
+	// NetFlow
+	if m.cfg.NetFlowPort > 0 {
+		result["netflow"] = map[string]any{
+			"port":   fmt.Sprintf("UDP :%d", m.cfg.NetFlowPort),
+			"status": "running",
+		}
+	} else {
+		result["netflow"] = map[string]any{
+			"port":   "-",
+			"status": "stopped",
+		}
+	}
+
+	// sFlow
+	if m.cfg.SFlowPort > 0 {
+		result["sflow"] = map[string]any{
+			"port":   fmt.Sprintf("UDP :%d", m.cfg.SFlowPort),
+			"status": "running",
+		}
+	} else {
+		result["sflow"] = map[string]any{
+			"port":   "-",
+			"status": "stopped",
+		}
+	}
+
+	// OpenTelemetry
+	if m.cfg.OTelPort > 0 {
+		result["otel"] = map[string]any{
+			"port":   fmt.Sprintf("HTTP :%d (OTLP)", m.cfg.OTelPort),
+			"status": "running",
+		}
+	} else {
+		result["otel"] = map[string]any{
+			"port":   "-",
+			"status": "stopped",
+		}
+	}
+
+	// MQTT Broker
+	if m.cfg.MQTTPort > 0 {
+		result["mqtt"] = map[string]any{
+			"port":   fmt.Sprintf("TCP :%d", m.cfg.MQTTPort),
+			"status": "running",
+		}
+	} else {
+		result["mqtt"] = map[string]any{
+			"port":   "-",
+			"status": "stopped",
+		}
+	}
+
+	// MCP Server
+	if mcpEnabled {
+		result["mcp"] = map[string]any{
+			"port":   "Streamable HTTP /api/mcp",
+			"status": "running",
+		}
+	} else {
+		result["mcp"] = map[string]any{
+			"port":   "-",
+			"status": "disabled",
+		}
+	}
+
+	// ARP Watch
+	if m.cfg.EnableArpWatch {
+		result["arp"] = map[string]any{
+			"status": "running",
+			"range":  m.cfg.ArpWatchRange,
+		}
+	} else {
+		result["arp"] = map[string]any{
+			"status": "disabled",
+			"range":  "",
+		}
+	}
+
+	return result
 }
 

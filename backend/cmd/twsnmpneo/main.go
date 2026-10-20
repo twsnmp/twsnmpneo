@@ -807,16 +807,8 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	})
 
 	// Receiver info map for UI
-	receiversInfo := map[string]any{
-		"syslog":  map[string]any{"port": fmt.Sprintf("UDP :%d / TCP :%d", sUDP, sTCP), "status": "running"},
-		"trap":    map[string]any{"port": fmt.Sprintf("UDP :%d (v1/v2c/v3)", tPort), "status": "running"},
-		"netflow": map[string]any{"port": fmt.Sprintf("UDP :%d", nfPort), "status": "running"},
-		"sflow":   map[string]any{"port": fmt.Sprintf("UDP :%d", sfPort), "status": "running"},
-		"otel":    map[string]any{"port": fmt.Sprintf("HTTP :%d (OTLP)", oPort), "status": "running"},
-		"mqtt":    map[string]any{"port": fmt.Sprintf("TCP :%d", mPort), "status": "running"},
-		"mcp":     map[string]any{"port": "Streamable HTTP /api/mcp", "status": "running"},
-		"arp":     map[string]any{"status": "running", "range": arpWatchRange},
-	}
+	mcpEnabled := mapConf != nil && mapConf.EnableMCP
+	receiversInfo := recvMgr.GetReceiverStatus(mcpEnabled)
 
 	// Resolve TLS and ACME server certificate
 	defaultCert := filepath.Join(cfg.dataDir, "cert.pem")

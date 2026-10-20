@@ -59,6 +59,7 @@ type Server struct {
 type ArpManager interface {
 	DeleteArpEntries(ips []string)
 	ResetArpTable()
+	GetReceiverStatus(mcpEnabled bool) map[string]any
 }
 
 type Config struct {
@@ -487,6 +488,14 @@ func NewServer(cfg Config) (*Server, error) {
 			polls, _ := cfg.Store.ListPollings(c.Request().Context())
 			pollCount = len(polls)
 		}
+		receivers := cfg.Receivers
+		if cfg.ArpManager != nil {
+			mcpEnabled := false
+			if cfg.MCPServer != nil {
+				mcpEnabled = cfg.MCPServer.IsEnabled()
+			}
+			receivers = cfg.ArpManager.GetReceiverStatus(mcpEnabled)
+		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"version":    cfg.Version,
 			"commit":     cfg.Commit,
@@ -496,7 +505,7 @@ func NewServer(cfg Config) (*Server, error) {
 			"node_count": nodeCount,
 			"poll_count": pollCount,
 			"ping_mode":  ping.GetPingMode(),
-			"receivers":  cfg.Receivers,
+			"receivers":  receivers,
 		})
 	})
 
