@@ -52,7 +52,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 			url = "http://" + node.IP
 		} else {
 			return &Result{
-				State:   StateHigh,
+				State:   StateUnknown,
 				Message: "missing target URL or IP",
 			}, nil
 		}
@@ -111,7 +111,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		}
 		fields["error"] = errStr
 		return &Result{
-			State:   StateHigh,
+			State:   failureState(pe.Level),
 			RTT:     rtt,
 			Message: fmt.Sprintf("http request to %s failed: %v", url, lastErr),
 			Fields:  fields,
@@ -126,7 +126,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	// Status code >= 400 check
 	if statusCode >= 400 {
 		return &Result{
-			State:   StateHigh,
+			State:   failureState(pe.Level),
 			RTT:     rtt,
 			Message: fmt.Sprintf("http status %d from %s", statusCode, url),
 			Fields:  fields,
@@ -204,7 +204,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		if err := extractor.ApplyExtractor(pe.Extractor, bodyStr, vm, fields); err != nil {
 			fields["error"] = err.Error()
 			return &Result{
-				State:   StateHigh,
+				State:   StateUnknown,
 				RTT:     rtt,
 				Message: fmt.Sprintf("http extractor error: %v", err),
 				Fields:  fields,
@@ -231,7 +231,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("http script error: %v", err),
 			Fields:  fields,

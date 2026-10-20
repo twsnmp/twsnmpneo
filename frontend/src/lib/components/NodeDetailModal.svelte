@@ -345,11 +345,11 @@
 
     for (const p of nodePollings) {
       const st = (p.state || (p as any).State || "").toLowerCase();
-      if (st === "normal") {
+      if (st === "normal" || st === "repair") {
         normalCount++;
       } else if (st === "warn" || st === "low") {
         warnCount++;
-      } else if (st === "high" || st === "repair" || st === "critical") {
+      } else if (st === "high" || st === "critical") {
         criticalCount++;
       } else {
         warnCount++;
@@ -403,7 +403,8 @@
     const res = ((p.result || (p as any).Result) || {}) as Record<string, any>;
     const st = (p.state || (p as any).State || "unknown").toLowerCase();
     const isNormal = st === "normal";
-    const isCritical = st === "high" || st === "repair" || st === "critical";
+    const isRepair = st === "repair";
+    const isCritical = st === "high" || st === "critical";
     const isWarn = st === "warn" || st === "low";
 
     let rttMs: string | null = null;
@@ -426,6 +427,7 @@
     return {
       st,
       isNormal,
+      isRepair,
       isCritical,
       isWarn,
       rttMs,
@@ -2237,6 +2239,11 @@
                         {#if card.isNormal}
                           <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
                             <CheckCircle2 class="h-3 w-3" />
+                            {getStateName(card.st)}
+                          </span>
+                        {:else if card.isRepair}
+                          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20 shrink-0">
+                            <Activity class="h-3 w-3" />
                             {getStateName(card.st)}
                           </span>
                         {:else if card.isCritical}

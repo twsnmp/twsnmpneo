@@ -22,12 +22,12 @@ func NewSSHPoller() *SSHPoller {
 
 func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	if node == nil || node.IP == "" {
-		return &Result{State: StateHigh, Message: "missing node IP for SSH"}, nil
+		return &Result{State: StateUnknown, Message: "missing node IP for SSH"}, nil
 	}
 
 	cmdStr := pe.Params
 	if cmdStr == "" {
-		return &Result{State: StateHigh, Message: "missing SSH command to execute"}, nil
+		return &Result{State: StateUnknown, Message: "missing SSH command to execute"}, nil
 	}
 
 	port := "22"
@@ -78,7 +78,7 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 	conn, err := net.DialTimeout("tcp", target, timeout)
 	if err != nil {
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     time.Since(start),
 			Message: fmt.Sprintf("ssh connect to %s failed: %v", target, err),
 			Fields: map[string]interface{}{
@@ -91,7 +91,7 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 	if err != nil {
 		conn.Close()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     time.Since(start),
 			Message: fmt.Sprintf("ssh handshake with %s failed: %v", target, err),
 			Fields: map[string]interface{}{
@@ -105,7 +105,7 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 	session, err := client.NewSession()
 	if err != nil {
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     time.Since(start),
 			Message: fmt.Sprintf("ssh new session failed: %v", err),
 			Fields: map[string]interface{}{
@@ -125,7 +125,7 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 			exitCode = exitErr.ExitStatus()
 		} else {
 			return &Result{
-				State:   StateHigh,
+				State:   StateUnknown,
 				RTT:     rtt,
 				Message: fmt.Sprintf("ssh command run error: %v", err),
 				Fields: map[string]interface{}{
@@ -155,7 +155,7 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 		if err := extractor.ApplyExtractor(pe.Extractor, outStr, vm, fields); err != nil {
 			fields["error"] = err.Error()
 			return &Result{
-				State:   StateHigh,
+				State:   StateUnknown,
 				RTT:     rtt,
 				Message: fmt.Sprintf("ssh extractor error: %v", err),
 				Fields:  fields,
@@ -188,7 +188,7 @@ func (p *SSHPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("ssh script error: %v", err),
 			Fields:  fields,

@@ -24,7 +24,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		if node != nil && node.Name != "" {
 			host = node.Name
 		} else {
-			return &Result{State: StateHigh, Message: "missing host to resolve (set Params)"}, nil
+			return &Result{State: StateUnknown, Message: "missing host to resolve (set Params)"}, nil
 		}
 	}
 
@@ -78,7 +78,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 			errStr = lastErr.Error()
 		}
 		return &Result{
-			State:   StateHigh,
+			State:   failureState(pe.Level),
 			RTT:     rtt,
 			Message: fmt.Sprintf("dns %s lookup for %s failed: %v", mode, host, lastErr),
 			Fields: map[string]interface{}{
@@ -109,7 +109,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		msg := fmt.Sprintf("dns resolved %s -> %s, rtt=%v", host, out[0], rtt)
 		if oldIP != "" && oldIP != out[0] {
 			return &Result{
-				State:   StateHigh,
+				State:   failureState(pe.Level),
 				RTT:     rtt,
 				Message: fmt.Sprintf("dns IP changed: %s -> %s", oldIP, out[0]),
 				Fields:  fields,
@@ -155,7 +155,7 @@ func (p *DNSPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 	value, err := vm.Run(pe.Script)
 	if err != nil {
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("dns script error: %v", err),
 			Fields:  fields,

@@ -25,7 +25,7 @@ func (p *NTPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 		}, nil
 	}
 	if node == nil || node.IP == "" {
-		return &Result{State: StateHigh, Message: "missing node IP address"}, nil
+		return &Result{State: StateUnknown, Message: "missing node IP address"}, nil
 	}
 
 	timeout := time.Duration(pe.Timeout) * time.Second
@@ -54,7 +54,7 @@ func (p *NTPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *data
 		}, nil
 	}
 	return &Result{
-		State:   StateHigh,
+		State:   failureState(pe.Level),
 		Message: fmt.Sprintf("ntp query to %s failed: %v", node.IP, lastErr),
 		Fields: map[string]interface{}{
 			"rtt":    float64(0),

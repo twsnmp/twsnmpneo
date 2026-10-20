@@ -40,7 +40,7 @@ func (p *EMailPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *
 
 	u, err := url.Parse(target)
 	if err != nil {
-		return &Result{State: StateHigh, Message: fmt.Sprintf("invalid email target url: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("invalid email target url: %v", err)}, nil
 	}
 
 	scheme := strings.ToLower(u.Scheme)
@@ -112,7 +112,7 @@ func (p *EMailPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("email script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("email script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {

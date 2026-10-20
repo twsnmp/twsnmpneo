@@ -441,6 +441,25 @@ func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 	return count, nil
 }
 
+func statePriority(state string) int {
+	switch state {
+	case StateHigh:
+		return 5
+	case StateLow:
+		return 4
+	case StateWarn:
+		return 3
+	case StateRepair:
+		return 2
+	case StateNormal, "info":
+		return 1
+	case StateUnknown:
+		return 0
+	default:
+		return 0
+	}
+}
+
 func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) {
 	if m.store == nil || node == nil {
 		return
@@ -450,6 +469,7 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 		return
 	}
 
+	bestPriority := -1
 	newState := StateUnknown
 	hasActivePolling := false
 
@@ -459,41 +479,20 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 		}
 		hasActivePolling = true
 		s := p.State
-		if s == StateHigh {
-			newState = StateHigh
-			break
+		if s == StateRepair && node.AutoAck {
+			p.State = StateNormal
+			s = StateNormal
+			_ = m.store.SavePolling(ctx, p)
 		}
-		if s == StateLow {
-			newState = StateLow
-			continue
-		}
-		if newState == StateLow {
-			continue
-		}
-		if s == StateWarn {
-			newState = StateWarn
-			continue
-		}
-		if newState == StateWarn {
-			continue
-		}
-		if s == StateRepair {
-			if !node.AutoAck {
-				newState = StateRepair
-				continue
+		pr := statePriority(s)
+		if pr > bestPriority {
+			bestPriority = pr
+			if s == "info" {
+				newState = StateNormal
 			} else {
-				p.State = StateNormal
-				s = StateNormal
-				_ = m.store.SavePolling(ctx, p)
+				newState = s
 			}
 		}
-		if newState != StateUnknown {
-			continue
-		}
-		if s == "info" {
-			s = StateNormal
-		}
-		newState = s
 	}
 
 	if !hasActivePolling {

@@ -50,7 +50,7 @@ func (p *TWSNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 		}, nil
 	}
 	if node == nil && pe.Params == "" {
-		return &Result{State: StateHigh, Message: "missing node or URL target"}, nil
+		return &Result{State: StateUnknown, Message: "missing node or URL target"}, nil
 	}
 
 	timeoutSec := pe.Timeout
@@ -61,7 +61,7 @@ func (p *TWSNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 
 	twsnmpURL, user, password, err := resolveTWSNMPTarget(pe, node)
 	if err != nil {
-		return &Result{State: StateHigh, Message: fmt.Sprintf("invalid twsnmp target: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("invalid twsnmp target: %v", err)}, nil
 	}
 
 	var rtt time.Duration
@@ -115,7 +115,7 @@ func (p *TWSNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 		}
 		fields["error"] = errStr
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("twsnmp poll failed for %s: %v", twsnmpURL, lastErr),
 			Fields:  fields,
@@ -126,7 +126,7 @@ func (p *TWSNMPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 	if err := json.Unmarshal(bodyBytes, &status); err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("failed to parse twsnmp mapstatus: %v", err),
 			Fields:  fields,

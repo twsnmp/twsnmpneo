@@ -26,10 +26,10 @@ func NewTCPPoller() *TCPPoller {
 
 func (p *TCPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	if node == nil {
-		return &Result{State: StateHigh, Message: "missing node"}, nil
+		return &Result{State: StateUnknown, Message: "missing node"}, nil
 	}
 	if node.IP == "" && node.Name == "" && pe.Params == "" {
-		return &Result{State: StateHigh, Message: "missing node IP or host address"}, nil
+		return &Result{State: StateUnknown, Message: "missing node IP or host address"}, nil
 	}
 
 	mode := strings.ToLower(pe.Mode)
@@ -121,7 +121,7 @@ func (p *TCPPoller) pollTCP(ctx context.Context, pe *datastore.PollingEnt, node 
 		}, nil
 	}
 	return &Result{
-		State:   StateHigh,
+		State:   failureState(pe.Level),
 		RTT:     rtt,
 		Message: fmt.Sprintf("tcp connection to %s failed: %v", target, lastErr),
 		Fields: map[string]interface{}{
@@ -212,7 +212,7 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 	if !ok {
 		fields["error"] = lastErr.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   failureState(pe.Level),
 			RTT:     rtt,
 			Message: fmt.Sprintf("tls connect to %s failed: %v", target, lastErr),
 			Fields:  fields,
@@ -230,7 +230,7 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 			if cert == nil {
 				fields["error"] = "server certificate not found"
 				return &Result{
-					State:   StateHigh,
+					State:   failureState(pe.Level),
 					RTT:     rtt,
 					Message: "tls expire: server certificate not found",
 					Fields:  fields,
@@ -239,7 +239,7 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 			deadline := time.Now().AddDate(0, 0, days)
 			if deadline.After(cert.NotAfter) {
 				return &Result{
-					State:   StateHigh,
+					State:   failureState(pe.Level),
 					RTT:     rtt,
 					Message: fmt.Sprintf("tls cert expires %s (within %d days)", cert.NotAfter.Format("2006/01/02"), days),
 					Fields:  fields,
@@ -251,7 +251,7 @@ func (p *TCPPoller) pollTLS(pe *datastore.PollingEnt, node *datastore.NodeEnt) (
 	// version mode: negate result if Script contains "!"
 	if mode == "version" && strings.Contains(pe.Script, "!") {
 		return &Result{
-			State:   StateHigh,
+			State:   failureState(pe.Level),
 			RTT:     rtt,
 			Message: "tls version check failed (negated)",
 			Fields:  fields,

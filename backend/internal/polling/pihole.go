@@ -52,7 +52,7 @@ func (p *PiHolePoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return &Result{State: StateHigh, Message: fmt.Sprintf("invalid pihole request: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("invalid pihole request: %v", err)}, nil
 	}
 
 	resp, err := client.Do(req)
@@ -69,7 +69,7 @@ func (p *PiHolePoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return &Result{State: StateHigh, Message: fmt.Sprintf("read pihole response: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("read pihole response: %v", err)}, nil
 	}
 	bodyStr := string(bodyBytes)
 
@@ -116,7 +116,7 @@ func (p *PiHolePoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node 
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("pihole script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("pihole script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {

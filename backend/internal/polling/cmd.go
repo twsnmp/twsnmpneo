@@ -31,7 +31,7 @@ func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 	}
 	cmdStr := pe.Params
 	if cmdStr == "" {
-		return &Result{State: StateHigh, Message: "missing command to execute"}, nil
+		return &Result{State: StateUnknown, Message: "missing command to execute"}, nil
 	}
 
 	if node != nil {
@@ -63,7 +63,7 @@ func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 			exitCode = exitErr.ExitCode()
 		} else {
 			return &Result{
-				State:   StateHigh,
+				State:   StateUnknown,
 				RTT:     rtt,
 				Message: fmt.Sprintf("cmd execution error: %v", err),
 				Fields: map[string]interface{}{
@@ -98,7 +98,7 @@ func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 		if err := extractor.ApplyExtractor(pe.Extractor, stdoutStr, vm, fields); err != nil {
 			fields["error"] = err.Error()
 			return &Result{
-				State:   StateHigh,
+				State:   StateUnknown,
 				RTT:     rtt,
 				Message: fmt.Sprintf("extractor error: %v", err),
 				Fields:  fields,
@@ -133,7 +133,7 @@ func (p *CmdPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *da
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("script error: %v", err),
 			Fields:  fields,

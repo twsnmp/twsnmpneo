@@ -298,9 +298,25 @@
     // Periodic refresh every 5 seconds
     refreshTimer = setInterval(async () => {
       try {
-        const [el, pl] = await Promise.all([fetchEventLogs(), fetchPollings()]);
+        const [el, pl, n] = await Promise.all([
+          fetchEventLogs(),
+          fetchPollings(),
+          fetchNodes(),
+        ]);
         eventLogs = el;
         pollings = pl;
+        nodes = n;
+        const cur = detailNode;
+        if (cur) {
+          const curId = cur.id || (cur as any).ID;
+          const updated = n.find(
+            (item) => (item.id || (item as any).ID) === curId
+          );
+          if (updated) {
+            detailNode = updated;
+          }
+        }
+        await updateMAP();
       } catch (e) {
         console.error("Polling error:", e);
       }

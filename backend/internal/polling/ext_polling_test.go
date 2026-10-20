@@ -25,10 +25,10 @@ func TestNTPPoller_Success(t *testing.T) {
 	poller := polling.NewNTPPoller()
 	ctx := context.Background()
 
-	// Missing IP should return StateHigh
+	// Missing IP should return StateUnknown like FK
 	res, err := poller.Poll(ctx, &datastore.PollingEnt{}, nil)
-	if err != nil || res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on nil node, got %s", res.State)
+	if err != nil || res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on nil node, got %s", res.State)
 	}
 
 	// Unreachable IP should fail gracefully with StateHigh
@@ -261,11 +261,11 @@ func TestTWSNMPPoller(t *testing.T) {
 		t.Fatalf("unexpected fields: %+v", res.Fields)
 	}
 
-	// 2. Auth failure
+	// 2. Auth failure (communication error -> StateUnknown like FK)
 	nodeBad := &datastore.NodeEnt{User: "wrong", Password: "credentials"}
 	res, _ = poller.Poll(ctx, pe, nodeBad)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on auth error, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on auth error, got %s", res.State)
 	}
 }
 
@@ -501,15 +501,15 @@ func TestSSHPoller(t *testing.T) {
 		t.Fatalf("expected StateNormal on SSH poll, got %s (err: %v, fields: %+v)", res.State, err, res.Fields)
 	}
 
-	// 2. Auth failure with wrong password
+	// 2. Auth failure with wrong password (connection/handshake failure -> StateUnknown like FK)
 	nodeBad := &datastore.NodeEnt{
 		IP:       "127.0.0.1",
 		SSHUser:  "testuser",
 		Password: "wrongpassword",
 	}
 	res, _ = poller.Poll(ctx, pe, nodeBad)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on SSH auth failure, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on SSH auth failure, got %s", res.State)
 	}
 }
 
@@ -535,8 +535,8 @@ func TestSNMPPoller_Modes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error for mode %s: %v", m, err)
 		}
-		if res.State != polling.StateWarn && res.State != polling.StateHigh {
-			t.Fatalf("expected failure state for mode %s on unreachable agent, got %s", m, res.State)
+		if res.State != polling.StateUnknown {
+			t.Fatalf("expected StateUnknown for mode %s on unreachable agent, got %s", m, res.State)
 		}
 	}
 }

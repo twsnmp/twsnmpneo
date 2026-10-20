@@ -54,7 +54,7 @@ func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, nod
 	if pe.Filter != "" {
 		r, err := regexp.Compile(pe.Filter)
 		if err != nil {
-			return &Result{State: StateHigh, Message: fmt.Sprintf("invalid trap filter regex: %v", err)}, nil
+			return &Result{State: StateUnknown, Message: fmt.Sprintf("invalid trap filter regex: %v", err)}, nil
 		}
 		reg = r
 	}
@@ -113,7 +113,7 @@ func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, nod
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("trap script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("trap script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {

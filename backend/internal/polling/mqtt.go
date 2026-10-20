@@ -47,7 +47,7 @@ func (p *MQTTPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return &Result{State: StateHigh, Message: fmt.Sprintf("invalid mqtt url: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("invalid mqtt url: %v", err)}, nil
 	}
 
 	hostPort := u.Host
@@ -135,7 +135,7 @@ func (p *MQTTPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("mqtt script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("mqtt script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {

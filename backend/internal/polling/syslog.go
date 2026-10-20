@@ -66,7 +66,7 @@ func (p *SyslogPoller) pollCount(ctx context.Context, pe *datastore.PollingEnt, 
 	if pe.Filter != "" {
 		r, err := regexp.Compile(pe.Filter)
 		if err != nil {
-			return &Result{State: StateHigh, Message: fmt.Sprintf("invalid filter regex: %v", err)}, nil
+			return &Result{State: StateUnknown, Message: fmt.Sprintf("invalid filter regex: %v", err)}, nil
 		}
 		reg = r
 	}
@@ -120,7 +120,7 @@ func (p *SyslogPoller) pollCount(ctx context.Context, pe *datastore.PollingEnt, 
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {
@@ -201,7 +201,7 @@ func (p *SyslogPoller) pollPri(ctx context.Context, pe *datastore.PollingEnt, no
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {
@@ -250,7 +250,7 @@ func (p *SyslogPoller) pollStats(ctx context.Context, pe *datastore.PollingEnt, 
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("stats script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("stats script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {
@@ -343,7 +343,7 @@ func (p *SyslogPoller) pollSigma(ctx context.Context, pe *datastore.PollingEnt, 
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("sigma script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("sigma script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {

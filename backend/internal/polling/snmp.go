@@ -25,7 +25,7 @@ func NewSNMPPoller() *SNMPPoller {
 func (p *SNMPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	if node == nil || node.IP == "" {
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			Message: "missing node IP address",
 		}, nil
 	}
@@ -39,7 +39,7 @@ func (p *SNMPPoller) Poll(_ context.Context, pe *datastore.PollingEnt, node *dat
 	start := time.Now()
 	if err := agent.Connect(); err != nil {
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     time.Since(start),
 			Message: fmt.Sprintf("snmp connect to %s failed: %v", node.IP, err),
 			Fields: map[string]interface{}{
@@ -85,7 +85,7 @@ func (p *SNMPPoller) pollSysUpTime(pe *datastore.PollingEnt, agent *gosnmp.GoSNM
 	rtt := time.Since(start)
 	if err != nil {
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp get sysUpTime failed: %v", err),
 			Fields:  map[string]interface{}{"error": err.Error(), "rtt": float64(rtt.Nanoseconds())},
@@ -149,7 +149,7 @@ func (p *SNMPPoller) pollSysUpTime(pe *datastore.PollingEnt, agent *gosnmp.GoSNM
 // 2. ifOperStatus mode
 func (p *SNMPPoller) pollIF(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, start time.Time) (*Result, error) {
 	if pe.Params == "" {
-		return &Result{State: StateHigh, Message: "missing ifIndex in Params"}, nil
+		return &Result{State: StateUnknown, Message: "missing ifIndex in Params"}, nil
 	}
 
 	operOID := mib.NameToOID("ifOperStatus." + pe.Params)
@@ -158,7 +158,7 @@ func (p *SNMPPoller) pollIF(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, star
 	rtt := time.Since(start)
 	if err != nil {
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp if status failed: %v", err),
 			Fields:  map[string]interface{}{"error": err.Error(), "rtt": float64(rtt.Nanoseconds())},
@@ -212,7 +212,7 @@ func (p *SNMPPoller) pollSystemDate(pe *datastore.PollingEnt, agent *gosnmp.GoSN
 	rtt := time.Since(start)
 	if err != nil {
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp get hrSystemDate failed: %v", err),
 			Fields:  map[string]interface{}{"error": err.Error(), "rtt": float64(rtt.Nanoseconds())},
@@ -273,7 +273,7 @@ func (p *SNMPPoller) pollSystemDate(pe *datastore.PollingEnt, agent *gosnmp.GoSN
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("hrSystemDate script error: %v", err),
 			Fields:  fields,
@@ -328,7 +328,7 @@ func (p *SNMPPoller) pollCount(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp walk count error: %v", err),
 			Fields:  fields,
@@ -353,7 +353,7 @@ func (p *SNMPPoller) pollCount(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("count script error: %v", err),
 			Fields:  fields,
@@ -421,7 +421,7 @@ func (p *SNMPPoller) pollProcess(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp process walk error: %v", err),
 			Fields:  fields,
@@ -455,7 +455,7 @@ func (p *SNMPPoller) pollProcess(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, RTT: rtt, Message: fmt.Sprintf("process script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, RTT: rtt, Message: fmt.Sprintf("process script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {
@@ -489,7 +489,7 @@ func (p *SNMPPoller) pollStats(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 			msg = err.Error()
 		}
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp stats error: %s", msg),
 			Fields:  map[string]interface{}{"error": msg, "rtt": float64(rtt.Nanoseconds())},
@@ -523,7 +523,7 @@ func (p *SNMPPoller) pollStats(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, RTT: rtt, Message: fmt.Sprintf("stats script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, RTT: rtt, Message: fmt.Sprintf("stats script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {
@@ -535,7 +535,7 @@ func (p *SNMPPoller) pollStats(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, s
 // 7. traffic mode
 func (p *SNMPPoller) pollTraffic(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, start time.Time) (*Result, error) {
 	if pe.Params == "" {
-		return &Result{State: StateHigh, Message: "missing ifIndex in Params"}, nil
+		return &Result{State: StateUnknown, Message: "missing ifIndex in Params"}, nil
 	}
 
 	oids := []string{
@@ -554,7 +554,7 @@ func (p *SNMPPoller) pollTraffic(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 	rtt := time.Since(start)
 	if err != nil {
 		return &Result{
-			State:   failureState(pe.Level),
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp traffic get failed: %v", err),
 			Fields:  map[string]interface{}{"error": err.Error(), "rtt": float64(rtt.Nanoseconds())},
@@ -662,7 +662,7 @@ func (p *SNMPPoller) pollTraffic(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		lr["error"] = err.Error()
-		return &Result{State: StateHigh, RTT: rtt, Message: fmt.Sprintf("traffic script error: %v", err), Fields: lr}, nil
+		return &Result{State: StateUnknown, RTT: rtt, Message: fmt.Sprintf("traffic script error: %v", err), Fields: lr}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {
@@ -674,7 +674,7 @@ func (p *SNMPPoller) pollTraffic(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP,
 // 8. script mode (provides snmpGet)
 func (p *SNMPPoller) pollScript(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, start time.Time) (*Result, error) {
 	if pe.Script == "" {
-		return &Result{State: StateHigh, Message: "missing Script in script mode"}, nil
+		return &Result{State: StateUnknown, Message: "missing Script in script mode"}, nil
 	}
 
 	rtt := time.Since(start)
@@ -711,7 +711,7 @@ func (p *SNMPPoller) pollScript(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, 
 	if err != nil {
 		fields["error"] = err.Error()
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp script error: %v", err),
 			Fields:  fields,
@@ -754,7 +754,7 @@ func (p *SNMPPoller) pollGet(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, sta
 	rtt := time.Since(start)
 	if err != nil {
 		return &Result{
-			State:   StateHigh,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: fmt.Sprintf("snmp get failed: %v", err),
 			Fields:  map[string]interface{}{"error": err.Error(), "rtt": float64(rtt.Nanoseconds())},
@@ -763,7 +763,7 @@ func (p *SNMPPoller) pollGet(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, sta
 
 	if len(result.Variables) == 0 {
 		return &Result{
-			State:   StateWarn,
+			State:   StateUnknown,
 			RTT:     rtt,
 			Message: "no variables returned",
 			Fields:  map[string]interface{}{"rtt": float64(rtt.Nanoseconds())},
@@ -820,7 +820,7 @@ func (p *SNMPPoller) pollGet(pe *datastore.PollingEnt, agent *gosnmp.GoSNMP, sta
 		val, err := vm.Run(pe.Script)
 		if err != nil {
 			lr["error"] = err.Error()
-			return &Result{State: StateHigh, RTT: rtt, Message: fmt.Sprintf("snmp script error: %v", err), Fields: lr}, nil
+			return &Result{State: StateUnknown, RTT: rtt, Message: fmt.Sprintf("snmp script error: %v", err), Fields: lr}, nil
 		}
 		pass, _ := val.ToBoolean()
 		if !pass {

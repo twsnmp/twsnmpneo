@@ -33,7 +33,7 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	}
 	start := time.Now()
 	if pe.Script == "" {
-		return &Result{State: StateHigh, Message: "gnmi polling requires a Script"}, nil
+		return &Result{State: StateUnknown, Message: "gnmi polling requires a Script"}, nil
 	}
 
 	target := pe.Params
@@ -43,7 +43,7 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		} else if node != nil {
 			target = fmt.Sprintf("%s:57400", node.IP)
 		} else {
-			return &Result{State: StateHigh, Message: "target address not found"}, nil
+			return &Result{State: StateUnknown, Message: "target address not found"}, nil
 		}
 	} else if pNum, err := strconv.Atoi(target); err == nil && pNum > 0 && pNum < 65535 {
 		if node != nil {
@@ -70,7 +70,7 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		api.SkipVerify(true),
 	)
 	if err != nil {
-		return &Result{State: failureState(pe.Level), Message: fmt.Sprintf("gnmi target error: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("gnmi target error: %v", err)}, nil
 	}
 
 	timeout := time.Duration(pe.Timeout) * time.Second
@@ -81,7 +81,7 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	defer cancel()
 
 	if err := tg.CreateGNMIClient(subCtx); err != nil {
-		return &Result{State: failureState(pe.Level), Message: fmt.Sprintf("gnmi connect error: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("gnmi connect error: %v", err)}, nil
 	}
 	defer tg.Close()
 
@@ -92,12 +92,12 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 
 	getReq, err := api.NewGetRequest(api.Path(path), api.Encoding(encoding))
 	if err != nil {
-		return &Result{State: StateHigh, Message: fmt.Sprintf("gnmi get request error: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("gnmi get request error: %v", err)}, nil
 	}
 
 	getResp, err := tg.Get(subCtx, getReq)
 	if err != nil {
-		return &Result{State: failureState(pe.Level), Message: fmt.Sprintf("gnmi get error: %v", err)}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("gnmi get error: %v", err)}, nil
 	}
 
 	var data []byte
@@ -118,7 +118,7 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	}
 
 	if len(data) == 0 {
-		return &Result{State: StateHigh, Message: "gnmi response contained no json data"}, nil
+		return &Result{State: StateUnknown, Message: "gnmi response contained no json data"}, nil
 	}
 
 	dataStr := string(data)
@@ -145,7 +145,7 @@ func (p *GNMIPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	val, err := vm.Run(pe.Script)
 	if err != nil {
 		fields["error"] = err.Error()
-		return &Result{State: StateHigh, Message: fmt.Sprintf("gnmi script error: %v", err), Fields: fields}, nil
+		return &Result{State: StateUnknown, Message: fmt.Sprintf("gnmi script error: %v", err), Fields: fields}, nil
 	}
 	pass, _ := val.ToBoolean()
 	if pass {

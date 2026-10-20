@@ -97,8 +97,8 @@ func TestHTTPPoller(t *testing.T) {
 
 	// 5. Completely missing URL/IP
 	res, _ = poller.Poll(ctx, p, nil)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on missing URL, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on missing URL, got %s", res.State)
 	}
 }
 
@@ -156,8 +156,8 @@ func TestTCPPoller(t *testing.T) {
 
 	// 4. Missing IP
 	res, _ = poller.Poll(ctx, p, nil)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on missing IP, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on missing IP, got %s", res.State)
 	}
 }
 
@@ -209,8 +209,8 @@ func TestDNSPoller(t *testing.T) {
 
 	// 3. Missing host completely
 	res, _ = poller.Poll(ctx, &datastore.PollingEnt{}, nil)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on missing host, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on missing host, got %s", res.State)
 	}
 }
 
@@ -220,8 +220,8 @@ func TestNTPPoller(t *testing.T) {
 
 	// 1. Missing node IP
 	res, _ := poller.Poll(ctx, &datastore.PollingEnt{}, nil)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on missing IP, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on missing IP, got %s", res.State)
 	}
 
 	// 2. Local mock NTP listener
@@ -268,11 +268,11 @@ func TestSNMPPoller(t *testing.T) {
 
 	// 1. Missing node IP
 	res, _ := poller.Poll(ctx, &datastore.PollingEnt{}, nil)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on missing IP, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on missing IP, got %s", res.State)
 	}
 
-	// 2. Connect failure to closed port
+	// 2. Connect failure to closed port (communication error -> StateUnknown like FK)
 	node := &datastore.NodeEnt{
 		IP:        "127.0.0.1",
 		SnmpPort:  65534,
@@ -284,8 +284,8 @@ func TestSNMPPoller(t *testing.T) {
 		Timeout: 1,
 	}
 	res, _ = poller.Poll(ctx, p, node)
-	if res.State != polling.StateHigh {
-		t.Fatalf("expected StateHigh on connect failure, got %s", res.State)
+	if res.State != polling.StateUnknown {
+		t.Fatalf("expected StateUnknown on connect failure, got %s", res.State)
 	}
 }
 
