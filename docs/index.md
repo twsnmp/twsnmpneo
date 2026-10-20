@@ -22,6 +22,7 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 ### Core Highlights
 - **Zero-Install Web Experience**: Full management capabilities accessible from any modern desktop or mobile browser.
 - **p5.js & 3D WebGL Canvas**: Hardware-accurate switching hub panels with real-time port LEDs and full 3D interactive hardware panels (`vpanel`).
+- **GIS Geographic Map (MapLibre)**: Plot network nodes across geographic tile layers (OpenStreetMap, GSI, CARTO, etc.) with real-time health status coloring and interactive positioning.
 - **Apache Parquet Columnar Storage**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios and sub-second query performance.
 - **Native AI & Built-in MCP Server**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis and natural language polling creation.
 - **Self-Contained Private PKI**: Issue, renew, and automate TLS certificates via ACME and SCEP directly within your network manager.
@@ -213,6 +214,20 @@ Configure global map appearance and underlying canvas properties:
 - **Import Map Data**: Restore layouts exported from TWSNMP FC, FK, or NEO.
 
 ![](./images/en/settings_map.png)
+
+### GIS Location Map (MapLibre)
+
+Powered by MapLibre GL, the GIS Location view visualizes node physical distribution across real-world geographic map layers based on each node's latitude and longitude (`Loc` property). Ideal for wide-area networks (WAN) and multi-site campus infrastructure monitoring.
+
+![](./images/en/location_map.png)
+
+- **Comprehensive Map Style Presets**: Built-in map tile presets including Geospatial Information Authority of Japan (GSI Pale, Standard, Photo), CARTO (Dark / Light), OSM Bright, MIERUNE Mono, OSM Standard, or custom tile JSON/URLs.
+- **Intuitive Node Placement**: Place unmapped nodes directly from the top selector dropdown or right-click any blank map point to summon the node placement dialog. Easily reposition nodes using marker drag-and-drop with instant coordinate persistence.
+- **Save Default View**: Save the current map center and zoom level as the default startup viewpoint with a single click.
+- **Location Lock Toggle**: Toggle editing mode to lock markers and prevent accidental dragging during monitoring operations.
+- **Real-Time State Indicators**: Node marker icons and labels dynamically reflect real-time operational health (Normal, Warning, High Error, Critical).
+
+![](./images/en/location_config.png)
 
 ---
 

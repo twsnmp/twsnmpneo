@@ -33,6 +33,7 @@
 
 ### 1. Modern Web & 3D Visualization
 - **p5.js Topology Canvas**: Node icons (MDI font/custom images), switching hub network port panels with LED indicators, bandwidth flow animation, and 11 distinct draw item types (KPI cards, sparklines, gauges, shapes, images).
+- **MapLibre GIS Geographic Map**: Plot and monitor nodes across geographical layers (OpenStreetMap, GSI, CARTO) with real-time status coloring, marker drag-and-drop repositioning, unplaced node placement, and default view persistence.
 - **3D Virtual Hardware Panel (`vpanel`)**: WebGL-accelerated 3D switch rendering with RJ45 port textures, Link UP/DOWN & 1Gbps+ speed LEDs, power LEDs, and interactive orbit controls.
 - **Apache ECharts Analytics**: High-performance multi-axis time-series charts, IPAM utilization heatmaps, response time distribution, and traffic rate graphs.
 
