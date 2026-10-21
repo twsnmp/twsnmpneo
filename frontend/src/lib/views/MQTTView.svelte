@@ -1117,7 +1117,7 @@
               <table class="w-full text-left text-xs border-collapse">
                 <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th class="w-44 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("time")}>
+                    <th class="w-40 py-1 px-2.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("time")}>
                       <div class="flex items-center gap-1">
                         <span>{$_('mqtt.colTime')}</span>
                         {#if logSortKey === "time"}
@@ -1127,7 +1127,7 @@
                         {/if}
                       </div>
                     </th>
-                    <th class="w-36 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("src")}>
+                    <th class="w-28 py-1 px-2.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("src")}>
                       <div class="flex items-center gap-1">
                         <span>{$_('mqtt.colRemote')}</span>
                         {#if logSortKey === "src"}
@@ -1137,7 +1137,7 @@
                         {/if}
                       </div>
                     </th>
-                    <th class="w-44 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("clientID")}>
+                    <th class="w-32 py-1 px-2.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("clientID")}>
                       <div class="flex items-center gap-1">
                         <span>{$_('mqtt.colClientId')}</span>
                         {#if logSortKey === "clientID"}
@@ -1147,7 +1147,7 @@
                         {/if}
                       </div>
                     </th>
-                    <th class="w-64 py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("topic")}>
+                    <th class="py-1 px-2.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("topic")}>
                       <div class="flex items-center gap-1">
                         <span>{$_('mqtt.colTopic')}</span>
                         {#if logSortKey === "topic"}
@@ -1157,7 +1157,7 @@
                         {/if}
                       </div>
                     </th>
-                    <th class="py-1 px-2.5 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("payload")}>
+                    <th class="py-1 px-2.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-slate-200 select-none transition-colors" onclick={() => handleLogSort("payload")}>
                       <div class="flex items-center gap-1">
                         <span>{$_('mqtt.colPayload')}</span>
                         {#if logSortKey === "payload"}
@@ -1167,7 +1167,7 @@
                         {/if}
                       </div>
                     </th>
-                    <th class="w-10 py-1 px-2 text-center"></th>
+                    <th class="w-10 py-1 px-2 text-center whitespace-nowrap"></th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 font-mono text-slate-700 dark:text-slate-300">
@@ -1190,22 +1190,22 @@
                         onclick={() => (selectedLog = l)}
                         class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
                       >
-                        <td class="py-1 px-2 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                        <td class="py-1 px-2 text-[11px] text-slate-500 dark:text-slate-400 leading-tight whitespace-nowrap">
                           {renderTime(l.time)}
                         </td>
-                        <td class="py-1 px-2 text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
+                        <td class="py-1 px-2 text-[11px] text-slate-700 dark:text-slate-300 leading-tight whitespace-nowrap">
                           {l.src}
                         </td>
-                        <td class="py-1 px-2 text-[11px] truncate max-w-[160px] leading-tight text-slate-700 dark:text-slate-300" title={l.clientID}>
+                        <td class="py-1 px-2 text-[11px] truncate max-w-[120px] leading-tight text-slate-700 dark:text-slate-300 whitespace-nowrap" title={l.clientID}>
                           {l.clientID}
                         </td>
-                        <td class="py-1 px-2 text-[11px] text-cyan-600 dark:text-cyan-300 truncate max-w-[240px] leading-tight font-medium" title={l.topic}>
+                        <td class="py-1 px-2 text-[11px] text-cyan-600 dark:text-cyan-300 font-medium leading-tight whitespace-nowrap select-all font-mono" title={l.topic}>
                           {l.topic || "-"}
                         </td>
-                        <td class="py-1 px-2 text-[11px] truncate max-w-[400px] leading-tight text-slate-700 dark:text-slate-300">
+                        <td class="py-1 px-2 text-[11px] truncate max-w-[280px] lg:max-w-[360px] xl:max-w-[500px] leading-tight text-slate-700 dark:text-slate-300" title={l.payload}>
                           {l.payload}
                         </td>
-                        <td class="py-1 px-2 text-center">
+                        <td class="py-1 px-2 text-center whitespace-nowrap">
                           <button
                             onclick={(e) => { e.stopPropagation(); selectedLog = l; }}
                             class="p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
