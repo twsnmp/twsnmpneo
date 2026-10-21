@@ -76,3 +76,45 @@ func TestFetchNetworkPorts_Invalid(t *testing.T) {
 		t.Errorf("expected nw.Error to be set on failure")
 	}
 }
+
+func TestCheckNetworkPortState(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. nil network
+	if err := CheckNetworkPortState(ctx, nil, 1, 0); err == nil {
+		t.Errorf("expected error for nil network")
+	}
+
+	// 2. empty IP or empty Ports returns nil
+	emptyNet := &datastore.NetworkEnt{IP: "", Ports: []datastore.PortEnt{}}
+	if err := CheckNetworkPortState(ctx, emptyNet, 1, 0); err != nil {
+		t.Errorf("expected nil for empty network, got %v", err)
+	}
+
+	// 3. Unmanaged network without IP
+	unmNet := &datastore.NetworkEnt{
+		Unmanaged: true,
+		Ports: []datastore.PortEnt{
+			{ID: "p1", State: "unknown"},
+		},
+	}
+	if err := CheckNetworkPortState(ctx, unmNet, 1, 0); err != nil {
+		t.Errorf("unexpected error for unmanaged net: %v", err)
+	}
+
+	// 4. Managed network with unreachable IP
+	managedNet := &datastore.NetworkEnt{
+		IP:        "192.0.2.1",
+		Community: "public",
+		Ports: []datastore.PortEnt{
+			{ID: "1", Index: "1", Polling: "ifOperStatus.1", State: "unknown"},
+		},
+	}
+	err := CheckNetworkPortState(ctx, managedNet, 1, 0)
+	if err == nil {
+		t.Errorf("expected error for unreachable managed network")
+	}
+	if managedNet.Error == "" {
+		t.Errorf("expected managedNet.Error to be populated")
+	}
+}

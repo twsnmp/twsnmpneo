@@ -180,12 +180,16 @@ export interface NetworkEnt {
   h_ports?: number;
   ports: PortEnt[];
   descr?: string;
+  url?: string;
   snmp_mode?: string;
   community?: string;
   user?: string;
   password?: string;
   snmp_port?: number;
   unmanaged?: boolean;
+  arp_watch?: boolean;
+  lldp?: boolean;
+  system_id?: string;
   error?: string;
 
   // Compatibility aliases
@@ -198,12 +202,16 @@ export interface NetworkEnt {
   H?: number;
   Ports?: PortEnt[];
   Descr?: string;
+  URL?: string;
   SnmpMode?: string;
   Community?: string;
   User?: string;
   Password?: string;
   SnmpPort?: number;
   Unmanaged?: boolean;
+  ArpWatch?: boolean;
+  LLDP?: boolean;
+  SystemID?: string;
   Error?: string;
 }
 
@@ -745,6 +753,8 @@ export function normalizeNetwork(raw: any): NetworkEnt {
     h, H: h,
     descr: raw.descr || raw.Descr || '',
     Descr: raw.descr || raw.Descr || '',
+    url: raw.url || raw.URL || '',
+    URL: raw.url || raw.URL || '',
     snmp_mode: raw.snmp_mode || raw.SnmpMode || '',
     SnmpMode: raw.snmp_mode || raw.SnmpMode || '',
     community: raw.community || raw.Community || '',
@@ -757,6 +767,12 @@ export function normalizeNetwork(raw: any): NetworkEnt {
     SnmpPort: raw.snmp_port || raw.SnmpPort || 0,
     unmanaged: raw.unmanaged ?? raw.Unmanaged ?? false,
     Unmanaged: raw.unmanaged ?? raw.Unmanaged ?? false,
+    arp_watch: raw.arp_watch ?? raw.ArpWatch ?? false,
+    ArpWatch: raw.arp_watch ?? raw.ArpWatch ?? false,
+    lldp: raw.lldp ?? raw.LLDP ?? false,
+    LLDP: raw.lldp ?? raw.LLDP ?? false,
+    system_id: raw.system_id || raw.SystemID || '',
+    SystemID: raw.system_id || raw.SystemID || '',
     error: raw.error || raw.Error || '',
     Error: raw.error || raw.Error || '',
     ports, Ports: ports,
@@ -1189,6 +1205,8 @@ export async function saveNetwork(net: Partial<NetworkEnt>): Promise<NetworkEnt>
     Password: (net as any).password || (net as any).Password || '',
     SnmpPort: (net as any).snmp_port || (net as any).SnmpPort || 0,
     Unmanaged: (net as any).unmanaged ?? (net as any).Unmanaged ?? false,
+    ArpWatch: (net as any).arp_watch ?? (net as any).ArpWatch ?? false,
+    URL: (net as any).url || (net as any).URL || '',
     SystemID: (net as any).system_id || (net as any).SystemID || '',
     Descr: (net as any).descr || (net as any).Descr || '',
     HPorts: net.h_ports || (net as any).HPorts || 24,

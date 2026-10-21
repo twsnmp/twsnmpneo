@@ -12,6 +12,7 @@ import (
 	"github.com/gosnmp/gosnmp"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/mib"
+	"github.com/twsnmp/twsnmpneo/backend/internal/ping"
 )
 
 // GetSNMPAgentForNetwork creates and returns a configured GoSNMP agent for a NetworkEnt.
@@ -195,6 +196,26 @@ func FetchNetworkPorts(ctx context.Context, nw *datastore.NetworkEnt, timeoutSec
 	if err == nil && len(lldpPorts) > 0 {
 		nw.LLDP = true
 		nw.Error = ""
+		// Query ifOperStatus (.1.3.6.1.2.1.2.2.1.8) for initial port states
+		statusMap := make(map[string]string)
+		_ = agent.Walk(".1.3.6.1.2.1.2.2.1.8", func(pdu gosnmp.SnmpPDU) error {
+			parts := strings.Split(pdu.Name, ".")
+			idx := parts[len(parts)-1]
+			val := gosnmp.ToBigInt(pdu.Value).Int64()
+			if val == 1 {
+				statusMap[idx] = "up"
+			} else if val == 2 {
+				statusMap[idx] = "down"
+			} else {
+				statusMap[idx] = "unknown"
+			}
+			return nil
+		})
+		for i := range lldpPorts {
+			if st, ok := statusMap[lldpPorts[i].Index]; ok {
+				lldpPorts[i].State = st
+			}
+		}
 		return lldpPorts, nil
 	}
 
@@ -349,10 +370,114 @@ func UpdateNetworkPorts(ctx context.Context, store datastore.DataStore, nw *data
 	return nil
 }
 
+// CheckNetworkPortState polls and updates port link states for a NetworkEnt.
+func CheckNetworkPortState(ctx context.Context, nw *datastore.NetworkEnt, timeoutSec, retries int) error {
+	if nw == nil {
+		return fmt.Errorf("network is nil")
+	}
+	if nw.Unmanaged {
+		if nw.IP != "" {
+			result := ping.DoPing(nw.IP, timeoutSec, retries, 64, 64)
+			if result.Stat == ping.PingOK {
+				nw.Error = ""
+				for i := range nw.Ports {
+					nw.Ports[i].State = "up"
+				}
+			} else {
+				nw.Error = "Ping No Response"
+				for i := range nw.Ports {
+					nw.Ports[i].State = "down"
+				}
+			}
+		}
+		return nil
+	}
+
+	if nw.IP == "" || len(nw.Ports) == 0 {
+		return nil
+	}
+
+	agent := GetSNMPAgentForNetwork(nw, timeoutSec, retries)
+	if agent == nil {
+		nw.Error = "Invalid SNMP config"
+		return fmt.Errorf("invalid SNMP config")
+	}
+	if err := agent.Connect(); err != nil {
+		nw.Error = fmt.Sprintf("SNMP access err: %v", err)
+		return err
+	}
+	defer func() {
+		if agent.Conn != nil {
+			_ = agent.Conn.Close()
+		}
+	}()
+
+	statusMap := make(map[string]string)
+	walkErr := agent.Walk(".1.3.6.1.2.1.2.2.1.8", func(pdu gosnmp.SnmpPDU) error {
+		parts := strings.Split(pdu.Name, ".")
+		idx := parts[len(parts)-1]
+		val := gosnmp.ToBigInt(pdu.Value).Int64()
+		if val == 1 {
+			statusMap[idx] = "up"
+		} else if val == 2 {
+			statusMap[idx] = "down"
+		} else {
+			statusMap[idx] = "unknown"
+		}
+		return nil
+	})
+
+	updatedCount := 0
+	for i := range nw.Ports {
+		idx := nw.Ports[i].Index
+		if idx == "" {
+			idx = nw.Ports[i].ID
+		}
+		if st, ok := statusMap[idx]; ok {
+			nw.Ports[i].State = st
+			updatedCount++
+		} else if nw.Ports[i].Polling != "" {
+			oid := nw.Ports[i].Polling
+			if strings.HasPrefix(oid, "ifOperStatus.") {
+				subIdx := strings.TrimPrefix(oid, "ifOperStatus.")
+				if st, ok := statusMap[subIdx]; ok {
+					nw.Ports[i].State = st
+					updatedCount++
+					continue
+				}
+				oid = ".1.3.6.1.2.1.2.2.1.8." + subIdx
+			}
+			if !strings.HasPrefix(oid, ".") {
+				oid = mib.NameToOID(oid)
+			}
+			if oid != "" {
+				if r, err := agent.Get([]string{oid}); err == nil && len(r.Variables) > 0 {
+					val := gosnmp.ToBigInt(r.Variables[0].Value).Int64()
+					if val == 1 {
+						nw.Ports[i].State = "up"
+					} else if val == 2 {
+						nw.Ports[i].State = "down"
+					} else {
+						nw.Ports[i].State = "unknown"
+					}
+					updatedCount++
+				}
+			}
+		}
+	}
+
+	if walkErr != nil && updatedCount == 0 {
+		nw.Error = fmt.Sprintf("SNMP walk ifOperStatus err: %v", walkErr)
+		return walkErr
+	}
+	nw.Error = ""
+	return nil
+}
+
 // StartNetworkBackend runs a background daemon checking for unpopulated networks and polling port states.
 func StartNetworkBackend(ctx context.Context, store datastore.DataStore) {
 	go func() {
-		ticker := time.NewTicker(15 * time.Second)
+		ticker := time.NewTicker(20 * time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -365,16 +490,39 @@ func StartNetworkBackend(ctx context.Context, store datastore.DataStore) {
 					continue
 				}
 				for _, nw := range nets {
-					if nw.Unmanaged || nw.IP == "" {
+					if nw.IP == "" {
 						continue
 					}
-					// If ports are missing and no permanent error, try discovering ports
-					if len(nw.Ports) == 0 && nw.Error == "" {
+					// If managed and ports are missing, try discovering ports
+					if !nw.Unmanaged && len(nw.Ports) == 0 && nw.Error == "" {
 						slog.Info("Discovering network ports in background", "ip", nw.IP, "name", nw.Name)
 						ports, err := FetchNetworkPorts(ctx, nw, 2, 0)
 						if err == nil && len(ports) > 0 {
 							nw.Ports = ports
 							nw.Error = ""
+							_ = store.SaveNetwork(ctx, nw)
+						}
+					} else if len(nw.Ports) > 0 {
+						// Poll port states
+						prevStates := make([]string, len(nw.Ports))
+						for i, p := range nw.Ports {
+							prevStates[i] = p.State
+						}
+						prevErr := nw.Error
+
+						_ = CheckNetworkPortState(ctx, nw, 2, 0)
+
+						// Save only if state or error changed
+						changed := prevErr != nw.Error
+						if !changed {
+							for i, p := range nw.Ports {
+								if p.State != prevStates[i] {
+									changed = true
+									break
+								}
+							}
+						}
+						if changed {
 							_ = store.SaveNetwork(ctx, nw)
 						}
 					}

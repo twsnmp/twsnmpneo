@@ -1890,14 +1890,23 @@ func NewServer(cfg Config) (*Server, error) {
 					}
 				}
 			} else {
-				ports, err := topology.FetchNetworkPorts(c.Request().Context(), nw, 3, 1)
-				if err != nil {
-					nw.Error = err.Error()
-					_ = cfg.Store.SaveNetwork(c.Request().Context(), nw)
-					return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
+				if len(nw.Ports) > 0 {
+					if err := topology.CheckNetworkPortState(c.Request().Context(), nw, 3, 1); err != nil {
+						nw.Error = err.Error()
+						_ = cfg.Store.SaveNetwork(c.Request().Context(), nw)
+						return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
+					}
+					nw.Error = ""
+				} else {
+					ports, err := topology.FetchNetworkPorts(c.Request().Context(), nw, 3, 1)
+					if err != nil {
+						nw.Error = err.Error()
+						_ = cfg.Store.SaveNetwork(c.Request().Context(), nw)
+						return c.JSON(http.StatusBadGateway, map[string]string{"error": err.Error()})
+					}
+					nw.Ports = ports
+					nw.Error = ""
 				}
-				nw.Ports = ports
-				nw.Error = ""
 			}
 			if err := cfg.Store.SaveNetwork(c.Request().Context(), nw); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
