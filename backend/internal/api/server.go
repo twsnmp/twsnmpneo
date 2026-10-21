@@ -1213,6 +1213,11 @@ func NewServer(cfg Config) (*Server, error) {
 				n.ID = datastore.GenerateID()
 			}
 
+			var existing *datastore.NodeEnt
+			if !isNew {
+				existing, _ = cfg.Store.GetNode(c.Request().Context(), n.ID)
+			}
+
 			// If address mode is host, resolve IP from node name
 			if n.AddrMode == "host" {
 				target := strings.TrimSpace(n.Name)
@@ -1231,23 +1236,58 @@ func NewServer(cfg Config) (*Server, error) {
 				}
 			}
 
+			isMovedOnly := false
+			if !isNew && existing != nil {
+				if n.Vendor == "" && existing.Vendor != "" {
+					n.Vendor = existing.Vendor
+				}
+				if n.State == "" && existing.State != "" {
+					n.State = existing.State
+				}
+				if existing.Name == n.Name &&
+					existing.Descr == n.Descr &&
+					existing.Icon == n.Icon &&
+					existing.Image == n.Image &&
+					existing.IP == n.IP &&
+					existing.MAC == n.MAC &&
+					existing.Vendor == n.Vendor &&
+					existing.SnmpMode == n.SnmpMode &&
+					existing.Community == n.Community &&
+					existing.User == n.User &&
+					existing.SSHUser == n.SSHUser &&
+					existing.Password == n.Password &&
+					existing.GNMIPort == n.GNMIPort &&
+					existing.GNMIEncoding == n.GNMIEncoding &&
+					existing.GNMIUser == n.GNMIUser &&
+					existing.GNMIPassword == n.GNMIPassword &&
+					existing.PublicKey == n.PublicKey &&
+					existing.URL == n.URL &&
+					existing.AddrMode == n.AddrMode &&
+					existing.AutoAck == n.AutoAck &&
+					existing.SnmpPort == n.SnmpPort {
+					isMovedOnly = true
+				}
+			}
+
 			if err := cfg.Store.SaveNode(c.Request().Context(), &n); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			var eventMsg string
-			if isNew {
-				eventMsg = fmt.Sprintf(i18n.Trans("Added node %s (%s)"), n.Name, n.IP)
-			} else {
-				eventMsg = fmt.Sprintf(i18n.Trans("Updated node %s (%s)"), n.Name, n.IP)
+			if !isMovedOnly {
+				var eventMsg string
+				if isNew {
+					eventMsg = fmt.Sprintf(i18n.Trans("Added node %s (%s)"), n.Name, n.IP)
+				} else {
+					eventMsg = fmt.Sprintf(i18n.Trans("Updated node %s (%s)"), n.Name, n.IP)
+				}
+				_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+					Time:     time.Now().UnixNano(),
+					Type:     "user",
+					Level:    "info",
+					NodeName: n.Name,
+					NodeID:   n.ID,
+					Event:    eventMsg,
+				})
 			}
-			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
-				Time:     time.Now().UnixNano(),
-				Type:     "user",
-				Level:    "info",
-				NodeName: n.Name,
-				NodeID:   n.ID,
-				Event:    eventMsg,
-			})
 			return c.JSON(http.StatusOK, &n)
 		})
 		apiGroup.GET("/nodes/:id", func(c echo.Context) error {

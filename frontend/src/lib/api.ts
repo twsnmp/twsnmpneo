@@ -1042,6 +1042,7 @@ export async function saveNode(node: Partial<NodeEnt>): Promise<NodeEnt> {
     Name: node.name || node.Name || '',
     IP: node.ip || node.IP || '',
     MAC: node.mac || node.MAC || '',
+    Vendor: (node as any).vendor || (node as any).Vendor || '',
     Icon: node.icon || node.Icon || 'desktop',
     Image: node.image || node.Image || '',
     State: node.state || node.State || 'normal',

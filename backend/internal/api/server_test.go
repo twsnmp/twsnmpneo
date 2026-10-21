@@ -142,6 +142,55 @@ func TestAPIServer_Endpoints(t *testing.T) {
 		t.Errorf("get node by id failed: code %d, body: %s", rec.Code, rec.Body.String())
 	}
 
+	// Test: moving a node must NOT generate an event log
+	logs, _ := bStore.QueryEventLogs(context.Background(), datastore.EventLogFilter{NodeID: "n-api-1"})
+	initialCount := len(logs)
+	if initialCount == 0 {
+		t.Errorf("expected event log for newly added node, got 0")
+	}
+
+	// Move node by updating only X and Y coordinates via POST /api/nodes
+	movePayload := `{"id":"n-api-1","name":"Core Router","ip":"192.168.1.1","state":"normal","X":500,"Y":600}`
+	req = httptest.NewRequest(http.MethodPost, "/api/nodes", strings.NewReader(movePayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("moving node returned %d: %s", rec.Code, rec.Body.String())
+	}
+	logsAfterMove, _ := bStore.QueryEventLogs(context.Background(), datastore.EventLogFilter{NodeID: "n-api-1"})
+	if len(logsAfterMove) != initialCount {
+		t.Errorf("expected no new event log when moving node, before: %d, after: %d", initialCount, len(logsAfterMove))
+	}
+
+	// Move node via POST /api/nodes/positions
+	posPayload := `[{"ID":"n-api-1","X":700,"Y":800}]`
+	req = httptest.NewRequest(http.MethodPost, "/api/nodes/positions", strings.NewReader(posPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("posting positions returned %d: %s", rec.Code, rec.Body.String())
+	}
+	logsAfterBatchMove, _ := bStore.QueryEventLogs(context.Background(), datastore.EventLogFilter{NodeID: "n-api-1"})
+	if len(logsAfterBatchMove) != initialCount {
+		t.Errorf("expected no new event log when moving node via positions, before: %d, after: %d", initialCount, len(logsAfterBatchMove))
+	}
+
+	// Updating node property (e.g. Descr) SHOULD output an event log
+	editPayload := `{"id":"n-api-1","name":"Core Router","ip":"192.168.1.1","descr":"Updated Description","X":700,"Y":800}`
+	req = httptest.NewRequest(http.MethodPost, "/api/nodes", strings.NewReader(editPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("updating node property returned %d: %s", rec.Code, rec.Body.String())
+	}
+	logsAfterEdit, _ := bStore.QueryEventLogs(context.Background(), datastore.EventLogFilter{NodeID: "n-api-1"})
+	if len(logsAfterEdit) != initialCount+1 {
+		t.Errorf("expected 1 new event log when updating node properties, before: %d, after: %d", initialCount, len(logsAfterEdit))
+	}
+
 	// 2.5 Test node creation with addr_mode="host" and no auto-created ping
 	hostNodePayload := `{"id":"n-host-1","name":"localhost","addr_mode":"host"}`
 	req = httptest.NewRequest(http.MethodPost, "/api/nodes", strings.NewReader(hostNodePayload))

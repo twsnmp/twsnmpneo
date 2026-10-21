@@ -714,6 +714,7 @@ export const horizontal = async (selected: string[]) => {
   let prevX = x0;
   const y0 = nodes[id0]?.y ?? (nodes[id0] as any)?.Y ?? 0;
 
+  const list: { ID: string; X: number; Y: number }[] = [];
   for (let i = 1; i < selected.length; i++) {
     const id = selected[i];
     if (nodes[id]) {
@@ -723,8 +724,15 @@ export const horizontal = async (selected: string[]) => {
       nodes[id].x = prevX;
       nodes[id].X = prevX;
       checkNodePos(nodes[id]);
-      await saveNode(nodes[id]).catch(console.error);
+      list.push({
+        ID: id,
+        X: prevX,
+        Y: y0,
+      });
     }
+  }
+  if (list.length > 0) {
+    await updateNodePositions(list).catch(console.error);
   }
   mapRedraw = true;
 };
@@ -744,6 +752,7 @@ export const vertical = async (selected: string[]) => {
   let prevY = y0;
   const x0 = nodes[id0]?.x ?? (nodes[id0] as any)?.X ?? 0;
 
+  const list: { ID: string; X: number; Y: number }[] = [];
   for (let i = 1; i < selected.length; i++) {
     const id = selected[i];
     if (nodes[id]) {
@@ -753,8 +762,15 @@ export const vertical = async (selected: string[]) => {
       nodes[id].y = prevY;
       nodes[id].Y = prevY;
       checkNodePos(nodes[id]);
-      await saveNode(nodes[id]).catch(console.error);
+      list.push({
+        ID: id,
+        X: x0,
+        Y: prevY,
+      });
     }
+  }
+  if (list.length > 0) {
+    await updateNodePositions(list).catch(console.error);
   }
   mapRedraw = true;
 };
@@ -772,6 +788,7 @@ export const circle = async (selected: string[]) => {
   let cy = nodes[selected[0]]?.y ?? (nodes[selected[0]] as any)?.Y ?? 0;
   if (cy - r < 0) cy = 40 + r;
 
+  const list: { ID: string; X: number; Y: number }[] = [];
   for (let i = 0; i < selected.length; i++) {
     const id = selected[i];
     if (nodes[id]) {
@@ -784,8 +801,15 @@ export const circle = async (selected: string[]) => {
       nodes[id].y = ny;
       nodes[id].Y = ny;
       checkNodePos(nodes[id]);
-      await saveNode(nodes[id]).catch(console.error);
+      list.push({
+        ID: id,
+        X: nx,
+        Y: ny,
+      });
     }
+  }
+  if (list.length > 0) {
+    await updateNodePositions(list).catch(console.error);
   }
   mapRedraw = true;
 };
@@ -1720,11 +1744,21 @@ const mapMain = (p5: P5) => {
 
     if (dragMode === 2) {
       if (draggedNodes.length > 0) {
+        const list: { ID: string; X: number; Y: number }[] = [];
         draggedNodes.forEach((id) => {
           if (nodes[id]) {
-            saveNode(nodes[id]).catch(console.error);
+            const nx = nodes[id].x ?? (nodes[id] as any).X ?? 0;
+            const ny = nodes[id].y ?? (nodes[id] as any).Y ?? 0;
+            list.push({
+              ID: id,
+              X: nx,
+              Y: ny,
+            });
           }
         });
+        if (list.length > 0) {
+          updateNodePositions(list).catch(console.error);
+        }
         draggedNodes.length = 0;
       }
       if (draggedItems.length > 0) {
