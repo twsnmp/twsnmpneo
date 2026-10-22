@@ -1589,6 +1589,7 @@
     "noStats": "MQTTトピック統計データはありません",
     "expandPayload": "ペイロード詳細展開",
     "copyTopic": "トピック名をコピー",
+    "copyPayload": "ペイロードをコピー",
     "latestPayload": "最新ペイロード (Payload):",
     "logTrendTitle": "MQTT ログ受信件数推移 (時系列グラフ)",
     "filterApplied": "期間絞り込み適用中",

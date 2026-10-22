@@ -64,6 +64,7 @@
   let statPageSize = $state(25);
   let showReportModal = $state(false);
   let copiedTopicId = $state<string | null>(null);
+  let copiedPayloadId = $state<string | null>(null);
   let showDeleteAllConfirm = $state(false);
 
   // --- Logs Sorting State ---
@@ -321,6 +322,26 @@
     }, 1500);
   };
 
+  const copyPayload = async (raw: string, id: string) => {
+    if (!raw) return;
+    try {
+      let textToCopy = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        textToCopy = JSON.stringify(parsed, null, 2);
+      } catch {
+        // use raw string if not JSON
+      }
+      await navigator.clipboard.writeText(textToCopy);
+      copiedPayloadId = id;
+      setTimeout(() => {
+        if (copiedPayloadId === id) copiedPayloadId = null;
+      }, 1500);
+    } catch (e) {
+      console.error("Failed to copy payload:", e);
+    }
+  };
+
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
     const ok = await showConfirm({
@@ -372,9 +393,9 @@
     try {
       const parsed = JSON.parse(raw);
       const pretty = JSON.stringify(parsed, null, 2);
-      return `<pre class="font-mono text-xs text-emerald-600 dark:text-emerald-400 whitespace-pre-wrap"><code>${escapeHtml(pretty)}</code></pre>`;
+      return `<pre class="font-mono text-xs text-emerald-600 dark:text-emerald-400 whitespace-pre-wrap select-text"><code>${escapeHtml(pretty)}</code></pre>`;
     } catch {
-      return `<pre class="font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap"><code>${escapeHtml(raw)}</code></pre>`;
+      return `<pre class="font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap select-text"><code>${escapeHtml(raw)}</code></pre>`;
     }
   };
 
@@ -940,16 +961,52 @@
                           <td colspan="10" class="px-6 py-3">
                             <div class="flex flex-col gap-1.5">
                               <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                                <span class="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                  <Eye class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-                                  {$_('mqtt.latestPayload')}
-                                </span>
+                                <div class="flex items-center gap-2">
+                                  <span class="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Eye class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                                    {$_('mqtt.latestPayload')}
+                                  </span>
+                                  {#if s.Value}
+                                    <button
+                                      type="button"
+                                      onclick={() => copyPayload(s.Value, s.ID)}
+                                      title={$_('mqtt.copyPayload')}
+                                      class="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-xs"
+                                    >
+                                      {#if copiedPayloadId === s.ID}
+                                        <Check class="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                        <span class="text-emerald-600 dark:text-emerald-400 font-medium">{$_('common.copied') || 'コピー完了'}</span>
+                                      {:else}
+                                        <Copy class="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                                        <span>{$_('common.copy') || 'コピー'}</span>
+                                      {/if}
+                                    </button>
+                                  {/if}
+                                </div>
                                 <span class="font-mono text-[10px] text-slate-500">
                                   Topic: {s.Topic} ({s.Bytes} bytes)
                                 </span>
                               </div>
-                              <div class="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto max-h-60 text-slate-800 dark:text-slate-200">
-                                {@html formatJsonOrText(s.Value)}
+                              <div class="relative group">
+                                <div class="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto max-h-60 text-slate-800 dark:text-slate-200">
+                                  {@html formatJsonOrText(s.Value)}
+                                </div>
+                                {#if s.Value}
+                                  <button
+                                    type="button"
+                                    onclick={() => copyPayload(s.Value, s.ID)}
+                                    title={$_('mqtt.copyPayload')}
+                                    class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center gap-1 px-2 py-1 rounded bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-[10px] font-mono text-slate-700 dark:text-slate-300 backdrop-blur-xs transition-opacity cursor-pointer shadow-xs"
+                                  >
+                                    {#if copiedPayloadId === s.ID}
+                                      <Check class="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                      <span class="text-emerald-600 dark:text-emerald-400">{$_('common.copied') || 'コピー完了'}</span>
+                                    {:else}
+                                      <Copy class="h-3 w-3" />
+                                      <span>{$_('common.copy') || 'コピー'}</span>
+                                    {/if}
+                                  </button>
+                                {/if}
                               </div>
                             </div>
                           </td>
@@ -1375,9 +1432,45 @@
         </div>
 
         <div>
-          <span class="text-xs text-slate-500 dark:text-slate-400 block mb-1">{$_('mqtt.logDetailPayload')}</span>
-          <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl overflow-x-auto max-h-72">
-            {@html formatJsonOrText(selectedLog.payload)}
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs text-slate-500 dark:text-slate-400">{$_('mqtt.logDetailPayload')}</span>
+            {#if selectedLog.payload}
+              <button
+                type="button"
+                onclick={() => copyPayload(selectedLog.payload, 'modal')}
+                title={$_('mqtt.copyPayload')}
+                class="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-xs"
+              >
+                {#if copiedPayloadId === 'modal'}
+                  <Check class="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                  <span class="text-emerald-600 dark:text-emerald-400 font-medium">{$_('common.copied') || 'コピー完了'}</span>
+                {:else}
+                  <Copy class="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                  <span>{$_('common.copy') || 'コピー'}</span>
+                {/if}
+              </button>
+            {/if}
+          </div>
+          <div class="relative group">
+            <div class="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl overflow-x-auto max-h-72">
+              {@html formatJsonOrText(selectedLog.payload)}
+            </div>
+            {#if selectedLog.payload}
+              <button
+                type="button"
+                onclick={() => copyPayload(selectedLog.payload, 'modal')}
+                title={$_('mqtt.copyPayload')}
+                class="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 focus:opacity-100 flex items-center gap-1 px-2 py-1 rounded bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-[10px] font-mono text-slate-700 dark:text-slate-300 backdrop-blur-xs transition-opacity cursor-pointer shadow-xs"
+              >
+                {#if copiedPayloadId === 'modal'}
+                  <Check class="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                  <span class="text-emerald-600 dark:text-emerald-400">{$_('common.copied') || 'コピー完了'}</span>
+                {:else}
+                  <Copy class="h-3 w-3" />
+                  <span>{$_('common.copy') || 'コピー'}</span>
+                {/if}
+              </button>
+            {/if}
           </div>
         </div>
       </div>
