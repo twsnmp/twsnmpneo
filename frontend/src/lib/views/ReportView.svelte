@@ -24,6 +24,7 @@
     Binary,
     Terminal,
     Layers,
+    Bot,
   } from "@lucide/svelte";
   import {
     fetchNodes,
@@ -63,6 +64,7 @@
   import WinLogReport from "./reports/WinLogReport.svelte";
   import MqttReport from "./reports/MqttReport.svelte";
   import OTelReport from "./reports/OTelReport.svelte";
+  import AgentReport from "./reports/AgentReport.svelte";
 
   type ReportCategory =
     | "device"
@@ -81,6 +83,7 @@
     | "bluetooth"
     | "pcap"
     | "winlog"
+    | "twagent"
     | "mqtt"
     | "otel"
     | "ai";
@@ -144,6 +147,7 @@
         return ["nodes", "arpList", "ipam"];
       case "polling":
       case "cert":
+      case "twagent":
         return ["nodes", "pollings"];
       case "event":
         return ["nodes", "logs"];
@@ -190,6 +194,7 @@
     { id: "bluetooth", name: $_("report.tabBluetooth"), icon: Bluetooth },
     { id: "pcap", name: $_("report.tabPcap"), icon: Binary },
     { id: "winlog", name: $_("report.tabWinlog"), icon: Terminal },
+    { id: "twagent", name: $_("report.tabTwagent") || "twagentneo", icon: Bot },
     { id: "mqtt", name: $_("report.tabMqtt") || "MQTT", icon: Radio },
     { id: "otel", name: $_("report.tabOtel") || "OpenTelemetry", icon: Layers },
     { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
@@ -324,7 +329,8 @@
     activeReport === "bluetooth" ||
     activeReport === "env" ||
     activeReport === "pcap" ||
-    activeReport === "winlog"
+    activeReport === "winlog" ||
+    activeReport === "twagent"
   );
 
   const handleClearReport = async () => {
@@ -550,6 +556,15 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
+        {loading}
+      />
+    {:else if activeReport === "twagent"}
+      <AgentReport
+        bind:this={activeReportRef}
+        {searchQuery}
+        {nodes}
+        {pollings}
+        onRefresh={() => loadCategoryData("twagent", true)}
         {loading}
       />
     {:else if activeReport === "mqtt"}

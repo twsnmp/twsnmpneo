@@ -2,6 +2,7 @@ package logreport
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net"
 	"strings"
@@ -10,6 +11,11 @@ import (
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 )
+
+// MQTTReporter is an optional extension of Reporter that receives client metadata with MQTT messages.
+type MQTTReporter interface {
+	ProcessMQTTMsg(clientID, remote, topic string, payload []byte)
+}
 
 // Reporter is the interface implemented by the report engine for real-time
 // ingestion from various protocol receivers (Syslog, NetFlow, sFlow, SNMP Trap, MQTT, OTel, etc.).
@@ -39,6 +45,7 @@ type Engine struct {
 	syslogQueue   chan Record
 	flowQueue     chan *FlowRecord
 	trapQueue     chan *TrapRecord
+	mqttQueue     chan *MQTTRecord
 	stopCh        chan struct{}
 	flushCh       chan chan struct{}
 	wg            sync.WaitGroup
@@ -71,6 +78,7 @@ func NewEngine(store datastore.DataStore, opts ...Option) *Engine {
 		syslogQueue:   make(chan Record, 10000),
 		flowQueue:     make(chan *FlowRecord, 10000),
 		trapQueue:     make(chan *TrapRecord, 10000),
+		mqttQueue:     make(chan *MQTTRecord, 10000),
 		stopCh:        make(chan struct{}),
 		flushCh:       make(chan chan struct{}),
 		cleanInterval: time.Hour,
@@ -97,16 +105,26 @@ func (e *Engine) ProcessSyslog(sl map[string]interface{}) {
 	if content == "" {
 		content, _ = sl["message"].(string)
 	}
+	if sd, ok := sl["structured_data"].(string); ok && sd != "" && sd != "-" && !strings.Contains(content, sd) {
+		if content != "" {
+			content = sd + " " + content
+		} else {
+			content = sd
+		}
+	}
 
 	// If tag is empty or not directly matched, check if content starts with a known tag prefix
 	src := TagToSource(tag)
 	if src == "" && content != "" {
 		cTrim := strings.TrimSpace(content)
-		for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower"} {
+		for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower", "twagentneo"} {
 			if strings.HasPrefix(strings.ToLower(cTrim), strings.ToLower(prefix)) {
 				tag = prefix
 				break
 			}
+		}
+		if tag == "" && strings.Contains(cTrim, "[twsnmpneo@17862") {
+			tag = "twagentneo"
 		}
 	}
 
@@ -187,6 +205,8 @@ func TagToSource(tag string) string {
 		return SourcePcap
 	case "twwinlog":
 		return SourceWinLog
+	case "twagentneo", "twagentneo-fim", "twagentneo-resource":
+		return SourceTwAgent
 	default:
 		return ""
 	}
@@ -285,7 +305,18 @@ func (e *Engine) ProcessTrap(record any) {
 			Level:       lvl,
 		}
 	default:
-		return
+		if b, err := json.Marshal(record); err == nil {
+			var parsed TrapRecord
+			if json.Unmarshal(b, &parsed) == nil && (parsed.TrapType != "" || parsed.Variables != "" || parsed.FromAddress != "") {
+				if parsed.Time == 0 {
+					parsed.Time = time.Now().UnixNano()
+				}
+				tr = &parsed
+			}
+		}
+		if tr == nil {
+			return
+		}
 	}
 
 	select {
@@ -295,9 +326,30 @@ func (e *Engine) ProcessTrap(record any) {
 	}
 }
 
-// ProcessMQTT is a hook for future MQTT topic / payload ingestion.
+// ProcessMQTT ingests an MQTT topic and payload for report aggregation.
 func (e *Engine) ProcessMQTT(topic string, payload []byte) {
-	// To be expanded in upcoming iterations
+	e.ProcessMQTTMsg("", "", topic, payload)
+}
+
+// ProcessMQTTMsg ingests an MQTT topic and payload with optional client metadata.
+func (e *Engine) ProcessMQTTMsg(clientID, remote, topic string, payload []byte) {
+	if e == nil || topic == "" {
+		return
+	}
+	cp := make([]byte, len(payload))
+	copy(cp, payload)
+	mr := &MQTTRecord{
+		Time:     time.Now().UnixNano(),
+		Topic:    topic,
+		ClientID: clientID,
+		Remote:   remote,
+		Payload:  cp,
+	}
+	select {
+	case e.mqttQueue <- mr:
+	default:
+		slog.Warn("logreport engine: mqtt queue full, dropping record", "topic", topic)
+	}
 }
 
 // ProcessOTel is a hook for future OpenTelemetry metrics / trace ingestion.
@@ -367,7 +419,11 @@ func (e *Engine) workerLoop(ctx context.Context) {
 			case fr := <-e.flowQueue:
 				ensureSession().ProcessFlow(fr)
 			case tr := <-e.trapQueue:
-				ensureSession().ProcessTrapStat(tr)
+				s := ensureSession()
+				s.ProcessTrapStat(tr)
+				s.processTwAgentTrap(tr)
+			case mr := <-e.mqttQueue:
+				ensureSession().ProcessTwAgentMQTT(mr)
 			default:
 				commitSession()
 				return
@@ -405,6 +461,13 @@ func (e *Engine) workerLoop(ctx context.Context) {
 		case tr := <-e.trapQueue:
 			s := ensureSession()
 			s.ProcessTrapStat(tr)
+			s.processTwAgentTrap(tr)
+			if s.Processed >= e.maxBatchSize {
+				commitSession()
+			}
+		case mr := <-e.mqttQueue:
+			s := ensureSession()
+			s.ProcessTwAgentMQTT(mr)
 			if s.Processed >= e.maxBatchSize {
 				commitSession()
 			}

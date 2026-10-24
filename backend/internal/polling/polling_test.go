@@ -996,6 +996,139 @@ func TestHTTPHashPollingScript(t *testing.T) {
 	}
 }
 
+func TestTwAgentPollers(t *testing.T) {
+	store, pqStore, cleanup := setupTestEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	mgr := polling.NewManager(polling.Config{
+		Store:        store,
+		LogStore:     pqStore,
+		WorkerCount:  2,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	node := &datastore.NodeEnt{
+		ID:    "node-twagent-1",
+		Name:  "agent-host-01",
+		IP:    "10.0.0.55",
+		State: polling.StateUnknown,
+	}
+	_ = store.SaveNode(ctx, node)
+
+	now := time.Now().UnixNano()
+
+	// 1. MQTTPoller with embedded MqttStatEnt (metrics + status)
+	_ = store.SaveMqttStat(ctx, &datastore.MqttStatEnt{
+		ID:       "mqtt-stat-1",
+		ClientID: "agent-01",
+		Topic:    "twsnmpneo/agent/agent-01/metrics",
+		Remote:   "10.0.0.55",
+		Count:    12,
+		Bytes:    4096,
+		First:    now - int64(60*time.Second),
+		Last:     now,
+		Value:    `{"agent_id":"agent-01","hostname":"agent-host-01","cpu_percent":42.5,"mem_percent":68.0,"disk_used_percent":55.0,"rx_mbps":12.5,"tx_mbps":4.2}`,
+	})
+
+	mqttPoll := &datastore.PollingEnt{
+		ID:      "poll-twagent-mqtt",
+		NodeID:  node.ID,
+		Name:    "twagentneo MQTT Metrics",
+		Type:    "mqtt",
+		Mode:    "twagent",
+		Filter:  "twsnmpneo/agent/+/metrics",
+		Script:  "cpu_percent < 90 && mem_percent < 90 && disk_used_percent < 95",
+		Level:   "high",
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, mqttPoll)
+
+	resMQTT, err := mgr.ExecuteOne(ctx, mqttPoll)
+	if err != nil {
+		t.Fatalf("ExecuteOne MQTT error: %v", err)
+	}
+	if resMQTT.State != polling.StateNormal {
+		t.Fatalf("expected MQTT poll StateNormal, got %s (msg: %s, fields: %v)", resMQTT.State, resMQTT.Message, resMQTT.Fields)
+	}
+	if resMQTT.Fields["cpu_percent"] != 42.5 {
+		t.Errorf("expected cpu_percent=42.5, got %v", resMQTT.Fields["cpu_percent"])
+	}
+	if resMQTT.Fields["bps"] != 12.5*1000000 {
+		t.Errorf("expected bps=12500000, got %v", resMQTT.Fields["bps"])
+	}
+
+	// 2. SyslogPoller in twagent mode with RFC 5424 structured data
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: now,
+		Type: "syslog",
+		Src:  "10.0.0.55",
+		Log:  `{"hostname":"agent-host-01","app_name":"twagentneo","structured_data":"[twsnmpneo@17862 rule=\"Suspicious Shell\" threat=\"YES\" comp=\"YES\"]","message":"AI Verdict: High confidence shell execution"}`,
+	})
+	_ = pqStore.Flush()
+
+	syslogPoll := &datastore.PollingEnt{
+		ID:      "poll-twagent-syslog",
+		NodeID:  node.ID,
+		Name:    "twagentneo Syslog Threat",
+		Type:    "syslog",
+		Mode:    "twagent",
+		Script:  "threatCount == 0",
+		Level:   "high",
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, syslogPoll)
+
+	resSyslog, err := mgr.ExecuteOne(ctx, syslogPoll)
+	if err != nil {
+		t.Fatalf("ExecuteOne Syslog error: %v", err)
+	}
+	if resSyslog.State != polling.StateHigh {
+		t.Fatalf("expected Syslog poll StateHigh when threatCount=1, got %s (fields: %v)", resSyslog.State, resSyslog.Fields)
+	}
+	if resSyslog.Fields["threatCount"] != float64(1) {
+		t.Errorf("expected threatCount=1, got %v", resSyslog.Fields["threatCount"])
+	}
+	if resSyslog.Fields["compCount"] != float64(1) {
+		t.Errorf("expected compCount=1, got %v", resSyslog.Fields["compCount"])
+	}
+
+	// 3. SnmpTrapPoller in twagent mode
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: now,
+		Type: "trap",
+		Src:  "10.0.0.55(agent-host-01)",
+		Log:  `{"Time":1700000000,"FromAddress":"10.0.0.55(agent-host-01)","TrapType":"twagentNeoSecurityAlert","Variables":"twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapAIJudge.0=THREAT (92%): PCI-DSS, twagentNeoTrapAISummary.0=Unauthorized privilege escalation"}`,
+	})
+	_ = pqStore.Flush()
+
+	trapPoll := &datastore.PollingEnt{
+		ID:      "poll-twagent-trap",
+		NodeID:  node.ID,
+		Name:    "twagentneo Trap Threat",
+		Type:    "trap",
+		Mode:    "twagent",
+		Script:  "threatCount == 0",
+		Level:   "high",
+		PollInt: 60,
+	}
+	_ = store.SavePolling(ctx, trapPoll)
+
+	resTrap, err := mgr.ExecuteOne(ctx, trapPoll)
+	if err != nil {
+		t.Fatalf("ExecuteOne Trap error: %v", err)
+	}
+	if resTrap.State != polling.StateHigh {
+		t.Fatalf("expected Trap poll StateHigh when threatCount=1, got %s (fields: %v)", resTrap.State, resTrap.Fields)
+	}
+	if resTrap.Fields["threatCount"] != float64(1) {
+		t.Errorf("expected trap threatCount=1, got %v", resTrap.Fields["threatCount"])
+	}
+	if resTrap.Fields["compCount"] != float64(1) {
+		t.Errorf("expected trap compCount=1, got %v", resTrap.Fields["compCount"])
+	}
+}
+
 
 
 

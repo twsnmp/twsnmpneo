@@ -52,6 +52,14 @@ func NewManager(cfg Config) *Manager {
 		rep = logreport.NewEngine(cfg.Store)
 	}
 
+	arpWatch := NewArpWatchServer(ArpWatchConfig{
+		Store:    cfg.Store,
+		LogStore: cfg.LogStore,
+		Enabled:  cfg.EnableArpWatch,
+		Range:    cfg.ArpWatchRange,
+		Timeout:  cfg.ArpTimeout,
+	})
+
 	return &Manager{
 		cfg:      cfg,
 		reporter: rep,
@@ -91,15 +99,11 @@ func NewManager(cfg Config) *Manager {
 			Port:         cfg.MQTTPort,
 			Store:        cfg.Store,
 			LogStore:     cfg.LogStore,
+			Reporter:     rep,
+			ArpWatch:     arpWatch,
 			MqttToSyslog: cfg.MqttToSyslog,
 		}),
-		arpWatch: NewArpWatchServer(ArpWatchConfig{
-			Store:    cfg.Store,
-			LogStore: cfg.LogStore,
-			Enabled:  cfg.EnableArpWatch,
-			Range:    cfg.ArpWatchRange,
-			Timeout:  cfg.ArpTimeout,
-		}),
+		arpWatch: arpWatch,
 	}
 }
 

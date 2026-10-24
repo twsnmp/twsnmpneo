@@ -738,5 +738,75 @@
     "Script": "ssCpuIdle > 10.0",
     "Level": "low",
     "Descr": "Net-SNMP CPUアイドル率(%)"
+  },
+  {
+    "Name": "twagentneo MQTT 死活監視",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/status",
+    "Script": "status == 'online' && ageSec < 600",
+    "Level": "low",
+    "Descr": "twagentneo エージェントのMQTT死活状態(status/LWT)を監視"
+  },
+  {
+    "Name": "twagentneo MQTT リソース監視",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/metrics",
+    "Script": "cpu_percent < 90.0 && mem_percent < 90.0 && disk_used_percent < 95.0",
+    "Level": "low",
+    "Descr": "twagentneo のCPU・メモリ・ディスク使用率をMQTTで監視・グラフ化"
+  },
+  {
+    "Name": "twagentneo MQTT トラフィック監視",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/interface",
+    "Script": "errors < 10.0",
+    "Level": "off",
+    "Descr": "twagentneo のNIC通信レート(rx_mbps/tx_mbps/bps/obps)とエラー率を監視"
+  },
+  {
+    "Name": "twagentneo MQTT AI脅威・FIM監視",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/alert",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Level": "high",
+    "Descr": "twagentneo のSigma×tensaiローカルAI脅威検知・コンプライアンス違反・FIMをMQTTで監視"
+  },
+  {
+    "Name": "twagentneo Syslog AI脅威・FIM監視",
+    "Type": "syslog",
+    "Mode": "twagent",
+    "Params": "",
+    "Filter": "",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Level": "high",
+    "Descr": "twagentneo のRFC5424 Syslog(twsnmpneo@17862)からAI認定脅威とFIM改ざんを監視"
+  },
+  {
+    "Name": "twagentneo TRAP AI脅威・FIM監視",
+    "Type": "trap",
+    "Mode": "twagent",
+    "Params": "",
+    "Filter": "twagentNeo(Security|FIM|Resource)Alert",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Level": "high",
+    "Descr": "TWAGENT-NEO-MIBのSNMP TRAPからAI認定脅威・コンプライアンス違反・FIMを監視"
+  },
+  {
+    "Name": "twagentneo TRAP ハートビート監視",
+    "Type": "trap",
+    "Mode": "twagent",
+    "Params": "",
+    "Filter": "twagentNeoHeartbeat",
+    "Script": "heartbeatCount > 0",
+    "Level": "warn",
+    "Descr": "twagentneo の定期キープアライブTRAP(twagentNeoHeartbeat)の途絶を監視"
   }
 ]

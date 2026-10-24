@@ -10,11 +10,13 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
+	"github.com/twsnmp/twsnmpneo/backend/internal/logreport"
 )
 
 // MQTTConfig holds configuration for the embedded MQTT broker.
@@ -22,6 +24,8 @@ type MQTTConfig struct {
 	Port         int
 	Store        datastore.DataStore
 	LogStore     *parquet.Store
+	Reporter     logreport.Reporter
+	ArpWatch     *ArpWatchServer
 	MqttToSyslog bool
 }
 
@@ -30,6 +34,8 @@ type MQTTServer struct {
 	port         int
 	store        datastore.DataStore
 	logStore     *parquet.Store
+	reporter     logreport.Reporter
+	arpWatch     *ArpWatchServer
 	mqttToSyslog bool
 	listener     net.Listener
 	mu           sync.Mutex
@@ -43,6 +49,8 @@ func NewMQTTServer(cfg MQTTConfig) *MQTTServer {
 		port:         cfg.Port,
 		store:        cfg.Store,
 		logStore:     cfg.LogStore,
+		reporter:     cfg.Reporter,
+		arpWatch:     cfg.ArpWatch,
 		mqttToSyslog: cfg.MqttToSyslog,
 		stats:        make(map[string]*datastore.MqttStatEnt),
 	}
@@ -164,6 +172,20 @@ func (s *MQTTServer) handleClient(ctx context.Context, conn net.Conn) {
 
 					// Update MQTT statistics
 					s.updateStat(clientID, srcIP, topic, []byte(msgContent))
+
+					// Forward to logreport engine (e.g. twagentneo telemetry & security events)
+					if s.reporter != nil {
+						if mr, ok := s.reporter.(logreport.MQTTReporter); ok {
+							mr.ProcessMQTTMsg(clientID, srcIP, topic, []byte(msgContent))
+						} else {
+							s.reporter.ProcessMQTT(topic, []byte(msgContent))
+						}
+					}
+
+					// If remote ARP table payload, merge into ArpWatchServer
+					if s.arpWatch != nil && strings.HasSuffix(strings.ToLower(strings.TrimSpace(topic)), "/arp") {
+						s.arpWatch.IngestRemoteArpJSON(ctx, []byte(msgContent))
+					}
 
 					// Write structured log to Parquet
 					now := time.Now().UnixNano()

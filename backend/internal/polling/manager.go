@@ -71,7 +71,7 @@ func NewManager(cfg Config) *Manager {
 	m.RegisterPoller("arplog", NewArpLogPoller(cfg.Store, cfg.LogStore))
 	m.RegisterPoller("netflow", NewNetFlowPoller(cfg.Store, cfg.LogStore))
 	m.RegisterPoller("gnmi", NewGNMIPoller())
-	m.RegisterPoller("mqtt", NewMQTTPoller())
+	m.RegisterPoller("mqtt", NewMQTTPollerWithStore(cfg.Store, cfg.LogStore))
 	m.RegisterPoller("email", NewEMailPoller())
 	m.RegisterPoller("pihole", NewPiHolePoller())
 	m.RegisterPoller("lxi", NewLXIPoller())

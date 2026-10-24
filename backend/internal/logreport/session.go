@@ -50,6 +50,13 @@ func ParseRecord(logJSON, src string, t int64) (Record, bool) {
 		Severity: 6,
 		Facility: 1,
 	}
+	if sd := str("structured_data"); sd != "" && sd != "-" && !strings.Contains(r.Content, sd) {
+		if r.Content != "" {
+			r.Content = sd + " " + r.Content
+		} else {
+			r.Content = sd
+		}
+	}
 	if r.Host == "" {
 		r.Host = src
 	}
@@ -209,6 +216,8 @@ func (s *Session) Commit() error {
 			err = recalcScores[FlowEnt](s, kind)
 		case KindServer:
 			err = recalcScores[ServerEnt](s, kind)
+		case KindTwAgentTCP:
+			err = recalcScores[TwAgentTCPEnt](s, kind)
 		}
 		if err != nil && firstErr == nil {
 			firstErr = err
@@ -303,7 +312,12 @@ func meanSD(xs []float64) (float64, float64) {
 func (s *Session) Process(source string, r Record) bool {
 	cleanTag := CleanTag(r.Tag)
 	if !strings.EqualFold(cleanTag, SyslogTag(source)) && TagToSource(cleanTag) != source {
-		return false
+		if !(source == SourceTwAgent && strings.Contains(r.Content, "[twsnmpneo@17862")) {
+			return false
+		}
+	}
+	if source == SourceTwAgent {
+		return s.processTwAgentSyslog(r)
 	}
 	m := parseKV(r.Content)
 	t := m["type"]

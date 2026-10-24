@@ -380,15 +380,40 @@
     }
 
     const nId = targetNode ? (targetNode.id || targetNode.ID || "") : "";
+    const topic = selected.Topic || "";
+    let mode = "subscribe";
+    let params = "local";
+    let script = "";
+    let level = "low";
+
+    if (topic.includes("twsnmpneo/agent/") || topic.endsWith("/metrics") || topic.endsWith("/resource") || topic.endsWith("/interface") || topic.endsWith("/status") || topic.endsWith("/alert") || topic.endsWith("/fim")) {
+      mode = "twagent";
+      if (topic.endsWith("/metrics") || topic.endsWith("/resource")) {
+        script = "cpu_percent < 90.0 && mem_percent < 90.0 && disk_used_percent < 95.0";
+      } else if (topic.endsWith("/interface") || topic.endsWith("/network")) {
+        script = "errors < 10.0";
+        level = "off";
+      } else if (topic.endsWith("/status") || topic.endsWith("/heartbeat")) {
+        script = "status == 'online' && ageSec < 600";
+      } else if (topic.endsWith("/alert") || topic.endsWith("/fim")) {
+        script = "threatCount == 0 && compCount == 0 && fimCount == 0";
+        level = "high";
+      }
+    }
 
     pollingTemplate = {
       id: "",
-      name: `MQTT ${selected.Topic}`,
+      name: `MQTT ${topic}`,
       node_id: nId,
       type: "mqtt",
-      target: "tcp://localhost:1883",
+      mode,
+      params,
+      filter: topic,
+      script,
+      level,
+      target: "local",
       state: "normal",
-      ...( { Filter: selected.Topic, Topic: selected.Topic } as any )
+      ...( { Mode: mode, Params: params, Filter: topic, MqttTopic: topic, Script: script, Level: level } as any )
     };
     showPollingDialog = true;
   };

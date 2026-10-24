@@ -1159,3 +1159,43 @@ Note that it is strongly recommended that this
 object be stored in non-volatile memory so that it
 remains constant between re-initializations of the
 network management system."
+
+#twagentNeoVersion
+"twagentneo version string."
+
+#twagentNeoHostname
+"Hostname of the monitored system."
+
+#twagentNeoOS
+"Operating system (linux | windows | darwin)."
+
+#twagentNeoTrapSeverity
+"Alert severity level (1:info, 2:warn, 3:high, 4:critical)."
+
+#twagentNeoTrapCategory
+"Alert category (e.g. Authentication, FIM, Resource, Heartbeat)."
+
+#twagentNeoTrapRuleTitle
+"Sigma rule title or alert description."
+
+#twagentNeoTrapAIJudge
+"AI judge summary (e.g. Threat:YES,CompViolation:YES,Conf:0.92)."
+
+#twagentNeoTrapAISummary
+"AI-generated summary of the alert."
+
+#twagentNeoTrapAIAction
+"AI-recommended remediation action."
+
+#twagentNeoResourceAlert
+"Sent when a host resource metric (CPU, memory, disk, load) exceeds its configured threshold."
+
+#twagentNeoSecurityAlert
+"Sent when a Sigma rule matches a log event, enriched with tensai local LLM judge fields."
+
+#twagentNeoFIMAlert
+"Sent when file integrity monitoring detects an unauthorized file change."
+
+#twagentNeoHeartbeat
+"Periodic keep-alive trap to confirm the twagentneo agent is operational."
+

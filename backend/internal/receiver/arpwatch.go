@@ -351,6 +351,46 @@ func (s *ArpWatchServer) ResetTable() {
 	})
 }
 
+// IngestRemoteArpJSON parses a remote agent's ARP table JSON payload (e.g. from twagentneo MQTT /arp topic)
+// and merges valid IPv4/MAC pairs into the ARP watch table.
+func (s *ArpWatchServer) IngestRemoteArpJSON(ctx context.Context, payload []byte) {
+	if s == nil || len(payload) == 0 {
+		return
+	}
+	type remoteArpEntry struct {
+		IP        string `json:"ip"`
+		MAC       string `json:"mac"`
+		Interface string `json:"interface"`
+		Type      string `json:"type"`
+	}
+	var entries []remoteArpEntry
+	if err := json.Unmarshal(payload, &entries); err != nil {
+		var wrapper struct {
+			Arp []remoteArpEntry `json:"arp"`
+		}
+		if err2 := json.Unmarshal(payload, &wrapper); err2 == nil {
+			entries = wrapper.Arp
+		}
+	}
+	if len(entries) == 0 {
+		return
+	}
+	updated := 0
+	for _, e := range entries {
+		ip := strings.TrimSpace(e.IP)
+		mac := strings.TrimSpace(e.MAC)
+		if ip == "" || mac == "" || strings.EqualFold(mac, "00:00:00:00:00:00") || strings.Contains(mac, "incomplete") {
+			continue
+		}
+		s.updateArpTable(ctx, ip, mac)
+		updated++
+	}
+	if updated > 0 {
+		s.checkNodeMAC(ctx)
+		s.saveArpTableToStore(ctx)
+	}
+}
+
 // pinger manages non-root ICMP Echo transmission for ARP table population.
 type pinger struct {
 	conn     *icmp.PacketConn

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -141,6 +142,12 @@ func (s *TrapServer) handleTrap(packet *gosnmp.SnmpPacket, addr *net.UDPAddr) {
 
 	if s.reporter != nil {
 		s.reporter.ProcessTrap(msg)
+	}
+
+	if s.store != nil && srcIP != "" {
+		if strings.Contains(strings.ToLower(trapType), "twagentneo") || strings.Contains(variables, "twagentNeo") {
+			s.store.UpdateSensor(srcIP, "twagentneo", trapType, 1)
+		}
 	}
 
 	if s.logStore != nil {

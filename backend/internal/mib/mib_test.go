@@ -46,6 +46,15 @@ func TestMIB_InitAndResolutions(t *testing.T) {
 		{".1.3.6.1.2.1.17.7.1.2.2.1.2.1.0.12.34.56.78.90", "dot1qTpFdbPort.1.0.12.34.56.78.90"},
 		{".1.3.6.1.2.1.17.4.3.1.2.0.12.34.56.78.90", "dot1dTpFdbPort.0.12.34.56.78.90"},
 		{".1.3.6.1.2.1.4.22.1.2.1.192.168.1.1", "ipNetToMediaPhysAddress.1.192.168.1.1"},
+		{".1.3.6.1.4.1.17862.3.1.1.1.0", "twagentNeoVersion.0"},
+		{".1.3.6.1.4.1.17862.3.1.1.2.0", "twagentNeoHostname.0"},
+		{".1.3.6.1.4.1.17862.3.1.1.3.0", "twagentNeoOS.0"},
+		{".1.3.6.1.4.1.17862.3.1.2.1.0", "twagentNeoTrapSeverity.0"},
+		{".1.3.6.1.4.1.17862.3.1.2.4.0", "twagentNeoTrapAIJudge.0"},
+		{".1.3.6.1.4.1.17862.3.2.0.1", "twagentNeoResourceAlert"},
+		{".1.3.6.1.4.1.17862.3.2.0.2", "twagentNeoSecurityAlert"},
+		{".1.3.6.1.4.1.17862.3.2.0.3", "twagentNeoFIMAlert"},
+		{".1.3.6.1.4.1.17862.3.2.0.4", "twagentNeoHeartbeat"},
 	}
 
 	for _, tc := range tests {
@@ -129,5 +138,37 @@ func TestMIB_InitAndResolutions(t *testing.T) {
 	expectedSub2 := "ifOperStatus.5=2(down)"
 	if !strings.Contains(vars, expectedSub2) {
 		t.Errorf("DecodeTrap vars = %s; want to contain %s", vars, expectedSub2)
+	}
+
+	// Test DecodeTrap TWAGENT-NEO-MIB with twagentNeoHostname fallback when nodeName is empty
+	twagentTrap := &gosnmp.SnmpPacket{
+		Version: gosnmp.Version2c,
+		Variables: []gosnmp.SnmpPDU{
+			{
+				Name:  ".1.3.6.1.6.3.1.1.4.1.0",
+				Type:  gosnmp.ObjectIdentifier,
+				Value: ".1.3.6.1.4.1.17862.3.2.0.2",
+			},
+			{
+				Name:  ".1.3.6.1.4.1.17862.3.1.1.2.0",
+				Type:  gosnmp.OctetString,
+				Value: []byte("agent-host-01"),
+			},
+			{
+				Name:  ".1.3.6.1.4.1.17862.3.1.2.4.0",
+				Type:  gosnmp.OctetString,
+				Value: []byte("THREAT (95%): PCI-DSS"),
+			},
+		},
+	}
+	twType, twVars, twFrom := mib.DecodeTrap(twagentTrap, "10.0.0.25", "")
+	if twType != "twagentNeoSecurityAlert" {
+		t.Errorf("DecodeTrap twagent trapType = %s; want twagentNeoSecurityAlert", twType)
+	}
+	if twFrom != "10.0.0.25(agent-host-01)" {
+		t.Errorf("DecodeTrap twagent from = %s; want 10.0.0.25(agent-host-01)", twFrom)
+	}
+	if !strings.Contains(twVars, "twagentNeoTrapAIJudge.0=THREAT (95%): PCI-DSS") {
+		t.Errorf("DecodeTrap twagent vars = %s; want twagentNeoTrapAIJudge.0", twVars)
 	}
 }

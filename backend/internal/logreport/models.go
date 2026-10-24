@@ -14,6 +14,7 @@ const (
 	SourceBlueScan = "twbluescan"
 	SourcePcap     = "twpcap"
 	SourceWinLog   = "twwinlog"
+	SourceTwAgent  = "twagentneo"
 )
 
 // Report kinds (storage buckets / API names).
@@ -39,6 +40,10 @@ const (
 	KindFumble       = "fumble"
 	KindSyslogStats  = "syslogStats"
 	KindTrapStats    = "trapStats"
+	KindTwAgentInfo  = "twAgentInfo"
+	KindTwAgentAlert = "twAgentAlert"
+	KindTwAgentFIM   = "twAgentFIM"
+	KindTwAgentTCP   = "twAgentTCP"
 )
 
 // SyslogTag returns the syslog tag emitted by the source.
@@ -52,6 +57,8 @@ func SyslogTag(source string) string {
 		return "twpcap"
 	case SourceWinLog:
 		return "twwinlog"
+	case SourceTwAgent:
+		return "twagentneo"
 	}
 	return ""
 }
@@ -70,6 +77,8 @@ func KindsOf(source string) []string {
 		return []string{KindEtherType, KindDNSQ, KindRADIUSFlow, KindTLSFlow}
 	case SourceWinLog:
 		return []string{KindWinEventID, KindWinLogon, KindWinAccount, KindWinKerberos, KindWinPrivilege, KindWinProcess, KindWinTask}
+	case SourceTwAgent:
+		return []string{KindTwAgentInfo, KindTwAgentAlert, KindTwAgentFIM, KindTwAgentTCP}
 	}
 	return nil
 }
@@ -77,7 +86,7 @@ func KindsOf(source string) []string {
 // AllKinds lists every report kind.
 func AllKinds() []string {
 	var ret []string
-	for _, s := range []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog} {
+	for _, s := range []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog, SourceTwAgent} {
 		ret = append(ret, KindsOf(s)...)
 	}
 	ret = append(ret, KindFlow, KindServer, KindFumble, KindSyslogStats, KindTrapStats)
@@ -496,4 +505,147 @@ type TrapStatsSummary struct {
 	LastTime    int64                    `json:"LastTime"`
 	UpdateTime  int64                    `json:"UpdateTime"`
 }
+
+// TwAgentDiskEnt holds per-mount disk usage and I/O telemetry reported by twagentneo.
+type TwAgentDiskEnt struct {
+	MountPoint  string  `json:"MountPoint"`
+	FsType      string  `json:"FsType,omitempty"`
+	TotalBytes  uint64  `json:"TotalBytes"`
+	UsedBytes   uint64  `json:"UsedBytes"`
+	UsedPercent float64 `json:"UsedPercent"`
+	ReadBps     float64 `json:"ReadBps"`
+	WriteBps    float64 `json:"WriteBps"`
+}
+
+// TwAgentIfaceEnt holds per-interface configuration and traffic rates reported by twagentneo.
+type TwAgentIfaceEnt struct {
+	Index      int      `json:"Index,omitempty"`
+	Name       string   `json:"Name"`
+	MTU        int      `json:"MTU,omitempty"`
+	MAC        string   `json:"MAC,omitempty"`
+	Status     string   `json:"Status,omitempty"`
+	Addrs      []string `json:"Addrs,omitempty"`
+	BytesRecv  uint64   `json:"BytesRecv,omitempty"`
+	BytesSent  uint64   `json:"BytesSent,omitempty"`
+	RxMbps     float64  `json:"RxMbps"`
+	TxMbps     float64  `json:"TxMbps"`
+	RxPps      float64  `json:"RxPps,omitempty"`
+	TxPps      float64  `json:"TxPps,omitempty"`
+	RxErrorPps float64  `json:"RxErrorPps,omitempty"`
+	TxErrorPps float64  `json:"TxErrorPps,omitempty"`
+	RxDropPps  float64  `json:"RxDropPps,omitempty"`
+	TxDropPps  float64  `json:"TxDropPps,omitempty"`
+}
+
+// TwAgentSampleEnt is one historical resource/traffic snapshot for a twagentneo instance.
+type TwAgentSampleEnt struct {
+	Time   int64   `json:"Time"`
+	CPU    float64 `json:"CPU"`
+	Mem    float64 `json:"Mem"`
+	Load1  float64 `json:"Load1"`
+	Disk   float64 `json:"Disk"`
+	RxMbps float64 `json:"RxMbps"`
+	TxMbps float64 `json:"TxMbps"`
+}
+
+// TwAgentInfoEnt represents an inventory and telemetry summary of a twagentneo agent.
+type TwAgentInfoEnt struct {
+	ID              string             `json:"ID"`
+	AgentID         string             `json:"AgentID"`
+	Hostname        string             `json:"Hostname"`
+	IP              string             `json:"IP"`
+	MAC             string             `json:"MAC"`
+	NodeID          string             `json:"NodeID"`
+	NodeName        string             `json:"NodeName"`
+	OS              string             `json:"OS"`
+	Version         string             `json:"Version"`
+	Status          string             `json:"Status"` // "online" | "offline"
+	Protocols       []string           `json:"Protocols"`
+	CPUPercent      float64            `json:"CPUPercent"`
+	PerCoreCPU      []float64          `json:"PerCoreCPU,omitempty"`
+	LoadAvg1        float64            `json:"LoadAvg1"`
+	LoadAvg5        float64            `json:"LoadAvg5"`
+	LoadAvg15       float64            `json:"LoadAvg15"`
+	MemTotalBytes   uint64             `json:"MemTotalBytes"`
+	MemUsedBytes    uint64             `json:"MemUsedBytes"`
+	MemPercent      float64            `json:"MemPercent"`
+	SwapUsedBytes   uint64             `json:"SwapUsedBytes"`
+	DiskUsedPercent float64            `json:"DiskUsedPercent"`
+	RxMbps          float64            `json:"RxMbps"`
+	TxMbps          float64            `json:"TxMbps"`
+	Disks           []TwAgentDiskEnt   `json:"Disks,omitempty"`
+	Interfaces      []TwAgentIfaceEnt  `json:"Interfaces,omitempty"`
+	Samples         []TwAgentSampleEnt `json:"Samples,omitempty"`
+	AlertCount      int                `json:"AlertCount"`
+	ThreatCount     int                `json:"ThreatCount"`
+	FIMCount        int                `json:"FIMCount"`
+	Count           int                `json:"Count"`
+	FirstTime       int64              `json:"FirstTime"`
+	LastTime        int64              `json:"LastTime"`
+}
+
+// TwAgentAlertEnt represents an aggregated Sigma + tensai local LLM security/resource alert from twagentneo.
+type TwAgentAlertEnt struct {
+	ID                 string   `json:"ID"`
+	AgentID            string   `json:"AgentID"`
+	Host               string   `json:"Host"`
+	IP                 string   `json:"IP"`
+	NodeID             string   `json:"NodeID"`
+	NodeName           string   `json:"NodeName"`
+	Protocol           string   `json:"Protocol"` // "mqtt" | "syslog" | "trap"
+	RuleID             string   `json:"RuleID"`
+	RuleTitle          string   `json:"RuleTitle"`
+	Level              string   `json:"Level"` // "critical" | "high" | "medium" | "warn" | "low" | "info"
+	Category           string   `json:"Category"`
+	SourceLog          string   `json:"SourceLog"`
+	AIJudged           bool     `json:"AIJudged"`
+	IsThreat           bool     `json:"IsThreat"`
+	ComplianceViolated bool     `json:"ComplianceViolated"`
+	ComplianceTypes    []string `json:"ComplianceTypes,omitempty"`
+	Confidence         float64  `json:"Confidence"`
+	SummaryJa          string   `json:"SummaryJa"`
+	ActionJa           string   `json:"ActionJa"`
+	Count              int      `json:"Count"`
+	FirstTime          int64    `json:"FirstTime"`
+	LastTime           int64    `json:"LastTime"`
+}
+
+// TwAgentFIMEnt represents a File Integrity Monitoring event detected by twagentneo.
+type TwAgentFIMEnt struct {
+	ID        string `json:"ID"`
+	AgentID   string `json:"AgentID"`
+	Host      string `json:"Host"`
+	IP        string `json:"IP"`
+	NodeID    string `json:"NodeID"`
+	NodeName  string `json:"NodeName"`
+	Protocol  string `json:"Protocol"` // "mqtt" | "syslog" | "trap"
+	Op        string `json:"Op"`       // "CREATE" | "WRITE" | "REMOVE" | "CHMOD" | "RENAME"
+	Path      string `json:"Path"`
+	Hash      string `json:"Hash"`
+	Count     int    `json:"Count"`
+	FirstTime int64  `json:"FirstTime"`
+	LastTime  int64  `json:"LastTime"`
+}
+
+// TwAgentTCPEnt represents aggregated active TCP connections per process reported by twagentneo.
+type TwAgentTCPEnt struct {
+	ID        string   `json:"ID"`
+	AgentID   string   `json:"AgentID"`
+	Host      string   `json:"Host"`
+	IP        string   `json:"IP"`
+	NodeID    string   `json:"NodeID"`
+	NodeName  string   `json:"NodeName"`
+	Process   string   `json:"Process"`
+	RemoteIP  string   `json:"RemoteIP"`
+	RemoteLoc string   `json:"RemoteLoc"`
+	Services  []string `json:"Services"`
+	ConnCount int      `json:"ConnCount"`
+	Count     int      `json:"Count"`
+	ScoreInfo
+	FirstTime int64 `json:"FirstTime"`
+	LastTime  int64 `json:"LastTime"`
+}
+
+func (x *TwAgentTCPEnt) scoreInfo() *ScoreInfo { return &x.ScoreInfo }
+
 

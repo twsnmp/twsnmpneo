@@ -160,6 +160,7 @@ LLDP-MIB.mib
 P-BRIDGE-MIB.mib
 Q-BRIDGE-MIB.mib
 U-BRIDGE-MIB.mib
+TWAGENT-NEO-MIB.txt
 `
 
 // Init initializes the MIB database, loading embedded definitions and extmibs directory.
@@ -1051,7 +1052,7 @@ func DecodeTrap(packet *gosnmp.SnmpPacket, srcIP string, nodeName string) (trapT
 		if key == "snmpTrapOID.0" {
 			trapOidVal = val
 		}
-		if strings.HasPrefix(key, "sysName") && nodeName == "" {
+		if (strings.HasPrefix(key, "sysName") || strings.HasPrefix(key, "twagentNeoHostname")) && nodeName == "" && val != "" {
 			fromAddress = fmt.Sprintf("%s(%s)", srcIP, val)
 		}
 	}

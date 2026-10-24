@@ -148,6 +148,9 @@ func (s *SyslogServer) handleLogParts(sl format.LogParts) {
 
 	if s.store != nil && host != "" {
 		content, _ := sl["content"].(string)
+		if content == "" {
+			content, _ = sl["message"].(string)
+		}
 		tag, _ := sl["tag"].(string)
 		if tag == "" {
 			tag, _ = sl["app_name"].(string)
@@ -194,6 +197,9 @@ func (s *SyslogServer) handleLogParts(sl format.LogParts) {
 				case "twsdrpower":
 					sensorType = "twSdrPower"
 					param = kvs["param"]
+				case "twagentneo", "twagentneo-fim", "twagentneo-resource":
+					sensorType = "twagentneo"
+					param = tag
 				}
 			}
 			s.store.UpdateSensor(host, sensorType, param, 1)

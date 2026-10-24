@@ -28,6 +28,7 @@ type cleanMeta struct {
 var limitedKinds = map[string]bool{
 	KindWifiAP: true, KindBlueDevice: true, KindDNSQ: true, KindRADIUSFlow: true, KindTLSFlow: true,
 	KindFlow: true, KindServer: true, KindFumble: true,
+	KindTwAgentAlert: true, KindTwAgentFIM: true, KindTwAgentTCP: true,
 }
 
 // Cleanup removes expired entities of the kinds fed by source.
@@ -78,7 +79,7 @@ func Cleanup(ctx context.Context, store datastore.DataStore, source string, days
 			}
 		}
 		if limitedKinds[kind] && len(keep) > maxEntries {
-			if kind == KindTLSFlow || kind == KindFlow || kind == KindServer {
+			if kind == KindTLSFlow || kind == KindFlow || kind == KindServer || kind == KindTwAgentTCP {
 				// Safer flows / servers (higher score) are dropped first.
 				sort.Slice(keep, func(i, j int) bool {
 					return keep[i].Score-float64(keep[i].LastTime-delOld)/float64(24*time.Hour) >
@@ -105,7 +106,7 @@ func Cleanup(ctx context.Context, store datastore.DataStore, source string, days
 
 // AllSources returns all known report sources.
 func AllSources() []string {
-	return []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog}
+	return []string{SourceWifiScan, SourceBlueScan, SourcePcap, SourceWinLog, SourceTwAgent}
 }
 
 // CleanupAll cleans up expired entities for all known sources and kinds.

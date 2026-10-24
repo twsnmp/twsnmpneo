@@ -3202,6 +3202,132 @@ export interface WinTaskEnt {
   LastTime: number;
 }
 
+export interface TwAgentDiskEnt {
+  MountPoint: string;
+  FsType?: string;
+  TotalBytes: number;
+  UsedBytes: number;
+  UsedPercent: number;
+  ReadBps?: number;
+  WriteBps?: number;
+}
+
+export interface TwAgentIfaceEnt {
+  Index?: number;
+  Name: string;
+  MTU?: number;
+  MAC?: string;
+  Status?: string;
+  Addrs?: string[];
+  BytesRecv?: number;
+  BytesSent?: number;
+  RxMbps: number;
+  TxMbps: number;
+}
+
+export interface TwAgentSampleEnt {
+  Time: number;
+  CPU: number;
+  Mem: number;
+  Load1: number;
+  Disk: number;
+  RxMbps: number;
+  TxMbps: number;
+}
+
+export interface TwAgentInfoEnt {
+  ID: string;
+  AgentID: string;
+  Hostname: string;
+  IP: string;
+  MAC: string;
+  NodeID?: string;
+  NodeName?: string;
+  OS: string;
+  Version: string;
+  Status: string;
+  Protocols: string[];
+  CPUPercent: number;
+  PerCoreCPU?: number[];
+  LoadAvg1?: number;
+  LoadAvg5?: number;
+  LoadAvg15?: number;
+  MemTotalBytes: number;
+  MemUsedBytes: number;
+  MemPercent: number;
+  SwapUsedBytes?: number;
+  DiskUsedPercent: number;
+  RxMbps: number;
+  TxMbps: number;
+  Disks?: TwAgentDiskEnt[];
+  Interfaces?: TwAgentIfaceEnt[];
+  Samples?: TwAgentSampleEnt[];
+  AlertCount: number;
+  ThreatCount: number;
+  FIMCount: number;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface TwAgentAlertEnt {
+  ID: string;
+  AgentID: string;
+  Host: string;
+  IP?: string;
+  NodeID?: string;
+  NodeName?: string;
+  Protocol: string;
+  RuleID?: string;
+  RuleTitle: string;
+  Level: string;
+  Category: string;
+  SourceLog: string;
+  AIJudged: boolean;
+  IsThreat: boolean;
+  ComplianceViolated: boolean;
+  ComplianceTypes?: string[];
+  Confidence: number;
+  SummaryJa: string;
+  ActionJa: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface TwAgentFIMEnt {
+  ID: string;
+  AgentID: string;
+  Host: string;
+  IP?: string;
+  NodeID?: string;
+  NodeName?: string;
+  Protocol: string;
+  Op: string;
+  Path: string;
+  Hash: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface TwAgentTCPEnt extends ScoreInfo {
+  ID: string;
+  AgentID: string;
+  Host: string;
+  IP?: string;
+  NodeID?: string;
+  NodeName?: string;
+  Process: string;
+  RemoteIP: string;
+  RemoteLoc: string;
+  Services: string[];
+  ConnCount: number;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
 export async function fetchLogReport<T = any>(kind: string): Promise<T[]> {
   try {
     const res = await apiFetch(`${API_BASE}/report/log/${encodeURIComponent(kind)}`);

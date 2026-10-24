@@ -614,5 +614,75 @@
     "Script": "ssCpuIdle > 10.0",
     "Level": "low",
     "Descr": "Net-SNMP CPU idle percentage (%)"
+  },
+  {
+    "Name": "twagentneo MQTT Alive (Status/LWT)",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/status",
+    "Script": "status == 'online' && ageSec < 600",
+    "Level": "low",
+    "Descr": "Monitor twagentneo agent online/offline status via MQTT LWT"
+  },
+  {
+    "Name": "twagentneo MQTT Host Resources",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/metrics",
+    "Script": "cpu_percent < 90.0 && mem_percent < 90.0 && disk_used_percent < 95.0",
+    "Level": "low",
+    "Descr": "Monitor twagentneo CPU, memory, and disk utilization via MQTT"
+  },
+  {
+    "Name": "twagentneo MQTT Network Traffic",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/interface",
+    "Script": "errors < 10.0",
+    "Level": "off",
+    "Descr": "Monitor twagentneo interface traffic rates (rx_mbps/tx_mbps/bps/obps) and error rates"
+  },
+  {
+    "Name": "twagentneo MQTT AI Security & FIM",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/alert",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Level": "high",
+    "Descr": "Monitor twagentneo Sigma + tensai local AI threat detections, compliance violations, and FIM via MQTT"
+  },
+  {
+    "Name": "twagentneo Syslog AI Security & FIM",
+    "Type": "syslog",
+    "Mode": "twagent",
+    "Params": "",
+    "Filter": "",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Level": "high",
+    "Descr": "Monitor twagentneo RFC 5424 Syslog (twsnmpneo@17862) AI threat detections and FIM events"
+  },
+  {
+    "Name": "twagentneo TRAP AI Security & FIM",
+    "Type": "trap",
+    "Mode": "twagent",
+    "Params": "",
+    "Filter": "twagentNeo(Security|FIM|Resource)Alert",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Level": "high",
+    "Descr": "Monitor TWAGENT-NEO-MIB SNMP traps for AI threat detections, compliance violations, and FIM"
+  },
+  {
+    "Name": "twagentneo TRAP Heartbeat",
+    "Type": "trap",
+    "Mode": "twagent",
+    "Params": "",
+    "Filter": "twagentNeoHeartbeat",
+    "Script": "heartbeatCount > 0",
+    "Level": "warn",
+    "Descr": "Monitor twagentneo periodic keep-alive SNMP traps (twagentNeoHeartbeat)"
   }
 ]

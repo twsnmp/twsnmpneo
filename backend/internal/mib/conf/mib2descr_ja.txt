@@ -1870,3 +1870,43 @@ Note that it is strongly recommended that this
 object be stored in non-volatile memory so that it
 remains constant between re-initializations of the
 network management system."
+
+#twagentNeoVersion
+"twagentneo エージェントのバージョン文字列。"
+
+#twagentNeoHostname
+"監視対象システムのホスト名。"
+
+#twagentNeoOS
+"稼働オペレーティングシステム (linux | windows | darwin)。"
+
+#twagentNeoTrapSeverity
+"アラートの重要度レベル (1:info, 2:warn, 3:high, 4:critical)。"
+
+#twagentNeoTrapCategory
+"アラートカテゴリ (Authentication, FIM, Resource, Heartbeat 等)。"
+
+#twagentNeoTrapRuleTitle
+"検知された Sigma ルール名またはアラート説明。"
+
+#twagentNeoTrapAIJudge
+"tensai ローカルLLMによるAI判定サマリ (例: Threat:YES,CompViolation:YES,Conf:0.92)。"
+
+#twagentNeoTrapAISummary
+"AIが生成したアラートの日本語要約。"
+
+#twagentNeoTrapAIAction
+"AIが推奨する日本語の対処・緩和アクション。"
+
+#twagentNeoResourceAlert
+"ホストリソース（CPU、メモリ、ディスク、Load）が閾値を超過した際に送信されるTRAP。"
+
+#twagentNeoSecurityAlert
+"SigmaルールおよびtensaiローカルAI監査エンジンがセキュリティイベントを検知した際に送信されるTRAP。"
+
+#twagentNeoFIMAlert
+"ファイル整合性監視（FIM）が重要ファイルの変更を検知した際に送信されるTRAP。"
+
+#twagentNeoHeartbeat
+"twagentneo エージェントの稼働状態を示す定期キープアライブTRAP。"
+
