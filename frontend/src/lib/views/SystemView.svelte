@@ -14,6 +14,7 @@
   import SystemUpdateModal from "../components/SystemUpdateModal.svelte";
   import { _ } from "svelte-i18n";
   import { renderBytes, renderSpeed, renderPercent, formatTimeStr, formatVersion } from "../common";
+  import TablePagination from "../components/common/TablePagination.svelte";
   import {
     showMonitorResChart,
     showMonitorNetChart,
@@ -958,51 +959,11 @@
         </div>
 
         <!-- Pagination Controls -->
-        {#if tablePageSize !== -1 && totalPages > 1}
-          <div class="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-4 py-3 shrink-0 text-xs text-slate-600 dark:text-slate-400">
-            <div>
-              <span>{$_('system.pageInfo', { values: { total: filteredLogs.length, from: (tablePage - 1) * tablePageSize + 1, to: Math.min(tablePage * tablePageSize, filteredLogs.length) } })}</span>
-            </div>
-
-            <div class="flex items-center gap-1.5">
-              <button
-                type="button"
-                onclick={() => (tablePage = 1)}
-                disabled={tablePage === 1}
-                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              >
-                <ChevronsLeft class="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onclick={() => (tablePage = Math.max(1, tablePage - 1))}
-                disabled={tablePage === 1}
-                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <span class="px-2 text-slate-600 dark:text-slate-300 font-mono">
-                {tablePage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onclick={() => (tablePage = Math.min(totalPages, tablePage + 1))}
-                disabled={tablePage === totalPages}
-                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onclick={() => (tablePage = totalPages)}
-                disabled={tablePage === totalPages}
-                class="rounded-lg border border-slate-300 dark:border-slate-700 p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-              >
-                <ChevronsRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        {/if}
+        <TablePagination
+          bind:pageSize={tablePageSize}
+          bind:currentPage={tablePage}
+          totalCount={filteredLogs.length}
+        />
       </div>
     </div>
   </div>

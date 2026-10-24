@@ -22,6 +22,7 @@
   } from "../charts/mqtt";
   import MQTTReportModal from "../components/MQTTReportModal.svelte";
   import PollingDialog from "../components/PollingDialog.svelte";
+  import TablePagination from "../components/common/TablePagination.svelte";
   import {
     Radio,
     FileText,
@@ -277,9 +278,13 @@
     return list;
   });
 
-  const totalStatPages = $derived(Math.max(1, Math.ceil(filteredStats.length / statPageSize)));
+  const totalStatPages = $derived(
+    statPageSize === -1 ? 1 : Math.max(1, Math.ceil(filteredStats.length / statPageSize))
+  );
   const paginatedStats = $derived(
-    filteredStats.slice((statPage - 1) * statPageSize, statPage * statPageSize)
+    statPageSize === -1
+      ? filteredStats
+      : filteredStats.slice((statPage - 1) * statPageSize, statPage * statPageSize)
   );
 
   const toggleSelectAll = () => {
@@ -487,9 +492,13 @@
     return list;
   });
 
-  const totalLogPages = $derived(Math.max(1, Math.ceil(filteredLogs.length / logPageSize)));
+  const totalLogPages = $derived(
+    logPageSize === -1 ? 1 : Math.max(1, Math.ceil(filteredLogs.length / logPageSize))
+  );
   const paginatedLogs = $derived(
-    filteredLogs.slice((logPage - 1) * logPageSize, logPage * logPageSize)
+    logPageSize === -1
+      ? filteredLogs
+      : filteredLogs.slice((logPage - 1) * logPageSize, logPage * logPageSize)
   );
 
   const handleClearLogs = async () => {
@@ -719,36 +728,21 @@
           <!-- Main Table Container -->
           <div class="flex-1 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/60 shadow-xs dark:shadow-xl overflow-hidden backdrop-blur-sm min-h-0">
             <!-- Top Toolbar -->
-            <div class="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800/80 px-4 py-3 bg-slate-50 dark:bg-slate-900/40">
+            <div class="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800/80 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/40">
               <div class="flex items-center gap-2">
-                <span class="text-xs text-slate-500 dark:text-slate-400">{$_('mqtt.rowsPerPage')}</span>
-                <select
-                  bind:value={statPageSize}
-                  onchange={() => (statPage = 1)}
-                  class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span class="text-xs text-slate-500 dark:text-slate-400">{$_('mqtt.items')}</span>
-              </div>
-
-              <div class="flex items-center gap-2">
-                <div class="relative w-64">
-                  <Search class="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                <div class="relative w-72">
+                  <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
                     placeholder={$_('mqtt.searchPlaceholder')}
                     bind:value={statSearch}
                     oninput={() => (statPage = 1)}
-                    class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/80 pl-8 pr-3 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                    class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/80 pl-9 pr-8 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
                   />
                   {#if statSearch}
                     <button
                       onclick={() => (statSearch = "")}
-                      class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                      class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                     >
                       <X class="h-3.5 w-3.5" />
                     </button>
@@ -1018,45 +1012,12 @@
               </table>
             </div>
 
-            <!-- Bottom Pagination (Clean, actions moved to top) -->
-            <div class="shrink-0 flex items-center justify-between border-t border-slate-200 dark:border-slate-800/80 px-4 py-3 bg-slate-50 dark:bg-slate-950/70">
-              <span class="text-xs text-slate-500 dark:text-slate-400">
-                {#if filteredStats.length > 0}
-                  Showing {(statPage - 1) * statPageSize + 1} to {Math.min(statPage * statPageSize, filteredStats.length)} of {filteredStats.length} entries
-                {:else}
-                  Showing 0 to 0 of 0 entries
-                {/if}
-              </span>
-
-              {#if totalStatPages > 1}
-                <div class="flex items-center gap-1">
-                  <button
-                    onclick={() => (statPage = Math.max(1, statPage - 1))}
-                    disabled={statPage <= 1}
-                    class="rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
-                  >
-                    Previous
-                  </button>
-                  {#each Array.from({ length: totalStatPages }, (_, i) => i + 1) as p}
-                    {#if Math.abs(p - statPage) < 3 || p === 1 || p === totalStatPages}
-                      <button
-                        onclick={() => (statPage = p)}
-                        class="h-7 w-7 rounded-lg text-xs font-semibold {statPage === p ? 'bg-cyan-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'} cursor-pointer"
-                      >
-                        {p}
-                      </button>
-                    {/if}
-                  {/each}
-                  <button
-                    onclick={() => (statPage = Math.min(totalStatPages, statPage + 1))}
-                    disabled={statPage >= totalStatPages}
-                    class="rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
-                  >
-                    Next
-                  </button>
-                </div>
-              {/if}
-            </div>
+            <!-- Bottom Pagination -->
+            <TablePagination
+              bind:pageSize={statPageSize}
+              bind:currentPage={statPage}
+              totalCount={filteredStats.length}
+            />
           </div>
         </div>
 
@@ -1278,44 +1239,11 @@
             </div>
 
             <!-- Logs Pagination Footer -->
-            <div class="shrink-0 flex items-center justify-between border-t border-slate-200 dark:border-slate-800/80 px-4 py-3 bg-slate-50 dark:bg-slate-950/70">
-              <span class="text-xs text-slate-500 dark:text-slate-400">
-                {#if filteredLogs.length > 0}
-                  Showing {(logPage - 1) * logPageSize + 1} to {Math.min(logPage * logPageSize, filteredLogs.length)} of {filteredLogs.length} logs
-                {:else}
-                  Showing 0 to 0 of 0 logs
-                {/if}
-              </span>
-
-              {#if totalLogPages > 1}
-                <div class="flex items-center gap-1">
-                  <button
-                    onclick={() => (logPage = Math.max(1, logPage - 1))}
-                    disabled={logPage <= 1}
-                    class="rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
-                  >
-                    Previous
-                  </button>
-                  {#each Array.from({ length: totalLogPages }, (_, i) => i + 1) as p}
-                    {#if Math.abs(p - logPage) < 3 || p === 1 || p === totalLogPages}
-                      <button
-                        onclick={() => (logPage = p)}
-                        class="h-7 w-7 rounded-lg text-xs font-semibold {logPage === p ? 'bg-cyan-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'} cursor-pointer"
-                      >
-                        {p}
-                      </button>
-                    {/if}
-                  {/each}
-                  <button
-                    onclick={() => (logPage = Math.min(totalLogPages, logPage + 1))}
-                    disabled={logPage >= totalLogPages}
-                    class="rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
-                  >
-                    Next
-                  </button>
-                </div>
-              {/if}
-            </div>
+            <TablePagination
+              bind:pageSize={logPageSize}
+              bind:currentPage={logPage}
+              totalCount={filteredLogs.length}
+            />
           </div>
         </div>
       {/if}

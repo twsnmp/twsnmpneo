@@ -17,6 +17,7 @@
   } from "../api";
   import { showConfirm, showLoading, hideLoading } from "../stores/modalStore";
   import { formatTimeStr, renderTimeMili } from "../common";
+  import TablePagination from "../components/common/TablePagination.svelte";
   import {
     showOTelTrace,
     showOTelDAG,
@@ -490,7 +491,9 @@
   });
 
   const paginatedMetrics = $derived(
-    sortedMetrics.slice((metricPage - 1) * metricPageSize, metricPage * metricPageSize)
+    metricPageSize === -1
+      ? sortedMetrics
+      : sortedMetrics.slice((metricPage - 1) * metricPageSize, metricPage * metricPageSize)
   );
 
   const openMetricInfo = () => {
@@ -611,7 +614,9 @@
   });
 
   const paginatedTraces = $derived(
-    sortedTraces.slice((tracePage - 1) * tracePageSize, tracePage * tracePageSize)
+    tracePageSize === -1
+      ? sortedTraces
+      : sortedTraces.slice((tracePage - 1) * tracePageSize, tracePage * tracePageSize)
   );
 
   const renderTraceScatter = () => {
@@ -747,7 +752,9 @@
   });
 
   const paginatedLogs = $derived(
-    sortedLogs.slice((logPage - 1) * logPageSize, logPage * logPageSize)
+    logPageSize === -1
+      ? sortedLogs
+      : sortedLogs.slice((logPage - 1) * logPageSize, logPage * logPageSize)
   );
 
   const renderLogLevelChart = () => {
@@ -1129,41 +1136,12 @@
           </div>
 
           <!-- Pagination -->
-          <div class="flex items-center justify-between p-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-400">
-            <div>
-              {$_("otel.pageInfo", { values: { page: metricPage, total: Math.max(1, Math.ceil(filteredMetrics.length / metricPageSize)) } })}
-            </div>
-            <div class="flex items-center gap-1">
-              <button
-                disabled={metricPage <= 1}
-                onclick={() => (metricPage = 1)}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronsLeft class="h-4 w-4" />
-              </button>
-              <button
-                disabled={metricPage <= 1}
-                onclick={() => metricPage--}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <button
-                disabled={metricPage * metricPageSize >= filteredMetrics.length}
-                onclick={() => metricPage++}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-              <button
-                disabled={metricPage * metricPageSize >= filteredMetrics.length}
-                onclick={() => (metricPage = Math.ceil(filteredMetrics.length / metricPageSize))}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronsRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          <TablePagination
+            bind:pageSize={metricPageSize}
+            bind:currentPage={metricPage}
+            totalCount={filteredMetrics.length}
+            pageSizes={[10, 20, 50, 100, -1]}
+          />
         </div>
       </div>
     {/if}
@@ -1433,41 +1411,12 @@
           </div>
 
           <!-- Pagination -->
-          <div class="flex items-center justify-between p-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-400">
-            <div>
-              {$_("otel.pageInfo", { values: { page: tracePage, total: Math.max(1, Math.ceil(sortedTraces.length / tracePageSize)) } })}
-            </div>
-            <div class="flex items-center gap-1">
-              <button
-                disabled={tracePage <= 1}
-                onclick={() => (tracePage = 1)}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronsLeft class="h-4 w-4" />
-              </button>
-              <button
-                disabled={tracePage <= 1}
-                onclick={() => tracePage--}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <button
-                disabled={tracePage * tracePageSize >= sortedTraces.length}
-                onclick={() => tracePage++}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-              <button
-                disabled={tracePage * tracePageSize >= sortedTraces.length}
-                onclick={() => (tracePage = Math.ceil(sortedTraces.length / tracePageSize))}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronsRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          <TablePagination
+            bind:pageSize={tracePageSize}
+            bind:currentPage={tracePage}
+            totalCount={sortedTraces.length}
+            pageSizes={[10, 20, 50, 100, -1]}
+          />
         </div>
       </div>
     {/if}
@@ -1703,41 +1652,12 @@
           </div>
 
           <!-- Pagination -->
-          <div class="flex items-center justify-between p-2.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-400">
-            <div>
-              {$_("otel.pageInfo", { values: { page: logPage, total: Math.max(1, Math.ceil(filteredLogs.length / logPageSize)) } })}
-            </div>
-            <div class="flex items-center gap-1">
-              <button
-                disabled={logPage <= 1}
-                onclick={() => (logPage = 1)}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronsLeft class="h-4 w-4" />
-              </button>
-              <button
-                disabled={logPage <= 1}
-                onclick={() => logPage--}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <button
-                disabled={logPage * logPageSize >= filteredLogs.length}
-                onclick={() => logPage++}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-              <button
-                disabled={logPage * logPageSize >= filteredLogs.length}
-                onclick={() => (logPage = Math.ceil(filteredLogs.length / logPageSize))}
-                class="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronsRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          <TablePagination
+            bind:pageSize={logPageSize}
+            bind:currentPage={logPage}
+            totalCount={filteredLogs.length}
+            pageSizes={[10, 25, 50, 100, 250, -1]}
+          />
         </div>
       </div>
     {/if}
