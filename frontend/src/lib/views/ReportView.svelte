@@ -32,7 +32,6 @@
     fetchArpTable,
     fetchIPAM,
     queryParquetLogs,
-    fetchCertMonitors,
     fetchMqttStats,
     resetArpTable,
     type NodeEnt,
@@ -41,7 +40,6 @@
     type ArpEnt,
     type IPAMReportResp,
     type ParquetLogRecord,
-    type CertMonitorEnt,
     type MqttStatEnt,
   } from "../api";
   import { showConfirm, showAlert } from "../stores/modalStore";
@@ -109,8 +107,71 @@
   let sflowLogs = $state<ParquetLogRecord[]>([]);
   let syslogLogs = $state<ParquetLogRecord[]>([]);
   let trapLogs = $state<ParquetLogRecord[]>([]);
-  let certMonitors = $state<CertMonitorEnt[]>([]);
   let mqttStats = $state<MqttStatEnt[]>([]);
+
+  type DatasetKey =
+    | "nodes"
+    | "pollings"
+    | "logs"
+    | "arpList"
+    | "arpLogs"
+    | "ipam"
+    | "netflowLogs"
+    | "sflowLogs"
+    | "syslogLogs"
+    | "trapLogs"
+    | "mqttStats";
+
+  const loaded = $state<Record<DatasetKey, boolean>>({
+    nodes: false,
+    pollings: false,
+    logs: false,
+    arpList: false,
+    arpLogs: false,
+    ipam: false,
+    netflowLogs: false,
+    sflowLogs: false,
+    syslogLogs: false,
+    trapLogs: false,
+    mqttStats: false,
+  });
+
+  const getRequiredDatasets = (category: ReportCategory): DatasetKey[] => {
+    switch (category) {
+      case "device":
+        return ["nodes", "arpList", "arpLogs"];
+      case "ipam":
+        return ["nodes", "arpList", "ipam"];
+      case "polling":
+      case "cert":
+        return ["nodes", "pollings"];
+      case "event":
+        return ["nodes", "logs"];
+      case "syslog":
+        return ["nodes", "syslogLogs"];
+      case "trap":
+        return ["nodes", "trapLogs"];
+      case "flow":
+        return ["netflowLogs"];
+      case "sflow":
+        return ["sflowLogs"];
+      case "arp":
+        return ["nodes", "arpLogs"];
+      case "mqtt":
+        return ["nodes", "mqttStats"];
+      case "sensor":
+      case "env":
+      case "wifi":
+      case "bluetooth":
+      case "pcap":
+      case "winlog":
+      case "ai":
+        return ["nodes"];
+      case "otel":
+      default:
+        return [];
+    }
+  };
 
   const categories = $derived<{ id: ReportCategory; name: string; icon: any }[]>([
     { id: "device", name: $_("report.tabDevice"), icon: Laptop },
@@ -134,55 +195,96 @@
     { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
   ]);
 
-  const loadData = async () => {
+  const loadCategoryData = async (category: ReportCategory = activeReport, force = false) => {
+    const required = new Set<DatasetKey>(getRequiredDatasets(category));
+    // Ensure sidebar status pill (nodes & pollings count) is populated on initial load
+    if (!loaded.nodes) required.add("nodes");
+    if (!loaded.pollings) required.add("pollings");
+
+    const toFetch = [...required].filter((key) => force || !loaded[key]);
+    const shouldRefreshChild =
+      force && activeReportRef && typeof activeReportRef.refresh === "function";
+
+    if (toFetch.length === 0 && !shouldRefreshChild) {
+      return;
+    }
+
     loading = true;
     const now = Date.now();
     const start24h = (now - 24 * 60 * 60 * 1000) * 1e6; // UnixNano
+
     try {
-      const [n, p, l, a, ipam, netflows, sflows, certs, mqtt, arps, syslogs, traps] = await Promise.all([
-        fetchNodes().catch(() => []),
-        fetchPollings().catch(() => []),
-        fetchEventLogs().catch(() => []),
-        fetchArpTable().catch(() => []),
-        fetchIPAM().catch(() => ({
-          Ranges: [],
-          TotalRanges: 0,
-          TotalSize: 0,
-          TotalUsed: 0,
-          TotalUsage: 0,
-        })),
-        queryParquetLogs({ type: "netflow", start: start24h, limit: 10000 }).catch(() => []),
-        queryParquetLogs({ type: "sflow", start: start24h, limit: 10000 }).catch(() => []),
-        fetchCertMonitors().catch(() => []),
-        fetchMqttStats().catch(() => []),
-        queryParquetLogs({ type: "arplog", limit: 10000 }).catch(() => []),
-        queryParquetLogs({ type: "syslog", start: start24h, limit: 10000 }).catch(() => []),
-        queryParquetLogs({ type: "trap", start: start24h, limit: 10000 }).catch(() => []),
-      ]);
-      nodes = n;
-      pollings = p;
-      logs = l;
-      arpList = a;
-      ipamReport = ipam;
-      netflowLogs = netflows;
-      sflowLogs = sflows;
-      certMonitors = certs;
-      mqttStats = mqtt;
-      arpLogs = arps;
-      syslogLogs = syslogs;
-      trapLogs = traps;
+      const tasks: Promise<void>[] = toFetch.map(async (key) => {
+        switch (key) {
+          case "nodes":
+            nodes = await fetchNodes().catch(() => []);
+            loaded.nodes = true;
+            break;
+          case "pollings":
+            pollings = await fetchPollings().catch(() => []);
+            loaded.pollings = true;
+            break;
+          case "logs":
+            logs = await fetchEventLogs().catch(() => []);
+            loaded.logs = true;
+            break;
+          case "arpList":
+            arpList = await fetchArpTable().catch(() => []);
+            loaded.arpList = true;
+            break;
+          case "arpLogs":
+            arpLogs = await queryParquetLogs({ type: "arplog", limit: 10000 }).catch(() => []);
+            loaded.arpLogs = true;
+            break;
+          case "ipam":
+            ipamReport = await fetchIPAM().catch(() => ({
+              Ranges: [],
+              TotalRanges: 0,
+              TotalSize: 0,
+              TotalUsed: 0,
+              TotalUsage: 0,
+            }));
+            loaded.ipam = true;
+            break;
+          case "netflowLogs":
+            netflowLogs = await queryParquetLogs({ type: "netflow", start: start24h, limit: 10000 }).catch(() => []);
+            loaded.netflowLogs = true;
+            break;
+          case "sflowLogs":
+            sflowLogs = await queryParquetLogs({ type: "sflow", start: start24h, limit: 10000 }).catch(() => []);
+            loaded.sflowLogs = true;
+            break;
+          case "syslogLogs":
+            syslogLogs = await queryParquetLogs({ type: "syslog", start: start24h, limit: 10000 }).catch(() => []);
+            loaded.syslogLogs = true;
+            break;
+          case "trapLogs":
+            trapLogs = await queryParquetLogs({ type: "trap", start: start24h, limit: 10000 }).catch(() => []);
+            loaded.trapLogs = true;
+            break;
+          case "mqttStats":
+            mqttStats = await fetchMqttStats().catch(() => []);
+            loaded.mqttStats = true;
+            break;
+        }
+      });
+
+      if (shouldRefreshChild) {
+        tasks.push(Promise.resolve(activeReportRef.refresh()));
+      }
+
+      await Promise.all(tasks);
     } catch (e) {
       console.error("Failed to load report data:", e);
     } finally {
       loading = false;
-      if (activeReportRef && typeof activeReportRef.refresh === "function") {
-        activeReportRef.refresh();
-      }
     }
   };
 
+  const handleRefresh = () => loadCategoryData(activeReport, true);
+
   onMount(() => {
-    loadData();
+    void loadCategoryData(activeReport, false);
   });
 
   const handleResetArp = async () => {
@@ -195,7 +297,8 @@
     if (!ok) return;
     try {
       await resetArpTable();
-      await loadData();
+      loaded.ipam = false;
+      await loadCategoryData(activeReport, true);
     } catch (err: any) {
       showAlert({
         title: $_('common.error') || 'エラー',
@@ -243,7 +346,11 @@
       {#each categories as cat}
         <button
           type="button"
-          onclick={() => { activeReport = cat.id; searchQuery = ""; }}
+          onclick={() => {
+            activeReport = cat.id;
+            searchQuery = "";
+            void loadCategoryData(cat.id, false);
+          }}
           class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeReport === cat.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-800 dark:text-slate-200'}"
         >
           <cat.icon class="h-4 w-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
@@ -316,7 +423,7 @@
         {/if}
         <button
           type="button"
-          onclick={loadData}
+          onclick={handleRefresh}
           disabled={loading}
           class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-xs"
         >
@@ -334,7 +441,10 @@
         {nodes}
         {arpList}
         {arpLogs}
-        onRefresh={loadData}
+        onRefresh={() => {
+          loaded.ipam = false;
+          void loadCategoryData("device", true);
+        }}
         {loading}
       />
     {:else if activeReport === "ipam"}
@@ -398,14 +508,13 @@
         {searchQuery}
         {pollings}
         {nodes}
-        onReload={loadData}
+        onReload={() => loadCategoryData("cert", true)}
       />
     {:else if activeReport === "sensor"}
       <SensorReport
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "env"}
@@ -413,7 +522,6 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "wifi"}
@@ -421,7 +529,6 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "bluetooth"}
@@ -429,7 +536,6 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "pcap"}
@@ -437,7 +543,6 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "winlog"}
@@ -445,7 +550,6 @@
         bind:this={activeReportRef}
         {searchQuery}
         {nodes}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "mqtt"}
@@ -454,14 +558,13 @@
         {searchQuery}
         {mqttStats}
         {nodes}
-        onRefresh={loadData}
+        onRefresh={() => loadCategoryData("mqtt", true)}
         {loading}
       />
     {:else if activeReport === "otel"}
       <OTelReport
         bind:this={activeReportRef}
         {searchQuery}
-        onRefresh={loadData}
         {loading}
       />
     {:else if activeReport === "ai"}
@@ -471,7 +574,6 @@
         {nodes}
         {pollings}
         {logs}
-        onReload={loadData}
       />
     {/if}
   </div>

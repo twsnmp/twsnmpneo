@@ -418,6 +418,12 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 			continue
 		}
 
+		// Skip files whose modification time (with 5-minute safety margin) is older than filter.StartTime
+		if filter.StartTime > 0 && stat.ModTime().Add(5*time.Minute).UnixNano() < filter.StartTime {
+			_ = f.Close()
+			continue
+		}
+
 		pf, err := parquet.OpenFile(f, stat.Size())
 		if err != nil {
 			_ = f.Close()
