@@ -2,6 +2,8 @@ package logreport
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -131,6 +133,16 @@ func TestEngine_ProcessSyslog(t *testing.T) {
 		"Variables":   "twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapCategory.0=fim, twagentNeoTrapRuleTitle.0=FIM: CHMOD /etc/shadow, twagentNeoTrapSourceLog.0=path=/etc/shadow op=CHMOD",
 	})
 
+	// 10. Multi-protocol merge test: Syslog for the same /etc/passwd file previously sent via MQTT
+	engine.ProcessSyslog(map[string]interface{}{
+		"app_name":        "twagentneo-fim",
+		"hostname":        "agent-host-01",
+		"structured_data": `[twsnmpneo@17862 op="WRITE" path="/etc/passwd"]`,
+		"message":         "File WRITE: /etc/passwd",
+		"severity":        4,
+		"timestamp":       now,
+	})
+
 	engine.Flush()
 
 	agentInfo, err := store.ListLogReportData(ctx, KindTwAgentInfo)
@@ -144,6 +156,19 @@ func TestEngine_ProcessSyslog(t *testing.T) {
 	agentFIM, err := store.ListLogReportData(ctx, KindTwAgentFIM)
 	if err != nil || len(agentFIM) < 2 {
 		t.Fatalf("expected >= 2 twAgentFIM entities, got %d (err: %v)", len(agentFIM), err)
+	}
+	// Verify that /etc/passwd merged both "mqtt" and "syslog" protocols
+	foundPasswdMerged := false
+	for _, b := range agentFIM {
+		var fimEnt TwAgentFIMEnt
+		if err := json.Unmarshal(b, &fimEnt); err == nil && fimEnt.Path == "/etc/passwd" {
+			if strings.Contains(strings.ToLower(fimEnt.Protocol), "mqtt") && strings.Contains(strings.ToLower(fimEnt.Protocol), "syslog") {
+				foundPasswdMerged = true
+			}
+		}
+	}
+	if !foundPasswdMerged {
+		t.Errorf("expected /etc/passwd to have merged both mqtt and syslog protocols")
 	}
 	agentTCP, err := store.ListLogReportData(ctx, KindTwAgentTCP)
 	if err != nil || len(agentTCP) != 1 {

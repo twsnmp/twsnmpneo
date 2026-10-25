@@ -592,7 +592,8 @@ type TwAgentAlertEnt struct {
 	IP                 string   `json:"IP"`
 	NodeID             string   `json:"NodeID"`
 	NodeName           string   `json:"NodeName"`
-	Protocol           string   `json:"Protocol"` // "mqtt" | "syslog" | "trap"
+	Protocol           string   `json:"Protocol"` // "mqtt" | "syslog" | "trap" or comma-separated
+	Protocols          []string `json:"Protocols,omitempty"`
 	RuleID             string   `json:"RuleID"`
 	RuleTitle          string   `json:"RuleTitle"`
 	Level              string   `json:"Level"` // "critical" | "high" | "medium" | "warn" | "low" | "info"
@@ -617,9 +618,10 @@ type TwAgentFIMEnt struct {
 	Host      string `json:"Host"`
 	IP        string `json:"IP"`
 	NodeID    string `json:"NodeID"`
-	NodeName  string `json:"NodeName"`
-	Protocol  string `json:"Protocol"` // "mqtt" | "syslog" | "trap"
-	Op        string `json:"Op"`       // "CREATE" | "WRITE" | "REMOVE" | "CHMOD" | "RENAME"
+	NodeName  string   `json:"NodeName"`
+	Protocol  string   `json:"Protocol"` // "mqtt" | "syslog" | "trap" or comma-separated
+	Protocols []string `json:"Protocols,omitempty"`
+	Op        string   `json:"Op"`       // "CREATE" | "WRITE" | "REMOVE" | "CHMOD" | "RENAME"
 	Path      string `json:"Path"`
 	Hash      string `json:"Hash"`
 	Count     int    `json:"Count"`

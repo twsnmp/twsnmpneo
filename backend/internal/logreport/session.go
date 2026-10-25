@@ -389,6 +389,9 @@ func parseTime(s string, def int64) int64 {
 		return def
 	}
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		if t.IsZero() || t.Year() <= 1970 {
+			return def
+		}
 		return t.UnixNano()
 	}
 	return def

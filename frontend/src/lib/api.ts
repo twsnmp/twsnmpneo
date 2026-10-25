@@ -3278,6 +3278,7 @@ export interface TwAgentAlertEnt {
   NodeID?: string;
   NodeName?: string;
   Protocol: string;
+  Protocols?: string[];
   RuleID?: string;
   RuleTitle: string;
   Level: string;
@@ -3303,6 +3304,7 @@ export interface TwAgentFIMEnt {
   NodeID?: string;
   NodeName?: string;
   Protocol: string;
+  Protocols?: string[];
   Op: string;
   Path: string;
   Hash: string;

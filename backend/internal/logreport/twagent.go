@@ -48,16 +48,22 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 	switch subTopic {
 	case "metrics", "resource":
 		var m struct {
-			Timestamp     string   `json:"timestamp"`
-			CPUPercent    float64  `json:"cpu_percent"`
+			Timestamp     string    `json:"timestamp"`
+			AgentID       string    `json:"agent_id"`
+			Hostname      string    `json:"hostname"`
+			OS            string    `json:"os"`
+			Version       string    `json:"version"`
+			IP            string    `json:"ip"`
+			MAC           string    `json:"mac"`
+			CPUPercent    float64   `json:"cpu_percent"`
 			PerCoreCPU    []float64 `json:"per_core_cpu"`
-			LoadAvg1      float64  `json:"load_avg_1"`
-			LoadAvg5      float64  `json:"load_avg_5"`
-			LoadAvg15     float64  `json:"load_avg_15"`
-			MemTotalBytes uint64   `json:"mem_total_bytes"`
-			MemUsedBytes  uint64   `json:"mem_used_bytes"`
-			MemPercent    float64  `json:"mem_percent"`
-			SwapUsedBytes uint64   `json:"swap_used_bytes"`
+			LoadAvg1      float64   `json:"load_avg_1"`
+			LoadAvg5      float64   `json:"load_avg_5"`
+			LoadAvg15     float64   `json:"load_avg_15"`
+			MemTotalBytes uint64    `json:"mem_total_bytes"`
+			MemUsedBytes  uint64    `json:"mem_used_bytes"`
+			MemPercent    float64   `json:"mem_percent"`
+			SwapUsedBytes uint64    `json:"swap_used_bytes"`
 			Disks         []struct {
 				MountPoint  string  `json:"mount_point"`
 				FsType      string  `json:"fs_type"`
@@ -83,6 +89,21 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 		}
 		if err := json.Unmarshal(mr.Payload, &m); err != nil {
 			return false
+		}
+		if m.Hostname != "" && info.Hostname == "" {
+			info.Hostname = m.Hostname
+		}
+		if m.OS != "" && info.OS == "" {
+			info.OS = m.OS
+		}
+		if m.Version != "" && info.Version == "" {
+			info.Version = m.Version
+		}
+		if m.IP != "" && (info.IP == "" || info.IP == "127.0.0.1") {
+			info.IP = m.IP
+		}
+		if m.MAC != "" && info.MAC == "" {
+			info.MAC = m.MAC
 		}
 		tRec := parseTime(m.Timestamp, tNano)
 		info.CPUPercent = m.CPUPercent
@@ -350,6 +371,8 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 	case "fim":
 		var fimEv struct {
 			Timestamp string `json:"timestamp"`
+			AgentID   string `json:"agent_id"`
+			Hostname  string `json:"hostname"`
 			Op        string `json:"op"`
 			Path      string `json:"path"`
 			Hash      string `json:"hash"`
@@ -358,6 +381,12 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 		}
 		if err := json.Unmarshal(mr.Payload, &fimEv); err != nil {
 			return false
+		}
+		if fimEv.Hostname != "" && info.Hostname == "" {
+			info.Hostname = fimEv.Hostname
+		}
+		if fimEv.AgentID != "" && (info.AgentID == "" || info.AgentID == info.IP) {
+			info.AgentID = fimEv.AgentID
 		}
 		if fimEv.Path == "" && fimEv.SourceLog != "" {
 			for _, token := range strings.Fields(fimEv.SourceLog) {
@@ -389,9 +418,39 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 			return false
 		}
 		// 1. Check if it is a FIM event mirrored to "alert"
-		if op, ok := raw["op"].(string); ok && op != "" {
-			path, _ := raw["path"].(string)
-			hash, _ := raw["hash"].(string)
+		category, _ := raw["category"].(string)
+		ruleTitle, _ := raw["rule_title"].(string)
+		sourceLog, _ := raw["source_log"].(string)
+		op, _ := raw["op"].(string)
+		path, _ := raw["path"].(string)
+		hash, _ := raw["hash"].(string)
+		if op == "" && sourceLog != "" {
+			for _, token := range strings.Fields(sourceLog) {
+				if strings.HasPrefix(token, "path=") && path == "" {
+					path = strings.TrimPrefix(token, "path=")
+				} else if strings.HasPrefix(token, "op=") && op == "" {
+					op = strings.TrimPrefix(token, "op=")
+				} else if strings.HasPrefix(token, "hash=") && hash == "" {
+					hash = strings.TrimPrefix(token, "hash=")
+				}
+			}
+		}
+		if op == "" && strings.HasPrefix(ruleTitle, "File ") {
+			rest := strings.TrimPrefix(ruleTitle, "File ")
+			if parts := strings.SplitN(rest, ":", 2); len(parts) == 2 {
+				op = strings.TrimSpace(parts[0])
+				if path == "" {
+					path = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+		if op != "" || strings.EqualFold(category, "fim") || strings.HasPrefix(ruleTitle, "FIM:") {
+			if path == "" {
+				path = ruleTitle
+			}
+			if op == "" {
+				op = "WRITE"
+			}
 			tsStr, _ := raw["timestamp"].(string)
 			tRec := parseTime(tsStr, tNano)
 			s.upsertTwAgentFIM(info, "mqtt", op, path, hash, tRec)
@@ -738,6 +797,10 @@ func (s *Session) upsertTwAgentFIM(info *TwAgentInfoEnt, proto, op, path, hash s
 		op = "MODIFY"
 	}
 	op = strings.ToUpper(op)
+	proto = strings.ToLower(strings.TrimSpace(proto))
+	if proto == "" {
+		proto = "mqtt"
+	}
 	hostLabel := info.Hostname
 	if hostLabel == "" {
 		hostLabel = info.AgentID
@@ -748,10 +811,23 @@ func (s *Session) upsertTwAgentFIM(info *TwAgentInfoEnt, proto, op, path, hash s
 
 	id := makeID(fmt.Sprintf("%s:%s:%s", hostLabel, op, path))
 	ent := getEnt[TwAgentFIMEnt](s, KindTwAgentFIM, id)
-	if ent != nil && (tNano-ent.LastTime) < int64(1500*time.Millisecond) && ent.Hash == hash {
-		// Suppress duplicate when MQTT publishes to both "fim" and "alert" simultaneously
-		return
+	if ent == nil {
+		for _, existing := range allEnts[TwAgentFIMEnt](s, KindTwAgentFIM) {
+			if existing.Op == op && existing.Path == path {
+				if (info.AgentID != "" && existing.AgentID == info.AgentID) ||
+					(hostLabel != "" && strings.EqualFold(existing.Host, hostLabel)) ||
+					(info.Hostname != "" && strings.EqualFold(existing.Host, info.Hostname)) ||
+					(info.IP != "" && existing.IP == info.IP) {
+					ent = existing
+					id = existing.ID
+					break
+				}
+			}
+		}
 	}
+
+	isRecent := ent != nil && (tNano-ent.LastTime) < int64(3*time.Second) && (tNano-ent.LastTime) > -int64(3*time.Second)
+
 	if ent == nil {
 		ent = &TwAgentFIMEnt{
 			ID:        id,
@@ -761,6 +837,7 @@ func (s *Session) upsertTwAgentFIM(info *TwAgentInfoEnt, proto, op, path, hash s
 			NodeID:    info.NodeID,
 			NodeName:  info.NodeName,
 			Protocol:  proto,
+			Protocols: []string{proto},
 			Op:        op,
 			Path:      path,
 			Hash:      hash,
@@ -768,8 +845,25 @@ func (s *Session) upsertTwAgentFIM(info *TwAgentInfoEnt, proto, op, path, hash s
 			FirstTime: tNano,
 			LastTime:  tNano,
 		}
+		info.FIMCount++
 	} else {
-		ent.Protocol = proto
+		// Check if this exact protocol was already received recently (e.g. MQTT dual "fim" and "alert" publish)
+		alreadyHasProto := false
+		for _, p := range ent.Protocols {
+			if strings.EqualFold(p, proto) {
+				alreadyHasProto = true
+				break
+			}
+		}
+
+		if isRecent && alreadyHasProto && (hash == "" || ent.Hash == hash) {
+			// Suppress duplicate within same protocol
+			return
+		}
+
+		ent.Protocols = mergeStringSlice(ent.Protocols, []string{proto})
+		ent.Protocol = strings.Join(ent.Protocols, ", ")
+
 		if hash != "" {
 			ent.Hash = hash
 		}
@@ -780,12 +874,17 @@ func (s *Session) upsertTwAgentFIM(info *TwAgentInfoEnt, proto, op, path, hash s
 			ent.NodeID = info.NodeID
 			ent.NodeName = info.NodeName
 		}
-		ent.Count++
+
+		// If this is a concurrent multi-protocol delivery (e.g. MQTT + Syslog + Trap within 3s),
+		// do not inflate the modification event count, but ensure protocol and timestamp are merged.
+		if !isRecent {
+			ent.Count++
+			info.FIMCount++
+		}
 		if tNano > ent.LastTime {
 			ent.LastTime = tNano
 		}
 	}
-	info.FIMCount++
 	putEnt(s, KindTwAgentInfo, info.ID, info)
 	putEnt(s, KindTwAgentFIM, id, ent)
 	s.Processed++
@@ -800,6 +899,10 @@ func (s *Session) upsertTwAgentAlert(
 	summaryJa, actionJa string,
 	tNano int64,
 ) {
+	proto = strings.ToLower(strings.TrimSpace(proto))
+	if proto == "" {
+		proto = "mqtt"
+	}
 	hostLabel := info.Hostname
 	if hostLabel == "" {
 		hostLabel = info.AgentID
@@ -827,6 +930,7 @@ func (s *Session) upsertTwAgentAlert(
 			NodeID:             info.NodeID,
 			NodeName:           info.NodeName,
 			Protocol:           proto,
+			Protocols:          []string{proto},
 			RuleID:             ruleID,
 			RuleTitle:          ruleTitle,
 			Level:              level,
@@ -844,7 +948,8 @@ func (s *Session) upsertTwAgentAlert(
 			LastTime:           tNano,
 		}
 	} else {
-		ent.Protocol = proto
+		ent.Protocols = mergeStringSlice(ent.Protocols, []string{proto})
+		ent.Protocol = strings.Join(ent.Protocols, ", ")
 		if ruleID != "" {
 			ent.RuleID = ruleID
 		}

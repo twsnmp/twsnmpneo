@@ -277,6 +277,16 @@
     }
   };
 
+  const getProtocols = (ent: { Protocols?: string[]; Protocol?: string }): string[] => {
+    if (ent.Protocols && ent.Protocols.length > 0) {
+      return ent.Protocols;
+    }
+    if (ent.Protocol) {
+      return ent.Protocol.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    return ["mqtt"];
+  };
+
   // One-click Recommended Pollings Creation (creates node automatically if needed)
   const handleQuickAddPollings = async (agent: TwAgentInfoEnt, e?: Event) => {
     e?.stopPropagation();
@@ -753,12 +763,12 @@
     } else if (activeTab === "alerts") {
       header = "Level,IsThreat,Confidence,ComplianceViolated,Compliance,Protocol,Host,Category,RuleTitle,SummaryJa,ActionJa,Count,LastTime\n";
       rows = (currentList as TwAgentAlertEnt[])
-        .map((a) => `"${a.Level}","${a.IsThreat}","${(a.Confidence * 100).toFixed(0)}%","${a.ComplianceViolated}","${(a.ComplianceTypes || []).join("|")}","${a.Protocol}","${a.Host}","${a.Category}","${(a.RuleTitle || "").replace(/"/g, '""')}","${(a.SummaryJa || "").replace(/"/g, '""')}","${(a.ActionJa || "").replace(/"/g, '""')}","${a.Count}","${formatTimeStr(a.LastTime)}"`)
+        .map((a) => `"${a.Level}","${a.IsThreat}","${(a.Confidence * 100).toFixed(0)}%","${a.ComplianceViolated}","${(a.ComplianceTypes || []).join("|")}","${getProtocols(a).join(", ")}","${a.Host}","${a.Category}","${(a.RuleTitle || "").replace(/"/g, '""')}","${(a.SummaryJa || "").replace(/"/g, '""')}","${(a.ActionJa || "").replace(/"/g, '""')}","${a.Count}","${formatTimeStr(a.LastTime)}"`)
         .join("\n");
     } else if (activeTab === "fim") {
       header = "Op,Path,Hash,Host,Protocol,Count,LastTime\n";
       rows = (currentList as TwAgentFIMEnt[])
-        .map((f) => `"${f.Op}","${f.Path}","${f.Hash}","${f.Host}","${f.Protocol}","${f.Count}","${formatTimeStr(f.LastTime)}"`)
+        .map((f) => `"${f.Op}","${f.Path}","${f.Hash}","${f.Host}","${getProtocols(f).join(", ")}","${f.Count}","${formatTimeStr(f.LastTime)}"`)
         .join("\n");
     } else if (activeTab === "tcp") {
       header = "Score,Host,Process,RemoteIP,RemoteLoc,Services,ConnCount,Count,LastTime\n";
@@ -1323,7 +1333,20 @@
                     {/if}
                   </td>
                   <td class="py-1.5 px-2 font-semibold text-slate-800 dark:text-slate-200">{al.Host}</td>
-                  <td class="py-1.5 px-2 uppercase text-[10px] text-cyan-600 dark:text-cyan-400">{al.Protocol}</td>
+                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                    <div class="flex flex-wrap items-center gap-1">
+                      {#each getProtocols(al) as proto}
+                        {@const pLower = proto.toLowerCase()}
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase
+                          {pLower === 'mqtt' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30' :
+                           pLower === 'syslog' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30' :
+                           pLower === 'trap' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
+                           'bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30'}">
+                          {proto}
+                        </span>
+                      {/each}
+                    </div>
+                  </td>
                   <td class="py-1.5 px-2 text-slate-600 dark:text-slate-400">{al.Category}</td>
                   <td class="py-1.5 px-2 font-sans max-w-[320px]">
                     <div class="font-semibold text-slate-800 dark:text-slate-100 truncate" title={al.RuleTitle}>{al.RuleTitle}</div>
@@ -1413,7 +1436,20 @@
                     {/if}
                   </td>
                   <td class="py-1.5 px-2 text-slate-700 dark:text-slate-300">{f.Host}</td>
-                  <td class="py-1.5 px-2 uppercase text-[10px] text-cyan-600 dark:text-cyan-400">{f.Protocol}</td>
+                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                    <div class="flex flex-wrap items-center gap-1">
+                      {#each getProtocols(f) as proto}
+                        {@const pLower = proto.toLowerCase()}
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase
+                          {pLower === 'mqtt' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30' :
+                           pLower === 'syslog' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30' :
+                           pLower === 'trap' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
+                           'bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30'}">
+                          {proto}
+                        </span>
+                      {/each}
+                    </div>
+                  </td>
                   <td class="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{f.Count.toLocaleString()}</td>
                   <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(f.LastTime)}</td>
                 </tr>
