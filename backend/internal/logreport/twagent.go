@@ -711,6 +711,10 @@ func (s *Session) processTwAgentTrap(tr *TrapRecord) bool {
 	aiJudge := vars["twagentNeoTrapAIJudge"]
 	aiSummary := vars["twagentNeoTrapAISummary"]
 	aiAction := vars["twagentNeoTrapAIAction"]
+	sourceLog := vars["twagentNeoTrapSourceLog"]
+	if sourceLog == "" {
+		sourceLog = tr.Variables
+	}
 
 	ip := cleanHostIP(tr.FromAddress)
 	agentID := hostname
@@ -786,7 +790,7 @@ func (s *Session) processTwAgentTrap(tr *TrapRecord) bool {
 		isThreat = true
 	}
 
-	s.upsertTwAgentAlert(info, "trap", "", ruleTitle, level, cat, tr.Variables,
+	s.upsertTwAgentAlert(info, "trap", "", ruleTitle, level, cat, sourceLog,
 		aiJudged, isThreat, compViol, nil, conf, aiSummary, aiAction, tNano)
 
 	// If SCA trap
@@ -796,7 +800,7 @@ func (s *Session) processTwAgentTrap(tr *TrapRecord) bool {
 			parts := strings.SplitN(ruleTitle, ":", 2)
 			ruleID = strings.TrimSpace(parts[0])
 		}
-		s.upsertTwAgentSCA(info, "trap", ruleID, ruleTitle, "", level, tr.Variables, "", "", nil,
+		s.upsertTwAgentSCA(info, "trap", ruleID, ruleTitle, "", level, sourceLog, "", "", nil,
 			aiJudged, isThreat, compViol, conf, aiSummary, aiAction, tNano)
 	}
 	return true
@@ -1242,7 +1246,7 @@ func parseTwAgentTopic(topic, clientID string) (agentID, subTopic string) {
 	}
 	last := strings.ToLower(parts[len(parts)-1])
 	switch last {
-	case "metrics", "resource", "interface", "network", "arp", "tcp", "alert", "fim", "status", "heartbeat":
+	case "metrics", "resource", "interface", "network", "arp", "tcp", "alert", "fim", "sca", "status", "heartbeat":
 		subTopic = last
 		agentID = parts[len(parts)-2]
 		if strings.EqualFold(agentID, "agent") && clientID != "" {
@@ -1355,7 +1359,7 @@ func parseTwAgentTrapVars(vars string) map[string]string {
 		if i+1 < len(matches) {
 			valEnd = matches[i+1][0]
 		}
-		val := strings.TrimSpace(vars[valStart:valEnd])
+		val := strings.TrimRight(strings.TrimSpace(vars[valStart:valEnd]), ",")
 		res[key] = val
 		baseKey := strings.TrimSuffix(key, ".0")
 		if baseKey != key {

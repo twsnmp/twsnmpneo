@@ -141,12 +141,6 @@ func TestEngine_ProcessSyslog(t *testing.T) {
 		"TrapType":    "twagentNeoSCAAlert",
 		"Variables":   "twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapCategory.0=Configuration Audit, twagentNeoTrapRuleTitle.0=CIS-4.1: SSH Root Login Enabled, twagentNeoTrapSourceLog.0=/etc/ssh/sshd_config",
 	})
-		"hostname":        "agent-host-01",
-		"structured_data": `[twsnmpneo@17862 rule="Brute Force SSH" threat="YES" comp="NO"]`,
-		"message":         "AI Summary: SSH brute force attempt",
-		"severity":        3,
-		"timestamp":       now,
-	})
 
 	// 9. twagentneo SNMP Trap
 	engine.ProcessTrap(map[string]interface{}{

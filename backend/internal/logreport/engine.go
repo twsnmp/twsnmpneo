@@ -205,7 +205,7 @@ func TagToSource(tag string) string {
 		return SourcePcap
 	case "twwinlog":
 		return SourceWinLog
-	case "twagentneo", "twagentneo-fim", "twagentneo-resource":
+	case "twagentneo", "twagentneo-fim", "twagentneo-sca", "twagentneo-resource":
 		return SourceTwAgent
 	default:
 		return ""
