@@ -1065,6 +1065,12 @@ func TestTwAgentPollers(t *testing.T) {
 		Src:  "10.0.0.55",
 		Log:  `{"hostname":"agent-host-01","app_name":"twagentneo","structured_data":"[twsnmpneo@17862 rule=\"Suspicious Shell\" threat=\"YES\" comp=\"YES\"]","message":"AI Verdict: High confidence shell execution"}`,
 	})
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: now,
+		Type: "syslog",
+		Src:  "10.0.0.55",
+		Log:  `{"hostname":"agent-host-01","app_name":"twagentneo-sca","structured_data":"[twsnmpneo@17862 rule=\"CIS-3.14: World-Writable\" sca=\"CIS-3.14\" threat=\"NO\" comp=\"YES\"]","message":"Configuration Audit: /etc/cron.d/job"}`,
+	})
 	_ = pqStore.Flush()
 
 	syslogPoll := &datastore.PollingEnt{
@@ -1073,7 +1079,7 @@ func TestTwAgentPollers(t *testing.T) {
 		Name:    "twagentneo Syslog Threat",
 		Type:    "syslog",
 		Mode:    "twagent",
-		Script:  "threatCount == 0",
+		Script:  "threatCount == 0 && scaCount == 0",
 		Level:   "high",
 		PollInt: 60,
 	}
@@ -1089,8 +1095,11 @@ func TestTwAgentPollers(t *testing.T) {
 	if resSyslog.Fields["threatCount"] != float64(1) {
 		t.Errorf("expected threatCount=1, got %v", resSyslog.Fields["threatCount"])
 	}
-	if resSyslog.Fields["compCount"] != float64(1) {
-		t.Errorf("expected compCount=1, got %v", resSyslog.Fields["compCount"])
+	if resSyslog.Fields["compCount"] != float64(2) {
+		t.Errorf("expected compCount=2, got %v", resSyslog.Fields["compCount"])
+	}
+	if resSyslog.Fields["scaCount"] != float64(1) {
+		t.Errorf("expected scaCount=1, got %v", resSyslog.Fields["scaCount"])
 	}
 
 	// 3. SnmpTrapPoller in twagent mode
@@ -1100,6 +1109,12 @@ func TestTwAgentPollers(t *testing.T) {
 		Src:  "10.0.0.55(agent-host-01)",
 		Log:  `{"Time":1700000000,"FromAddress":"10.0.0.55(agent-host-01)","TrapType":"twagentNeoSecurityAlert","Variables":"twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapAIJudge.0=THREAT (92%): PCI-DSS, twagentNeoTrapAISummary.0=Unauthorized privilege escalation"}`,
 	})
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: now,
+		Type: "trap",
+		Src:  "10.0.0.55(agent-host-01)",
+		Log:  `{"Time":1700000000,"FromAddress":"10.0.0.55(agent-host-01)","TrapType":"twagentNeoSCAAlert","Variables":"twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapCategory.0=Configuration Audit, twagentNeoTrapRuleTitle.0=CIS-4.1: SSH Root Login Enabled"}`,
+	})
 	_ = pqStore.Flush()
 
 	trapPoll := &datastore.PollingEnt{
@@ -1108,7 +1123,7 @@ func TestTwAgentPollers(t *testing.T) {
 		Name:    "twagentneo Trap Threat",
 		Type:    "trap",
 		Mode:    "twagent",
-		Script:  "threatCount == 0",
+		Script:  "threatCount == 0 && scaCount == 0",
 		Level:   "high",
 		PollInt: 60,
 	}
@@ -1126,6 +1141,9 @@ func TestTwAgentPollers(t *testing.T) {
 	}
 	if resTrap.Fields["compCount"] != float64(1) {
 		t.Errorf("expected trap compCount=1, got %v", resTrap.Fields["compCount"])
+	}
+	if resTrap.Fields["scaCount"] != float64(1) {
+		t.Errorf("expected trap scaCount=1, got %v", resTrap.Fields["scaCount"])
 	}
 }
 

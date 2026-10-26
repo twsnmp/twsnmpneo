@@ -176,8 +176,8 @@ func (p *MQTTPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	// Parse JSON payload fields (including twagentneo resource, interface, status, and alert schemas)
 	extractMQTTJSONFields(payloadStr, pe.Params, fields)
 
-	// If querying alert/fim topics or mode=="twagent", aggregate recent Parquet mqtt logs
-	if p.logStore != nil && (mode == "twagent" || strings.HasSuffix(topicStr, "/alert") || strings.HasSuffix(topicStr, "/fim")) {
+	// If querying alert/fim/sca topics or mode=="twagent", aggregate recent Parquet mqtt logs
+	if p.logStore != nil && (mode == "twagent" || strings.HasSuffix(topicStr, "/alert") || strings.HasSuffix(topicStr, "/fim") || strings.HasSuffix(topicStr, "/sca")) {
 		p.aggregateMQTTAlertLogs(ctx, pe, node, topicStr, nowNano, fields)
 	}
 
@@ -452,6 +452,23 @@ func extractMQTTJSONFields(payloadStr, paramFilter string, fields map[string]int
 				fields["threat"] = float64(0)
 			}
 		}
+
+		// SCA fields if present
+		if rID, ok := obj["rule_id"].(string); ok && rID != "" {
+			fields["rule_id"] = rID
+		}
+		if fp, ok := obj["file_path"].(string); ok && fp != "" {
+			fields["file_path"] = fp
+		}
+		if pr, ok := obj["proof"].(string); ok && pr != "" {
+			fields["proof"] = pr
+		}
+		if rem, ok := obj["remediation"].(string); ok && rem != "" {
+			fields["remediation"] = rem
+		}
+		if sev, ok := obj["severity"].(string); ok && sev != "" {
+			fields["severity"] = sev
+		}
 		return
 	}
 
@@ -551,7 +568,7 @@ func (p *MQTTPoller) aggregateMQTTAlertLogs(ctx context.Context, pe *datastore.P
 		return
 	}
 
-	var alertCount, threatCount, compCount, fimCount float64
+	var alertCount, threatCount, compCount, fimCount, scaCount float64
 	for _, rec := range logs {
 		var mEnt datastore.MqttLogEnt
 		if err := json.Unmarshal([]byte(rec.Log), &mEnt); err != nil {
@@ -567,6 +584,9 @@ func (p *MQTTPoller) aggregateMQTTAlertLogs(ctx context.Context, pe *datastore.P
 		alertCount++
 		if _, hasOp := payloadObj["op"]; hasOp {
 			fimCount++
+		}
+		if _, hasFilePath := payloadObj["file_path"]; hasFilePath || strings.HasSuffix(mEnt.Topic, "/sca") {
+			scaCount++
 		}
 		if judgeRaw, ok := payloadObj["ai_judge"].(map[string]interface{}); ok {
 			if t, _ := judgeRaw["is_threat"].(bool); t {
@@ -587,6 +607,7 @@ func (p *MQTTPoller) aggregateMQTTAlertLogs(ctx context.Context, pe *datastore.P
 	fields["threatCount"] = threatCount
 	fields["compCount"] = compCount
 	fields["fimCount"] = fimCount
+	fields["scaCount"] = scaCount
 }
 
 func isLoopbackIfName(name string) bool {

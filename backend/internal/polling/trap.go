@@ -80,7 +80,7 @@ func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, nod
 
 	count := 0
 	typeMap := make(map[string]int)
-	var threatCount, compCount, fimCount, resourceCount, heartbeatCount float64
+	var threatCount, compCount, fimCount, scaCount, resourceCount, heartbeatCount float64
 	lastMsg := ""
 	lastVars := make(map[string]string)
 	lastTrapType := ""
@@ -121,6 +121,8 @@ func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, nod
 				resourceCount++
 			} else if strings.Contains(ttLower, "twagentneoheartbeat") || strings.HasSuffix(ttLower, "17862.3.2.0.4") || catLower == "heartbeat" {
 				heartbeatCount++
+			} else if strings.Contains(ttLower, "twagentneosca") || catLower == "configuration audit" || catLower == "sca" {
+				scaCount++
 			} else if strings.Contains(ttLower, "twagentneosecurity") || strings.HasSuffix(ttLower, "17862.3.2.0.2") || judgeStr != "" {
 				judgeUpper := strings.ToUpper(judgeStr)
 				if strings.Contains(judgeUpper, "THREAT:YES") || (strings.HasPrefix(judgeUpper, "THREAT") && !strings.Contains(judgeUpper, "THREAT:NO")) || (judgeStr == "" && !strings.Contains(judgeUpper, "THREAT:NO")) {
@@ -141,6 +143,7 @@ func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, nod
 		"threatCount":    threatCount,
 		"compCount":      compCount,
 		"fimCount":       fimCount,
+		"scaCount":       scaCount,
 		"resourceCount":  resourceCount,
 		"heartbeatCount": heartbeatCount,
 		"trapType":       lastTrapType,
@@ -209,13 +212,13 @@ func (p *SnmpTrapPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, nod
 				if heartbeatCount == 0 && pe.Level != "off" {
 					state = failureState(pe.Level)
 				}
-			} else if (threatCount > 0 || compCount > 0 || fimCount > 0 || resourceCount > 0) && pe.Level != "off" {
+			} else if (threatCount > 0 || compCount > 0 || fimCount > 0 || scaCount > 0 || resourceCount > 0) && pe.Level != "off" {
 				state = failureState(pe.Level)
 			}
 			return &Result{
 				State:   state,
 				RTT:     time.Since(start),
-				Message: fmt.Sprintf("twagent trap: threat=%.0f comp=%.0f fim=%.0f res=%.0f hb=%.0f", threatCount, compCount, fimCount, resourceCount, heartbeatCount),
+				Message: fmt.Sprintf("twagent trap: threat=%.0f comp=%.0f fim=%.0f sca=%.0f res=%.0f hb=%.0f", threatCount, compCount, fimCount, scaCount, resourceCount, heartbeatCount),
 				Fields:  fields,
 			}, nil
 		}

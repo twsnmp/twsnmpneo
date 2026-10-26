@@ -28,7 +28,7 @@ type cleanMeta struct {
 var limitedKinds = map[string]bool{
 	KindWifiAP: true, KindBlueDevice: true, KindDNSQ: true, KindRADIUSFlow: true, KindTLSFlow: true,
 	KindFlow: true, KindServer: true, KindFumble: true,
-	KindTwAgentAlert: true, KindTwAgentFIM: true, KindTwAgentTCP: true,
+	KindTwAgentAlert: true, KindTwAgentFIM: true, KindTwAgentSCA: true, KindTwAgentTCP: true,
 }
 
 // Cleanup removes expired entities of the kinds fed by source.

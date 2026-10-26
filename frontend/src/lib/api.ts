@@ -3265,6 +3265,7 @@ export interface TwAgentInfoEnt {
   AlertCount: number;
   ThreatCount: number;
   FIMCount: number;
+  SCACount?: number;
   Count: number;
   FirstTime: number;
   LastTime: number;
@@ -3308,6 +3309,34 @@ export interface TwAgentFIMEnt {
   Op: string;
   Path: string;
   Hash: string;
+  Count: number;
+  FirstTime: number;
+  LastTime: number;
+}
+
+export interface TwAgentSCAEnt {
+  ID: string;
+  AgentID: string;
+  Host: string;
+  IP?: string;
+  NodeID?: string;
+  NodeName?: string;
+  Protocol: string;
+  Protocols?: string[];
+  RuleID?: string;
+  Title: string;
+  Description: string;
+  Severity: string;
+  FilePath: string;
+  Proof: string;
+  Remediation?: string;
+  Compliance?: string[];
+  AIJudged?: boolean;
+  IsThreat?: boolean;
+  ComplianceViolated?: boolean;
+  Confidence?: number;
+  SummaryJa?: string;
+  ActionJa?: string;
   Count: number;
   FirstTime: number;
   LastTime: number;

@@ -775,9 +775,19 @@
     "Mode": "twagent",
     "Params": "local",
     "Filter": "twsnmpneo/agent/+/alert",
-    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0 && scaCount == 0",
     "Level": "high",
-    "Descr": "twagentneo のSigma×tensaiローカルAI脅威検知・コンプライアンス違反・FIMをMQTTで監視"
+    "Descr": "twagentneo のSigma×tensaiローカルAI脅威検知・コンプライアンス違反・FIM・SCAをMQTTで監視"
+  },
+  {
+    "Name": "twagentneo MQTT 構成監査(SCA)監視",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/sca",
+    "Script": "scaCount == 0",
+    "Level": "warn",
+    "Descr": "twagentneo のCISベンチマーク準拠構成監査(SCA)脆弱性・露出をMQTTで監視"
   },
   {
     "Name": "twagentneo Syslog AI脅威・FIM監視",
@@ -785,9 +795,9 @@
     "Mode": "twagent",
     "Params": "",
     "Filter": "",
-    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0 && scaCount == 0",
     "Level": "high",
-    "Descr": "twagentneo のRFC5424 Syslog(twsnmpneo@17862)からAI認定脅威とFIM改ざんを監視"
+    "Descr": "twagentneo のRFC5424 Syslog(twsnmpneo@17862)からAI認定脅威・FIM改ざん・SCAを監視"
   },
   {
     "Name": "twagentneo TRAP AI脅威・FIM監視",
@@ -795,9 +805,9 @@
     "Mode": "twagent",
     "Params": "",
     "Filter": "twagentNeo(Security|FIM|Resource)Alert",
-    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0 && scaCount == 0",
     "Level": "high",
-    "Descr": "TWAGENT-NEO-MIBのSNMP TRAPからAI認定脅威・コンプライアンス違反・FIMを監視"
+    "Descr": "TWAGENT-NEO-MIBのSNMP TRAPからAI認定脅威・コンプライアンス違反・FIM・SCAを監視"
   },
   {
     "Name": "twagentneo TRAP ハートビート監視",

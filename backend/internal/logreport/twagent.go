@@ -412,6 +412,68 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 		s.upsertTwAgentFIM(info, "mqtt", fimEv.Op, fimEv.Path, fimEv.Hash, tRec)
 		return true
 
+	case "sca":
+		type aiJudgePayload struct {
+			IsThreat            bool     `json:"is_threat"`
+			ComplianceViolated  bool     `json:"compliance_violated"`
+			ComplianceTypes     []string `json:"compliance_types"`
+			Compliance          []string `json:"compliance"`
+			Confidence          float64  `json:"confidence"`
+			SummaryJa           string   `json:"summary_ja"`
+			ActionJa            string   `json:"action_ja"`
+			RecommendedActionJa string   `json:"recommended_action_ja"`
+		}
+		var scaEv struct {
+			Timestamp   string          `json:"timestamp"`
+			AgentID     string          `json:"agent_id"`
+			Hostname    string          `json:"hostname"`
+			RuleID      string          `json:"rule_id"`
+			Title       string          `json:"title"`
+			Description string          `json:"description"`
+			Severity    string          `json:"severity"`
+			FilePath    string          `json:"file_path"`
+			Proof       string          `json:"proof"`
+			Remediation string          `json:"remediation"`
+			Compliance  []string        `json:"compliance"`
+			AIJudge     *aiJudgePayload `json:"ai_judge"`
+			AIJudgment  *aiJudgePayload `json:"ai_judgment"`
+		}
+		if err := json.Unmarshal(mr.Payload, &scaEv); err != nil {
+			return false
+		}
+		if scaEv.Hostname != "" && info.Hostname == "" {
+			info.Hostname = scaEv.Hostname
+		}
+		if scaEv.AgentID != "" && (info.AgentID == "" || info.AgentID == info.IP) {
+			info.AgentID = scaEv.AgentID
+		}
+		tRec := parseTime(scaEv.Timestamp, tNano)
+		judge := scaEv.AIJudge
+		if judge == nil {
+			judge = scaEv.AIJudgment
+		}
+		aiJudged := judge != nil
+		var isThreat, compViol bool
+		var conf float64
+		var sumJa, actJa string
+		if judge != nil {
+			isThreat = judge.IsThreat
+			compViol = judge.ComplianceViolated
+			conf = judge.Confidence
+			sumJa = judge.SummaryJa
+			actJa = judge.ActionJa
+			if actJa == "" {
+				actJa = judge.RecommendedActionJa
+			}
+		} else {
+			sev := strings.ToLower(scaEv.Severity)
+			isThreat = sev == "critical" || sev == "high"
+		}
+		s.upsertTwAgentSCA(info, "mqtt", scaEv.RuleID, scaEv.Title, scaEv.Description, scaEv.Severity,
+			scaEv.FilePath, scaEv.Proof, scaEv.Remediation, scaEv.Compliance,
+			aiJudged, isThreat, compViol, conf, sumJa, actJa, tRec)
+		return true
+
 	case "alert":
 		var raw map[string]interface{}
 		if err := json.Unmarshal(mr.Payload, &raw); err != nil {
@@ -483,14 +545,15 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 			RecommendedActionJa string   `json:"recommended_action_ja"`
 		}
 		var secAlert struct {
-			Timestamp  string          `json:"timestamp"`
-			RuleID     string          `json:"rule_id"`
-			RuleTitle  string          `json:"rule_title"`
-			Level      string          `json:"level"`
-			Category   string          `json:"category"`
-			SourceLog  string          `json:"source_log"`
-			AIJudge    *aiJudgePayload `json:"ai_judge"`
-			AIJudgment *aiJudgePayload `json:"ai_judgment"`
+			Timestamp   string                 `json:"timestamp"`
+			RuleID      string                 `json:"rule_id"`
+			RuleTitle   string                 `json:"rule_title"`
+			Level       string                 `json:"level"`
+			Category    string                 `json:"category"`
+			SourceLog   string                 `json:"source_log"`
+			MatchedData map[string]interface{} `json:"matched_data"`
+			AIJudge     *aiJudgePayload        `json:"ai_judge"`
+			AIJudgment  *aiJudgePayload        `json:"ai_judgment"`
 		}
 		if err := json.Unmarshal(mr.Payload, &secAlert); err != nil || (secAlert.RuleTitle == "" && secAlert.RuleID == "") {
 			return false
@@ -524,6 +587,25 @@ func (s *Session) ProcessTwAgentMQTT(mr *MQTTRecord) bool {
 		}
 		s.upsertTwAgentAlert(info, "mqtt", secAlert.RuleID, secAlert.RuleTitle, secAlert.Level, secAlert.Category, secAlert.SourceLog,
 			aiJudged, isThreat, compViol, compTypes, conf, sumJa, actJa, tRec)
+
+		if strings.EqualFold(secAlert.Category, "Configuration Audit") || strings.EqualFold(secAlert.Category, "SCA") || strings.HasPrefix(secAlert.RuleID, "CIS-") {
+			var desc, proof, remediation string
+			var compliance []string
+			if secAlert.MatchedData != nil {
+				desc, _ = secAlert.MatchedData["description"].(string)
+				proof, _ = secAlert.MatchedData["proof"].(string)
+				remediation, _ = secAlert.MatchedData["remediation"].(string)
+				if comps, ok := secAlert.MatchedData["compliance"].([]interface{}); ok {
+					for _, c := range comps {
+						if cStr, ok := c.(string); ok {
+							compliance = append(compliance, cStr)
+						}
+					}
+				}
+			}
+			s.upsertTwAgentSCA(info, "mqtt", secAlert.RuleID, secAlert.RuleTitle, desc, secAlert.Level,
+				secAlert.SourceLog, proof, remediation, compliance, aiJudged, isThreat, compViol, conf, sumJa, actJa, tRec)
+		}
 		return true
 	}
 
@@ -591,6 +673,17 @@ func (s *Session) processTwAgentSyslog(r Record) bool {
 
 	s.upsertTwAgentAlert(info, "syslog", "", ruleTitle, level, cat, sourceLog,
 		aiJudged, isThreat, compViol, nil, 0, "", "", r.Time)
+
+	// If SCA finding
+	if cleanTag == "twagentneo-sca" || sd["sca"] != "" || strings.EqualFold(cat, "Configuration Audit") || strings.EqualFold(cat, "SCA") || strings.HasPrefix(ruleTitle, "CIS-") {
+		ruleID := sd["sca"]
+		if ruleID == "" && strings.HasPrefix(ruleTitle, "CIS-") {
+			parts := strings.SplitN(ruleTitle, ":", 2)
+			ruleID = strings.TrimSpace(parts[0])
+		}
+		s.upsertTwAgentSCA(info, "syslog", ruleID, ruleTitle, "", level, sourceLog, "", "", nil,
+			aiJudged, isThreat, compViol, 0, "", "", r.Time)
+	}
 	return true
 }
 
@@ -695,6 +788,17 @@ func (s *Session) processTwAgentTrap(tr *TrapRecord) bool {
 
 	s.upsertTwAgentAlert(info, "trap", "", ruleTitle, level, cat, tr.Variables,
 		aiJudged, isThreat, compViol, nil, conf, aiSummary, aiAction, tNano)
+
+	// If SCA trap
+	if strings.EqualFold(cat, "Configuration Audit") || strings.EqualFold(cat, "SCA") || strings.Contains(ttLower, "twagentneosca") || strings.HasPrefix(ruleTitle, "CIS-") {
+		ruleID := ""
+		if strings.HasPrefix(ruleTitle, "CIS-") {
+			parts := strings.SplitN(ruleTitle, ":", 2)
+			ruleID = strings.TrimSpace(parts[0])
+		}
+		s.upsertTwAgentSCA(info, "trap", ruleID, ruleTitle, "", level, tr.Variables, "", "", nil,
+			aiJudged, isThreat, compViol, conf, aiSummary, aiAction, tNano)
+	}
 	return true
 }
 
@@ -992,6 +1096,142 @@ func (s *Session) upsertTwAgentAlert(
 	}
 	putEnt(s, KindTwAgentInfo, info.ID, info)
 	putEnt(s, KindTwAgentAlert, id, ent)
+	s.Processed++
+}
+
+func (s *Session) upsertTwAgentSCA(
+	info *TwAgentInfoEnt,
+	proto, ruleID, title, description, severity, filePath, proof, remediation string,
+	compliance []string,
+	aiJudged, isThreat, compViol bool,
+	confidence float64,
+	summaryJa, actionJa string,
+	tNano int64,
+) {
+	proto = strings.ToLower(strings.TrimSpace(proto))
+	if proto == "" {
+		proto = "mqtt"
+	}
+	hostLabel := info.Hostname
+	if hostLabel == "" {
+		hostLabel = info.AgentID
+	}
+	if hostLabel == "" {
+		hostLabel = info.IP
+	}
+	if severity == "" {
+		severity = "info"
+	} else {
+		severity = strings.ToLower(severity)
+	}
+
+	keyPart := ruleID
+	if keyPart == "" {
+		keyPart = title
+	}
+	id := makeID(fmt.Sprintf("%s:%s:%s", hostLabel, keyPart, filePath))
+	ent := getEnt[TwAgentSCAEnt](s, KindTwAgentSCA, id)
+	if ent == nil {
+		for _, existing := range allEnts[TwAgentSCAEnt](s, KindTwAgentSCA) {
+			if existing.FilePath == filePath && (existing.RuleID == ruleID || existing.Title == title) {
+				if (info.AgentID != "" && existing.AgentID == info.AgentID) ||
+					(hostLabel != "" && strings.EqualFold(existing.Host, hostLabel)) ||
+					(info.Hostname != "" && strings.EqualFold(existing.Host, info.Hostname)) ||
+					(info.IP != "" && existing.IP == info.IP) {
+					ent = existing
+					id = existing.ID
+					break
+				}
+			}
+		}
+	}
+
+	isRecent := ent != nil && (tNano-ent.LastTime) < int64(3*time.Second) && (tNano-ent.LastTime) > -int64(3*time.Second)
+
+	if ent == nil {
+		ent = &TwAgentSCAEnt{
+			ID:                 id,
+			AgentID:            info.AgentID,
+			Host:               hostLabel,
+			IP:                 info.IP,
+			NodeID:             info.NodeID,
+			NodeName:           info.NodeName,
+			Protocol:           proto,
+			Protocols:          []string{proto},
+			RuleID:             ruleID,
+			Title:              title,
+			Description:        description,
+			Severity:           severity,
+			FilePath:           filePath,
+			Proof:              proof,
+			Remediation:        remediation,
+			Compliance:         compliance,
+			AIJudged:           aiJudged,
+			IsThreat:           isThreat,
+			ComplianceViolated: compViol,
+			Confidence:         confidence,
+			SummaryJa:          summaryJa,
+			ActionJa:           actionJa,
+			Count:              1,
+			FirstTime:          tNano,
+			LastTime:           tNano,
+		}
+		info.SCACount++
+	} else {
+		ent.Protocols = mergeStringSlice(ent.Protocols, []string{proto})
+		ent.Protocol = strings.Join(ent.Protocols, ", ")
+		if ruleID != "" {
+			ent.RuleID = ruleID
+		}
+		if title != "" {
+			ent.Title = title
+		}
+		if description != "" {
+			ent.Description = description
+		}
+		if severity != "" {
+			ent.Severity = severity
+		}
+		if proof != "" {
+			ent.Proof = proof
+		}
+		if remediation != "" {
+			ent.Remediation = remediation
+		}
+		if len(compliance) > 0 {
+			ent.Compliance = mergeStringSlice(ent.Compliance, compliance)
+		}
+		if aiJudged {
+			ent.AIJudged = true
+			ent.IsThreat = isThreat
+			ent.ComplianceViolated = compViol
+		}
+		if confidence > 0 {
+			ent.Confidence = confidence
+		}
+		if summaryJa != "" {
+			ent.SummaryJa = summaryJa
+		}
+		if actionJa != "" {
+			ent.ActionJa = actionJa
+		}
+		if info.IP != "" {
+			ent.IP = info.IP
+		}
+		if info.NodeID != "" {
+			ent.NodeID = info.NodeID
+			ent.NodeName = info.NodeName
+		}
+		if !isRecent {
+			ent.Count++
+			info.SCACount++
+		}
+		if tNano > ent.LastTime {
+			ent.LastTime = tNano
+		}
+	}
+	putEnt(s, KindTwAgentInfo, info.ID, info)
+	putEnt(s, KindTwAgentSCA, id, ent)
 	s.Processed++
 }
 

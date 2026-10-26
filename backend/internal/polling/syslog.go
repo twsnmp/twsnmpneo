@@ -77,8 +77,8 @@ func (p *SyslogPoller) pollCount(ctx context.Context, pe *datastore.PollingEnt, 
 	fields := map[string]interface{}{}
 	count := 0
 	lastMsg := ""
-	var threatCount, compCount, fimCount, resourceCount float64
-	var lastRule, lastOp, lastPath, lastResource string
+	var threatCount, compCount, fimCount, scaCount, resourceCount float64
+	var lastRule, lastOp, lastPath, lastResource, lastSCARule, lastSCAPath string
 
 	for _, rec := range logs {
 		msg := rec.Log
@@ -112,6 +112,17 @@ func (p *SyslogPoller) pollCount(ctx context.Context, pe *datastore.PollingEnt, 
 					lastResource = res
 				}
 			}
+			if sca := sd["sca"]; sca != "" || tag == "twagentneo-sca" || strings.HasPrefix(sd["rule"], "CIS-") {
+				scaCount++
+				if sca != "" {
+					lastSCARule = sca
+				} else if r := sd["rule"]; r != "" {
+					lastSCARule = r
+				}
+				if pt := sd["path"]; pt != "" {
+					lastSCAPath = pt
+				}
+			}
 		}
 	}
 
@@ -119,6 +130,7 @@ func (p *SyslogPoller) pollCount(ctx context.Context, pe *datastore.PollingEnt, 
 	fields["threatCount"] = threatCount
 	fields["compCount"] = compCount
 	fields["fimCount"] = fimCount
+	fields["scaCount"] = scaCount
 	fields["resourceCount"] = resourceCount
 	if lastRule != "" {
 		fields["lastRule"] = lastRule
@@ -128,6 +140,12 @@ func (p *SyslogPoller) pollCount(ctx context.Context, pe *datastore.PollingEnt, 
 	}
 	if lastPath != "" {
 		fields["lastPath"] = lastPath
+	}
+	if lastSCARule != "" {
+		fields["lastSCARule"] = lastSCARule
+	}
+	if lastSCAPath != "" {
+		fields["lastSCAPath"] = lastSCAPath
 	}
 	if lastResource != "" {
 		fields["lastResource"] = lastResource
@@ -446,8 +464,8 @@ func (p *SyslogPoller) pollTwAgent(ctx context.Context, pe *datastore.PollingEnt
 	}
 
 	logs := p.querySyslog(ctx, st, et, host)
-	var count, threatCount, compCount, fimCount, resourceCount float64
-	var lastRule, lastOp, lastPath, lastResource string
+	var count, threatCount, compCount, fimCount, scaCount, resourceCount float64
+	var lastRule, lastOp, lastPath, lastResource, lastSCARule, lastSCAPath string
 
 	for _, rec := range logs {
 		if reg != nil && !reg.MatchString(rec.Log) {
@@ -482,6 +500,17 @@ func (p *SyslogPoller) pollTwAgent(ctx context.Context, pe *datastore.PollingEnt
 				lastResource = res
 			}
 		}
+		if sca := sd["sca"]; sca != "" || tag == "twagentneo-sca" || strings.HasPrefix(sd["rule"], "CIS-") {
+			scaCount++
+			if sca != "" {
+				lastSCARule = sca
+			} else if r := sd["rule"]; r != "" {
+				lastSCARule = r
+			}
+			if pt := sd["path"]; pt != "" {
+				lastSCAPath = pt
+			}
+		}
 	}
 
 	fields := map[string]interface{}{
@@ -489,11 +518,14 @@ func (p *SyslogPoller) pollTwAgent(ctx context.Context, pe *datastore.PollingEnt
 		"threatCount":   threatCount,
 		"compCount":     compCount,
 		"fimCount":      fimCount,
+		"scaCount":      scaCount,
 		"resourceCount": resourceCount,
 		"lastRule":      lastRule,
 		"lastOp":        lastOp,
 		"lastPath":      lastPath,
 		"lastResource":  lastResource,
+		"lastSCARule":   lastSCARule,
+		"lastSCAPath":   lastSCAPath,
 		"lastTime":      float64(et),
 		"rtt":           float64(time.Since(start).Nanoseconds()),
 	}
@@ -506,13 +538,13 @@ func (p *SyslogPoller) pollTwAgent(ctx context.Context, pe *datastore.PollingEnt
 
 	if pe.Script == "" {
 		state := StateNormal
-		if (threatCount > 0 || compCount > 0 || fimCount > 0 || resourceCount > 0) && pe.Level != "off" {
+		if (threatCount > 0 || compCount > 0 || fimCount > 0 || scaCount > 0 || resourceCount > 0) && pe.Level != "off" {
 			state = failureState(pe.Level)
 		}
 		return &Result{
 			State:   state,
 			RTT:     time.Since(start),
-			Message: fmt.Sprintf("twagent syslog: threat=%.0f comp=%.0f fim=%.0f res=%.0f", threatCount, compCount, fimCount, resourceCount),
+			Message: fmt.Sprintf("twagent syslog: threat=%.0f comp=%.0f fim=%.0f sca=%.0f res=%.0f", threatCount, compCount, fimCount, scaCount, resourceCount),
 			Fields:  fields,
 		}, nil
 	}

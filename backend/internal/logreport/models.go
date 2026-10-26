@@ -43,6 +43,7 @@ const (
 	KindTwAgentInfo  = "twAgentInfo"
 	KindTwAgentAlert = "twAgentAlert"
 	KindTwAgentFIM   = "twAgentFIM"
+	KindTwAgentSCA   = "twAgentSCA"
 	KindTwAgentTCP   = "twAgentTCP"
 )
 
@@ -78,7 +79,7 @@ func KindsOf(source string) []string {
 	case SourceWinLog:
 		return []string{KindWinEventID, KindWinLogon, KindWinAccount, KindWinKerberos, KindWinPrivilege, KindWinProcess, KindWinTask}
 	case SourceTwAgent:
-		return []string{KindTwAgentInfo, KindTwAgentAlert, KindTwAgentFIM, KindTwAgentTCP}
+		return []string{KindTwAgentInfo, KindTwAgentAlert, KindTwAgentFIM, KindTwAgentSCA, KindTwAgentTCP}
 	}
 	return nil
 }
@@ -579,6 +580,7 @@ type TwAgentInfoEnt struct {
 	AlertCount      int                `json:"AlertCount"`
 	ThreatCount     int                `json:"ThreatCount"`
 	FIMCount        int                `json:"FIMCount"`
+	SCACount        int                `json:"SCACount"`
 	Count           int                `json:"Count"`
 	FirstTime       int64              `json:"FirstTime"`
 	LastTime        int64              `json:"LastTime"`
@@ -627,6 +629,35 @@ type TwAgentFIMEnt struct {
 	Count     int    `json:"Count"`
 	FirstTime int64  `json:"FirstTime"`
 	LastTime  int64  `json:"LastTime"`
+}
+
+// TwAgentSCAEnt represents a Security Configuration Assessment (SCA) finding detected by twagentneo.
+type TwAgentSCAEnt struct {
+	ID                 string   `json:"ID"`
+	AgentID            string   `json:"AgentID"`
+	Host               string   `json:"Host"`
+	IP                 string   `json:"IP"`
+	NodeID             string   `json:"NodeID"`
+	NodeName           string   `json:"NodeName"`
+	Protocol           string   `json:"Protocol"` // "mqtt" | "syslog" | "trap" or comma-separated
+	Protocols          []string `json:"Protocols,omitempty"`
+	RuleID             string   `json:"RuleID"`
+	Title              string   `json:"Title"`
+	Description        string   `json:"Description"`
+	Severity           string   `json:"Severity"` // "critical" | "high" | "medium" | "low" | "info"
+	FilePath           string   `json:"FilePath"`
+	Proof              string   `json:"Proof"`
+	Remediation        string   `json:"Remediation,omitempty"`
+	Compliance         []string `json:"Compliance,omitempty"`
+	AIJudged           bool     `json:"AIJudged"`
+	IsThreat           bool     `json:"IsThreat"`
+	ComplianceViolated bool     `json:"ComplianceViolated"`
+	Confidence         float64  `json:"Confidence"`
+	SummaryJa          string   `json:"SummaryJa,omitempty"`
+	ActionJa           string   `json:"ActionJa,omitempty"`
+	Count              int      `json:"Count"`
+	FirstTime          int64    `json:"FirstTime"`
+	LastTime           int64    `json:"LastTime"`
 }
 
 // TwAgentTCPEnt represents aggregated active TCP connections per process reported by twagentneo.

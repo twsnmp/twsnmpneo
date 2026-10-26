@@ -37,6 +37,7 @@
     type TwAgentInfoEnt,
     type TwAgentAlertEnt,
     type TwAgentFIMEnt,
+    type TwAgentSCAEnt,
     type TwAgentTCPEnt,
     type NodeEnt,
     type PollingEnt,
@@ -57,7 +58,7 @@
     loading?: boolean;
   } = $props();
 
-  type TabType = "agents" | "alerts" | "fim" | "tcp";
+  type TabType = "agents" | "alerts" | "fim" | "sca" | "tcp";
   type AlertFilterType = "all" | "threat" | "compliance" | "benign";
 
   let activeTab = $state<TabType>("agents");
@@ -66,6 +67,7 @@
   let agents = $state<TwAgentInfoEnt[]>([]);
   let alerts = $state<TwAgentAlertEnt[]>([]);
   let fimEvents = $state<TwAgentFIMEnt[]>([]);
+  let scaFindings = $state<TwAgentSCAEnt[]>([]);
   let tcpConns = $state<TwAgentTCPEnt[]>([]);
 
   let internalLoading = $state(false);
@@ -144,15 +146,17 @@
   const loadAll = async () => {
     internalLoading = true;
     try {
-      const [infoList, alertList, fimList, tcpList] = await Promise.all([
+      const [infoList, alertList, fimList, scaList, tcpList] = await Promise.all([
         fetchLogReport<TwAgentInfoEnt>("twAgentInfo"),
         fetchLogReport<TwAgentAlertEnt>("twAgentAlert"),
         fetchLogReport<TwAgentFIMEnt>("twAgentFIM"),
+        fetchLogReport<TwAgentSCAEnt>("twAgentSCA"),
         fetchLogReport<TwAgentTCPEnt>("twAgentTCP"),
       ]);
       agents = infoList;
       alerts = alertList;
       fimEvents = fimList;
+      scaFindings = scaList;
       tcpConns = tcpList;
     } catch (err) {
       console.error("Failed to load twagentneo reports:", err);
@@ -170,6 +174,7 @@
       agents: { kind: "twAgentInfo", name: $_("report.twagentTabAgents") || "エージェント一覧" },
       alerts: { kind: "twAgentAlert", name: $_("report.twagentTabAlerts") || "AIセキュリティアラート" },
       fim: { kind: "twAgentFIM", name: $_("report.twagentTabFim") || "ファイル整合性監視 (FIM)" },
+      sca: { kind: "twAgentSCA", name: $_("report.twagentTabSca") || "構成監査 (SCA)" },
       tcp: { kind: "twAgentTCP", name: $_("report.twagentTabTcp") || "プロセスTCP通信" },
     };
     const target = tabKindMap[activeTab];
@@ -483,6 +488,8 @@
     const benignFiltered = alerts.filter((a) => a.AIJudged && !a.IsThreat).reduce((s, a) => s + (a.Count || 1), 0);
     const compViolations = alerts.filter((a) => a.ComplianceViolated).reduce((s, a) => s + (a.Count || 1), 0);
     const totalFim = fimEvents.reduce((s, f) => s + (f.Count || 1), 0);
+    const totalSca = scaFindings.reduce((s, f) => s + (f.Count || 1), 0);
+    const criticalSca = scaFindings.filter((f) => f.Severity === "critical" || f.Severity === "high").length;
     const riskyTcp = tcpConns.filter((t) => t.ValidScore && t.Score < 40).length;
 
     return {
@@ -493,6 +500,8 @@
       benignFiltered,
       compViolations,
       totalFim,
+      totalSca,
+      criticalSca,
       totalTcp: tcpConns.length,
       riskyTcp,
     };
@@ -719,6 +728,8 @@
       });
     } else if (activeTab === "fim") {
       res = fimEvents;
+    } else if (activeTab === "sca") {
+      res = scaFindings;
     } else if (activeTab === "tcp") {
       res = tcpConns;
     }
@@ -769,6 +780,11 @@
       header = "Op,Path,Hash,Host,Protocol,Count,LastTime\n";
       rows = (currentList as TwAgentFIMEnt[])
         .map((f) => `"${f.Op}","${f.Path}","${f.Hash}","${f.Host}","${getProtocols(f).join(", ")}","${f.Count}","${formatTimeStr(f.LastTime)}"`)
+        .join("\n");
+    } else if (activeTab === "sca") {
+      header = "Severity,RuleID,Title,FilePath,Proof,Remediation,Compliance,IsThreat,ComplianceViolated,Protocol,Host,Count,LastTime\n";
+      rows = (currentList as TwAgentSCAEnt[])
+        .map((s) => `"${s.Severity}","${s.RuleID || ""}","${(s.Title || "").replace(/"/g, '""')}","${(s.FilePath || "").replace(/"/g, '""')}","${(s.Proof || "").replace(/"/g, '""')}","${(s.Remediation || "").replace(/"/g, '""')}","${(s.Compliance || []).join("|")}","${s.IsThreat}","${s.ComplianceViolated}","${getProtocols(s).join(", ")}","${s.Host}","${s.Count}","${formatTimeStr(s.LastTime)}"`)
         .join("\n");
     } else if (activeTab === "tcp") {
       header = "Score,Host,Process,RemoteIP,RemoteLoc,Services,ConnCount,Count,LastTime\n";
@@ -962,6 +978,14 @@
       </button>
       <button
         type="button"
+        onclick={() => handleTabChange("sca")}
+        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'sca' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
+      >
+        <SlidersHorizontal class="w-3.5 h-3.5" />
+        <span>{$_("report.twagentTabSca") || "構成監査 (SCA)"} ({scaFindings.length})</span>
+      </button>
+      <button
+        type="button"
         onclick={() => handleTabChange("tcp")}
         class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer {activeTab === 'tcp' ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'}"
       >
@@ -1021,7 +1045,7 @@
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("MemPercent")}>Mem %</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("DiskUsedPercent")}>Disk %</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("RxMbps")}>Rx / Tx (Mbps)</th>
-              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("ThreatCount")}>{$_("report.twagentColThreatsFim") || "脅威 / FIM"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("ThreatCount")}>{$_("report.twagentColThreatsFim") || "脅威 / FIM / SCA"}</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.colLastTime") || "最終受信"}</th>
               <th class="py-2.5 px-2.5 text-right">{$_("report.twagentColQuickActions") || "ワンクリック追加 (ノード / ポーリング)"}</th>
             {:else if activeTab === "alerts"}
@@ -1039,6 +1063,15 @@
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Path")}>{$_("report.twagentColFimPath") || "監視ファイルパス"}</th>
               <th class="py-2.5 px-2.5">{$_("report.twagentColFimHash") || "SHA256 ハッシュ"}</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Host")}>{$_("report.twagentColHost") || "ホスト"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Protocol")}>{$_("report.twagentColProtocol") || "経路"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColCount") || "回数"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.colLastTime") || "最終検知"}</th>
+            {:else if activeTab === "sca"}
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Severity")}>{$_("report.twagentColLevel") || "深刻度"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("RuleID")}>{$_("report.twagentColScaRule") || "ルール"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("FilePath")}>{$_("report.twagentColScaPath") || "対象ファイル"}</th>
+              <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Host")}>{$_("report.twagentColHost") || "ホスト"}</th>
+              <th class="py-2.5 px-2.5 text-center">{$_("report.twagentColAiVerdict") || "AI判定"}</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("Protocol")}>{$_("report.twagentColProtocol") || "経路"}</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600 text-right" onclick={() => handleSort("Count")}>{$_("report.winColCount") || "回数"}</th>
               <th class="py-2.5 px-2.5 cursor-pointer hover:text-cyan-600" onclick={() => handleSort("LastTime")}>{$_("report.colLastTime") || "最終検知"}</th>
@@ -1142,6 +1175,8 @@
                     </span>
                     <span class="text-slate-400 mx-0.5">/</span>
                     <span class="text-cyan-600 dark:text-cyan-400">{a.FIMCount || 0}</span>
+                    <span class="text-slate-400 mx-0.5">/</span>
+                    <span class="{a.SCACount && a.SCACount > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-400'}">{a.SCACount || 0}</span>
                   </td>
                   <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(a.LastTime)}</td>
                   <td class="py-1.5 px-2 text-right whitespace-nowrap font-sans" onclick={(e) => e.stopPropagation()}>
@@ -1453,6 +1488,153 @@
                   <td class="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{f.Count.toLocaleString()}</td>
                   <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(f.LastTime)}</td>
                 </tr>
+
+              {:else if activeTab === "sca"}
+                {@const sc = item as TwAgentSCAEnt}
+                {@const isCrit = sc.Severity === "critical"}
+                {@const isHigh = sc.Severity === "high"}
+                {@const isMed = sc.Severity === "medium" || sc.Severity === "warn"}
+                <tr
+                  class="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/15' : ''}"
+                  onclick={() => (expandedId = isExpanded ? null : sc.ID)}
+                >
+                  <td class="py-1.5 px-2 text-center text-slate-400">
+                    {#if isExpanded}
+                      <ChevronDown class="w-3.5 h-3.5 mx-auto text-cyan-600" />
+                    {:else}
+                      <ChevronRight class="w-3.5 h-3.5 mx-auto" />
+                    {/if}
+                  </td>
+                  <td class="py-1.5 px-2 whitespace-nowrap">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
+                      {isCrit ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30' :
+                       isHigh ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-500/30' :
+                       isMed ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30' :
+                       'bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30'}">
+                      {sc.Severity || "info"}
+                    </span>
+                  </td>
+                  <td class="py-1.5 px-2">
+                    <div class="flex items-center gap-1.5">
+                      {#if sc.RuleID}
+                        <span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">{sc.RuleID}</span>
+                      {/if}
+                      <span class="font-semibold text-slate-800 dark:text-slate-100">{sc.Title}</span>
+                    </div>
+                  </td>
+                  <td class="py-1.5 px-2 font-mono text-[11px] text-slate-600 dark:text-slate-400 max-w-[240px] truncate" title={sc.FilePath}>
+                    {sc.FilePath}
+                  </td>
+                  <td class="py-1.5 px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    {sc.Host}
+                  </td>
+                  <td class="py-1.5 px-2 text-center whitespace-nowrap">
+                    {#if sc.AIJudged}
+                      <div class="inline-flex items-center gap-1">
+                        {#if sc.IsThreat}
+                          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">{$_("report.twagentBadgeThreat") || "脅威"}</span>
+                        {/if}
+                        {#if sc.ComplianceViolated}
+                          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">{$_("report.twagentBadgeCompViolation") || "違反"}</span>
+                        {/if}
+                        {#if !sc.IsThreat && !sc.ComplianceViolated}
+                          <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">OK</span>
+                        {/if}
+                      </div>
+                    {:else}
+                      <span class="text-slate-400 text-xs">-</span>
+                    {/if}
+                  </td>
+                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                    <div class="flex flex-wrap items-center gap-1">
+                      {#each getProtocols(sc) as proto}
+                        {@const pLower = proto.toLowerCase()}
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase
+                          {pLower === 'mqtt' ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30' :
+                           pLower === 'syslog' ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30' :
+                           pLower === 'trap' ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' :
+                           'bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30'}">
+                          {proto}
+                        </span>
+                      {/each}
+                    </div>
+                  </td>
+                  <td class="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{sc.Count.toLocaleString()}</td>
+                  <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(sc.LastTime)}</td>
+                </tr>
+
+                {#if isExpanded}
+                  <tr class="bg-cyan-50/20 dark:bg-cyan-950/10 border-b border-cyan-100 dark:border-cyan-900/30">
+                    <td colspan="9" class="p-3 text-xs space-y-2.5">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+                          <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-700 dark:text-slate-300">{$_("report.twagentColCategory") || "詳細説明"}</span>
+                            {#if sc.Compliance && sc.Compliance.length > 0}
+                              <div class="flex flex-wrap gap-1">
+                                {#each sc.Compliance as c}
+                                  <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">{c}</span>
+                                {/each}
+                              </div>
+                            {/if}
+                          </div>
+                          <p class="text-slate-600 dark:text-slate-400 text-xs leading-relaxed">{sc.Description || sc.Title}</p>
+                          {#if sc.Proof}
+                            <div class="space-y-1">
+                              <span class="text-[10px] font-semibold text-slate-500">{$_("report.twagentColProof") || "検出証跡 / パーミッション"}:</span>
+                              <pre class="p-2 rounded bg-slate-100 dark:bg-slate-950 text-[11px] font-mono text-slate-700 dark:text-slate-300 overflow-x-auto whitespace-pre-wrap">{sc.Proof}</pre>
+                            </div>
+                          {/if}
+                          {#if sc.Remediation}
+                            <div class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-200 text-xs">
+                              <span class="font-bold">{$_("report.twagentColRemediation") || "是正推奨手順"}:</span> {sc.Remediation}
+                            </div>
+                          {/if}
+                        </div>
+
+                        <div class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200/60 dark:border-indigo-900/40 space-y-2">
+                          <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-bold">
+                              <Sparkles class="w-3.5 h-3.5" />
+                              <span>tensai Local AI Judge</span>
+                            </div>
+                            {#if sc.Confidence}
+                              <span class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400">Confidence: {(sc.Confidence * 100).toFixed(0)}%</span>
+                            {/if}
+                          </div>
+                          {#if sc.SummaryJa}
+                            <div class="text-xs text-slate-700 dark:text-slate-300">
+                              <span class="font-semibold text-indigo-600 dark:text-indigo-400">要約: </span>
+                              {sc.SummaryJa}
+                            </div>
+                          {/if}
+                          {#if sc.ActionJa}
+                            <div class="p-2 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-indigo-100 dark:border-indigo-900/40 text-xs text-slate-800 dark:text-slate-200">
+                              <span class="font-bold text-indigo-700 dark:text-indigo-300">推奨対処: </span>
+                              {sc.ActionJa}
+                            </div>
+                          {/if}
+                          {#if !sc.SummaryJa && !sc.ActionJa}
+                            <p class="text-slate-500 italic text-xs">ローカルLLM判定による助言なし (未判定または低深刻度)</p>
+                          {/if}
+                          <div class="pt-1 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onclick={(e) => {
+                                e.stopPropagation();
+                                showAiExplainModal = true;
+                              }}
+                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition cursor-pointer"
+                            >
+                              <Sparkles class="w-3 h-3" />
+                              <span>AIで解説</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                {/if}
 
               {:else if activeTab === "tcp"}
                 {@const t = item as TwAgentTCPEnt}
