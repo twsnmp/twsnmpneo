@@ -1106,32 +1106,32 @@
                   class="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/15' : ''}"
                   onclick={() => (expandedId = isExpanded ? null : a.ID)}
                 >
-                  <td class="py-1.5 px-2 text-center text-slate-400">
+                  <td class="py-1 px-2 text-center text-slate-400">
                     {#if isExpanded}
                       <ChevronDown class="w-4 h-4 text-cyan-500" />
                     {:else}
                       <ChevronRight class="w-4 h-4" />
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 whitespace-nowrap">
+                  <td class="py-1 px-2 whitespace-nowrap">
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold {a.Status === 'online' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'}">
                       <span class="w-1.5 h-1.5 rounded-full {a.Status === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
                       {a.Status || "online"}
                     </span>
                   </td>
-                  <td class="py-1.5 px-2 font-sans">
+                  <td class="py-1 px-2 font-sans">
                     <div class="font-bold text-slate-800 dark:text-slate-100">{a.Hostname || a.AgentID}</div>
                     {#if a.AgentID && a.AgentID !== a.Hostname}
                       <div class="text-[10px] font-mono text-slate-400">ID: {a.AgentID}</div>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 text-cyan-600 dark:text-cyan-400 whitespace-nowrap">
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400 whitespace-nowrap">
                     <div>{a.IP || "-"}</div>
                     {#if a.MAC}
                       <div class="text-[10px] text-slate-400">{a.MAC}</div>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                  <td class="py-1 px-2 font-sans whitespace-nowrap">
                     {#if matchedNode}
                       <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
                         <CheckCircle2 class="w-3 h-3 text-emerald-500" />
@@ -1147,7 +1147,7 @@
                       </span>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 whitespace-nowrap">
+                  <td class="py-1 px-2 whitespace-nowrap">
                     <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-semibold">
                       {a.OS || "linux"}
                     </span>
@@ -1155,21 +1155,21 @@
                       <span class="text-[10px] text-slate-400 ml-1">{a.Version}</span>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 text-right font-bold {a.CPUPercent >= 90 ? 'text-rose-500' : a.CPUPercent >= 75 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-200'}">
+                  <td class="py-1 px-2 text-right font-bold {a.CPUPercent >= 90 ? 'text-rose-500' : a.CPUPercent >= 75 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-200'}">
                     {(a.CPUPercent || 0).toFixed(1)}%
                   </td>
-                  <td class="py-1.5 px-2 text-right font-bold {a.MemPercent >= 90 ? 'text-rose-500' : a.MemPercent >= 80 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-200'}">
+                  <td class="py-1 px-2 text-right font-bold {a.MemPercent >= 90 ? 'text-rose-500' : a.MemPercent >= 80 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-200'}">
                     {(a.MemPercent || 0).toFixed(1)}%
                   </td>
-                  <td class="py-1.5 px-2 text-right font-bold {a.DiskUsedPercent >= 95 ? 'text-rose-500' : a.DiskUsedPercent >= 85 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-200'}">
+                  <td class="py-1 px-2 text-right font-bold {a.DiskUsedPercent >= 95 ? 'text-rose-500' : a.DiskUsedPercent >= 85 ? 'text-amber-500' : 'text-slate-700 dark:text-slate-200'}">
                     {(a.DiskUsedPercent || 0).toFixed(1)}%
                   </td>
-                  <td class="py-1.5 px-2 text-right whitespace-nowrap">
+                  <td class="py-1 px-2 text-right whitespace-nowrap">
                     <span class="text-emerald-600 dark:text-emerald-400">↓{(a.RxMbps || 0).toFixed(2)}</span>
                     <span class="text-slate-400 mx-0.5">/</span>
                     <span class="text-amber-600 dark:text-amber-400">↑{(a.TxMbps || 0).toFixed(2)}</span>
                   </td>
-                  <td class="py-1.5 px-2 text-right whitespace-nowrap">
+                  <td class="py-1 px-2 text-right whitespace-nowrap">
                     <span class="{a.ThreatCount > 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'}">
                       {a.ThreatCount || 0}
                     </span>
@@ -1178,8 +1178,8 @@
                     <span class="text-slate-400 mx-0.5">/</span>
                     <span class="{a.SCACount && a.SCACount > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-400'}">{a.SCACount || 0}</span>
                   </td>
-                  <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(a.LastTime)}</td>
-                  <td class="py-1.5 px-2 text-right whitespace-nowrap font-sans" onclick={(e) => e.stopPropagation()}>
+                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(a.LastTime)}</td>
+                  <td class="py-1 px-2 text-right whitespace-nowrap font-sans" onclick={(e) => e.stopPropagation()}>
                     <div class="inline-flex items-center justify-end gap-1.5">
                       {#if !matchedNode}
                         <button
@@ -1340,19 +1340,19 @@
                   class="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/15' : ''}"
                   onclick={() => (expandedId = isExpanded ? null : al.ID)}
                 >
-                  <td class="py-1.5 px-2 text-center text-slate-400">
+                  <td class="py-1 px-2 text-center text-slate-400">
                     {#if isExpanded}
                       <ChevronDown class="w-4 h-4 text-cyan-500" />
                     {:else}
                       <ChevronRight class="w-4 h-4" />
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 whitespace-nowrap">
+                  <td class="py-1 px-2 whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {al.Level === 'CRITICAL' || al.Level === 'HIGH' ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30' : al.Level === 'MEDIUM' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30' : 'bg-slate-500/15 text-slate-700 dark:text-slate-300'}">
                       {al.Level || "INFO"}
                     </span>
                   </td>
-                  <td class="py-1.5 px-2 whitespace-nowrap font-sans">
+                  <td class="py-1 px-2 whitespace-nowrap font-sans">
                     {#if al.IsThreat}
                       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-[10px] font-bold">
                         <ShieldAlert class="w-3 h-3 text-rose-500" />
@@ -1367,8 +1367,8 @@
                       <span class="text-slate-400 text-[10px]">-</span>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 font-semibold text-slate-800 dark:text-slate-200">{al.Host}</td>
-                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                  <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-200">{al.Host}</td>
+                  <td class="py-1 px-2 font-sans whitespace-nowrap">
                     <div class="flex flex-wrap items-center gap-1">
                       {#each getProtocols(al) as proto}
                         {@const pLower = proto.toLowerCase()}
@@ -1382,14 +1382,14 @@
                       {/each}
                     </div>
                   </td>
-                  <td class="py-1.5 px-2 text-slate-600 dark:text-slate-400">{al.Category}</td>
-                  <td class="py-1.5 px-2 font-sans max-w-[320px]">
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400">{al.Category}</td>
+                  <td class="py-1 px-2 font-sans max-w-[320px]">
                     <div class="font-semibold text-slate-800 dark:text-slate-100 truncate" title={al.RuleTitle}>{al.RuleTitle}</div>
                     {#if al.SummaryJa}
                       <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={al.SummaryJa}>{al.SummaryJa}</div>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 font-sans">
+                  <td class="py-1 px-2 font-sans">
                     {#if al.ComplianceTypes && al.ComplianceTypes.length > 0}
                       <div class="flex flex-wrap gap-1">
                         {#each al.ComplianceTypes as comp}
@@ -1404,8 +1404,8 @@
                       <span class="text-slate-400">-</span>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{al.Count.toLocaleString()}</td>
-                  <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(al.LastTime)}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{al.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(al.LastTime)}</td>
                 </tr>
 
                 {#if isExpanded}
@@ -1442,14 +1442,14 @@
               {:else if activeTab === "fim"}
                 {@const f = item as TwAgentFIMEnt}
                 <tr class="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 transition-colors">
-                  <td class="py-1.5 px-2 text-center text-slate-400">-</td>
-                  <td class="py-1.5 px-2 whitespace-nowrap">
+                  <td class="py-1 px-2 text-center text-slate-400">-</td>
+                  <td class="py-1 px-2 whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {f.Op === 'REMOVE' ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30' : f.Op === 'CHMOD' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30' : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30'}">
                       {f.Op || "WRITE"}
                     </span>
                   </td>
-                  <td class="py-1.5 px-2 font-semibold text-slate-800 dark:text-slate-100 break-all">{f.Path}</td>
-                  <td class="py-1.5 px-2">
+                  <td class="py-1 px-2 font-semibold text-slate-800 dark:text-slate-100 break-all">{f.Path}</td>
+                  <td class="py-1 px-2">
                     {#if f.Hash}
                       <div class="inline-flex items-center gap-1.5">
                         <span class="text-slate-500 dark:text-slate-400 truncate max-w-[180px]" title={f.Hash}>{f.Hash}</span>
@@ -1470,8 +1470,8 @@
                       <span class="text-slate-400">-</span>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 text-slate-700 dark:text-slate-300">{f.Host}</td>
-                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{f.Host}</td>
+                  <td class="py-1 px-2 font-sans whitespace-nowrap">
                     <div class="flex flex-wrap items-center gap-1">
                       {#each getProtocols(f) as proto}
                         {@const pLower = proto.toLowerCase()}
@@ -1485,8 +1485,8 @@
                       {/each}
                     </div>
                   </td>
-                  <td class="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{f.Count.toLocaleString()}</td>
-                  <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(f.LastTime)}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{f.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(f.LastTime)}</td>
                 </tr>
 
               {:else if activeTab === "sca"}
@@ -1498,14 +1498,14 @@
                   class="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 transition-colors cursor-pointer {isExpanded ? 'bg-cyan-50/30 dark:bg-cyan-950/15' : ''}"
                   onclick={() => (expandedId = isExpanded ? null : sc.ID)}
                 >
-                  <td class="py-1.5 px-2 text-center text-slate-400">
+                  <td class="py-1 px-2 text-center text-slate-400">
                     {#if isExpanded}
                       <ChevronDown class="w-3.5 h-3.5 mx-auto text-cyan-600" />
                     {:else}
                       <ChevronRight class="w-3.5 h-3.5 mx-auto" />
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 whitespace-nowrap">
+                  <td class="py-1 px-2 whitespace-nowrap">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
                       {isCrit ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30' :
                        isHigh ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-500/30' :
@@ -1514,7 +1514,7 @@
                       {sc.Severity || "info"}
                     </span>
                   </td>
-                  <td class="py-1.5 px-2">
+                  <td class="py-1 px-2">
                     <div class="flex items-center gap-1.5">
                       {#if sc.RuleID}
                         <span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300">{sc.RuleID}</span>
@@ -1522,13 +1522,13 @@
                       <span class="font-semibold text-slate-800 dark:text-slate-100">{sc.Title}</span>
                     </div>
                   </td>
-                  <td class="py-1.5 px-2 font-mono text-[11px] text-slate-600 dark:text-slate-400 max-w-[240px] truncate" title={sc.FilePath}>
+                  <td class="py-1 px-2 font-mono text-[11px] text-slate-600 dark:text-slate-400 max-w-[240px] truncate" title={sc.FilePath}>
                     {sc.FilePath}
                   </td>
-                  <td class="py-1.5 px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     {sc.Host}
                   </td>
-                  <td class="py-1.5 px-2 text-center whitespace-nowrap">
+                  <td class="py-1 px-2 text-center whitespace-nowrap">
                     {#if sc.AIJudged}
                       <div class="inline-flex items-center gap-1">
                         {#if sc.IsThreat}
@@ -1545,7 +1545,7 @@
                       <span class="text-slate-400 text-xs">-</span>
                     {/if}
                   </td>
-                  <td class="py-1.5 px-2 font-sans whitespace-nowrap">
+                  <td class="py-1 px-2 font-sans whitespace-nowrap">
                     <div class="flex flex-wrap items-center gap-1">
                       {#each getProtocols(sc) as proto}
                         {@const pLower = proto.toLowerCase()}
@@ -1559,8 +1559,8 @@
                       {/each}
                     </div>
                   </td>
-                  <td class="py-1.5 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{sc.Count.toLocaleString()}</td>
-                  <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(sc.LastTime)}</td>
+                  <td class="py-1 px-2 text-right font-bold text-slate-700 dark:text-slate-300">{sc.Count.toLocaleString()}</td>
+                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(sc.LastTime)}</td>
                 </tr>
 
                 {#if isExpanded}
@@ -1639,17 +1639,17 @@
               {:else if activeTab === "tcp"}
                 {@const t = item as TwAgentTCPEnt}
                 <tr class="hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20 transition-colors">
-                  <td class="py-1.5 px-2 text-center text-slate-400">-</td>
-                  <td class="py-1.5 px-2 text-right whitespace-nowrap">
+                  <td class="py-1 px-2 text-center text-slate-400">-</td>
+                  <td class="py-1 px-2 text-right whitespace-nowrap">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {(t.Score ?? 50) >= 50 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : (t.Score ?? 50) >= 35 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'}">
                       {(t.Score ?? 50).toFixed(1)}
                     </span>
                   </td>
-                  <td class="py-1.5 px-2 text-slate-700 dark:text-slate-300">{t.Host}</td>
-                  <td class="py-1.5 px-2 font-bold text-slate-800 dark:text-slate-100">{t.Process || "-"}</td>
-                  <td class="py-1.5 px-2 text-cyan-600 dark:text-cyan-400">{t.RemoteIP}</td>
-                  <td class="py-1.5 px-2 text-slate-600 dark:text-slate-400">{t.RemoteLoc || "-"}</td>
-                  <td class="py-1.5 px-2">
+                  <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{t.Host}</td>
+                  <td class="py-1 px-2 font-bold text-slate-800 dark:text-slate-100">{t.Process || "-"}</td>
+                  <td class="py-1 px-2 text-cyan-600 dark:text-cyan-400">{t.RemoteIP}</td>
+                  <td class="py-1 px-2 text-slate-600 dark:text-slate-400">{t.RemoteLoc || "-"}</td>
+                  <td class="py-1 px-2">
                     <div class="flex flex-wrap gap-1">
                       {#each t.Services || [] as svc}
                         <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px]">
@@ -1658,11 +1658,11 @@
                       {/each}
                     </div>
                   </td>
-                  <td class="py-1.5 px-2 text-right">
+                  <td class="py-1 px-2 text-right">
                     <span class="font-bold text-slate-800 dark:text-slate-200">{t.ConnCount}</span>
                     <span class="text-slate-400 text-[10px] ml-1">({(t.Count || 0).toLocaleString()})</span>
                   </td>
-                  <td class="py-1.5 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(t.LastTime)}</td>
+                  <td class="py-1 px-2 text-slate-500 whitespace-nowrap">{formatTimeStr(t.LastTime)}</td>
                 </tr>
               {/if}
             {/each}
