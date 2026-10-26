@@ -31,7 +31,7 @@ COPY --from=frontend-builder /app/backend/web/dist ./web/dist
 
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=v0.3.0
+ARG VERSION=v0.4.0
 ARG COMMIT=none
 ARG DATE=unknown
 

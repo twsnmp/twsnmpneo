@@ -46,13 +46,22 @@
 - **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with WebGPU offline inference.
 - **In-App AI Diagnosis**: One-click AI diagnosis across all report views (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) with rich Markdown output, smooth loading animations, and automated root cause analysis.
 
-### 4. Comprehensive Protocol Receivers & Built-in Services
+### 4. TWAgent & AI Security Telemetry (`twagentneo`)
+- **Automated Multi-Protocol Ingestion**: Zero-config ingestion of cross-platform `twagentneo` telemetry, alerts, and audit logs across MQTT, Syslog (RFC 5424), and SNMP TRAP without prior manual setup.
+- **Agent Inventory & Telemetry**: Live heartbeat status, host OS information, real-time CPU/memory/disk/network rates, and one-click topology node registration and polling provisioning.
+- **AI Security & Compliance Alerts**: Cross-protocol Sigma rule matches and local LLM judge (`tensai`) alerts with threat verification (`IsThreat: YES/NO`), Japanese explanations, and actionable remediation advice.
+- **File Integrity Monitoring (FIM)**: Tracks file creation, modification, deletion, and permission changes with SHA256 hashes.
+- **Security Configuration Assessment (SCA)**: CIS Benchmark-aligned system and configuration audits with masked proofs, remediation advice, and AI triage.
+- **Process TCP Connections**: Outbound and inbound TCP connection destinations per process with GeoIP mapping and threat deviation scoring.
+
+### 5. Comprehensive Protocol Receivers & Built-in Services
 - **Syslog**: UDP, TCP, TLS (RFC 3164 / RFC 5424)
 - **SNMP TRAP**: v1, v2c, v3 with MIB name resolution
 - **Flow Monitoring**: NetFlow v5/v9/IPFIX, sFlow v5 (Flow & Counter samples), Fumble anomaly detection
 - **ARP Watch**: Continuous IP-to-MAC change and conflict detection
 - **OpenTelemetry**: OTel OTLP gRPC/HTTP log, trace & metrics collector with dedicated analytics
 - **MQTT Broker & Client**: Embedded broker for IoT sensors, topic statistics, and metric polling
+- **Optimized Analytics Suite**: Category-based lazy loading and query-time Parquet file pruning for responsive large-scale analytics.
 - **Built-in PKI & TLS Management**: Root CA management, web-based CSR creation, certificate issuance, CRL / OCSP / SCEP / ACME servers, and automated TLS certificate renewal via ACME client (lego)
 - **Diagnostic Tools**: Interactive Ping (ICMP/UDP), Smokeping, MTR with AI analysis, MIB Browser / Tree, gNMI, and Wake-on-LAN (WOL)
 - **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications and one-click in-place upgrades

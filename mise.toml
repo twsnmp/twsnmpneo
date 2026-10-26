@@ -24,7 +24,7 @@ description = "Compile release binary bundling frontend assets with version and 
 depends = ["build-frontend"]
 dir = "backend"
 run = '''
-VERSION="${VERSION:-v0.3.0}"
+VERSION="${VERSION:-v0.4.0}"
 COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "none")}"
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -51,7 +51,7 @@ description = "Compile debug binary bundling frontend assets"
 depends = ["build-frontend"]
 dir = "backend"
 run = '''
-VERSION="${VERSION:-v0.3.0}"
+VERSION="${VERSION:-v0.4.0}"
 COMMIT="${COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "none")}"
 while [ "$#" -gt 0 ]; do
   case "$1" in

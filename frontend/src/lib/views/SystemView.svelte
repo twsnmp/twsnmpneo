@@ -533,7 +533,7 @@
           </div>
           <div class="my-2 flex items-baseline gap-2">
             <span class="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {formatVersion(sysInfo?.version) || "v0.3.0"}
+              {formatVersion(sysInfo?.version) || "v0.4.0"}
             </span>
           </div>
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate flex items-center justify-between">

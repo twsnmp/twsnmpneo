@@ -23,6 +23,7 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 - **Zero-Install Web Experience**: Full management capabilities accessible from any modern desktop or mobile browser.
 - **p5.js & 3D WebGL Canvas**: Hardware-accurate switching hub panels with real-time port LEDs and full 3D interactive hardware panels (`vpanel`).
 - **GIS Geographic Map (MapLibre)**: Plot network nodes across geographic tile layers (OpenStreetMap, GSI, CARTO, etc.) with real-time health status coloring and interactive positioning.
+- **TWAgent & AI Security Telemetry (`twagentneo`)**: Zero-config cross-platform agent ingestion, live host telemetry, Sigma rule detection with local LLM verification, File Integrity Monitoring (FIM), and CIS Benchmark Security Configuration Assessment (SCA).
 - **Apache Parquet Columnar Storage**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios and sub-second query performance.
 - **Native AI & Built-in MCP Server**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis and natural language polling creation.
 - **Self-Contained Private PKI**: Issue, renew, and automate TLS certificates via ACME and SCEP directly within your network manager.
@@ -360,6 +361,14 @@ IoT/Smart device message volume statistics by topic, client connections, and AI 
 Distributed trace summaries, service latencies, and AI bottleneck diagnostics.
 
 ![](./images/en/report_opentelemetry.png)
+
+### TWAgent & AI Security Audit (`twagentneo`)
+Integrates rich telemetry and AI security audits from cross-platform `twagentneo` agents across MQTT, Syslog (RFC 5424), and SNMP TRAP without prior manual configuration:
+- **Agents Inventory & Telemetry (`twAgentInfo`)**: Agent ID, hostname, IP, OS, version, online/offline status (LWT/heartbeat), live CPU/memory/disk rates, and network throughput, with one-click topology node and polling registration.
+- **AI Security & Compliance Alerts (`twAgentAlert`)**: Sigma rule matches analyzed by local LLM (`tensai`) with threat validation (`IsThreat: YES/NO`), severity ratings, Japanese summaries, and remediation actions.
+- **File Integrity Monitoring (`twAgentFIM`)**: Real-time event log of file creation, modification, deletion, and permission changes with SHA256 hashes.
+- **Security Configuration Assessment (`twAgentSCA`)**: CIS Benchmark-aligned system and security configuration audits with masked proofs, actionable remediation steps, and AI root cause summaries.
+- **Process TCP Connections (`twAgentTCP`)**: Active outbound/inbound TCP socket destinations per process with GeoIP mapping, service identification, and statistical deviation scoring.
 
 ### TLS/SSL Certificate Monitoring
 Expiration countdown and revocation status verification.
