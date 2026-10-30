@@ -33,7 +33,7 @@ go.work.sum
 
 # Build artifacts and data
 bin/
-data/
+data
 backend/dist/
 backend/web/dist/*
 !backend/web/dist/.gitkeep
