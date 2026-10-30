@@ -47,7 +47,7 @@
       errorMsg = null;
       status = await fetchBackupStatus();
     } catch (e: any) {
-      errorMsg = e.message || "Failed to load backup status";
+      errorMsg = e.message || $_('system.backupFailed');
     } finally {
       loading = false;
     }
@@ -62,10 +62,10 @@
   async function handleRunBackup(configOnly: boolean) {
     const title = configOnly ? $_('system.btnConfigOnlyBackup') : $_('system.btnFullBackup');
     const ok = await showConfirm({
-      title: title || 'バックアップ作成',
+      title: title || $_('system.backup'),
       message: $_('system.confirmBackup'),
       type: 'warning',
-      confirmText: $_('common.ok') || '実行',
+      confirmText: $_('common.ok'),
     });
     if (!ok) return;
 
@@ -73,8 +73,8 @@
     errorMsg = null;
     successMsg = null;
     showLoading({
-      title: title || 'バックアップ',
-      message: 'データベースバックアップを作成しています...',
+      title: title || $_('system.backup'),
+      message: $_('system.backupCreating'),
     });
 
     try {
@@ -110,10 +110,10 @@
 
   async function handleDelete(file: BackupFileInfo) {
     const ok = await showConfirm({
-      title: $_('common.confirmDelete') || '削除確認',
+      title: $_('common.confirmDelete'),
       message: `${$_('system.confirmDeleteBackup')}\n\n${file.name}`,
       type: 'danger',
-      confirmText: $_('common.delete') || '削除',
+      confirmText: $_('common.delete'),
     });
     if (!ok) return;
 
@@ -176,6 +176,7 @@
             type="button"
             onclick={handleCloseModal}
             class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            title={$_('common.close')}
           >
             <X class="w-5 h-5" />
           </button>
@@ -246,7 +247,7 @@
                 {$_('system.btnCreateBackup')}
               </span>
               <span class="block text-[11px] text-slate-500 dark:text-slate-400">
-                トランザクション整合性を保証した安全なスナップショットを作成します。
+                {$_('system.createBackupDesc')}
               </span>
             </div>
 
@@ -256,7 +257,7 @@
                 onclick={() => handleRunBackup(true)}
                 disabled={actionLoading || status?.running}
                 class="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-2 text-xs font-semibold text-cyan-600 dark:text-cyan-300 transition-colors cursor-pointer disabled:opacity-50"
-                title="ログデータを除外し、設定とトポロジーのみを高速にバックアップします"
+                title={$_('system.btnConfigOnlyBackupTitle')}
               >
                 <FileCode class="w-3.5 h-3.5" />
                 <span>{$_('system.btnConfigOnlyBackup')}</span>
@@ -267,7 +268,7 @@
                 onclick={() => handleRunBackup(false)}
                 disabled={actionLoading || status?.running}
                 class="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300 transition-colors cursor-pointer disabled:opacity-50"
-                title="データベース全体の完全なスナップショットを作成します"
+                title={$_('system.btnFullBackupTitle')}
               >
                 <Database class="w-3.5 h-3.5" />
                 <span>{$_('system.btnFullBackup')}</span>
@@ -279,7 +280,7 @@
                   onclick={handleStop}
                   disabled={actionLoading}
                   class="flex items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-xs font-semibold text-rose-500 transition-colors cursor-pointer"
-                  title="実行中のバックアップを中断します"
+                  title={$_('system.btnStopBackupTitle')}
                 >
                   <StopCircle class="w-3.5 h-3.5" />
                   <span>{$_('system.btnStopBackup')}</span>
@@ -313,7 +314,7 @@
                       <th class="px-4 py-2.5">{$_('system.backupFileType')}</th>
                       <th class="px-4 py-2.5">{$_('system.backupFileSize')}</th>
                       <th class="px-4 py-2.5">{$_('system.backupFileDate')}</th>
-                      <th class="px-4 py-2.5 text-right">操作</th>
+                      <th class="px-4 py-2.5 text-right">{$_('common.action')}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
@@ -377,7 +378,7 @@
           onclick={handleCloseModal}
           class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
         >
-          {$_('common.close') || '閉じる'}
+          {$_('common.close')}
         </button>
       </footer>
     </div>
