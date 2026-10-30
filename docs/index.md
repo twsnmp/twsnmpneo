@@ -25,6 +25,7 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 - **GIS Geographic Map (MapLibre)**: Plot network nodes across geographic tile layers (OpenStreetMap, GSI, CARTO, etc.) with real-time health status coloring and interactive positioning.
 - **TWAgent & AI Security Telemetry (`twagentneo`)**: Zero-config cross-platform agent ingestion, live host telemetry, Sigma rule detection with local LLM verification, File Integrity Monitoring (FIM), and CIS Benchmark Security Configuration Assessment (SCA).
 - **Apache Parquet Columnar Storage**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios and sub-second query performance.
+- **Enterprise Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile`, automated recurring schedules, generation rotation, web-based archive management, and offline CLI disaster recovery & compaction.
 - **Native AI & Built-in MCP Server**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis and natural language polling creation.
 - **Self-Contained Private PKI**: Issue, renew, and automate TLS certificates via ACME and SCEP directly within your network manager.
 
@@ -411,6 +412,9 @@ Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow
 
 ![](./images/en/settings_receivers.png)
 
+### Independent Log Retention Policy
+Database event logs (bbolt) and high-volume streaming logs (Parquet) feature independent retention periods. A background cleaner runs every 10 minutes to automatically purge expired bbolt event records and rotate Parquet files based on both age and disk quotas.
+
 ### AI Root Cause Diagnosis
 When critical events occur, one-click AI analysis summarizes correlated preceding and succeeding logs to identify the root cause and provide clear remediation steps in Markdown.
 
@@ -492,12 +496,40 @@ Receive instant alerts and periodic reports across supported channels:
 
 ![](./images/en/settings_notify.png)
 
-### Backup & Automated Log Retention
+### Database Settings & Scheduled Backups
 
 ![](./images/en/settings_backup.png)
 
-- **Map Export**: Export topology, nodes, and polling configurations as JSON or ZIP archives.
-- **Parquet Auto-Rotation**: Automatically prune historical records based on disk usage thresholds or retention days.
+- **Independent Log Retention**:
+  - **Event Log Retention (bbolt, Days)**: Historical retention for system and polling state change alerts (default: 30 days).
+  - **Streaming Log Retention (Parquet, Days)**: Retention duration for large streaming logs such as Syslog, SNMP TRAP, and Flow records (default: 14 days).
+  - **Max Parquet Storage (GB)**: Configurable disk storage cap for Parquet columnar logs.
+- **Automated Database Backups**:
+  - **Schedule Mode**: Choose from Disabled, Daily (`daily`), Once (`once`), or Run Once & Daily (`once_daily`).
+  - **Execution Time**: Configurable scheduled runtime (HH:MM format, e.g. `03:00`).
+  - **Retained Generations**: Automatically rotates and keeps between 1 and 30 generations.
+  - **Config-Only Mode (`ConfigOnly`)**: Saves a lightweight, instant snapshot containing map topology, nodes, lines, and polling definitions while omitting voluminous event logs and OTel traces.
+- **Topology Export & Reset**: Export map data and polling configurations as JSON / ZIP archives or reset the database.
+
+### Backup Management & Disaster Recovery
+
+Open the dedicated Backup Manager modal directly from the System Status tab to inspect and manage all database archives.
+
+![](./images/en/backup_manager.png)
+
+- **Web UI Management**:
+  - Inspect backup archives with file names, sizes, and creation timestamps.
+  - Trigger on-demand backups instantly ("Full Backup" or "Config-Only Backup").
+  - Download backup archives directly in the browser and remove old backups.
+- **Offline CLI Disaster Recovery & Maintenance**:
+  - Offline Restoration (`-restore`): Restores the database from a backup file with automatic pre-restore safety archiving of the active DB.
+    ```bash
+    twsnmpneo -datastore ./data -restore ./backups/twsnmpneo_backup_20261031_030000.db
+    ```
+  - Database Compaction (`-compact`): Reclaims unused database space and resolves bbolt fragmentation.
+    ```bash
+    twsnmpneo -datastore ./data -compact ./data/twsnmpneo_compacted.db
+    ```
 
 ### Icon Management & Custom Assets
 

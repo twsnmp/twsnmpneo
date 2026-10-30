@@ -40,6 +40,7 @@
 ### 2. Columnar Big Data Storage (Apache Parquet)
 - High-speed compressed storage for **Syslog, SNMP TRAP, NetFlow v5/v9/IPFIX, sFlow v5, ARP Watch, OpenTelemetry, MQTT**, and polling logs.
 - Lightning-fast multi-criteria filtering, pagination, and automated retention/rotation policies.
+- **Independent Log Retention**: Configurable separate retention durations for bbolt event logs and Parquet streaming logs with automated background purging.
 
 ### 3. Native AI & Built-in MCP Server
 - **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 22+ diagnostic/management tools and 19 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
@@ -64,7 +65,8 @@
 - **Optimized Analytics Suite**: Category-based lazy loading and query-time Parquet file pruning for responsive large-scale analytics.
 - **Built-in PKI & TLS Management**: Root CA management, web-based CSR creation, certificate issuance, CRL / OCSP / SCEP / ACME servers, and automated TLS certificate renewal via ACME client (lego)
 - **Diagnostic Tools**: Interactive Ping (ICMP/UDP), Smokeping, MTR with AI analysis, MIB Browser / Tree, gNMI, and Wake-on-LAN (WOL)
-- **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications and one-click in-place upgrades
+- **Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile` (full and lightweight config-only modes), automated recurring schedule (daily/once/once_daily) with generation rotation (1–30 generations). Dedicated Backup Manager modal in the Web UI, along with offline CLI options (`-backup`, `-restore`, `-compact`).
+- **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications, backup management modal, and one-click in-place upgrades
 
 ---
 
@@ -161,6 +163,23 @@ twsnmpneo update -check
 
 # Apply update and automatically restart
 twsnmpneo update -y
+```
+
+---
+
+### Database Backup, Restore & Maintenance (CLI)
+
+TWSNMP NEO provides transaction-safe live snapshots, offline disaster recovery, and database compaction:
+
+```bash
+# Safely snapshot running database to a target backup directory
+twsnmpneo -datastore ./data -backup ./backups
+
+# Safely restore from an offline backup archive (automatically moves previous DB to a timestamped backup)
+twsnmpneo -datastore ./data -restore ./backups/twsnmpneo_backup_20261031_030000.db
+
+# Offline database compaction to reclaim disk space and reduce fragmentation
+twsnmpneo -datastore ./data -compact ./data/twsnmpneo_compacted.db
 ```
 
 ---

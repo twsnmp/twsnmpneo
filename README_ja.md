@@ -40,7 +40,8 @@
 
 ### 2. Apache Parquet による大容量・超高速ログストレージ
 - **Syslog、SNMP TRAP、NetFlow v5/v9/IPFIX、sFlow v5、ARP Watch、OpenTelemetry、MQTT、ポーリング時系列ログ**を列指向圧縮フォーマット（Parquet）で効率的に保存。
-- 1万件単位の高速クエリ、複合条件フィルタ、容量・日数指定による安全な自動ローテーション。
+- 1万件単位の高速クエリ、複合条件フィルタ、および容量・日数指定による安全な自動ローテーション。
+- **独立したログ保持期間ポリシー**: bbolt（イベントログ）とParquet（受信ログ）の保存日数を個別に設定し、バックグラウンドで安全に自動パージ。
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
 - **Streamable HTTP MCP サーバー (`/api/mcp`)**: 22種以上の運用・診断ツールと19種のプロンプトテンプレートをAIエージェント（Cursor, Claude Desktop, Antigravity など）に提供。
@@ -65,7 +66,8 @@
 - **オンデマンドレポート高速化**: カテゴリ別遅延読み込み（Lazy-load）とParquetクエリ時の時間範囲プルーニングによる高速レスポンス
 - **内蔵 PKI & TLS 管理**: Root CA構築、ブラウザ内CSR作成、証明書発行、CRL / OCSP / SCEP / ACME サーバー、および自身の HTTPS 運用を自動化する ACME 自動更新クライアント（lego 統合）
 - **診断ツール**: リアルタイムPing (ICMP/UDP)、Smokeping、MTR（AI解説付き）、MIBブラウザ / MIBツリー、gNMI、Wake-on-LAN (WOL)
-- **システム管理**: システムステータス（デーモン稼働状態、DB容量予測、ワンクリックセルフアップデート）とリソースモニターの2タブ構成
+- **データベース定期バックアップ & 復元管理**: トランザクションセーフな `bbolt.Tx.CopyFile` によるスナップショットバックアップ（フル / 設定のみの軽量モード）、スケジュール定期実行（毎日/1回のみ/即時実行後毎日）と自動世代管理（1〜30世代）。Web UIでのバックアップ管理モーダル（一覧・即時作成・ダウンロード・削除）およびCLI（`-backup`, `-restore`, `-compact`）による確実な運用・リストア。
+- **システム管理**: システムステータス（デーモン稼働状態、DB容量予測、バックアップ管理、ワンクリックセルフアップデート）とリソースモニターの2タブ構成
 
 ---
 
@@ -144,6 +146,23 @@ twsnmpneo update -check
 twsnmpneo update -y
 ```
 ※ Web UI 管理画面からも、新バージョン通知バナーからワンクリックで更新適用が可能です。
+
+---
+
+### データベースバックアップ & リストア・メンテナンス (CLI)
+
+TWSNMP NEO は稼働中の安全なスナップショットバックアップやオフラインリストア、データベース圧縮に対応しています：
+
+```bash
+# 稼働中のデータベースを安全にバックアップ（指定ディレクトリへスナップショット作成）
+twsnmpneo -datastore ./data -backup ./backups
+
+# バックアップアーカイブからの安全なオフライン復元（復元前の既存DBを自動退避）
+twsnmpneo -datastore ./data -restore ./backups/twsnmpneo_backup_20261031_030000.db
+
+# bbolt データベースのオフライン領域圧縮（フラグメンテーション解消）
+twsnmpneo -datastore ./data -compact ./data/twsnmpneo_compacted.db
+```
 
 ---
 
