@@ -12,6 +12,7 @@
   } from "../api";
   import { showConfirm, showLoading, hideLoading, showAlert } from "../stores/modalStore";
   import SystemUpdateModal from "../components/SystemUpdateModal.svelte";
+  import BackupManagerModal from "../components/BackupManagerModal.svelte";
   import { _ } from "svelte-i18n";
   import { renderBytes, renderSpeed, renderPercent, formatTimeStr, formatVersion } from "../common";
   import TablePagination from "../components/common/TablePagination.svelte";
@@ -89,6 +90,7 @@
 
   // Modals & Notifications
   let showForecastModal = $state(false);
+  let showBackupModal = $state(false);
   let backupStatus = $state<{ file: string; size: number; time: string } | null>(null);
   let backupError = $state<string | null>(null);
   let backupLoading = $state(false);
@@ -425,12 +427,11 @@
 
       <button
         type="button"
-        onclick={handleBackup}
-        disabled={backupLoading}
+        onclick={() => (showBackupModal = true)}
         class="flex items-center gap-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer shadow-xs"
         title={$_('system.btnBackupTitle')}
       >
-        <Database class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 {backupLoading ? 'animate-pulse' : ''}" />
+        <Database class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
         <span>{$_('system.btnBackup')}</span>
       </button>
 
@@ -1017,5 +1018,10 @@
   {updateInfo}
   {isAdmin}
   onClose={() => (showUpdateModal = false)}
+/>
+
+<!-- Database Backup Manager Modal -->
+<BackupManagerModal
+  bind:isOpen={showBackupModal}
 />
 

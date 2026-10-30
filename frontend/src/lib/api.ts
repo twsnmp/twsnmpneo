@@ -983,10 +983,76 @@ export async function updateMonitorData(): Promise<MonitorDataEnt> {
   return res.json();
 }
 
-export async function execBackup(): Promise<{ file: string; size: number; time: string }> {
-  const res = await apiFetch(`${API_BASE}/system/backup`, { method: 'POST' });
-  if (!res.ok) throw new Error(`Backup failed: ${res.statusText}`);
+export interface BackupConfEnt {
+  Mode: string;         // "" (disabled), "daily", "once", "once_daily"
+  ScheduleTime: string; // "03:00"
+  ConfigOnly: boolean;  // topology and config only
+  Generation: number;   // 0: 1 generation, 1: 2 generations, 6: 7 generations, etc.
+}
+
+export interface BackupFileInfo {
+  name: string;
+  size: number;
+  mod_time: number;
+  config_only: boolean;
+}
+
+export interface BackupStatusEnt {
+  config: BackupConfEnt;
+  running: boolean;
+  last_backup_time: number;
+  last_backup_file: string;
+  last_backup_size: number;
+  next_backup_time: number;
+  backups: BackupFileInfo[];
+}
+
+export async function fetchBackupStatus(): Promise<BackupStatusEnt> {
+  const res = await apiFetch(`${API_BASE}/system/backup`);
+  if (!res.ok) throw new Error(`Fetch backup status failed: ${res.statusText}`);
   return res.json();
+}
+
+export async function saveBackupConf(conf: BackupConfEnt): Promise<BackupStatusEnt> {
+  const res = await apiFetch(`${API_BASE}/system/backup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(conf),
+  });
+  if (!res.ok) throw new Error(`Save backup config failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function runBackup(configOnly = false): Promise<{ file: string; size: number; config_only: boolean; time: string }> {
+  const res = await apiFetch(`${API_BASE}/system/backup/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config_only: configOnly }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Run backup failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function stopBackup(): Promise<{ stopped: boolean }> {
+  const res = await apiFetch(`${API_BASE}/system/backup/stop`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Stop backup failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteBackup(name: string): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/system/backup/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Delete backup failed: ${res.statusText}`);
+}
+
+export function getBackupDownloadUrl(name: string): string {
+  return `${API_BASE}/system/backup/download/${encodeURIComponent(name)}`;
+}
+
+export async function execBackup(configOnly = false): Promise<{ file: string; size: number; time: string }> {
+  return runBackup(configOnly);
 }
 
 export async function fetchUpdateCheck(force = false): Promise<UpdateInfo> {

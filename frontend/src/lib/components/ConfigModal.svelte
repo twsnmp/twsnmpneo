@@ -7,6 +7,8 @@
     fetchBackImage,
     saveBackImage,
     fetchNotifyOAuth2Status,
+    fetchBackupStatus,
+    saveBackupConf,
     type UserEnt,
     type ModelInfo,
     type AIHardwareStatus,
@@ -145,6 +147,10 @@
   let scoreThreshold = $state(35.0);
   let fumbleThreshold = $state(10);
   let logFormat = $state("parquet");
+  let backupMode = $state("");
+  let backupScheduleTime = $state("03:00");
+  let backupConfigOnly = $state(true);
+  let backupGeneration = $state(6);
 
   // Tab Component refs for imperative triggers if needed
   let mibTabRef: { loadMIBModules: () => Promise<void> } | undefined = $state();
@@ -266,6 +272,14 @@
           updateImageNaturalSize(backImagePath);
         }
       }
+
+      const bStatus = await fetchBackupStatus().catch(() => null);
+      if (bStatus && bStatus.config) {
+        backupMode = bStatus.config.Mode || "";
+        backupScheduleTime = bStatus.config.ScheduleTime || "03:00";
+        backupConfigOnly = bStatus.config.ConfigOnly ?? true;
+        backupGeneration = bStatus.config.Generation ?? 6;
+      }
     } catch (e) {
       console.error("Failed to load configuration:", e);
     }
@@ -355,6 +369,14 @@
         Width: Number(backImageW) || 800,
         Height: Number(backImageH) || 600,
         Path: backImagePath,
+      });
+
+      // 4. Save Database Scheduled Backup Conf
+      await saveBackupConf({
+        Mode: backupMode,
+        ScheduleTime: backupScheduleTime || "03:00",
+        ConfigOnly: Boolean(backupConfigOnly),
+        Generation: Number(backupGeneration),
       });
 
       saveMsg = $_('config.saveSuccess');
@@ -598,6 +620,10 @@
               bind:scoreThreshold
               bind:fumbleThreshold
               bind:logFormat
+              bind:backupMode
+              bind:backupScheduleTime
+              bind:backupConfigOnly
+              bind:backupGeneration
               onRefreshConfig={loadConfig}
               onSuccess={(msg) => (saveMsg = msg)}
               onError={(err) => (saveError = err)}

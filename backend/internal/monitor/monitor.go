@@ -49,14 +49,16 @@ type MonitorDataEnt struct {
 
 // Config holds monitor configuration.
 type Config struct {
-	DataDir  string
-	Store    datastore.DataStore
-	Interval time.Duration
+	DataDir   string
+	BackupDir string
+	Store     datastore.DataStore
+	Interval  time.Duration
 }
 
 // Monitor manages system resource tracking.
 type Monitor struct {
 	dataDir        string
+	backupDir      string
 	store          datastore.DataStore
 	interval       time.Duration
 	mu             sync.RWMutex
@@ -66,6 +68,15 @@ type Monitor struct {
 	lastDBCalcTime time.Time
 	isCalcRunning  bool
 	dbCalcMu       sync.Mutex
+
+	// Backup scheduler & state
+	backupMu       sync.Mutex
+	backupRunning  bool
+	lastBackupTime int64
+	lastBackupFile string
+	lastBackupSize int64
+	nextBackupTime int64
+	backupCancel   context.CancelFunc
 }
 
 // New creates a new resource monitor.
@@ -74,8 +85,13 @@ func New(cfg Config) *Monitor {
 	if interval <= 0 {
 		interval = 5 * time.Minute
 	}
+	bDir := cfg.BackupDir
+	if bDir == "" {
+		bDir = filepath.Join(cfg.DataDir, "backup")
+	}
 	return &Monitor{
 		dataDir:   cfg.DataDir,
+		backupDir: bDir,
 		store:     cfg.Store,
 		interval:  interval,
 		data:      make([]*MonitorDataEnt, 0, maxMonitorData),
@@ -92,6 +108,7 @@ func (m *Monitor) Start(ctx context.Context) {
 		defer ticker.Stop()
 		// Initial collection asynchronously so startup is not blocked
 		m.UpdateNow()
+		m.initBackupState(ctx)
 
 		i := 0
 		for {
@@ -101,6 +118,7 @@ func (m *Monitor) Start(ctx context.Context) {
 				return
 			case <-ticker.C:
 				m.UpdateNow()
+				m.checkScheduledBackup(ctx)
 				i++
 				if i%12 == 0 { // Check alerts every hour
 					m.checkResourceAlert(ctx)
@@ -370,28 +388,295 @@ func (m *Monitor) checkResourceAlert(ctx context.Context) {
 	}
 }
 
-// Backup creates a copy of the database to backup_<timestamp>.db in dataDir.
+// Backup creates a copy of the database to twsnmpneo.db.<timestamp> in backupDir.
 func (m *Monitor) Backup() (string, int64, error) {
-	srcFile := filepath.Join(m.dataDir, "twsnmpneo.db")
-	src, err := os.Open(srcFile)
-	if err != nil {
-		return "", 0, fmt.Errorf("source db not found: %w", err)
-	}
-	defer src.Close()
-
-	backupName := fmt.Sprintf("backup_%s.db", time.Now().Format("20060102_150405"))
-	dstFile := filepath.Join(m.dataDir, backupName)
-	dst, err := os.OpenFile(dstFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to create backup file: %w", err)
-	}
-	defer dst.Close()
-
-	written, err := io.Copy(dst, src)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to copy database: %w", err)
-	}
-
-	slog.Info("Database backup completed", "file", backupName, "size", written)
-	return backupName, written, nil
+	return m.BackupWithOptions(context.Background(), false)
 }
+
+// BackupWithOptions creates a backup with configurable configOnly setting and event logging.
+func (m *Monitor) BackupWithOptions(ctx context.Context, configOnly bool) (string, int64, error) {
+	m.backupMu.Lock()
+	if m.backupRunning {
+		m.backupMu.Unlock()
+		return "", 0, fmt.Errorf("backup is already running")
+	}
+	bCtx, cancel := context.WithCancel(ctx)
+	m.backupCancel = cancel
+	m.backupRunning = true
+	m.backupMu.Unlock()
+
+	defer func() {
+		m.backupMu.Lock()
+		m.backupRunning = false
+		m.backupCancel = nil
+		m.backupMu.Unlock()
+	}()
+
+	st := time.Now()
+	timestamp := st.Format("20060102150405")
+	var backupName string
+	if configOnly {
+		backupName = fmt.Sprintf("twsnmpneo.db.config.%s", timestamp)
+	} else {
+		backupName = fmt.Sprintf("twsnmpneo.db.%s", timestamp)
+	}
+	dstFile := filepath.Join(m.backupDir, backupName)
+
+	if m.store != nil {
+		_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "system",
+			Level: "info",
+			Event: fmt.Sprintf(i18n.Trans("Database backup started: %s"), backupName),
+		})
+	}
+
+	var size int64
+	var err error
+	if m.store != nil {
+		size, err = m.store.BackupDB(bCtx, dstFile, configOnly)
+	} else {
+		srcFile := filepath.Join(m.dataDir, "twsnmpneo.db")
+		_ = os.MkdirAll(filepath.Dir(dstFile), 0755)
+		if err = copyRawFile(srcFile, dstFile); err == nil {
+			if fi, sErr := os.Stat(dstFile); sErr == nil {
+				size = fi.Size()
+			}
+		}
+	}
+
+	if err != nil {
+		slog.Error("Database backup failed", "file", backupName, "error", err)
+		if m.store != nil {
+			_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
+				Time:  time.Now().UnixNano(),
+				Type:  "system",
+				Level: "warn",
+				Event: fmt.Sprintf(i18n.Trans("Database backup failed: %v"), err),
+			})
+		}
+		return "", 0, err
+	}
+
+	m.backupMu.Lock()
+	m.lastBackupTime = time.Now().UnixNano()
+	m.lastBackupFile = backupName
+	m.lastBackupSize = size
+	m.backupMu.Unlock()
+
+	slog.Info("Database backup completed", "file", backupName, "size", size, "duration", time.Since(st))
+	if m.store != nil {
+		_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:  time.Now().UnixNano(),
+			Type:  "system",
+			Level: "info",
+			Event: fmt.Sprintf(i18n.Trans("Database backup completed: %s (%s, %v)"), backupName, renderByteSize(size), time.Since(st).Truncate(time.Millisecond)),
+		})
+
+		// Rotate old backups according to retention settings
+		conf, cErr := m.store.GetBackupConf(ctx)
+		if cErr == nil && conf != nil && conf.Generation >= 0 {
+			_ = m.store.RotateBackups(m.backupDir, conf.Generation)
+		}
+	}
+
+	return backupName, size, nil
+}
+
+// StopBackup cancels an ongoing backup if running.
+func (m *Monitor) StopBackup() bool {
+	m.backupMu.Lock()
+	defer m.backupMu.Unlock()
+	if m.backupRunning && m.backupCancel != nil {
+		m.backupCancel()
+		slog.Info("Requested cancellation of active database backup")
+		return true
+	}
+	return false
+}
+
+// GetBackupDir returns the directory where backups are stored.
+func (m *Monitor) GetBackupDir() string {
+	return m.backupDir
+}
+
+// GetBackupStatus returns the current backup status including configuration and file list.
+func (m *Monitor) GetBackupStatus(ctx context.Context) (*datastore.BackupStatusEnt, error) {
+	if m.store == nil {
+		return nil, datastore.ErrDBNotOpen
+	}
+
+	conf, err := m.store.GetBackupConf(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	files, _ := m.store.ListBackups(m.backupDir)
+
+	m.backupMu.Lock()
+	running := m.backupRunning
+	lastTime := m.lastBackupTime
+	lastFile := m.lastBackupFile
+	lastSize := m.lastBackupSize
+	nextTime := m.nextBackupTime
+	m.backupMu.Unlock()
+
+	// If last backup not in memory yet, pick from most recent file
+	if lastTime == 0 && len(files) > 0 {
+		lastTime = files[0].ModTime
+		lastFile = files[0].Name
+		lastSize = files[0].Size
+	}
+
+	return &datastore.BackupStatusEnt{
+		Config:         *conf,
+		Running:        running,
+		LastBackupTime: lastTime,
+		LastBackupFile: lastFile,
+		LastBackupSize: lastSize,
+		NextBackupTime: nextTime,
+		Backups:        files,
+	}, nil
+}
+
+func (m *Monitor) initBackupState(ctx context.Context) {
+	if m.store == nil {
+		return
+	}
+	conf, err := m.store.GetBackupConf(ctx)
+	if err != nil || conf == nil {
+		return
+	}
+
+	// Initialize last backup from disk files
+	files, _ := m.store.ListBackups(m.backupDir)
+	if len(files) > 0 {
+		m.backupMu.Lock()
+		m.lastBackupTime = files[0].ModTime
+		m.lastBackupFile = files[0].Name
+		m.lastBackupSize = files[0].Size
+		m.backupMu.Unlock()
+	}
+
+	m.calculateNextBackup(conf)
+}
+
+func (m *Monitor) calculateNextBackup(conf *datastore.BackupConfEnt) {
+	if conf == nil || conf.Mode == "" {
+		m.backupMu.Lock()
+		m.nextBackupTime = 0
+		m.backupMu.Unlock()
+		return
+	}
+
+	now := time.Now()
+	schedTime := conf.ScheduleTime
+	if schedTime == "" {
+		schedTime = "03:00"
+	}
+	hour, min := 3, 0
+	if parts := strings.Split(schedTime, ":"); len(parts) == 2 {
+		if h, err := time.Parse("15", parts[0]); err == nil {
+			hour = h.Hour()
+		}
+		if mVal, err := time.Parse("04", parts[1]); err == nil {
+			min = mVal.Minute()
+		}
+	}
+
+	target := time.Date(now.Year(), now.Month(), now.Day(), hour, min, 0, 0, now.Location())
+	if !now.Before(target) {
+		target = target.Add(24 * time.Hour)
+	}
+
+	m.backupMu.Lock()
+	m.nextBackupTime = target.UnixNano()
+	m.backupMu.Unlock()
+}
+
+func (m *Monitor) checkScheduledBackup(ctx context.Context) {
+	if m.store == nil {
+		return
+	}
+
+	conf, err := m.store.GetBackupConf(ctx)
+	if err != nil || conf == nil || conf.Mode == "" {
+		return
+	}
+
+	m.backupMu.Lock()
+	running := m.backupRunning
+	next := m.nextBackupTime
+	m.backupMu.Unlock()
+
+	if running {
+		return
+	}
+
+	nowUnix := time.Now().UnixNano()
+
+	// Handle immediate modes
+	isImmediate := conf.Mode == "once" || conf.Mode == "once_daily"
+	isDue := next > 0 && nowUnix >= next
+
+	if !isImmediate && !isDue {
+		if next == 0 {
+			m.calculateNextBackup(conf)
+		}
+		return
+	}
+
+	// Trigger backup
+	configOnly := conf.ConfigOnly
+	go func() {
+		_, _, _ = m.BackupWithOptions(context.Background(), configOnly)
+
+		// Transition mode after immediate backup
+		if conf.Mode == "once" {
+			conf.Mode = ""
+			_ = m.store.SaveBackupConf(context.Background(), conf)
+			m.backupMu.Lock()
+			m.nextBackupTime = 0
+			m.backupMu.Unlock()
+		} else if conf.Mode == "once_daily" {
+			conf.Mode = "daily"
+			_ = m.store.SaveBackupConf(context.Background(), conf)
+			m.calculateNextBackup(conf)
+		} else {
+			m.calculateNextBackup(conf)
+		}
+	}()
+}
+
+func renderByteSize(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func copyRawFile(src, dst string) error {
+	s, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	d, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+
+	if _, err := io.Copy(d, s); err != nil {
+		return err
+	}
+	return nil
+}
+

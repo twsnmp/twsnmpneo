@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { uploadGeoIP, deleteGeoIP } from "../../api";
+  import { onMount } from "svelte";
+  import { uploadGeoIP, deleteGeoIP, fetchBackupStatus } from "../../api";
   import { showConfirm } from "../../stores/modalStore";
   import {
     Globe,
@@ -8,8 +9,11 @@
     Database,
     Server,
     Sliders,
+    Clock,
+    ShieldCheck,
   } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
+  import { formatTimeStr } from "../../common";
 
   let {
     geoIPInfo = $bindable(""),
@@ -21,6 +25,10 @@
     scoreThreshold = $bindable(35.0),
     fumbleThreshold = $bindable(10),
     logFormat = $bindable("parquet"),
+    backupMode = $bindable(""),
+    backupScheduleTime = $bindable("03:00"),
+    backupConfigOnly = $bindable(true),
+    backupGeneration = $bindable(6),
     onRefreshConfig,
     onSuccess,
     onError,
@@ -34,6 +42,10 @@
     scoreThreshold: number;
     fumbleThreshold: number;
     logFormat: string;
+    backupMode?: string;
+    backupScheduleTime?: string;
+    backupConfigOnly?: boolean;
+    backupGeneration?: number;
     onRefreshConfig?: () => Promise<void>;
     onSuccess?: (msg: string) => void;
     onError?: (msg: string) => void;
@@ -41,6 +53,23 @@
 
   let geoIPLoading = $state(false);
   let geoIPFileInput: HTMLInputElement | undefined = $state();
+
+  let lastBackupTime = $state<number>(0);
+  let nextBackupTime = $state<number>(0);
+  let lastBackupFile = $state<string>("");
+
+  onMount(async () => {
+    try {
+      const status = await fetchBackupStatus();
+      if (status) {
+        lastBackupTime = status.last_backup_time;
+        nextBackupTime = status.next_backup_time;
+        lastBackupFile = status.last_backup_file;
+      }
+    } catch (e: any) {
+      console.warn("Failed to load backup status:", e);
+    }
+  });
 
   async function handleUploadGeoIP(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -186,6 +215,120 @@
         </p>
       </div>
     </div>
+  </div>
+
+  <!-- Scheduled Database Backup Section -->
+  <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm dark:shadow-lg space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+      <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <ShieldCheck class="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+        {$_('config.backupSettingsTitle')}
+      </h3>
+      {#if backupMode}
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
+          {$_('config.backupModeDaily')}
+        </span>
+      {:else}
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+          {$_('config.backupModeDisabled')}
+        </span>
+      {/if}
+    </div>
+
+    <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+      {$_('config.backupSettingsDesc')}
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="backup-mode-select" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+          {$_('config.backupMode')}
+        </label>
+        <select
+          id="backup-mode-select"
+          bind:value={backupMode}
+          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+        >
+          <option value="">{$_('config.backupModeDisabled')}</option>
+          <option value="daily">{$_('config.backupModeDaily')}</option>
+          <option value="once">{$_('config.backupModeOnce')}</option>
+          <option value="once_daily">{$_('config.backupModeOnceDaily')}</option>
+        </select>
+      </div>
+
+      {#if backupMode}
+        <div>
+          <label for="backup-time-input" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+            <Clock class="w-3.5 h-3.5 text-cyan-500" />
+            {$_('config.backupScheduleTime')}
+          </label>
+          <input
+            id="backup-time-input"
+            type="time"
+            bind:value={backupScheduleTime}
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
+          />
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
+            {$_('config.backupScheduleTimeDesc')}
+          </p>
+        </div>
+
+        <div>
+          <label for="backup-generation-select" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+            {$_('config.backupGeneration')}
+          </label>
+          <select
+            id="backup-generation-select"
+            bind:value={backupGeneration}
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:border-cyan-500 focus:outline-none"
+          >
+            <option value={0}>{$_('config.backupGen1')}</option>
+            <option value={1}>{$_('config.backupGen2')}</option>
+            <option value={6}>{$_('config.backupGen7')}</option>
+            <option value={13}>{$_('config.backupGen14')}</option>
+            <option value={29}>{$_('config.backupGen30')}</option>
+          </select>
+        </div>
+      {/if}
+    </div>
+
+    {#if backupMode}
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5">
+        <label class="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            bind:checked={backupConfigOnly}
+            class="mt-0.5 rounded text-cyan-500 focus:ring-cyan-500/20"
+          />
+          <div class="space-y-0.5">
+            <span class="block text-xs font-semibold text-slate-800 dark:text-slate-200">
+              {$_('config.backupConfigOnly')}
+            </span>
+            <span class="block text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {$_('config.backupConfigOnlyDesc')}
+            </span>
+          </div>
+        </label>
+      </div>
+    {/if}
+
+    {#if nextBackupTime > 0 || lastBackupTime > 0}
+      <div class="pt-2 border-t border-slate-200 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1 font-mono">
+        {#if nextBackupTime > 0 && backupMode}
+          <div class="flex items-center justify-between">
+            <span>{$_('system.nextBackup')}:</span>
+            <span class="text-cyan-600 dark:text-cyan-400 font-semibold">{formatTimeStr(nextBackupTime)}</span>
+          </div>
+        {/if}
+        {#if lastBackupTime > 0}
+          <div class="flex items-center justify-between">
+            <span>{$_('system.lastBackup')}:</span>
+            <span class="text-slate-700 dark:text-slate-300">{formatTimeStr(lastBackupTime)} ({lastBackupFile})</span>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <!-- Datastore Status Cards -->

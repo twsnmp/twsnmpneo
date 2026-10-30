@@ -54,6 +54,7 @@ var (
 	keyCustomIcons       = []byte("customIcons")
 	keyAuthSecret        = []byte("authSecret")
 	keyPKIConf           = []byte("pkiConf")
+	keyBackupConf        = []byte("backupConf")
 )
 
 

@@ -185,6 +185,17 @@ type DataStore interface {
 	DeletePKICert(ctx context.Context, id string) error
 	DeleteAllPKICerts(ctx context.Context) error
 	ForEachPKICert(fn func(*PKICertEnt) bool)
+
+	// Database Backup, Rotation & Restore
+	GetBackupConf(ctx context.Context) (*BackupConfEnt, error)
+	SaveBackupConf(ctx context.Context, conf *BackupConfEnt) error
+	BackupDB(ctx context.Context, dstFile string, configOnly bool) (int64, error)
+	RotateBackups(backupDir string, maxGenerations int) error
+	ListBackups(backupDir string) ([]*BackupFileInfo, error)
+	DeleteBackup(backupDir, name string) error
+	GetBackupFilePath(backupDir, name string) (string, error)
+	RestoreDB(backupFile string) error
+	CompactDB(dstFile string) error
 }
 
 

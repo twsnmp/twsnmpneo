@@ -74,6 +74,7 @@ func resolveCommit() string {
 
 type serverConfig struct {
 	dataDir         string
+	backupDir       string
 	lang            string
 	port            int
 	acmeURL         string
@@ -350,6 +351,11 @@ func main() {
 		updateFlag      = fs.Bool("update", false, "Update twsnmpneo to the latest release")
 		checkUpdateFlag = fs.Bool("check-update", false, "Check for available twsnmpneo updates and environment info")
 
+		// Database backup & restore flags
+		backupDirFlag = fs.String("backup", "", "Directory to store database backups (default: <datadir>/backup)")
+		restoreDBFile = fs.String("restore", "", "Path to backup file to restore database from and exit")
+		compactDBFile = fs.String("compact", "", "Path to output compacted database file and exit")
+
 		// Service management flags
 		serviceCmd     = fs.String("service", "", "Service action for Windows SCM or Linux systemd (install, remove, start, stop, status)")
 		serviceAuto    = fs.Bool("service-auto", false, "Set service startup type to automatic when installing")
@@ -475,6 +481,48 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
+	// Handle offline restore: -restore <backup_file>
+	if *restoreDBFile != "" {
+		targetDB := filepath.Join(*dataDir, "twsnmpneo.db")
+		fmt.Printf("Restoring database from: %s\nTarget: %s\n", *restoreDBFile, targetDB)
+		if _, err := os.Stat(*restoreDBFile); err != nil {
+			fmt.Printf("Error: backup file does not exist: %v\n", err)
+			os.Exit(1)
+		}
+		store, err := bbolt.New(targetDB)
+		if err != nil {
+			fmt.Printf("Error opening database for restore: %v\n", err)
+			os.Exit(1)
+		}
+		if err := store.RestoreDB(*restoreDBFile); err != nil {
+			fmt.Printf("Restore failed: %v\n", err)
+			_ = store.Close()
+			os.Exit(1)
+		}
+		_ = store.Close()
+		fmt.Println("Restore completed successfully.")
+		os.Exit(0)
+	}
+
+	// Handle offline compaction: -compact <output_file>
+	if *compactDBFile != "" {
+		targetDB := filepath.Join(*dataDir, "twsnmpneo.db")
+		fmt.Printf("Compacting database: %s -> %s\n", targetDB, *compactDBFile)
+		store, err := bbolt.New(targetDB)
+		if err != nil {
+			fmt.Printf("Error opening database: %v\n", err)
+			os.Exit(1)
+		}
+		if err := store.CompactDB(*compactDBFile); err != nil {
+			fmt.Printf("Compaction failed: %v\n", err)
+			_ = store.Close()
+			os.Exit(1)
+		}
+		_ = store.Close()
+		fmt.Println("Compaction completed successfully.")
+		os.Exit(0)
+	}
+
 	// Handle TWSNMP FC migration mode if -import-fc is specified
 	if *importFC != "" {
 		fmt.Println("============================================================")
@@ -537,6 +585,7 @@ func main() {
 
 	cfg := serverConfig{
 		dataDir:         *dataDir,
+		backupDir:       *backupDirFlag,
 		lang:            *lang,
 		port:            *port,
 		acmeURL:         *acmeURL,
@@ -789,9 +838,10 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 
 	// Initialize System Resource Monitor
 	sysMon := monitor.New(monitor.Config{
-		DataDir:  cfg.dataDir,
-		Store:    store,
-		Interval: 1 * time.Minute,
+		DataDir:   cfg.dataDir,
+		BackupDir: cfg.backupDir,
+		Store:     store,
+		Interval:  1 * time.Minute,
 	})
 	sysMon.Start(ctx)
 

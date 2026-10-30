@@ -713,6 +713,34 @@ func (u *UserEnt) ToPublic() *UserEnt {
 	}
 }
 
+// BackupConfEnt holds the database backup settings.
+type BackupConfEnt struct {
+	Mode         string `json:"Mode"`         // "" (disabled), "daily", "once", "once_daily"
+	ScheduleTime string `json:"ScheduleTime"` // "03:00" (HH:MM format)
+	ConfigOnly   bool   `json:"ConfigOnly"`   // Backup config/topology only, skipping large event logs/traces
+	Generation   int    `json:"Generation"`   // Generations to retain (0: 1 generation, 1: 2 generations, 6: 7 generations, etc.)
+}
+
+// BackupFileInfo represents a backup file entry on disk.
+type BackupFileInfo struct {
+	Name       string `json:"name"`
+	Size       int64  `json:"size"`
+	ModTime    int64  `json:"mod_time"`    // UnixNano
+	ConfigOnly bool   `json:"config_only"` // Whether it's a config-only backup
+}
+
+// BackupStatusEnt provides runtime backup status for UI and API.
+type BackupStatusEnt struct {
+	Config         BackupConfEnt    `json:"config"`
+	Running        bool             `json:"running"`
+	LastBackupTime int64            `json:"last_backup_time"` // UnixNano
+	LastBackupFile string           `json:"last_backup_file"`
+	LastBackupSize int64            `json:"last_backup_size"`
+	NextBackupTime int64            `json:"next_backup_time"` // UnixNano
+	Backups        []*BackupFileInfo `json:"backups"`
+}
+
+
 
 
 

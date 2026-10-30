@@ -524,19 +524,90 @@ func NewServer(cfg Config) (*Server, error) {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	apiGroup.POST("/system/backup", func(c echo.Context) error {
-		if cfg.Monitor != nil {
-			file, size, err := cfg.Monitor.Backup()
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			}
-			return c.JSON(http.StatusOK, map[string]any{
-				"file": file,
-				"size": size,
-				"time": time.Now().Format(time.RFC3339),
-			})
+	// Database Backup Endpoints
+	apiGroup.GET("/system/backup", func(c echo.Context) error {
+		if cfg.Monitor == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
 		}
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
+		status, err := cfg.Monitor.GetBackupStatus(c.Request().Context())
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, status)
+	})
+
+	apiGroup.POST("/system/backup", func(c echo.Context) error {
+		if cfg.Store == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "datastore not available"})
+		}
+		var conf datastore.BackupConfEnt
+		if err := c.Bind(&conf); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid backup config payload"})
+		}
+		if err := cfg.Store.SaveBackupConf(c.Request().Context(), &conf); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if cfg.Monitor != nil {
+			status, err := cfg.Monitor.GetBackupStatus(c.Request().Context())
+			if err == nil {
+				return c.JSON(http.StatusOK, status)
+			}
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	apiGroup.POST("/system/backup/run", func(c echo.Context) error {
+		if cfg.Monitor == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
+		}
+		var req struct {
+			ConfigOnly bool `json:"config_only"`
+		}
+		_ = c.Bind(&req)
+		if c.QueryParam("config_only") == "true" {
+			req.ConfigOnly = true
+		}
+		file, size, err := cfg.Monitor.BackupWithOptions(c.Request().Context(), req.ConfigOnly)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"file":        file,
+			"size":        size,
+			"config_only": req.ConfigOnly,
+			"time":        time.Now().Format(time.RFC3339),
+		})
+	})
+
+	apiGroup.POST("/system/backup/stop", func(c echo.Context) error {
+		if cfg.Monitor == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "monitor service not available"})
+		}
+		stopped := cfg.Monitor.StopBackup()
+		return c.JSON(http.StatusOK, map[string]any{"stopped": stopped})
+	})
+
+	apiGroup.GET("/system/backup/download/:name", func(c echo.Context) error {
+		if cfg.Monitor == nil || cfg.Store == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "service not available"})
+		}
+		name := c.Param("name")
+		path, err := cfg.Store.GetBackupFilePath(cfg.Monitor.GetBackupDir(), name)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+		}
+		return c.Attachment(path, name)
+	})
+
+	apiGroup.DELETE("/system/backup/:name", func(c echo.Context) error {
+		if cfg.Monitor == nil || cfg.Store == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "service not available"})
+		}
+		name := c.Param("name")
+		if err := cfg.Store.DeleteBackup(cfg.Monitor.GetBackupDir(), name); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	// Self-update Endpoints
