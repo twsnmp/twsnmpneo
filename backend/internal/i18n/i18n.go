@@ -221,6 +221,12 @@ var transMap = map[string]map[string]string{
 	"DB Size": {
 		"ja": "DBサイズ",
 	},
+	"Log Size": {
+		"ja": "ログ保存サイズ",
+	},
+	"Log Storage Size": {
+		"ja": "ログ保存サイズ",
+	},
 	"LLM error err=%v": {
 		"ja": "LLMエラー err=%v",
 	},

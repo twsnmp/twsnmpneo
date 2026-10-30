@@ -13,6 +13,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 	"github.com/twsnmp/twsnmpneo/backend/internal/monitor"
 )
@@ -23,17 +24,27 @@ var (
 
 // Manager holds the DataStore reference for all notify operations.
 type Manager struct {
-	store   datastore.DataStore
-	monitor *monitor.Monitor
+	store    datastore.DataStore
+	monitor  *monitor.Monitor
+	logStore *parquet.Store
 }
 
 var defaultManager *Manager
 
 // Start initializes the notify background manager and starts the goroutine.
-func Start(ctx context.Context, store datastore.DataStore, mon *monitor.Monitor) {
+func Start(ctx context.Context, store datastore.DataStore, mon *monitor.Monitor, logStore ...*parquet.Store) {
 	lastExecLevel = -1
-	defaultManager = &Manager{store: store, monitor: mon}
+	var ls *parquet.Store
+	if len(logStore) > 0 {
+		ls = logStore[0]
+	}
+	defaultManager = &Manager{store: store, monitor: mon, logStore: ls}
 	go defaultManager.notifyBackend(ctx)
+}
+
+// SetLogStore sets the Parquet log store for log size calculations.
+func (m *Manager) SetLogStore(ls *parquet.Store) {
+	m.logStore = ls
 }
 
 func (m *Manager) notifyBackend(ctx context.Context) {

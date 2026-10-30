@@ -669,6 +669,23 @@ func (s *Store) Close() error {
 	return s.Flush()
 }
 
+// GetTotalSize returns the total size in bytes of all files stored in the parquet log directory.
+func (s *Store) GetTotalSize() int64 {
+	if s == nil || s.dir == "" {
+		return 0
+	}
+	var total int64
+	_ = filepath.WalkDir(s.dir, func(_ string, d os.DirEntry, err error) error {
+		if err == nil && d != nil && !d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				total += info.Size()
+			}
+		}
+		return nil
+	})
+	return total
+}
+
 func extractSrc(logStr string) string {
 	if logStr == "" {
 		return ""

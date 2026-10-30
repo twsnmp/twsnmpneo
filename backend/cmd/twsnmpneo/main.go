@@ -846,7 +846,7 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	sysMon.Start(ctx)
 
 	// Start Notify Manager
-	notify.Start(ctx, store, sysMon)
+	notify.Start(ctx, store, sysMon, pqStore)
 
 	// Initialize MCP Server (configured via MapConf)
 	mcpServer := ai.NewMCPServer(ai.MCPConfig{

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -302,11 +304,30 @@ type reportInfoEnt struct {
 	Value string
 }
 
-func (m *Manager) sendReport(ctx context.Context) {
-	if ctx.Err() != nil {
-		return
+func (m *Manager) getLogSize() int64 {
+	if m.logStore != nil {
+		return m.logStore.GetTotalSize()
 	}
-	conf := m.getNotifyConf()
+	if m.store != nil {
+		dataDir := m.store.GetDataDir()
+		if dataDir != "" {
+			logDir := filepath.Join(dataDir, "logs")
+			var total int64
+			_ = filepath.WalkDir(logDir, func(_ string, d os.DirEntry, err error) error {
+				if err == nil && d != nil && !d.IsDir() {
+					if info, err := d.Info(); err == nil {
+						total += info.Size()
+					}
+				}
+				return nil
+			})
+			return total
+		}
+	}
+	return 0
+}
+
+func (m *Manager) getReportInfo() []reportInfoEnt {
 	info := []reportInfoEnt{}
 	info = append(info, m.getMapInfo()...)
 	info = append(info, m.getResInfo()...)
@@ -315,12 +336,26 @@ func (m *Manager) sendReport(ctx context.Context) {
 		Value: humanize.Bytes(uint64(m.store.GetDBSize())),
 		Class: "none",
 	})
+	info = append(info, reportInfoEnt{
+		Name:  i18n.Trans("Log Size"),
+		Value: humanize.Bytes(uint64(m.getLogSize())),
+		Class: "none",
+	})
 	logSum := m.getEventLogSummary()
 	info = append(info, reportInfoEnt{
 		Name:  i18n.Trans("Log count by level"),
 		Value: logSum,
 		Class: "none",
 	})
+	return info
+}
+
+func (m *Manager) sendReport(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+	conf := m.getNotifyConf()
+	info := m.getReportInfo()
 	title := fmt.Sprintf(i18n.Trans("%s(report) at %s"), conf.Subject, time.Now().Format("2006/01/02 15:04:05"))
 	aiList := m.getAIList()
 	m.webhookReport(title, info, aiList)

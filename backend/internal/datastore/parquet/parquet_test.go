@@ -247,3 +247,38 @@ func TestStore_QuerySkipOldFilesByStartTime(t *testing.T) {
 		t.Fatalf("unexpected log content: %s", records[0].Log)
 	}
 }
+
+func TestStore_GetTotalSize(t *testing.T) {
+	store, _, cleanup := setupParquetTest(t)
+	defer cleanup()
+
+	// Initial size before flush should be 0
+	if size := store.GetTotalSize(); size != 0 {
+		t.Fatalf("expected initial size 0, got %d", size)
+	}
+
+	// Nil store check
+	var nilStore *parquet.Store
+	if size := nilStore.GetTotalSize(); size != 0 {
+		t.Fatalf("expected nil store size 0, got %d", size)
+	}
+
+	// Write and flush logs
+	for i := 0; i < 5; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: time.Now().UnixNano(),
+			Type: "syslog",
+			Src:  "192.168.1.1",
+			Log:  fmt.Sprintf(`{"msg":"test syslog %d"}`, i),
+		})
+	}
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	// Size should now be greater than 0
+	totalSize := store.GetTotalSize()
+	if totalSize <= 0 {
+		t.Fatalf("expected positive total size after flush, got %d", totalSize)
+	}
+}
