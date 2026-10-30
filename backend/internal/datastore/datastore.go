@@ -87,6 +87,7 @@ type DataStore interface {
 	ListEventLogs(ctx context.Context, limit int) ([]*EventLogEnt, error)
 	QueryEventLogs(ctx context.Context, filter EventLogFilter) ([]*EventLogEnt, error)
 	DeleteEventLogs(ctx context.Context) error
+	CleanOldEventLogs(ctx context.Context, days int) (int, error)
 	CountEventLogs(ctx context.Context) (int64, error)
 
 	// ForEach iterators (in-memory cache, no error return, callback returns false to stop)

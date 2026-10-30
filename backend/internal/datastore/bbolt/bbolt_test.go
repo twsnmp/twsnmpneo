@@ -327,6 +327,85 @@ func TestStore_EventLogs(t *testing.T) {
 	}
 }
 
+func TestStore_CleanOldEventLogs(t *testing.T) {
+	dir, err := os.MkdirTemp("", "twsnmpneo-event-clean-test-*")
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := bbolt.New(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+
+	// 1. Insert 3 logs: 40 days ago, 5 days ago, and now
+	oldEv := &datastore.EventLogEnt{
+		Time:     time.Now().AddDate(0, 0, -40).UnixNano(),
+		Type:     "system",
+		Level:    "warn",
+		NodeName: "Server-Old",
+		Event:    "Old event 40 days ago",
+	}
+	recentEv := &datastore.EventLogEnt{
+		Time:     time.Now().AddDate(0, 0, -5).UnixNano(),
+		Type:     "system",
+		Level:    "info",
+		NodeName: "Server-Recent",
+		Event:    "Recent event 5 days ago",
+	}
+	nowEv := &datastore.EventLogEnt{
+		Time:     time.Now().UnixNano(),
+		Type:     "polling",
+		Level:    "high",
+		NodeName: "Server-Now",
+		Event:    "Event right now",
+	}
+
+	for _, ev := range []*datastore.EventLogEnt{oldEv, recentEv, nowEv} {
+		if err := store.AddEventLog(ctx, ev); err != nil {
+			t.Fatalf("add event log: %v", err)
+		}
+	}
+
+	count, _ := store.CountEventLogs(ctx)
+	if count != 3 {
+		t.Fatalf("expected 3 event logs before clean, got %d", count)
+	}
+
+	// 2. Clean logs older than 30 days
+	deleted, err := store.CleanOldEventLogs(ctx, 30)
+	if err != nil {
+		t.Fatalf("CleanOldEventLogs failed: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected 1 deleted log, got %d", deleted)
+	}
+
+	// 3. Verify remaining logs
+	remaining, err := store.ListEventLogs(ctx, 10)
+	if err != nil {
+		t.Fatalf("list event logs: %v", err)
+	}
+	if len(remaining) != 2 {
+		t.Fatalf("expected 2 remaining logs, got %d", len(remaining))
+	}
+	for _, ev := range remaining {
+		if ev.Event == "Old event 40 days ago" {
+			t.Errorf("found old event that should have been deleted: %s", ev.Event)
+		}
+	}
+
+	// 4. Test days <= 0 (noop)
+	noopDel, err := store.CleanOldEventLogs(ctx, 0)
+	if err != nil || noopDel != 0 {
+		t.Fatalf("expected 0 deleted with days=0, got %d (err=%v)", noopDel, err)
+	}
+}
+
 func TestStore_PersistenceReload(t *testing.T) {
 	dir, err := os.MkdirTemp("", "twsnmpneo-persist-test-*")
 	if err != nil {

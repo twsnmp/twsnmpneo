@@ -280,6 +280,20 @@ func (s *Store) loadCache() error {
 					if s.mapConf.MCPMode == "" {
 						s.mapConf.MCPMode = "noauth"
 					}
+					if s.mapConf.EventLogDays <= 0 {
+						if s.mapConf.LogDays > 0 {
+							s.mapConf.EventLogDays = s.mapConf.LogDays
+						} else {
+							s.mapConf.EventLogDays = 30
+						}
+					}
+					if s.mapConf.ParquetLogDays <= 0 {
+						if s.mapConf.LogDays > 0 {
+							s.mapConf.ParquetLogDays = s.mapConf.LogDays
+						} else {
+							s.mapConf.ParquetLogDays = 14
+						}
+					}
 					if s.mapConf.ReportDays <= 0 {
 						s.mapConf.ReportDays = 30
 					}
@@ -472,6 +486,8 @@ func (s *Store) initDefaultMapConf() {
 		Timeout:         1,
 		Retry:           1,
 		LogDays:         14,
+		EventLogDays:    30,
+		ParquetLogDays:  14,
 		SnmpMode:        "v2c",
 		Community:       "public",
 		EnableSyslogd:   true,
@@ -1035,6 +1051,23 @@ func (s *Store) SaveMapConf(_ context.Context, conf *datastore.MapConfEnt) error
 	if conf == nil {
 		return datastore.ErrInvalidParams
 	}
+	if conf.EventLogDays <= 0 {
+		if conf.LogDays > 0 {
+			conf.EventLogDays = conf.LogDays
+		} else {
+			conf.EventLogDays = 30
+		}
+	}
+	if conf.ParquetLogDays <= 0 {
+		if conf.LogDays > 0 {
+			conf.ParquetLogDays = conf.LogDays
+		} else {
+			conf.ParquetLogDays = 14
+		}
+	}
+	if conf.LogDays <= 0 {
+		conf.LogDays = conf.ParquetLogDays
+	}
 	data, err := json.Marshal(conf)
 	if err != nil {
 		return err
@@ -1435,6 +1468,46 @@ func (s *Store) DeleteEventLogs(_ context.Context) error {
 		_, err := tx.CreateBucketIfNotExists(bucketEventLog)
 		return err
 	})
+}
+
+// CleanOldEventLogs deletes event logs older than the specified retention days.
+func (s *Store) CleanOldEventLogs(ctx context.Context, days int) (int, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	cutoff := uint64(time.Now().AddDate(0, 0, -days).UnixNano())
+	deleted := 0
+
+	err := s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketEventLog)
+		if b == nil {
+			return nil
+		}
+		c := b.Cursor()
+		var delKeys [][]byte
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			if ctx != nil && ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if len(k) < 8 {
+				continue
+			}
+			t := binary.BigEndian.Uint64(k[0:8])
+			if t >= cutoff {
+				break
+			}
+			delKeys = append(delKeys, append([]byte(nil), k...))
+		}
+
+		for _, k := range delKeys {
+			if err := b.Delete(k); err != nil {
+				return err
+			}
+			deleted++
+		}
+		return nil
+	})
+	return deleted, err
 }
 
 func (s *Store) CountEventLogs(_ context.Context) (int64, error) {

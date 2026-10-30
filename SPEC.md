@@ -245,6 +245,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
    - System settings button is located as an icon-only button on the top-right header utility bar.
    - The sidebar separates Map Settings, Polling Settings, and Database settings, alongside receivers, notifications, AI / LLM, and MIB management. Map options (name, size, icons, background image, and import), polling/SNMP parameters, and GeoIP, event-log retention, and datastore settings each have dedicated panels.
+   - **Log Retention Policy**: Independent retention settings for bbolt (`EventLogDays`, default: 30 days) and Parquet columnar logs (`ParquetLogDays`, default: 14 days, with legacy `LogDays` fallback). Automated rotation background cleaner enforces both bbolt EventLog cleanup (`CleanOldEventLogs`) and Parquet file rotation (`LogStore.Rotate`).
    - **Report Settings**: Configures Report Retention Days (`ReportDays`, default: 30), Max Report Entries (`ReportLimit`, default: 10000), Low Score Alert Threshold (`ScoreThreshold`, default: 35.0), and Fumble Alert Threshold (`FumbleThreshold`, default: 10) directly within the Database configuration tab.
    - OAuth2 mail-provider redirect URIs use `https://<public-host>/api/notify/oauth2/callback` (HTTP is allowed only for localhost) and must be registered with the provider. SMTP and webhook tests may connect to local/private servers; link-local and metadata service addresses are rejected.
 

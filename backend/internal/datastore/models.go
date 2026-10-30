@@ -269,7 +269,9 @@ type MapConfEnt struct {
 	PollInt        int    `json:"PollInt"`
 	Timeout        int    `json:"Timeout"`
 	Retry          int    `json:"Retry"`
-	LogDays        int    `json:"LogDays"`
+	LogDays        int    `json:"LogDays"` // Legacy / fallback log retention
+	EventLogDays   int    `json:"EventLogDays"`
+	ParquetLogDays int    `json:"ParquetLogDays"`
 	SnmpMode       string `json:"SnmpMode"`
 	Community      string `json:"Community"`
 	SnmpUser       string `json:"SnmpUser"`

@@ -1322,6 +1322,8 @@ export interface MapConfEnt {
   Timeout?: number;
   Retry?: number;
   LogDays?: number;
+  EventLogDays?: number;
+  ParquetLogDays?: number;
   SnmpMode?: string;
   Community?: string;
   SnmpUser?: string;

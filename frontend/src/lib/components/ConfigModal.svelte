@@ -137,6 +137,8 @@
 
   // Database configuration
   let geoIPInfo = $state("");
+  let eventLogDays = $state(30);
+  let parquetLogDays = $state(14);
   let logDays = $state(14);
   let reportDays = $state(30);
   let reportLimit = $state(10000);
@@ -187,7 +189,9 @@
         pollInt = conf.PollInt ?? conf.poll_int ?? 60;
         timeout = conf.Timeout ?? conf.timeout ?? 1;
         retry = conf.Retry ?? conf.retry ?? 1;
-        logDays = conf.LogDays ?? (conf as any).log_days ?? 14;
+        eventLogDays = conf.EventLogDays ?? conf.LogDays ?? (conf as any).event_log_days ?? 30;
+        parquetLogDays = conf.ParquetLogDays ?? conf.LogDays ?? (conf as any).parquet_log_days ?? 14;
+        logDays = parquetLogDays;
         reportDays = conf.ReportDays ?? (conf as any).report_days ?? 30;
         reportLimit = conf.ReportLimit ?? (conf as any).report_limit ?? 10000;
         scoreThreshold = conf.ScoreThreshold ?? (conf as any).score_threshold ?? 35.0;
@@ -287,7 +291,9 @@
         PollInt: Number(pollInt),
         Timeout: Number(timeout),
         Retry: Number(retry),
-        LogDays: Number(logDays),
+        EventLogDays: Number(eventLogDays),
+        ParquetLogDays: Number(parquetLogDays),
+        LogDays: Number(parquetLogDays),
         ReportDays: Number(reportDays),
         ReportLimit: Number(reportLimit),
         ScoreThreshold: Number(scoreThreshold),
@@ -584,6 +590,8 @@
           {:else if activeTab === "database"}
             <ConfigTabDatabase
               bind:geoIPInfo
+              bind:eventLogDays
+              bind:parquetLogDays
               bind:logDays
               bind:reportDays
               bind:reportLimit

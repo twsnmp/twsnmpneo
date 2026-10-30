@@ -13,6 +13,8 @@
 
   let {
     geoIPInfo = $bindable(""),
+    eventLogDays = $bindable(30),
+    parquetLogDays = $bindable(14),
     logDays = $bindable(14),
     reportDays = $bindable(30),
     reportLimit = $bindable(10000),
@@ -24,6 +26,8 @@
     onError,
   }: {
     geoIPInfo: string;
+    eventLogDays?: number;
+    parquetLogDays?: number;
     logDays: number;
     reportDays: number;
     reportLimit: number;
@@ -147,16 +151,40 @@
       <Database class="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
       {$_('config.logRetentionTitle')}
     </h3>
-    <div class="max-w-sm">
-      <label for="log-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{$_('config.logDays')}</label>
-      <input
-        id="log-days"
-        type="number"
-        min={1}
-        max={365}
-        bind:value={logDays}
-        class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
-      />
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="event-log-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+          {$_('config.eventLogDays')}
+        </label>
+        <input
+          id="event-log-days"
+          type="number"
+          min={1}
+          max={3650}
+          bind:value={eventLogDays}
+          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
+        />
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
+          {$_('config.eventLogDaysDesc')}
+        </p>
+      </div>
+
+      <div>
+        <label for="parquet-log-days" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+          {$_('config.parquetLogDays')}
+        </label>
+        <input
+          id="parquet-log-days"
+          type="number"
+          min={1}
+          max={3650}
+          bind:value={parquetLogDays}
+          class="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs font-mono text-cyan-600 dark:text-cyan-400 focus:border-cyan-500 focus:outline-none"
+        />
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
+          {$_('config.parquetLogDaysDesc')}
+        </p>
+      </div>
     </div>
   </div>
 

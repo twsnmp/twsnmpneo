@@ -211,21 +211,35 @@ func (m *Manager) startRetentionCleaner(ctx context.Context) {
 }
 
 func (m *Manager) cleanOldData(ctx context.Context) {
-	logDays := 14
+	eventDays := 30
+	parquetDays := 14
+
 	if m.cfg.Store != nil {
-		if conf, err := m.cfg.Store.GetMapConf(ctx); err == nil && conf != nil && conf.LogDays > 0 {
-			logDays = conf.LogDays
+		if conf, err := m.cfg.Store.GetMapConf(ctx); err == nil && conf != nil {
+			if conf.EventLogDays > 0 {
+				eventDays = conf.EventLogDays
+			} else if conf.LogDays > 0 {
+				eventDays = conf.LogDays
+			}
+			if conf.ParquetLogDays > 0 {
+				parquetDays = conf.ParquetLogDays
+			} else if conf.LogDays > 0 {
+				parquetDays = conf.LogDays
+			}
 		}
+	}
+
+	if m.cfg.Store != nil {
+		if rotated, err := m.cfg.Store.CleanOldEventLogs(ctx, eventDays); err == nil && rotated > 0 {
+			slog.Info("Rotated old bbolt event logs", "deleted", rotated, "retentionDays", eventDays)
+		}
+		_ = m.cfg.Store.CleanOldMqttStats(ctx, eventDays)
 	}
 
 	if m.cfg.LogStore != nil {
-		if rotated, err := m.cfg.LogStore.Rotate(logDays); err == nil && rotated > 0 {
-			slog.Info("Rotated old parquet log files", "deletedFiles", rotated, "retentionDays", logDays)
+		if rotated, err := m.cfg.LogStore.Rotate(parquetDays); err == nil && rotated > 0 {
+			slog.Info("Rotated old parquet log files", "deletedFiles", rotated, "retentionDays", parquetDays)
 		}
-	}
-
-	if m.cfg.Store != nil {
-		_ = m.cfg.Store.CleanOldMqttStats(ctx, logDays)
 	}
 }
 
