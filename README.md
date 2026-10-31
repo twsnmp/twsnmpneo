@@ -41,6 +41,7 @@
 - High-speed compressed storage for **Syslog, SNMP TRAP, NetFlow v5/v9/IPFIX, sFlow v5, ARP Watch, OpenTelemetry, MQTT**, and polling logs.
 - Lightning-fast multi-criteria filtering, pagination, and automated retention/rotation policies.
 - **Independent Log Retention**: Configurable separate retention durations for bbolt event logs and Parquet streaming logs with automated background purging.
+- **Probe Tag Parsing & Cached Reverse DNS**: Automatically extracts and normalizes tags for probe logs (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`) and resolves hostnames dynamically for unregistered IP nodes via cached reverse DNS lookup.
 
 ### 3. Native AI & Built-in MCP Server
 - **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 22+ diagnostic/management tools and 19 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
@@ -66,6 +67,8 @@
 - **Built-in PKI & TLS Management**: Root CA management, web-based CSR creation, certificate issuance, CRL / OCSP / SCEP / ACME servers, and automated TLS certificate renewal via ACME client (lego)
 - **Diagnostic Tools**: Interactive Ping (ICMP/UDP), Smokeping, MTR with AI analysis, MIB Browser / Tree, gNMI, and Wake-on-LAN (WOL)
 - **Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile` (full and lightweight config-only modes), automated recurring schedule (daily/once/once_daily) with generation rotation (1–30 generations). Dedicated Backup Manager modal in the Web UI, along with offline CLI options (`-backup`, `-restore`, `-compact`).
+- **URL Parameter Auto-Login & History Sanitization**: One-click deep-linking with auto-authentication via `token` or credentials and direct view selection (`view`), automatically purging sensitive URL parameters from browser history for secure integration with portals like `twsnmpmw`.
+- **Log Storage in Periodic Reports**: Daily operational reports sent via email or webhook include aggregated storage consumption for both bbolt and Parquet log repositories.
 - **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications, backup management modal, and one-click in-place upgrades
 
 ---

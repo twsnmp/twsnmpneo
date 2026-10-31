@@ -42,6 +42,7 @@
 - **Syslog、SNMP TRAP、NetFlow v5/v9/IPFIX、sFlow v5、ARP Watch、OpenTelemetry、MQTT、ポーリング時系列ログ**を列指向圧縮フォーマット（Parquet）で効率的に保存。
 - 1万件単位の高速クエリ、複合条件フィルタ、および容量・日数指定による安全な自動ローテーション。
 - **独立したログ保持期間ポリシー**: bbolt（イベントログ）とParquet（受信ログ）の保存日数を個別に設定し、バックグラウンドで安全に自動パージ。
+- **Syslog プローブタグ柔軟解析 & DNS 逆引きキャッシュ**: 各種プローブログ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）のタグを自動判別・正規化し、レポート集計時は未登録ノードのホスト名を DNS 逆引きキャッシュで高速解決。
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
 - **Streamable HTTP MCP サーバー (`/api/mcp`)**: 22種以上の運用・診断ツールと19種のプロンプトテンプレートをAIエージェント（Cursor, Claude Desktop, Antigravity など）に提供。
@@ -67,6 +68,8 @@
 - **内蔵 PKI & TLS 管理**: Root CA構築、ブラウザ内CSR作成、証明書発行、CRL / OCSP / SCEP / ACME サーバー、および自身の HTTPS 運用を自動化する ACME 自動更新クライアント（lego 統合）
 - **診断ツール**: リアルタイムPing (ICMP/UDP)、Smokeping、MTR（AI解説付き）、MIBブラウザ / MIBツリー、gNMI、Wake-on-LAN (WOL)
 - **データベース定期バックアップ & 復元管理**: トランザクションセーフな `bbolt.Tx.CopyFile` によるスナップショットバックアップ（フル / 設定のみの軽量モード）、スケジュール定期実行（毎日/1回のみ/即時実行後毎日）と自動世代管理（1〜30世代）。Web UIでのバックアップ管理モーダル（一覧・即時作成・ダウンロード・削除）およびCLI（`-backup`, `-restore`, `-compact`）による確実な運用・リストア。
+- **URL パラメータ自動ログイン & セキュリティクリーンアップ**: URLクエリによる自動ログイン（`token` または ID/パスワード）と初期表示画面指定（`view`）、URL履歴からの機密パラメータ自動除去によるセキュアなマルチウィンドウ連携（`twsnmpmw`）。
+- **定期日報レポート**: 障害通知に加えて、毎朝の日報レポート（HTMLメール / Webhook）に bbolt および Parquet ログストレージの使用容量集計を自動掲載。
 - **システム管理**: システムステータス（デーモン稼働状態、DB容量予測、バックアップ管理、ワンクリックセルフアップデート）とリソースモニターの2タブ構成
 
 ---

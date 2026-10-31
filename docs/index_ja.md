@@ -426,6 +426,9 @@ TWSNMP NEO は、ログストレージに **Apache Parquet** 列指向圧縮フ�
 ### 独立したログ保持期間ポリシー
 データベース内のイベントログ（bbolt）と大量の受信ストリーミングログ（Parquet）は、それぞれ独立した保持日数を設定できます。10分ごとのバックグラウンドクリーンアップ処理により、期限切れのイベントログ削除とParquetログファイルの自動ローテーション（日数および最大容量制限）が確実に実行されます。
 
+### プローブタグ自動解析 & DNS 逆引きキャッシュ
+各種 Syslog プローブ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）から送信されたログにおいて、リレーやヘッダ構成によりタグがホスト名やメッセージ本文に混在した場合でも、自動的にプローブタグを検知して `type=` のKey-Valueを正規化パースします。また、レポート集計時にマップ未登録のIPアドレスについて DNS 逆引き（Reverse Lookup）を行い、TTL 1時間のキャッシュにより高速かつ低負荷にホスト名を自動解決・表示します。
+
 ### AI原因調査
 重大アラートが発生した際、ワンクリックで関連する前後ログを LLM が瞬時に要約・分析し、推定原因と推奨対処手順を Markdown 形式で分かりやすく提示します。
 
@@ -499,8 +502,8 @@ Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標
 ### 通知設定（Email / Webhook）
 
 障害検知時や定期レポートの送信先として、以下の通知方式に対応しています：
-- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2) - HTML 形式のサマリーメール（TWSNMP NEO への直接アクセスリンク付き）および毎朝の定期日報レポート
-- **Webhook** - 障害発生時のリアルタイムアラートおよび日報レポートの Webhook POST 送信（運用システムやWebhookレシーバーとの連携）
+- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2) - HTML 形式のサマリーメール（TWSNMP NEO への直接アクセスリンク付き）および毎朝の定期日報レポート（bbolt および Parquet ログストレージの容量集計情報付き）
+- **Webhook** - 障害発生時のリアルタイムアラートおよび日報レポートの Webhook POST 送信（運用システムやWebhookレシーバーとの連携、ストレージ容量情報付き）
 - **外部コマンド実行** - 障害レベル（重大/軽微/注意/復帰）の変化に連動した任意のOSスクリプト・コマンド実行
 
 ![](./images/ja/settings_notify.png)
@@ -551,6 +554,15 @@ Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標
 役割ベースの権限（`ADMINISTRATOR` / `OPERATOR` / `READ-ONLY`）によるマルチユーザー管理と、安全なパスワード設定・運用に対応しています。
 
 ![](./images/ja/settings_user.png)
+
+#### URL パラメータによる自動ログイン & クリーンアップ (`twsnmpmw` 連携)
+
+外部ポータルやマルチウィンドウ管理ツール `twsnmpmw` 等からのシングルサインオン・直接画面遷移に対応しています：
+- **パラメータ指定**:
+  - トークン認証: `?token=<JWTトークン>`
+  - パスワード認証: `?user=<ユーザー名>&password=<パスワード>`（または `UserID`, `Password`）
+  - 表示画面指定: `?view=map`（`location`, `list`, `logs`, `otel`, `mqtt`, `reports`, `system`, `pki` など）
+- **セキュリティクリーンアップ**: 自動ログイン処理完了後、ブラウザのアドレスバー履歴から認証パラメータを即座に自動除去（`cleanAuthParams`）するため、URL共有やブラウザ履歴によるクレデンシャル漏洩の心配がありません。
 
 ---
 

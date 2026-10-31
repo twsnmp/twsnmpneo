@@ -232,6 +232,9 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
      - **Security & Certs**: Server certificate expiration tracker, PKI CA inventory.
      - **AI Anomaly**: AI anomaly score reporting strictly aligned with TWSNMP FK (`AIList`). Displays pollings configured with log mode "異常検知あり" (`LogMode == LogModeAI`). Polling editor supports algorithm selection (`iforest`, `zscore`, `lof`, `knn`, `mahalanobis`, `hotelling`, `autoencoder`, `lstm`) and vector feature columns (`VectorCols`). Table presents Anomaly score with severity emoticon icon, Node Name, Polling, Count, and Last time. Supports row selection, Heatmap/Pie/Time analytics report modal (`AIReportModal`), feature DataFrame CSV export (`/api/ai/export/:id`), and result clearing.
      - **Anomaly Detection & Alert Integration**: Periodic evaluation of entity scores and Fumble counts; triggers `EventLogEnt` (Level: "warn", Type: "report") with 1-hour duplicate suppression when deviation score drops below `ScoreThreshold` or fumble count exceeds `FumbleThreshold`.
+     - **Log Report Ingestion & DNS Reverse Lookup (`logreport`)**:
+       - Flexible probe tag parsing: Extracts tags automatically for probe logs (`twWifiScan`, `twBlueScan`, `twpcap`, `twwinlog`, `twsdrpower`, `twagentneo`) even when intermediate Syslog relays alter headers or embed tags in hostnames, normalizing `type=` key-value pairs.
+       - Reverse DNS Lookup with Caching: Resolves hostnames dynamically for unregistered IP nodes across packet and flow reports (`reverseLookup`) using a 1-hour cached TTL map (`sync.Map`) for zero-lag analytics.
 9. **PKI & Certificate View (`PKIView.svelte`)**:
    - Left-sidebar navigation (Certificates List, CSR Creation, Certificate Issuance, Server Control, CA Setup).
    - Certificate Authority (CA) status, certificate inventory (sorting, pagination, search, CSV export), manual issuance, and SCEP/ACME/CRL/OCSP protocol servers control.
@@ -249,6 +252,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - **Report Settings**: Configures Report Retention Days (`ReportDays`, default: 30), Max Report Entries (`ReportLimit`, default: 10000), Low Score Alert Threshold (`ScoreThreshold`, default: 35.0), and Fumble Alert Threshold (`FumbleThreshold`, default: 10) directly within the Database configuration tab.
    - **Database Scheduled Backup & Management**: Automated backup schedule for `twsnmpneo.db` (bbolt) supporting multiple modes (`daily`, `once`, `once_daily`, or disabled), customizable schedule time (HH:MM, default: `03:00`), retained generations (1 to 30 generations with automatic rotation), and a lightweight `ConfigOnly` option (extracts topology and settings while excluding high-volume event logs and OTel traces). Utilizes transaction-safe `bbolt.Tx.CopyFile` to eliminate database corruption risks. Provides a dedicated Backup Manager modal (`BackupManagerModal.svelte`) in `SystemView.svelte` for on-demand backups, archive inspection, downloading, and removal. Supports offline CLI flags `-backup <dir>`, `-restore <backup_file>` (with automatic pre-restore backup), and `-compact <target_file>`.
    - OAuth2 mail-provider redirect URIs use `https://<public-host>/api/notify/oauth2/callback` (HTTP is allowed only for localhost) and must be registered with the provider. SMTP and webhook tests may connect to local/private servers; link-local and metadata service addresses are rejected.
+   - **Log Storage in Daily Reports**: Daily operational reports sent via email and webhook include total storage utilization and disk footprints for both bbolt and Parquet log repositories.
 
 ---
 
@@ -687,6 +691,11 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - Integrated **ユーザー管理 / User Management** tab in the System Configuration modal.
   - Searchable user table with username, display name, role badges, creation dates, and action controls.
   - Modal dialog for adding new accounts and editing existing profiles / resetting passwords.
+* **URL Parameter Auto-Login & Security Cleanup (`twsnmpmw` Integration)**:
+  - Supports automatic login via URL query parameters: token-based authentication (`token=<JWT>`) or credentials (`user=<UserID>&password=<Password>`).
+  - Supports initial target view selection via `view` parameter (`map`, `location`, `list`, `logs`, `otel`, `mqtt`, `reports`, `system`, `pki`).
+  - Automatically strips and sanitizes authentication parameters (`UserID`, `Password`, `user`, `password`, `token`) from browser history using `window.history.replaceState` upon evaluation to protect credentials from leaking or residing in browser history.
+  - Seamlessly integrates with multi-window managers and portals such as `twsnmpmw`.
 
 ---
 

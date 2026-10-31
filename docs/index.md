@@ -415,6 +415,9 @@ Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow
 ### Independent Log Retention Policy
 Database event logs (bbolt) and high-volume streaming logs (Parquet) feature independent retention periods. A background cleaner runs every 10 minutes to automatically purge expired bbolt event records and rotate Parquet files based on both age and disk quotas.
 
+### Probe Tag Auto-Parsing & Cached Reverse DNS
+Automatically recognizes and normalizes syslog probe tags (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`, etc.) even when upstream relays embed or prepend tags to hostnames, extracting clean `type=` key-value payloads. In addition, report generation automatically executes reverse DNS lookups for unregistered IP nodes, caching hostnames with a 1-hour TTL for high-performance zero-delay visualization.
+
 ### AI Root Cause Diagnosis
 When critical events occur, one-click AI analysis summarizes correlated preceding and succeeding logs to identify the root cause and provide clear remediation steps in Markdown.
 
@@ -490,8 +493,8 @@ The system administration interface is organized into two dedicated tabs:
 ### Notifications (Email / Webhook)
 
 Receive instant alerts and periodic reports across supported channels:
-- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries (including direct access links back to TWSNMP NEO) and daily operational reports.
-- **Webhooks**: Real-time event notifications and daily report postings sent directly to your custom webhook endpoints or automation workflows.
+- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries (including direct access links back to TWSNMP NEO) and daily operational reports (including storage footprint analytics for both bbolt and Parquet).
+- **Webhooks**: Real-time event notifications and daily report postings sent directly to your custom webhook endpoints or automation workflows (including storage metrics).
 - **External Command Execution**: Execute arbitrary OS scripts or commands triggered on fault level state changes.
 
 ![](./images/en/settings_notify.png)
@@ -542,6 +545,15 @@ Manage built-in Material Design Icons (MDI) and import/export custom PNG/JPEG/SV
 Manage multi-user access with granular role-based permissions (`ADMINISTRATOR`, `OPERATOR`, `READ-ONLY`) and secure credential management.
 
 ![](./images/en/settings_user.png)
+
+#### URL Parameter Auto-Login & History Sanitization (`twsnmpmw` Integration)
+
+Seamlessly integrates with multi-window managers and centralized monitoring portals like `twsnmpmw`:
+- **Supported Parameters**:
+  - Token Login: `?token=<JWT_TOKEN>`
+  - Credentials: `?user=<username>&password=<password>` (or `UserID`, `Password`)
+  - Target View: `?view=map` (`location`, `list`, `logs`, `otel`, `mqtt`, `reports`, `system`, `pki`)
+- **Automatic History Sanitization**: Following authentication, all credential query parameters are instantly sanitized and erased from the browser address bar (`cleanAuthParams`) using `window.history.replaceState`, eliminating security risks when copying or sharing dashboard URLs.
 
 ---
 
