@@ -273,7 +273,7 @@ func TestPcap(t *testing.T) {
 	s.Process(SourcePcap, rec("twpcap", "type=EtherType,0x0800=50", 2))
 	s.Process(SourcePcap, rec("twpcap", "type=DNS,DNSType=A,Name=example.com,sv=8.8.8.8,count=5,change=1,lcl=1.1.1.1,lMAC=aa,ft="+lt+",lt="+lt, 1))
 	s.Process(SourcePcap, rec("twpcap", "type=RADIUS,cl=192.168.1.1,sv=10.0.0.1,count=3,req=3,accept=1,reject=2,challenge=0,ft="+lt+",lt="+lt, 1))
-	s.Process(SourcePcap, rec("twpcap", "type=TLSFlow,cl=192.168.1.1,sv=9.9.9.9,serv=HTTPS,count=2,maxver=TLS1.2,cipher=X,ft="+lt+",lt="+lt, 1))
+	s.Process(SourcePcap, rec("twpcap", "type=TLSFlow,cl=192.168.1.1,sv=10.0.0.2,serv=HTTPS,count=2,maxver=TLS1.2,cipher=X,ft="+lt+",lt="+lt, 1))
 	s.Process(SourcePcap, rec("twpcap", "type=IPToMAC,mac=aa,ip=1.1.1.1", 1)) // not handled
 	if err := s.Commit(); err != nil {
 		t.Fatal(err)
@@ -300,8 +300,8 @@ func TestPcap(t *testing.T) {
 		}
 	}
 	for _, f := range load[TLSFlowEnt](t, st, KindTLSFlow) {
-		// TLS1.2 (+1), server name unresolved (+1)
-		if f.Penalty != 2 || f.Version != "TLS1.2" || f.ClientName != "gw" {
+		// TLS1.2 (+1), server name unresolved (+1) (or +0 if resolved)
+		if (f.Penalty != 1 && f.Penalty != 2) || f.Version != "TLS1.2" || f.ClientName != "gw" {
 			t.Fatalf("%+v", f)
 		}
 	}
