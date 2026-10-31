@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,6 +70,19 @@ func ParseRecord(logJSON, src string, t int64) (Record, bool) {
 		r.Facility = int(v)
 	} else if v, ok := m["facility"].(int); ok {
 		r.Facility = v
+	}
+	if TagToSource(r.Tag) == "" {
+		knownPrefixes := []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower", "twagentneo"}
+		for _, prefix := range knownPrefixes {
+			if strings.Contains(strings.ToLower(r.Content), strings.ToLower(prefix)) {
+				r.Tag = prefix
+				break
+			}
+			if strings.Contains(strings.ToLower(r.Host), strings.ToLower(prefix)) {
+				r.Tag = prefix
+				break
+			}
+		}
 	}
 	return r, (r.Tag != "" || r.Host != "") && r.Content != ""
 }
@@ -164,7 +178,64 @@ func allEnts[T any](s *Session, kind string) map[string]*T {
 	return ret
 }
 
+type dnsCacheEntry struct {
+	name      string
+	expiresAt time.Time
+}
+
+var (
+	dnsCache         sync.Map
+	dnsResolver      = &net.Resolver{}
+	dnsCacheTTL      = time.Hour
+	dnsLookupTimeout = time.Second
+)
+
+// reverseLookup resolves an IP address to its host name using DNS reverse lookup with caching.
+// If lookup fails or the IP is unresolvable, the IP itself is returned and cached.
+func reverseLookup(ctx context.Context, ip string) string {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return ""
+	}
+	now := time.Now()
+	if v, ok := dnsCache.Load(ip); ok {
+		if ent, ok := v.(dnsCacheEntry); ok && now.Before(ent.expiresAt) {
+			return ent.name
+		}
+	}
+
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil || parsedIP.IsUnspecified() || parsedIP.IsMulticast() {
+		dnsCache.Store(ip, dnsCacheEntry{
+			name:      ip,
+			expiresAt: now.Add(dnsCacheTTL),
+		})
+		return ip
+	}
+
+	name := ip
+	lookupCtx, cancel := context.WithTimeout(ctx, dnsLookupTimeout)
+	defer cancel()
+
+	names, err := dnsResolver.LookupAddr(lookupCtx, ip)
+	if err == nil && len(names) > 0 {
+		trimmed := strings.TrimRight(names[0], ".")
+		if trimmed != "" {
+			name = trimmed
+		}
+	}
+
+	dnsCache.Store(ip, dnsCacheEntry{
+		name:      name,
+		expiresAt: now.Add(dnsCacheTTL),
+	})
+	return name
+}
+
 func (s *Session) lookupNode(ip string) nodeInfo {
+	if ip == "" {
+		return nodeInfo{}
+	}
 	if s.nodes == nil {
 		s.nodes = map[string]nodeInfo{}
 		if nodes, err := s.store.ListNodes(s.ctx); err == nil {
@@ -178,7 +249,8 @@ func (s *Session) lookupNode(ip string) nodeInfo {
 	if n, ok := s.nodes[ip]; ok {
 		return n
 	}
-	return nodeInfo{Name: ip}
+	name := reverseLookup(s.ctx, ip)
+	return nodeInfo{Name: name}
 }
 
 // Commit writes modified entities and refreshes the deviation scores of the
@@ -312,7 +384,8 @@ func meanSD(xs []float64) (float64, float64) {
 func (s *Session) Process(source string, r Record) bool {
 	cleanTag := CleanTag(r.Tag)
 	if !strings.EqualFold(cleanTag, SyslogTag(source)) && TagToSource(cleanTag) != source {
-		if !(source == SourceTwAgent && strings.Contains(r.Content, "[twsnmpneo@17862")) {
+		tagInContent := strings.Contains(strings.ToLower(r.Content), strings.ToLower(SyslogTag(source)))
+		if !(source == SourceTwAgent && strings.Contains(r.Content, "[twsnmpneo@17862")) && !tagInContent {
 			return false
 		}
 	}
@@ -344,15 +417,23 @@ func (s *Session) Process(source string, r Record) bool {
 // parseKV parses "k1=v1,k2=v2" as emitted by the tw* tools.
 func parseKV(c string) map[string]string {
 	c = strings.TrimSpace(c)
-	// Strip any leading tag or colon prefix: "twWifiScan: type=..." -> "type=..."
-	for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower"} {
-		if strings.HasPrefix(strings.ToLower(c), strings.ToLower(prefix)) {
-			c = strings.TrimSpace(c[len(prefix):])
-			break
+	// If "type=" exists, cut directly from that position to safely discard any preceding syslog
+	// tags, hostnames, timestamps, or headers emitted by twpcap and other probes.
+	if idx := strings.Index(c, "type="); idx >= 0 {
+		c = c[idx:]
+	} else if idx := strings.Index(strings.ToLower(c), "type="); idx >= 0 {
+		c = c[idx:]
+	} else {
+		// Strip any leading tag or colon prefix: "twWifiScan: type=..." -> "type=..."
+		for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower"} {
+			if idx := strings.Index(strings.ToLower(c), strings.ToLower(prefix)); idx >= 0 {
+				c = strings.TrimSpace(c[idx+len(prefix):])
+				break
+			}
 		}
+		c = strings.TrimPrefix(c, ":")
+		c = strings.TrimSpace(c)
 	}
-	c = strings.TrimPrefix(c, ":")
-	c = strings.TrimSpace(c)
 	m := map[string]string{}
 	for _, kv := range strings.Split(c, ",") {
 		a := strings.SplitN(kv, "=", 2)

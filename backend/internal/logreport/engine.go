@@ -113,21 +113,6 @@ func (e *Engine) ProcessSyslog(sl map[string]interface{}) {
 		}
 	}
 
-	// If tag is empty or not directly matched, check if content starts with a known tag prefix
-	src := TagToSource(tag)
-	if src == "" && content != "" {
-		cTrim := strings.TrimSpace(content)
-		for _, prefix := range []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower", "twagentneo"} {
-			if strings.HasPrefix(strings.ToLower(cTrim), strings.ToLower(prefix)) {
-				tag = prefix
-				break
-			}
-		}
-		if tag == "" && strings.Contains(cTrim, "[twsnmpneo@17862") {
-			tag = "twagentneo"
-		}
-	}
-
 	host, _ := sl["hostname"].(string)
 	if host == "" {
 		host, _ = sl["host"].(string)
@@ -143,6 +128,59 @@ func (e *Engine) ProcessSyslog(sl map[string]interface{}) {
 	}
 	if host == "" {
 		host = "localhost"
+	}
+
+	knownPrefixes := []string{"twWifiScan", "twBlueScan", "twpcap", "twwinlog", "twsdrpower", "twagentneo"}
+
+	// If tag is empty or not directly matched, check host and content
+	src := TagToSource(tag)
+	if src == "" {
+		// 1. Check if hostname contains a known tag (e.g. "myhost twpcap:" or "twpcap:")
+		for _, prefix := range knownPrefixes {
+			lowerHost := strings.ToLower(host)
+			lowerPrefix := strings.ToLower(prefix)
+			if idx := strings.Index(lowerHost, lowerPrefix); idx >= 0 {
+				tag = prefix
+				cleanHost := strings.TrimSpace(host[:idx] + host[idx+len(prefix):])
+				cleanHost = strings.Trim(cleanHost, ": ")
+				if cleanHost != "" {
+					host = cleanHost
+				}
+				break
+			}
+		}
+		// 2. Check content for known tag if still not matched
+		if TagToSource(tag) == "" && content != "" {
+			cTrim := strings.TrimSpace(content)
+			cLower := strings.ToLower(cTrim)
+			for _, prefix := range knownPrefixes {
+				if idx := strings.Index(cLower, strings.ToLower(prefix)); idx >= 0 {
+					tag = prefix
+					// If host was empty or localhost, extract any host before prefix if available
+					pre := strings.TrimSpace(cTrim[:idx])
+					if pre != "" && (host == "" || host == "localhost") {
+						fields := strings.Fields(pre)
+						if len(fields) > 0 {
+							candidate := strings.Trim(fields[len(fields)-1], ":")
+							if candidate != "" && !strings.Contains(candidate, "T") {
+								host = candidate
+							}
+						}
+					}
+					break
+				}
+			}
+			if tag == "" && strings.Contains(cTrim, "[twsnmpneo@17862") {
+				tag = "twagentneo"
+			}
+		}
+	}
+
+	// If content contains "type=", cut from "type=" to remove any redundant prefixes/tags
+	if idx := strings.Index(content, "type="); idx > 0 {
+		content = content[idx:]
+	} else if idx := strings.Index(strings.ToLower(content), "type="); idx > 0 {
+		content = content[idx:]
 	}
 
 	tNano := time.Now().UnixNano()
@@ -196,6 +234,21 @@ func CleanTag(tag string) string {
 // TagToSource maps syslog tag name to internal source identifier.
 func TagToSource(tag string) string {
 	cleaned := CleanTag(tag)
+	for _, part := range strings.Fields(cleaned) {
+		part = strings.Trim(part, ":")
+		switch strings.ToLower(part) {
+		case "twwifiscan":
+			return SourceWifiScan
+		case "twbluescan":
+			return SourceBlueScan
+		case "twpcap":
+			return SourcePcap
+		case "twwinlog":
+			return SourceWinLog
+		case "twagentneo", "twagentneo-fim", "twagentneo-sca", "twagentneo-resource":
+			return SourceTwAgent
+		}
+	}
 	switch strings.ToLower(cleaned) {
 	case "twwifiscan":
 		return SourceWifiScan
