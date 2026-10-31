@@ -13,7 +13,7 @@
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import HelpDialog from "./lib/components/HelpDialog.svelte";
   import GlobalModalHost from "./lib/components/common/GlobalModalHost.svelte";
-  import { fetchMapConf, fetchCustomIcons, fetchMe, fetchUpdateCheck, logout, type UserEnt } from "./lib/api";
+  import { fetchMapConf, fetchCustomIcons, fetchMe, fetchUpdateCheck, login, logout, setStoredToken, type UserEnt } from "./lib/api";
   import { setCustomIcons } from "./lib/common";
   import { _ } from "svelte-i18n";
   import { switchLocale, getSavedLocale, type SupportedLocale } from "./lib/i18n";
@@ -85,8 +85,68 @@
     }
   };
 
+  const cleanAuthParams = () => {
+    try {
+      if (typeof window === "undefined" || !window.history) return;
+      const url = new URL(window.location.href);
+      let changed = false;
+      for (const key of ["UserID", "Password", "user", "password", "token"]) {
+        if (url.searchParams.has(key)) {
+          url.searchParams.delete(key);
+          changed = true;
+        }
+      }
+      if (changed) {
+        window.history.replaceState({}, document.title, url.pathname + (url.searchParams.toString() ? "?" + url.searchParams.toString() : "") + url.hash);
+      }
+    } catch (e) {
+      console.error("Failed to clean auth params:", e);
+    }
+  };
+
   const checkAuth = async () => {
     try {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get("token");
+        const userParam = params.get("user") || params.get("UserID");
+        const passParam = params.get("password") || params.get("Password");
+        const viewParam = params.get("view");
+        if (viewParam && ["map", "location", "list", "logs", "otel", "mqtt", "reports", "system", "pki"].includes(viewParam)) {
+          currentPage = viewParam as PageType;
+        }
+
+        if (token) {
+          setStoredToken(token);
+          const user = await fetchMe();
+          if (user) {
+            isAuthenticated = true;
+            currentUser = user;
+            cleanAuthParams();
+            await refreshConf();
+            return;
+          }
+          setStoredToken(null);
+        }
+
+        if (userParam && passParam) {
+          try {
+            const res = await login(userParam, passParam);
+            if (res?.user) {
+              isAuthenticated = true;
+              currentUser = res.user;
+              cleanAuthParams();
+              await refreshConf();
+              return;
+            }
+          } catch (e) {
+            console.error("Auto login failed:", e);
+          }
+        }
+
+        cleanAuthParams();
+      }
+
       const user = await fetchMe();
       if (user) {
         isAuthenticated = true;
