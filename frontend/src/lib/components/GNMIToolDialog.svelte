@@ -51,19 +51,33 @@
   const nodeId = $derived(node?.id || (node as any)?.ID || "");
   const targetName = $derived(node?.name || (node as any)?.Name || "");
 
+  let lastOpened = false;
+  let lastNodeId = "";
+
   $effect(() => {
-    if (show && node) {
-      untrack(() => {
-        errorMessage = "";
-        results = [];
-        selectedIndices = [];
-        showCapDetails = false;
-        modelFilter = "";
-        const port = node?.gnmi_port || (node as any)?.GNMIPort || "57400";
-        target = `${node?.ip || (node as any)?.IP || ""}:${port}`;
-        encoding = node?.gnmi_encoding || (node as any)?.GNMIEncoding || "json_ietf";
-      });
+    const isShowing = show;
+    const currentId = node ? (node.id || (node as any).ID || "") : "";
+
+    if (isShowing && currentId) {
+      if (!lastOpened || lastNodeId !== currentId) {
+        lastOpened = true;
+        lastNodeId = currentId;
+        untrack(() => {
+          errorMessage = "";
+          results = [];
+          selectedIndices = [];
+          capabilities = null;
+          showCapDetails = false;
+          modelFilter = "";
+          const port = node?.gnmi_port || (node as any)?.GNMIPort || "57400";
+          target = `${node?.ip || (node as any)?.IP || ""}:${port}`;
+          encoding = node?.gnmi_encoding || (node as any)?.GNMIEncoding || "json_ietf";
+        });
+      }
       // Do NOT auto-fetch on dialog open. Wait until user clicks Get or Capabilities.
+    } else if (!isShowing) {
+      lastOpened = false;
+      lastNodeId = "";
     }
   });
 

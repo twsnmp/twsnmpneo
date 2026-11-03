@@ -81,14 +81,30 @@
   let aiLang = $state<"ja" | "en">("ja");
   let aiCopied = $state(false);
 
+  let lastOpened = false;
+  let lastTargetKey = "";
+
   $effect(() => {
-    if (show && (node || network)) {
-      untrack(() => {
-        resetState();
-        ip = node?.ip || (node as any)?.IP || network?.ip || (network as any)?.IP || "";
-      });
-      void initMainChart();
-    } else {
+    const isShowing = show;
+    const currentKey = node
+      ? `node:${node.id || (node as any).ID || ""}`
+      : network
+        ? `net:${network.id || (network as any).ID || ""}`
+        : "";
+
+    if (isShowing && currentKey) {
+      if (!lastOpened || lastTargetKey !== currentKey) {
+        lastOpened = true;
+        lastTargetKey = currentKey;
+        untrack(() => {
+          resetState();
+          ip = node?.ip || (node as any)?.IP || network?.ip || (network as any)?.IP || "";
+        });
+        void initMainChart();
+      }
+    } else if (!isShowing) {
+      lastOpened = false;
+      lastTargetKey = "";
       stopFlag = true;
       isRunning = false;
       if (chartInstance) {

@@ -104,11 +104,24 @@
     }
   };
 
+  let lastOpened = false;
+  let lastTargetId = "";
+
   $effect(() => {
-    if (show && targetId) {
-      untrack(() => {
-        loadNeighbors();
-      });
+    const isShowing = show;
+    const currentId = targetId || "";
+
+    if (isShowing && currentId) {
+      if (!lastOpened || lastTargetId !== currentId) {
+        lastOpened = true;
+        lastTargetId = currentId;
+        untrack(() => {
+          loadNeighbors();
+        });
+      }
+    } else if (!isShowing) {
+      lastOpened = false;
+      lastTargetId = "";
     }
   });
 

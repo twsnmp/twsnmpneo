@@ -104,20 +104,37 @@
 
   const isTable = $derived(lastQueryIsTable);
 
+  let lastOpened = false;
+  let lastTargetKey = "";
+
   $effect(() => {
-    if (show && (node || network)) {
-      untrack(() => {
-        errorMessage = "";
-        results = [];
-        selectedIndices = [];
-        currentPage = 1;
-        tableSearchQuery = "";
-        sortColumn = null;
-        lastQueryIsTable = false;
-        lastQueryName = "";
-        hoveredInfo = null;
-        nameOrOid = history[0] ?? "";
-      });
+    const isShowing = show;
+    const currentKey = node
+      ? `node:${node.id || (node as any).ID || ""}`
+      : network
+        ? `net:${network.id || (network as any).ID || ""}`
+        : "";
+
+    if (isShowing && currentKey) {
+      if (!lastOpened || lastTargetKey !== currentKey) {
+        lastOpened = true;
+        lastTargetKey = currentKey;
+        untrack(() => {
+          errorMessage = "";
+          results = [];
+          selectedIndices = [];
+          currentPage = 1;
+          tableSearchQuery = "";
+          sortColumn = null;
+          lastQueryIsTable = false;
+          lastQueryName = "";
+          hoveredInfo = null;
+          nameOrOid = history[0] ?? "";
+        });
+      }
+    } else if (!isShowing) {
+      lastOpened = false;
+      lastTargetKey = "";
     }
   });
 
