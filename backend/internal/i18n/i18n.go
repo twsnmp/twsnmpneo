@@ -122,6 +122,42 @@ var transMap = map[string]map[string]string{
 	"Stopping ARP Watch Engine...": {
 		"ja": "ARP監視を停止しました",
 	},
+	"Started Syslog receiver": {
+		"ja": "Syslog受信を開始しました",
+	},
+	"Stopped Syslog receiver": {
+		"ja": "Syslog受信を停止しました",
+	},
+	"Started SNMP TRAP receiver": {
+		"ja": "SNMP TRAP受信を開始しました",
+	},
+	"Stopped SNMP TRAP receiver": {
+		"ja": "SNMP TRAP受信を停止しました",
+	},
+	"Started NetFlow receiver": {
+		"ja": "NetFlow受信を開始しました",
+	},
+	"Stopped NetFlow receiver": {
+		"ja": "NetFlow受信を停止しました",
+	},
+	"Started sFlow receiver": {
+		"ja": "sFlow受信を開始しました",
+	},
+	"Stopped sFlow receiver": {
+		"ja": "sFlow受信を停止しました",
+	},
+	"Started OpenTelemetry receiver": {
+		"ja": "OpenTelemetry受信を開始しました",
+	},
+	"Stopped OpenTelemetry receiver": {
+		"ja": "OpenTelemetry受信を停止しました",
+	},
+	"Started MQTT broker": {
+		"ja": "MQTTブローカーを開始しました",
+	},
+	"Stopped MQTT broker": {
+		"ja": "MQTTブローカーを停止しました",
+	},
 	"ARP monitoring range %s utilization: %d/%d (%.2f%%)": {
 		"ja": "ARP監視範囲 %s 利用率: %d/%d (%.2f%%)",
 	},

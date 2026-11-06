@@ -60,9 +60,18 @@ func NewSyslogServer(cfg SyslogConfig) *SyslogServer {
 }
 
 func (s *SyslogServer) Start(ctx context.Context) error {
+	if s.udpPort <= 0 && s.tcpPort <= 0 {
+		return nil
+	}
+
 	s.mu.Lock()
 	s.running = true
 	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.running = false
+		s.mu.Unlock()
+	}()
 
 	syslogCh := make(syslog.LogPartsChannel, 2000)
 	server := syslog.NewServer()

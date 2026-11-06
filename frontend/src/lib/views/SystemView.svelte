@@ -342,6 +342,12 @@
     };
     window.addEventListener("resize", handleResize);
 
+    const handleReload = () => {
+      loadData();
+    };
+    window.addEventListener("twsnmp:reload-system", handleReload);
+    window.addEventListener("twsnmp:reload-map", handleReload);
+
     // Watch for dark/light class change on html root
     const observer = new MutationObserver(() => {
       if (activeTab === "monitor") {
@@ -355,6 +361,8 @@
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("twsnmp:reload-system", handleReload);
+      window.removeEventListener("twsnmp:reload-map", handleReload);
       observer.disconnect();
       disposeMonitorCharts();
     };

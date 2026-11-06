@@ -64,6 +64,15 @@ func (s *TrapServer) Start(ctx context.Context) error {
 	}
 
 	tl := gosnmp.NewTrapListener()
+	tl.Params = &gosnmp.GoSNMP{
+		Port:          uint16(s.port),
+		Transport:     "udp",
+		Version:       gosnmp.Version3,
+		SecurityModel: gosnmp.UserSecurityModel,
+	}
+	if usmTable := s.buildUsmTable(ctx); usmTable != nil {
+		tl.Params.SetTrapSecurityParametersTable(usmTable)
+	}
 	tl.OnNewTrap = func(packet *gosnmp.SnmpPacket, addr *net.UDPAddr) {
 		s.handleTrap(packet, addr)
 	}
@@ -90,6 +99,7 @@ func (s *TrapServer) Start(ctx context.Context) error {
 		slog.Warn("Failed to start SNMP TRAP receiver", "addr", listenAddr, "error", err)
 		return fmt.Errorf("listen snmptrap: %w", err)
 	case <-ctx.Done():
+		tl.Close()
 		return nil
 	}
 
@@ -159,4 +169,67 @@ func (s *TrapServer) handleTrap(packet *gosnmp.SnmpPacket, addr *net.UDPAddr) {
 			Log:  string(rawJSON),
 		})
 	}
+}
+
+func (s *TrapServer) buildUsmTable(ctx context.Context) *gosnmp.SnmpV3SecurityParametersTable {
+	if s.store == nil {
+		return nil
+	}
+	table := gosnmp.NewSnmpV3SecurityParametersTable(gosnmp.Logger{})
+	count := 0
+	if mapConf, err := s.store.GetMapConf(ctx); err == nil && mapConf != nil && mapConf.SnmpUser != "" {
+		if sp := buildUsmParam(mapConf.SnmpUser, mapConf.SnmpPassword, mapConf.SnmpMode); sp != nil {
+			_ = table.Add(mapConf.SnmpUser, sp)
+			count++
+		}
+	}
+	if nodes, err := s.store.ListNodes(ctx); err == nil {
+		for _, n := range nodes {
+			if n.User != "" {
+				if sp := buildUsmParam(n.User, n.Password, n.SnmpMode); sp != nil {
+					_ = table.Add(n.User, sp)
+					count++
+				}
+			}
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	return table
+}
+
+func buildUsmParam(user, password, mode string) *gosnmp.UsmSecurityParameters {
+	sp := &gosnmp.UsmSecurityParameters{
+		UserName: user,
+	}
+	switch mode {
+	case "v3auth":
+		sp.AuthenticationProtocol = gosnmp.SHA
+		sp.AuthenticationPassphrase = password
+	case "v3authpriv":
+		sp.AuthenticationProtocol = gosnmp.SHA
+		sp.AuthenticationPassphrase = password
+		sp.PrivacyProtocol = gosnmp.AES
+		sp.PrivacyPassphrase = password
+	case "v3authprivex", "v3authp256":
+		sp.AuthenticationProtocol = gosnmp.SHA256
+		sp.AuthenticationPassphrase = password
+		sp.PrivacyProtocol = gosnmp.AES256
+		sp.PrivacyPassphrase = password
+	case "v3sha256aes128":
+		sp.AuthenticationProtocol = gosnmp.SHA256
+		sp.AuthenticationPassphrase = password
+		sp.PrivacyProtocol = gosnmp.AES
+		sp.PrivacyPassphrase = password
+	case "v3sha512aes256":
+		sp.AuthenticationProtocol = gosnmp.SHA512
+		sp.AuthenticationPassphrase = password
+		sp.PrivacyProtocol = gosnmp.AES256
+		sp.PrivacyPassphrase = password
+	default:
+		// NoAuthNoPriv
+		return sp
+	}
+	return sp
 }

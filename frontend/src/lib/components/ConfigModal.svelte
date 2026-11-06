@@ -382,6 +382,7 @@
       saveMsg = $_('config.saveSuccess');
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("twsnmp:reload-map"));
+        window.dispatchEvent(new CustomEvent("twsnmp:reload-system"));
       }
       onSaved?.();
       setTimeout(() => {

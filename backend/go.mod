@@ -12,7 +12,7 @@ require (
 	github.com/go-acme/lego/v4 v4.35.2
 	github.com/go-jose/go-jose/v4 v4.1.5
 	github.com/google/gopacket v1.1.19
-	github.com/gosnmp/gosnmp v1.45.0
+	github.com/gosnmp/gosnmp v1.47.0
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
 	github.com/labstack/echo/v4 v4.16.2
 	github.com/mattn/tensai v0.0.35

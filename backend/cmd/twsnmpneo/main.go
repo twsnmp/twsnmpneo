@@ -751,57 +751,59 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	anomalySvc := ai.NewAnomalyService(store, pqStore)
 	go anomalySvc.Start(ctx)
 
-	// Resolve receiver ports from CLI flags and MapConf
+	// Resolve receiver base ports from CLI flags and MapConf
 	mapConf, _ := store.GetMapConf(ctx)
 
-	sUDP := cfg.syslogUDP
-	if !cfg.explicitFlags["syslog-udp"] && (mapConf == nil || mapConf.EnableSyslogd) {
-		sUDP = 514
+	baseSUDP := 514
+	if cfg.explicitFlags["syslog-udp"] {
+		baseSUDP = cfg.syslogUDP
 	}
-	sTCP := cfg.syslogTCP
-	if !cfg.explicitFlags["syslog-tcp"] && (mapConf == nil || mapConf.EnableSyslogd) {
-		sTCP = 514
+	baseSTCP := 514
+	if cfg.explicitFlags["syslog-tcp"] {
+		baseSTCP = cfg.syslogTCP
 	}
-	tPort := cfg.trapPort
-	if !cfg.explicitFlags["trap-port"] && (mapConf == nil || mapConf.EnableTrapd) {
-		tPort = 162
+	baseTPort := 162
+	if cfg.explicitFlags["trap-port"] {
+		baseTPort = cfg.trapPort
 	}
-	nfPort := cfg.netflowPort
-	if !cfg.explicitFlags["netflow-port"] && (mapConf == nil || mapConf.EnableNetflowd) {
-		nfPort = 2055
+	baseNFPort := 2055
+	if cfg.explicitFlags["netflow-port"] {
+		baseNFPort = cfg.netflowPort
 	}
-	sfPort := cfg.sflowPort
-	if !cfg.explicitFlags["sflow-port"] && (mapConf == nil || mapConf.EnableSFlowd) {
-		sfPort = 6343
+	baseSFPort := 6343
+	if cfg.explicitFlags["sflow-port"] {
+		baseSFPort = cfg.sflowPort
 	}
-	oPort := cfg.otelPort
-	if !cfg.explicitFlags["otel-port"] && (mapConf == nil || mapConf.EnableOTel) {
-		oPort = 4318
+	baseOPort := 4318
+	if cfg.explicitFlags["otel-port"] {
+		baseOPort = cfg.otelPort
 	}
-	mPort := cfg.mqttPort
-	if !cfg.explicitFlags["mqtt-port"] && (mapConf == nil || mapConf.EnableMqtt) {
-		mPort = 1883
+	baseMPort := 1883
+	if cfg.explicitFlags["mqtt-port"] {
+		baseMPort = cfg.mqttPort
 	}
 
-	slog.Info("Protocol receiver ports configured",
-		"syslog_udp", sUDP,
-		"syslog_tcp", sTCP,
-		"trap", tPort,
-		"netflow", nfPort,
-		"sflow", sfPort,
-		"otel", oPort,
-		"mqtt", mPort,
-	)
-
-	mqttToSyslog := false
+	enableSyslog := true
+	enableTrap := true
+	enableNetflow := false
+	enableSFlow := false
 	enableArpWatch := true
+	enableOTel := true
+	enableMQTT := false
+	mqttToSyslog := false
 	arpWatchRange := ""
 	arpTimeout := 60
 	otelRetention := 24
 	otelFrom := ""
 	if mapConf != nil {
-		mqttToSyslog = mapConf.MqttToSyslog
+		enableSyslog = mapConf.EnableSyslogd
+		enableTrap = mapConf.EnableTrapd
+		enableNetflow = mapConf.EnableNetflowd
+		enableSFlow = mapConf.EnableSFlowd
 		enableArpWatch = mapConf.EnableArpWatch
+		enableOTel = mapConf.EnableOTel
+		enableMQTT = mapConf.EnableMqtt
+		mqttToSyslog = mapConf.MqttToSyslog
 		arpWatchRange = mapConf.ArpWatchRange
 		arpTimeout = mapConf.ArpTimeout
 		if mapConf.OTelRetention > 0 {
@@ -810,23 +812,40 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 		otelFrom = mapConf.OTelFrom
 	}
 
+	slog.Info("Protocol receiver base ports configured",
+		"syslog_udp", baseSUDP,
+		"syslog_tcp", baseSTCP,
+		"trap", baseTPort,
+		"netflow", baseNFPort,
+		"sflow", baseSFPort,
+		"otel", baseOPort,
+		"mqtt", baseMPort,
+	)
+
 	// Initialize Protocol Receivers
 	recvMgr := receiver.NewManager(receiver.Config{
-		Store:          store,
-		LogStore:       pqStore,
-		SyslogUDP:      sUDP,
-		SyslogTCP:      sTCP,
-		TrapPort:       tPort,
-		NetFlowPort:    nfPort,
-		SFlowPort:      sfPort,
-		OTelPort:       oPort,
-		OTelRetention:  otelRetention,
-		OTelFrom:       otelFrom,
-		MQTTPort:       mPort,
-		MqttToSyslog:   mqttToSyslog,
-		EnableArpWatch: enableArpWatch,
-		ArpWatchRange:  arpWatchRange,
-		ArpTimeout:     arpTimeout,
+		Store:              store,
+		LogStore:           pqStore,
+		SyslogUDP:          baseSUDP,
+		SyslogTCP:          baseSTCP,
+		TrapPort:           baseTPort,
+		NetFlowPort:        baseNFPort,
+		SFlowPort:          baseSFPort,
+		OTelPort:           baseOPort,
+		OTelRetention:      otelRetention,
+		OTelFrom:           otelFrom,
+		MQTTPort:           baseMPort,
+		MqttToSyslog:       mqttToSyslog,
+		EnableSyslogd:      enableSyslog,
+		EnableTrapd:        enableTrap,
+		EnableNetflowd:     enableNetflow,
+		EnableSFlowd:       enableSFlow,
+		EnableArpWatch:     enableArpWatch,
+		EnableOTel:         enableOTel,
+		EnableMqtt:         enableMQTT,
+		HasExplicitEnables: true,
+		ArpWatchRange:      arpWatchRange,
+		ArpTimeout:         arpTimeout,
 	})
 	wg.Add(1)
 	go func() {
@@ -914,10 +933,11 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 		Store:          store,
 		LogStore:       pqStore,
 		MCPServer:      mcpServer,
-		PKI:            pkiMgr,
-		ACMEBaseURL:    cfg.acmeURL,
-		ArpManager:     recvMgr,
-		Monitor:        sysMon,
+		PKI:             pkiMgr,
+		ACMEBaseURL:     cfg.acmeURL,
+		ReceiverManager: recvMgr,
+		ArpManager:      recvMgr,
+		Monitor:         sysMon,
 		PollingManager: pollMgr,
 		Receivers:      receiversInfo,
 		CertManager:    certMgr,

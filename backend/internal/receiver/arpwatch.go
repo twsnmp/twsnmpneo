@@ -83,6 +83,11 @@ func (s *ArpWatchServer) Start(ctx context.Context) error {
 	}
 
 	// Initial check
+	s.mu.Lock()
+	if s.pinger == nil {
+		s.pinger = newPinger()
+	}
+	s.mu.Unlock()
 	s.checkArpTable(ctx)
 	s.makeLocalCheckAddrs(ctx)
 
@@ -91,9 +96,12 @@ func (s *ArpWatchServer) Start(ctx context.Context) error {
 	defer probeTicker.Stop()
 	defer checkTicker.Stop()
 	defer func() {
+		s.mu.Lock()
 		if s.pinger != nil {
 			s.pinger.close()
+			s.pinger = nil
 		}
+		s.mu.Unlock()
 	}()
 
 	for {

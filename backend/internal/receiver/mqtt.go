@@ -56,6 +56,20 @@ func NewMQTTServer(cfg MQTTConfig) *MQTTServer {
 	}
 }
 
+// SetMqttToSyslog dynamically updates the MQTT-to-Syslog forwarding setting.
+func (s *MQTTServer) SetMqttToSyslog(enable bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mqttToSyslog = enable
+}
+
+// SetArpWatch dynamically updates the associated ARP watch instance.
+func (s *MQTTServer) SetArpWatch(aw *ArpWatchServer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.arpWatch = aw
+}
+
 // Start launches the MQTT broker TCP listener and blocks until ctx is canceled.
 func (s *MQTTServer) Start(ctx context.Context) error {
 	if s.port <= 0 {

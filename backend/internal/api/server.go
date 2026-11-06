@@ -56,35 +56,44 @@ type Server struct {
 	httpServer *http.Server
 }
 
-type ArpManager interface {
+type ReceiverManager interface {
 	DeleteArpEntries(ips []string)
 	ResetArpTable()
 	GetReceiverStatus(mcpEnabled bool) map[string]any
+	UpdateConf(conf *datastore.MapConfEnt)
 }
 
+type ArpManager = ReceiverManager
+
 type Config struct {
-	Port           int
-	Debug          bool
-	Version        string
-	Commit         string
-	DataDir        string
-	Store          datastore.DataStore
-	LogStore       *parquet.Store
-	MCPServer      *ai.MCPServer
-	PKI            *pki.Manager
-	ACMEBaseURL    string
-	ArpManager     ArpManager
-	Monitor        *monitor.Monitor
-	PollingManager *polling.Manager
-	Receivers      map[string]any
-	AuthManager    *auth.Manager
-	CertManager    *certmgr.Manager
-	Updater        *updater.Updater
-	HTTPPort       int
-	UseTLS         bool
+	Port            int
+	Debug           bool
+	Version         string
+	Commit          string
+	DataDir         string
+	Store           datastore.DataStore
+	LogStore        *parquet.Store
+	MCPServer       *ai.MCPServer
+	PKI             *pki.Manager
+	ACMEBaseURL     string
+	ReceiverManager ReceiverManager
+	ArpManager      ReceiverManager
+	Monitor         *monitor.Monitor
+	PollingManager  *polling.Manager
+	Receivers       map[string]any
+	AuthManager     *auth.Manager
+	CertManager     *certmgr.Manager
+	Updater         *updater.Updater
+	HTTPPort        int
+	UseTLS          bool
 }
 
 func NewServer(cfg Config) (*Server, error) {
+	recvMgr := cfg.ReceiverManager
+	if recvMgr == nil && cfg.ArpManager != nil {
+		recvMgr = cfg.ArpManager
+	}
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -489,12 +498,12 @@ func NewServer(cfg Config) (*Server, error) {
 			pollCount = len(polls)
 		}
 		receivers := cfg.Receivers
-		if cfg.ArpManager != nil {
+		if recvMgr != nil {
 			mcpEnabled := false
 			if cfg.MCPServer != nil {
 				mcpEnabled = cfg.MCPServer.IsEnabled()
 			}
-			receivers = cfg.ArpManager.GetReceiverStatus(mcpEnabled)
+			receivers = recvMgr.GetReceiverStatus(mcpEnabled)
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"version":    cfg.Version,
@@ -2104,7 +2113,7 @@ func NewServer(cfg Config) (*Server, error) {
 		}
 		apiGroup.GET("/map/conf", getMapConfHandler)
 		apiGroup.GET("/conf/map", getMapConfHandler)
-		apiGroup.POST("/map/conf", func(c echo.Context) error {
+		postMapConfHandler := func(c echo.Context) error {
 			var conf datastore.MapConfEnt
 			if err := c.Bind(&conf); err != nil {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -2115,9 +2124,14 @@ func NewServer(cfg Config) (*Server, error) {
 			if cfg.MCPServer != nil {
 				cfg.MCPServer.UpdateConf(&conf)
 			}
+			if recvMgr != nil {
+				recvMgr.UpdateConf(&conf)
+			}
 			conf.GeoIPInfo = datastore.GetGeoIPInfo()
 			return c.JSON(http.StatusOK, &conf)
-		})
+		}
+		apiGroup.POST("/map/conf", postMapConfHandler)
+		apiGroup.POST("/conf/map", postMapConfHandler)
 
 		// Loc (GIS Map) Conf
 		getLocConfHandler := func(c echo.Context) error {
@@ -2699,8 +2713,8 @@ func NewServer(cfg Config) (*Server, error) {
 				if err := cfg.Store.ResetArpTable(c.Request().Context()); err != nil {
 					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				}
-				if cfg.ArpManager != nil {
-					cfg.ArpManager.ResetArpTable()
+				if recvMgr != nil {
+					recvMgr.ResetArpTable()
 				}
 				if cfg.Store != nil {
 					_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
@@ -2726,8 +2740,8 @@ func NewServer(cfg Config) (*Server, error) {
 			if err := cfg.Store.DeleteArpEntries(c.Request().Context(), targetIPs); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
-			if cfg.ArpManager != nil {
-				cfg.ArpManager.DeleteArpEntries(targetIPs)
+			if recvMgr != nil {
+				recvMgr.DeleteArpEntries(targetIPs)
 			}
 			if cfg.Store != nil {
 				_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
