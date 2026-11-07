@@ -47,6 +47,17 @@ type Config struct {
 	BufferInterval time.Duration
 }
 
+type cachedPollingEntry struct {
+	logs      []*datastore.PollingLogEnt
+	limit     int
+	expiresAt time.Time
+}
+
+type cachedDiskCountEntry struct {
+	count     int
+	expiresAt time.Time
+}
+
 // Store manages buffered log writes, Parquet file generation, and queries.
 type Store struct {
 	dir            string
@@ -56,6 +67,10 @@ type Store struct {
 	mu          sync.Mutex
 	typeBuffers map[string][]*ParquetLogRecord
 	bufferCount int
+
+	cacheMu         sync.RWMutex
+	pollingLogCache map[string]cachedPollingEntry
+	diskCountCache  map[string]cachedDiskCountEntry
 
 	stopCh chan struct{}
 	doneCh chan struct{}
@@ -81,12 +96,14 @@ func New(cfg Config) (*Store, error) {
 	}
 
 	s := &Store{
-		dir:            cfg.Dir,
-		bufferSize:     bufSize,
-		bufferInterval: bufInterval,
-		typeBuffers:    make(map[string][]*ParquetLogRecord),
-		stopCh:         make(chan struct{}),
-		doneCh:         make(chan struct{}),
+		dir:             cfg.Dir,
+		bufferSize:      bufSize,
+		bufferInterval:  bufInterval,
+		typeBuffers:     make(map[string][]*ParquetLogRecord),
+		pollingLogCache: make(map[string]cachedPollingEntry),
+		diskCountCache:  make(map[string]cachedDiskCountEntry),
+		stopCh:          make(chan struct{}),
+		doneCh:          make(chan struct{}),
 	}
 
 	go s.flushLoop()
@@ -129,6 +146,23 @@ func (s *Store) WriteLog(record *ParquetLogRecord) error {
 	s.bufferCount++
 	needsFlush := s.bufferCount >= s.bufferSize
 	s.mu.Unlock()
+
+	if record.Type == "polling" && record.Src != "" {
+		ent := parsePollingLogRecord(record)
+		s.cacheMu.Lock()
+		if cached, ok := s.pollingLogCache[record.Src]; ok {
+			cached.logs = append(cached.logs, ent)
+			maxKeep := cached.limit
+			if maxKeep < 200 {
+				maxKeep = 200
+			}
+			if len(cached.logs) > maxKeep {
+				cached.logs = cached.logs[len(cached.logs)-maxKeep:]
+			}
+			s.pollingLogCache[record.Src] = cached
+		}
+		s.cacheMu.Unlock()
+	}
 
 	if needsFlush {
 		return s.Flush()
@@ -181,6 +215,15 @@ func (s *Store) Flush() error {
 			if firstErr == nil {
 				firstErr = err
 			}
+		} else {
+			s.cacheMu.Lock()
+			for k, entry := range s.diskCountCache {
+				if strings.HasPrefix(k, logType+":") {
+					entry.count += count
+					s.diskCountCache[k] = entry
+				}
+			}
+			s.cacheMu.Unlock()
 		}
 	}
 	slog.Info("Flush completed", "syslog", sc, "netflow", nfc, "trap", tc, "arplog", ac, "sflow", sf, "other", oc, "duration", time.Since(st))
@@ -278,6 +321,150 @@ func (s *Store) CountByType(ctx context.Context) (map[string]int64, error) {
 		counts[logType] = total
 	}
 	return counts, nil
+}
+
+// CountRecentLogs counts records generated within duration for specified log types.
+// Optimized to only scan specified log directories in reverse chronological order and break on cutoff.
+func (s *Store) CountRecentLogs(ctx context.Context, d time.Duration, targetTypes ...string) map[string]int {
+	if d <= 0 {
+		d = 24 * time.Hour
+	}
+	cutoff := time.Now().Add(-d)
+	cutoffNano := cutoff.UnixNano()
+	counts := make(map[string]int)
+
+	targetSet := make(map[string]bool)
+	for _, t := range targetTypes {
+		targetSet[t] = true
+	}
+
+	// 1. Count from in-memory buffers (chronological, scan backwards)
+	s.mu.Lock()
+	for logType, buf := range s.typeBuffers {
+		if len(targetSet) > 0 && !targetSet[logType] {
+			continue
+		}
+		c := 0
+		for i := len(buf) - 1; i >= 0; i-- {
+			if buf[i].Time >= cutoffNano {
+				c++
+			} else {
+				break
+			}
+		}
+		if c > 0 {
+			counts[logType] += c
+		}
+	}
+	s.mu.Unlock()
+
+	if err := ctx.Err(); err != nil {
+		return counts
+	}
+
+	// Determine types to inspect on disk
+	inspectTypes := targetTypes
+	if len(inspectTypes) == 0 {
+		entries, err := os.ReadDir(s.dir)
+		if err == nil {
+			for _, e := range entries {
+				if e.IsDir() {
+					inspectTypes = append(inspectTypes, e.Name())
+				}
+			}
+		}
+	}
+
+	// 2. Count from disk parquet files in reverse chronological order (with 10s TTL cache per type)
+	now := time.Now()
+	for _, logType := range inspectTypes {
+		if err := ctx.Err(); err != nil {
+			break
+		}
+		cacheKey := fmt.Sprintf("%s:%d", logType, int64(d.Seconds()))
+		s.cacheMu.RLock()
+		cached, ok := s.diskCountCache[cacheKey]
+		s.cacheMu.RUnlock()
+		if ok && now.Before(cached.expiresAt) {
+			if cached.count > 0 {
+				counts[logType] += cached.count
+			}
+			continue
+		}
+
+		typeDir := filepath.Join(s.dir, logType)
+		fileEntries, err := os.ReadDir(typeDir)
+		if err != nil {
+			s.cacheMu.Lock()
+			s.diskCountCache[cacheKey] = cachedDiskCountEntry{count: 0, expiresAt: now.Add(5 * time.Minute)}
+			s.cacheMu.Unlock()
+			continue
+		}
+
+		var files []string
+		for _, fe := range fileEntries {
+			if !fe.IsDir() && strings.HasSuffix(fe.Name(), ".parquet") {
+				files = append(files, fe.Name())
+			}
+		}
+		if len(files) == 0 {
+			s.cacheMu.Lock()
+			s.diskCountCache[cacheKey] = cachedDiskCountEntry{count: 0, expiresAt: now.Add(5 * time.Minute)}
+			s.cacheMu.Unlock()
+			continue
+		}
+		sort.Strings(files)
+
+		diskCount := 0
+		filesScanned := 0
+		scanDeadline := time.Now().Add(80 * time.Millisecond)
+		// Scan backwards from newest file
+		for i := len(files) - 1; i >= 0; i-- {
+			if err := ctx.Err(); err != nil || time.Now().After(scanDeadline) {
+				break
+			}
+			if filesScanned >= 15 {
+				break
+			}
+
+			fileName := files[i]
+			filePath := filepath.Join(typeDir, fileName)
+			f, err := os.Open(filePath)
+			if err != nil {
+				continue
+			}
+			stat, err := f.Stat()
+			if err != nil || stat.Size() == 0 {
+				_ = f.Close()
+				continue
+			}
+
+			// If file modification time is older than cutoff, all earlier files are older!
+			if stat.ModTime().Before(cutoff.Add(-5 * time.Minute)) {
+				_ = f.Close()
+				break // Stop scanning older files in this directory!
+			}
+
+			filesScanned++
+			if pf, err := parquet.OpenFile(f, stat.Size()); err == nil {
+				diskCount += int(pf.NumRows())
+			}
+			_ = f.Close()
+		}
+		if diskCount > 0 {
+			counts[logType] += diskCount
+		}
+		s.cacheMu.Lock()
+		s.diskCountCache[cacheKey] = cachedDiskCountEntry{count: diskCount, expiresAt: now.Add(5 * time.Minute)}
+		s.cacheMu.Unlock()
+	}
+
+	return counts
+}
+
+// CountLogs24h counts records generated within the given duration for each log type.
+func (s *Store) CountLogs24h(ctx context.Context, d time.Duration) map[string]int {
+	return s.CountRecentLogs(ctx, d)
 }
 
 // Query searches across parquet files matching the filter.
@@ -541,6 +728,13 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 	}
 	s.mu.Unlock()
 
+	s.cacheMu.Lock()
+	s.diskCountCache = make(map[string]cachedDiskCountEntry)
+	if logType == "" || logType == "polling" {
+		s.pollingLogCache = make(map[string]cachedPollingEntry)
+	}
+	s.cacheMu.Unlock()
+
 	if logType != "" {
 		cleanType := filepath.Base(filepath.Clean(logType))
 		if cleanType == "." || cleanType == "/" || strings.Contains(cleanType, "..") || !filepath.IsLocal(cleanType) {
@@ -564,6 +758,182 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 		}
 	}
 	return nil
+}
+
+func parsePollingLogRecord(rec *ParquetLogRecord) *datastore.PollingLogEnt {
+	ent := &datastore.PollingLogEnt{
+		Time:      rec.Time,
+		PollingID: rec.Src,
+	}
+	var payload struct {
+		State  string                 `json:"State"`
+		Result map[string]interface{} `json:"Result"`
+	}
+	if err := json.Unmarshal([]byte(rec.Log), &payload); err == nil && payload.Result != nil {
+		ent.State = payload.State
+		ent.Result = payload.Result
+	} else {
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(rec.Log), &raw); err == nil {
+			ent.Result = raw
+			if st, ok := raw["state"].(string); ok {
+				ent.State = st
+			}
+		}
+	}
+	return ent
+}
+
+// GetRecentPollingLog retrieves up to `limit` most recent polling log entries in chronological order.
+func (s *Store) GetRecentPollingLog(ctx context.Context, pollingID string, limit int) ([]*datastore.PollingLogEnt, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	s.cacheMu.RLock()
+	cached, hasCached := s.pollingLogCache[pollingID]
+	s.cacheMu.RUnlock()
+	if hasCached && cached.limit >= limit {
+		res := make([]*datastore.PollingLogEnt, len(cached.logs))
+		copy(res, cached.logs)
+		if len(res) > limit {
+			res = res[len(res)-limit:]
+		}
+		return res, nil
+	}
+
+	var memResults []*datastore.PollingLogEnt
+
+	// 1. Read un-flushed in-memory buffer (newest logs!)
+	s.mu.Lock()
+	if buf, ok := s.typeBuffers["polling"]; ok && len(buf) > 0 {
+		for i := len(buf) - 1; i >= 0; i-- {
+			rec := buf[i]
+			if rec.Src == pollingID {
+				memResults = append(memResults, parsePollingLogRecord(rec))
+				if len(memResults) >= limit {
+					break
+				}
+			}
+		}
+	}
+	s.mu.Unlock()
+
+	// Reverse memory results to chronological order (oldest first)
+	for i, j := 0, len(memResults)-1; i < j; i, j = i+1, j-1 {
+		memResults[i], memResults[j] = memResults[j], memResults[i]
+	}
+
+	if len(memResults) >= limit {
+		s.cacheMu.Lock()
+		s.pollingLogCache[pollingID] = cachedPollingEntry{logs: memResults, limit: limit}
+		s.cacheMu.Unlock()
+		return memResults, nil
+	}
+
+	pollingDir := filepath.Join(s.dir, "polling")
+	entries, err := os.ReadDir(pollingDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return memResults, nil
+		}
+		return nil, err
+	}
+
+	files := make([]string, 0)
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".parquet") {
+			files = append(files, filepath.Join(pollingDir, e.Name()))
+		}
+	}
+	if len(files) == 0 {
+		s.cacheMu.Lock()
+		s.pollingLogCache[pollingID] = cachedPollingEntry{logs: memResults, limit: limit}
+		s.cacheMu.Unlock()
+		return memResults, nil
+	}
+
+	// Sort files oldest first
+	sort.Strings(files)
+
+	var diskResults []*datastore.PollingLogEnt
+	filesChecked := 0
+	scanDeadline := time.Now().Add(200 * time.Millisecond)
+	// Scan at most 3 newest files with strict wall-clock deadline to guarantee fast response
+	for i := len(files) - 1; i >= 0; i-- {
+		if err := ctx.Err(); err != nil || time.Now().After(scanDeadline) {
+			break
+		}
+		if filesChecked >= 3 {
+			break
+		}
+		filesChecked++
+
+		filePath := files[i]
+		f, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+		stat, err := f.Stat()
+		if err != nil || stat.Size() == 0 {
+			_ = f.Close()
+			continue
+		}
+
+		pf, err := parquet.OpenFile(f, stat.Size())
+		if err != nil {
+			_ = f.Close()
+			continue
+		}
+
+		reader := parquet.NewGenericReader[ParquetLogRecord](pf)
+		buf := make([]ParquetLogRecord, 256)
+		var fileLogs []*datastore.PollingLogEnt
+		rowsRead := 0
+		for {
+			if err := ctx.Err(); err != nil || time.Now().After(scanDeadline) {
+				break
+			}
+			n, rErr := reader.Read(buf)
+			rowsRead += n
+			for j := 0; j < n; j++ {
+				rec := &buf[j]
+				if rec.Src != pollingID {
+					continue
+				}
+				fileLogs = append(fileLogs, parsePollingLogRecord(rec))
+			}
+			if rErr != nil || rowsRead >= 2000 {
+				break
+			}
+		}
+		_ = reader.Close()
+		_ = f.Close()
+
+		diskResults = append(fileLogs, diskResults...)
+		if len(diskResults)+len(memResults) >= limit {
+			break
+		}
+	}
+
+	allResults := make([]*datastore.PollingLogEnt, 0, len(diskResults)+len(memResults))
+	allResults = append(allResults, diskResults...)
+	allResults = append(allResults, memResults...)
+	if len(allResults) > limit {
+		allResults = allResults[len(allResults)-limit:]
+	}
+
+	s.cacheMu.Lock()
+	s.pollingLogCache[pollingID] = cachedPollingEntry{
+		logs:  allResults,
+		limit: limit,
+	}
+	s.cacheMu.Unlock()
+
+	return allResults, nil
 }
 
 // GetAllPollingLog retrieves all polling log entries for a given polling ID in chronological order.

@@ -84,10 +84,15 @@ const isDark = (): boolean => {
   return document.documentElement.classList.contains("dark");
 };
 
+let mapInitGen = 0;
+
 export const initMAP = async (div: HTMLElement, cb: any) => {
+  const gen = ++mapInitGen;
   try {
     mapConf = await fetchMapConf();
+    if (gen !== mapInitGen) return;
   } catch {
+    if (gen !== mapInitGen) return;
     mapConf = { MapSize: 0, IconSize: 3 };
   }
   switch (mapConf?.MapSize) {
@@ -122,15 +127,241 @@ export const initMAP = async (div: HTMLElement, cb: any) => {
 };
 
 export const resetMap = () => {
+  mapInitGen++;
   if (_mapP5) {
     _mapP5.remove();
     _mapP5 = undefined;
   }
+  publicPreloadedData = null;
+  readOnly = false;
   lastBackImagePath = "";
   _backImage = undefined;
   portImage = undefined;
   imageMap.clear();
   loadingImages.clear();
+};
+
+let publicPreloadedData: any = null;
+
+export const ensureFontsReady = async () => {
+  if (typeof document !== "undefined" && (document as any).fonts) {
+    try {
+      await (document as any).fonts.load('24px "Material Design Icons"');
+      await (document as any).fonts.ready;
+    } catch {}
+  }
+};
+
+export const initPublicMAP = async (div: HTMLElement, mapData: any) => {
+  const gen = ++mapInitGen;
+  readOnly = true;
+  publicPreloadedData = mapData;
+  if (mapData?.MapConf) {
+    mapConf = mapData.MapConf;
+  } else {
+    mapConf = { MapSize: 0, IconSize: 3 };
+  }
+  switch (mapConf?.MapSize) {
+    case 1:
+      mapSizeX = 2894;
+      mapSizeY = 4093;
+      break;
+    case 2:
+      mapSizeX = 4093;
+      mapSizeY = 2894;
+      break;
+    default:
+      mapSizeX = typeof window !== "undefined" && window.screen.width > 4000 ? 5000 : 2500;
+      mapSizeY = 5000;
+  }
+
+  mapCallBack = () => {};
+  mapRedraw = false;
+  if (_mapP5 != undefined) {
+    updatePublicMAP(mapData);
+    return;
+  }
+  div.oncontextmenu = (e) => {
+    e.preventDefault();
+  };
+
+  // Wait for font to prevent rendering fallback tofu glyphs
+  await ensureFontsReady();
+  if (gen !== mapInitGen || !div.isConnected) {
+    return;
+  }
+  readOnly = true;
+  publicPreloadedData = mapData;
+
+  if (typeof document !== "undefined" && (document as any).fonts) {
+    (document as any).fonts.ready.then(() => {
+      mapRedraw = true;
+      if (_mapP5) {
+        try {
+          _mapP5.redraw();
+        } catch {}
+      }
+    });
+  }
+  _mapP5 = new P5(mapMain, div);
+};
+
+export const updatePublicMAP = (mapData: any) => {
+  if (!mapData) return;
+  publicPreloadedData = mapData;
+  readOnly = true;
+
+  if (mapData.MapConf) {
+    mapConf = mapData.MapConf;
+  }
+  switch (mapConf?.MapSize) {
+    case 1:
+      mapSizeX = 2894;
+      mapSizeY = 4093;
+      break;
+    case 2:
+      mapSizeX = 4093;
+      mapSizeY = 2894;
+      break;
+    default:
+      mapSizeX = typeof window !== "undefined" && window.screen.width > 4000 ? 5000 : 2500;
+      mapSizeY = 5000;
+  }
+  if (_mapP5 && (_mapP5.width !== mapSizeX || _mapP5.height !== mapSizeY)) {
+    _mapP5.resizeCanvas(mapSizeX, mapSizeY);
+  }
+  const z = mapConf?.IconSize ?? (mapConf?.icon_size ?? 24);
+  if (z <= 5) {
+    iconSize = 8 + z * 8;
+    fontSize = 6 + z * 2;
+  } else {
+    iconSize = z;
+    fontSize = (mapConf as any)?.FontSize || (mapConf as any)?.font_size || Math.max(10, Math.min(16, Math.round(z * 0.45)));
+  }
+
+  // Nodes
+  nodes = {};
+  const rawNodes = mapData.Nodes || {};
+  if (Array.isArray(rawNodes)) {
+    rawNodes.forEach((n: any) => {
+      const id = n.id || n.ID || '';
+      if (id) {
+        checkNodePos(n);
+        nodes[id] = n;
+      }
+    });
+  } else {
+    for (const [id, n] of Object.entries(rawNodes)) {
+      const nodeObj: any = n;
+      if (id && nodeObj) {
+        if (!nodeObj.id) nodeObj.id = id;
+        checkNodePos(nodeObj);
+        nodes[id] = nodeObj;
+      }
+    }
+  }
+
+  // Lines
+  lines = Array.isArray(mapData.Lines) ? mapData.Lines : [];
+
+  // Items
+  items = {};
+  const rawItems = mapData.Items || {};
+  if (Array.isArray(rawItems)) {
+    rawItems.forEach((it: any) => {
+      const id = it.id || it.ID || '';
+      if (id) {
+        checkItemPos(it);
+        items[id] = it;
+      }
+    });
+  } else {
+    for (const [id, it] of Object.entries(rawItems)) {
+      const itemObj: any = it;
+      if (id && itemObj) {
+        if (!itemObj.id) itemObj.id = id;
+        checkItemPos(itemObj);
+        items[id] = itemObj;
+      }
+    }
+  }
+
+  // Networks
+  networks = {};
+  const rawNetworks = mapData.Networks || {};
+  if (Array.isArray(rawNetworks)) {
+    rawNetworks.forEach((net: any) => {
+      const id = net.id || net.ID || '';
+      if (id) {
+        checkNetworkPos(net);
+        networks[id] = net;
+      }
+    });
+  } else {
+    for (const [id, net] of Object.entries(rawNetworks)) {
+      const netObj: any = net;
+      if (id && netObj) {
+        if (!netObj.id) netObj.id = id;
+        checkNetworkPos(netObj);
+        networks[id] = netObj;
+      }
+    }
+  }
+
+  // Custom Icons
+  if (mapData.Icons && Array.isArray(mapData.Icons)) {
+    setCustomIcons(mapData.Icons);
+  }
+
+  // Node Images
+  for (const k in nodes) {
+    const imgKey = nodes[k].image || (nodes[k] as any).Image;
+    if (imgKey && !imageMap.has(imgKey) && !loadingImages.has(imgKey) && _mapP5) {
+      const imgData = getIconImage(imgKey);
+      if (imgData) {
+        loadingImages.add(imgKey);
+        _mapP5.loadImage(
+          imgData,
+          (loaded) => {
+            imageMap.set(imgKey, loaded);
+            loadingImages.delete(imgKey);
+            mapRedraw = true;
+          },
+          () => {
+            loadingImages.delete(imgKey);
+          }
+        );
+      }
+    }
+  }
+
+  // Background Image for public map
+  if (mapData.MapConf?.BackImage) {
+    const bi = mapData.MapConf.BackImage;
+    backImage = bi;
+    if (bi.Path && (bi.Path !== lastBackImagePath || !_backImage) && _mapP5) {
+      lastBackImagePath = bi.Path;
+      let imgUrl = bi.Path;
+      if (!imgUrl.startsWith("http") && !imgUrl.startsWith("/") && !imgUrl.startsWith("data:")) {
+        imgUrl = `/api/map/image/${imgUrl}`;
+      }
+      _mapP5.loadImage(
+        imgUrl,
+        (img) => {
+          _backImage = img;
+          mapRedraw = true;
+        },
+        () => {}
+      );
+    }
+  }
+
+  mapRedraw = true;
+  if (_mapP5) {
+    try {
+      _mapP5.redraw();
+    } catch {}
+  }
 };
 
 export const reloadBackImage = () => {
@@ -211,6 +442,12 @@ export const checkNetworkPos = (net: any) => {
 };
 
 export const updateMAP = async () => {
+  if (readOnly) {
+    if (publicPreloadedData) {
+      updatePublicMAP(publicPreloadedData);
+    }
+    return;
+  }
   if (!_mapP5) return;
   try {
     _mapP5.loop();
@@ -572,6 +809,16 @@ export const zoom = (zoomin: boolean) => {
   mapRedraw = true;
 };
 
+export const resetZoom = () => {
+  scale = 1.0;
+  mapRedraw = true;
+  if (_mapP5) {
+    try {
+      _mapP5.redraw();
+    } catch {}
+  }
+};
+
 const _setMapState = () => {
   mapState = 0;
   for (const id in nodes) {
@@ -837,7 +1084,13 @@ const mapMain = (p5: P5) => {
     p5.frameRate(30);
     p5.strokeWeight(1);
     p5.textFont("Roboto, sans-serif");
-    updateMAP();
+    if (readOnly || publicPreloadedData) {
+      if (publicPreloadedData) {
+        updatePublicMAP(publicPreloadedData);
+      }
+    } else {
+      updateMAP();
+    }
   };
 
   const handleCanvasContextMenu = (e: MouseEvent) => {
@@ -1353,11 +1606,18 @@ const mapMain = (p5: P5) => {
             const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
             p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
           }
-          p5.textFont("Material Design Icons");
-          p5.textAlign(p5.CENTER, p5.CENTER);
-          p5.textSize(iconSize);
-          p5.fill(stColor);
-          p5.text(icon, 0, 0);
+          const isFontReady = typeof document === "undefined" || !(document as any).fonts || (document as any).fonts.check('16px "Material Design Icons"');
+          if (isFontReady) {
+            p5.textFont("Material Design Icons");
+            p5.textAlign(p5.CENTER, p5.CENTER);
+            p5.textSize(iconSize);
+            p5.fill(stColor);
+            p5.text(icon, 0, 0);
+          } else {
+            p5.noStroke();
+            p5.fill(stColor);
+            p5.circle(0, 0, iconSize * 0.7);
+          }
 
           p5.textFont("Roboto, sans-serif");
           p5.textAlign(p5.CENTER, p5.CENTER);
@@ -1379,11 +1639,18 @@ const mapMain = (p5: P5) => {
           const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
           p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
         }
-        p5.textFont("Material Design Icons");
-        p5.textAlign(p5.CENTER, p5.CENTER);
-        p5.textSize(iconSize);
-        p5.fill(stColor);
-        p5.text(icon, 0, 0);
+        const isFontReady = typeof document === "undefined" || !(document as any).fonts || (document as any).fonts.check('16px "Material Design Icons"');
+        if (isFontReady) {
+          p5.textFont("Material Design Icons");
+          p5.textAlign(p5.CENTER, p5.CENTER);
+          p5.textSize(iconSize);
+          p5.fill(stColor);
+          p5.text(icon, 0, 0);
+        } else {
+          p5.noStroke();
+          p5.fill(stColor);
+          p5.circle(0, 0, iconSize * 0.7);
+        }
 
         // Node label
         p5.textFont("Roboto, sans-serif");
@@ -1472,6 +1739,7 @@ const mapMain = (p5: P5) => {
   };
 
   const setSelectNode = (bMulti: boolean) => {
+    if (readOnly) return false;
     const l = selectedNodes.length;
     const x = p5.mouseX / scale;
     const y = p5.mouseY / scale;
@@ -1503,7 +1771,7 @@ const mapMain = (p5: P5) => {
   };
 
   const setSelectItem = () => {
-    if (!editDrawItems) {
+    if (readOnly || !editDrawItems) {
       selectedDrawItems.length = 0;
       return false;
     }
@@ -1531,6 +1799,10 @@ const mapMain = (p5: P5) => {
 
   let selectedNetwork2 = "";
   const setSelectNetwork = (second: boolean = false) => {
+    if (readOnly) {
+      if (!second) selectedNetwork = "";
+      return false;
+    }
     const x = p5.mouseX / scale;
     const y = p5.mouseY / scale;
     for (const k in networks) {
@@ -1603,7 +1875,15 @@ const mapMain = (p5: P5) => {
   };
 
   const canvasMousePressed = (e?: MouseEvent) => {
-    if (readOnly) return true;
+    if (readOnly) {
+      clickInCanvas = true;
+      lastMouseX = p5.mouseX;
+      lastMouseY = p5.mouseY;
+      startMouseX = p5.mouseX;
+      startMouseY = p5.mouseY;
+      dragMode = 0;
+      return false;
+    }
     if (p5.mouseButton === p5.RIGHT || (e && (e.button === 2 || e.which === 3))) {
       return false;
     }
@@ -1674,7 +1954,19 @@ const mapMain = (p5: P5) => {
   };
 
   p5.mouseDragged = () => {
-    if (readOnly || !clickInCanvas) return true;
+    if (!clickInCanvas) return true;
+    if (readOnly) {
+      const parentEl = (p5 as any)._userNode as HTMLElement | undefined;
+      if (parentEl) {
+        const dx = p5.mouseX - lastMouseX;
+        const dy = p5.mouseY - lastMouseY;
+        parentEl.scrollLeft -= dx;
+        parentEl.scrollTop -= dy;
+      }
+      lastMouseX = p5.mouseX;
+      lastMouseY = p5.mouseY;
+      return false;
+    }
     if (p5.mouseButton === p5.RIGHT) return true;
 
     // Space key or middle click panning
@@ -1714,7 +2006,14 @@ const mapMain = (p5: P5) => {
   };
 
   p5.mouseReleased = (e?: MouseEvent) => {
-    if (readOnly) return true;
+    if (readOnly) {
+      clickInCanvas = false;
+      dragMode = 0;
+      selectedNodes.length = 0;
+      selectedDrawItems.length = 0;
+      selectedNetwork = "";
+      return false;
+    }
     if (p5.mouseButton === p5.RIGHT || (e && (e.button === 2 || e.which === 3))) {
       return false;
     }

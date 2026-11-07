@@ -71,8 +71,8 @@ func (s *Store) SaveLogReportData(_ context.Context, kind string, items map[stri
 	if len(items) == 0 {
 		return nil
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -105,8 +105,8 @@ func (s *Store) DeleteLogReportData(_ context.Context, kind string, ids []string
 	if len(ids) == 0 {
 		return nil
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -130,8 +130,8 @@ func (s *Store) DeleteLogReportData(_ context.Context, kind string, ids []string
 
 // ResetLogReportData removes all entities of a kind (or all kinds when kind is empty).
 func (s *Store) ResetLogReportData(_ context.Context, kind string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}

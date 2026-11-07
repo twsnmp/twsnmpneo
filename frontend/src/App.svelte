@@ -10,6 +10,7 @@
   import SystemView from "./lib/views/SystemView.svelte";
   import PKIView from "./lib/views/PKIView.svelte";
   import LoginView from "./lib/views/LoginView.svelte";
+  import PublicDashboardView from "./lib/views/PublicDashboardView.svelte";
   import ConfigModal from "./lib/components/ConfigModal.svelte";
   import HelpDialog from "./lib/components/HelpDialog.svelte";
   import GlobalModalHost from "./lib/components/common/GlobalModalHost.svelte";
@@ -51,6 +52,20 @@
   let showConfig = $state(false);
   let showHelp = $state(false);
   let mapName = $state("My Network");
+
+  let isPublicDashboard = $state(false);
+  let publicDashboardKey = $state("");
+
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname;
+    if (path.startsWith("/dashboard/")) {
+      const parts = path.split("/");
+      if (parts.length >= 3 && parts[2]) {
+        isPublicDashboard = true;
+        publicDashboardKey = decodeURIComponent(parts[2]);
+      }
+    }
+  }
 
   let isAuthenticated = $state(false);
   let currentUser = $state<UserEnt | null>(null);
@@ -105,6 +120,10 @@
   };
 
   const checkAuth = async () => {
+    if (isPublicDashboard) {
+      authLoading = false;
+      return;
+    }
     try {
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
@@ -240,7 +259,9 @@
   ];
 </script>
 
-{#if authLoading}
+{#if isPublicDashboard}
+  <PublicDashboardView key={publicDashboardKey} />
+{:else if authLoading}
   <!-- Splash Loading -->
   <div class="flex h-screen w-screen items-center justify-center bg-slate-100 dark:bg-[#070d1e]">
     <div class="flex flex-col items-center gap-3">

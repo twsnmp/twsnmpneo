@@ -788,6 +788,33 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
 * **Platform Separation**:
   - Partitioned using `//go:build windows`, `//go:build linux`, and `//go:build !windows && !linux` build tags. Platforms without native background service support (macOS / containers) return explanatory error messages without impacting builds or tests.
 
+### 4.15 Public Dashboard & Embed System
+
+Consolidating and extending the public dashboard capabilities ported from **TWSNMP FC**:
+* **Secure Token-Based Public Access**:
+  - Serves read-only dashboard directly at `/dashboard/:key` without requiring authentication.
+  - Automatically sanitizes sensitive data (node IP addresses, MAC addresses, SNMP credentials, LLM API keys) before sending responses.
+  - Public REST APIs:
+    - `GET /public/api/dashboard/:key`: Returns full dashboard data including items, summary KPIs, sanitized map topologies, telemetry results, and historical time-series logs.
+    - `GET /public/api/dashboard/:key/image/:name`: Delivers background images and custom icons safely.
+    - `GET /public/api/map/:key`: Full backward-compatibility endpoint with TWSNMP FC.
+* **Multiple Item Registration (Map & Pollings)**:
+  - Users can register multiple public items (Topology Map or specific Node Pollings) with custom display titles.
+  - Tabbed switcher allows smooth switching between map canvas and individual polling analytics.
+* **twFathom-Style Dashboard Design**:
+  - **Top KPI Cards**: High critical count, Warning count, AI Anomaly score/count, 24-hour event log volume, Anomalous flow (Fumble) count, and overall healthy nodes/pollings ratio.
+  - **Time-Series Charting**: Area gradient line charts powered by ECharts with data zoom and hover tooltips for selected pollings.
+  - **Drama Alert Overlay (Per-Item Configurable)**:
+    - Fullscreen TV-drama-style hazard alert overlay with top/bottom hazard stripes, pulsing red gradient background, detailed incident telemetry (node, polling, value, timestamp, count), and DISMISS acknowledgment button.
+    - Each registered item independently configures its alert trigger:
+      - Topology Map: triggers when nodes reach or exceed specified severity level (`warn` or `high`).
+      - Polling: triggers when the specific polling detects failure (`warn`/`high`).
+    - Web Audio API synthesizer for audible emergency beeps (default OFF, configurable per item, automatic timeout).
+* **External Embedding (iframe)**:
+  - Strips `X-Frame-Options` and enforces `Content-Security-Policy: frame-ancestors *` on public routes to allow embedding across external wikis, portals, and intranets.
+  - Compact mode via `?embed=true` query parameter for seamless embedding without redundant headers.
+  - One-click copy for iframe HTML tags in System Configuration.
+
 
 ---
 

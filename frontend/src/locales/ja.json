@@ -368,6 +368,7 @@
     "saveHint": "変更を有効にするには保存ボタンをクリックしてください",
     "tabMap": "マップ設定",
     "tabLoc": "GIS地図設定",
+    "tabDashboard": "公開ダッシュボード",
     "tabPolling": "ポーリング設定",
     "tabDatabase": "データベース",
     "tabReceivers": "受信デーモン",

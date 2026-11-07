@@ -308,6 +308,67 @@ type MapConfEnt struct {
 	LLMModel       string  `json:"LLMModel"`
 	LogFormat      string  `json:"LogFormat"`
 	GeoIPInfo      string  `json:"GeoIPInfo,omitempty"`
+	// Public Dashboard configuration
+	EnablePublicDashboard bool                     `json:"EnablePublicDashboard"`
+	PublicDashboardKey    string                   `json:"PublicDashboardKey"`
+	PublicDashboardItems  []PublicDashboardItemEnt `json:"PublicDashboardItems,omitempty"`
+	PublicDashboardAlert  PublicDashboardAlertConf `json:"PublicDashboardAlert,omitempty"`
+}
+
+// PublicItemAlertConf defines alert overlay settings for an individual public dashboard item.
+type PublicItemAlertConf struct {
+	Enable       bool   `json:"enable"`       // Enable Drama Alert for this item
+	Level        string `json:"level"`        // "warn" (warn/low/high) or "high" (high only)
+	Sound        bool   `json:"sound"`        // Beep audio alert (default false)
+	SoundTimeout int    `json:"soundTimeout"` // Beep audio timeout in seconds (default 30)
+}
+
+// PublicDashboardItemEnt defines an item registered on the public dashboard.
+type PublicDashboardItemEnt struct {
+	ID        string              `json:"id"`
+	Type      string              `json:"type"`                // "map" or "polling"
+	PollingID string              `json:"pollingId,omitempty"` // Polling ID if Type == "polling"
+	Title     string              `json:"title"`               // Custom display title
+	Alert     PublicItemAlertConf `json:"alert"`               // Item-specific alert configuration
+}
+
+// PublicDashboardAlertConf defines alert overlay settings for the public dashboard.
+type PublicDashboardAlertConf struct {
+	Mode         string `json:"mode"`         // "none", "all", "state", "polling"
+	Level        string `json:"level"`        // "warn" (warn/low/high) or "high" (high only)
+	PollingID    string `json:"pollingId"`    // Target polling if mode == "polling"
+	Sound        bool   `json:"sound"`        // Beep audio alert (default false)
+	SoundTimeout int    `json:"soundTimeout"` // Beep audio timeout in seconds (default 30)
+}
+
+// PublicDashboardSummaryKPI holds aggregated KPI metrics for the public dashboard.
+type PublicDashboardSummaryKPI struct {
+	// Node level counts
+	NodeTotal   int `json:"nodeTotal"`
+	NodeHigh    int `json:"nodeHigh"`
+	NodeLow     int `json:"nodeLow"`
+	NodeWarn    int `json:"nodeWarn"`
+	NodeRepair  int `json:"nodeRepair"`
+	NodeNormal  int `json:"nodeNormal"`
+	NodeUnknown int `json:"nodeUnknown"`
+
+	// Polling level counts
+	PollingTotal   int `json:"pollingTotal"`
+	PollingHigh    int `json:"pollingHigh"`
+	PollingLow     int `json:"pollingLow"`
+	PollingWarn    int `json:"pollingWarn"`
+	PollingRepair  int `json:"pollingRepair"`
+	PollingNormal  int `json:"pollingNormal"`
+	PollingUnknown int `json:"pollingUnknown"`
+
+	// 24H Log counts
+	LogEventCount  int `json:"logEventCount"`  // Event log count in past 24h
+	LogSyslogCount int `json:"logSyslogCount"` // Syslog count in past 24h
+	LogTrapCount   int `json:"logTrapCount"`   // SNMP trap count in past 24h
+
+	// AI Anomaly detection
+	AIAnomalyCount int     `json:"aiAnomalyCount"` // Number of pollings with anomaly score exceeding threshold
+	AIMaxScore     float64 `json:"aiMaxScore"`     // Maximum anomaly score detected
 }
 
 // NetFlowEnt represents a decoded NetFlow / IPFIX flow log entry.

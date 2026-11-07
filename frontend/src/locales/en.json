@@ -368,6 +368,7 @@
     "saveHint": "Click the Save button to apply your changes",
     "tabMap": "Map Settings",
     "tabLoc": "GIS Map",
+    "tabDashboard": "Public Dashboard",
     "tabPolling": "Polling Settings",
     "tabDatabase": "Database",
     "tabReceivers": "Receivers & Daemons",

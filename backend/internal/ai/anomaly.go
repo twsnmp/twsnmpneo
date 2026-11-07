@@ -882,6 +882,8 @@ func (s *AnomalyService) ProcessPolling(ctx context.Context, pe *datastore.Polli
 
 	df, err := MakeAIData(pe, logs)
 	if err != nil || df == nil || df.Len() < 2 {
+		// Record attempt timestamp so we don't retry every 60 seconds when logs are insufficient
+		s.lastCalc.Store(pe.ID, time.Now().Unix())
 		return err
 	}
 
@@ -891,6 +893,7 @@ func (s *AnomalyService) ProcessPolling(ctx context.Context, pe *datastore.Polli
 	}
 	res := CalcAIScore(req, pe.AIMode)
 	if res == nil || len(res.ScoreData) < 1 {
+		s.lastCalc.Store(pe.ID, time.Now().Unix())
 		return fmt.Errorf("failed to calculate score")
 	}
 
@@ -947,14 +950,7 @@ func (s *AnomalyService) GetAIList(ctx context.Context) ([]*datastore.AIListEnt,
 		}
 
 		air, err := s.store.GetAIResult(pe.ID)
-		if err != nil || air == nil || len(air.ScoreData) < 1 {
-			// Try on-demand calculation if not yet computed
-			if pErr := s.ProcessPolling(ctx, pe, true); pErr == nil {
-				air, _ = s.store.GetAIResult(pe.ID)
-			}
-		}
-
-		if air != nil && len(air.ScoreData) > 0 {
+		if (err == nil && air != nil) && len(air.ScoreData) > 0 {
 			ret = append(ret, &datastore.AIListEnt{
 				ID:       pe.ID,
 				Node:     nodeName,

@@ -167,8 +167,11 @@
   let formatPosY = $state(0);
 
   let refreshTimer: any = null;
+  let isReloading = false;
 
   const reloadAllData = async () => {
+    if (isReloading) return;
+    isReloading = true;
     try {
       const [n, l, net, di, el, pl, icons] = await Promise.all([
         fetchNodes(),
@@ -191,6 +194,8 @@
       await updateMAP();
     } catch (e) {
       console.error("Failed to load map data:", e);
+    } finally {
+      isReloading = false;
     }
   };
 
@@ -297,6 +302,8 @@
 
     // Periodic refresh every 5 seconds
     refreshTimer = setInterval(async () => {
+      if (isReloading) return;
+      isReloading = true;
       try {
         const [el, pl, n] = await Promise.all([
           fetchEventLogs(),
@@ -319,6 +326,8 @@
         await updateMAP();
       } catch (e) {
         console.error("Polling error:", e);
+      } finally {
+        isReloading = false;
       }
     }, 5000);
   });

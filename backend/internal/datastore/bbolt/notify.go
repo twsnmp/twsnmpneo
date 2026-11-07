@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
@@ -209,22 +210,12 @@ func (s *Store) ForEachLastEventLog(fn func(*datastore.EventLogEnt) bool) {
 // This is a stub that reads from a dedicated "ai" bucket if it exists,
 // matching twsnmpfk's storage pattern.
 func (s *Store) GetAIResult(pollingID string) (*datastore.AIResultEnt, error) {
-	var result datastore.AIResultEnt
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("ai"))
-		if b == nil {
-			return datastore.ErrNotFound
+	if val, ok := s.aiResults.Load(pollingID); ok {
+		if r, ok := val.(*datastore.AIResultEnt); ok {
+			return r, nil
 		}
-		v := b.Get([]byte(pollingID))
-		if v == nil {
-			return datastore.ErrNotFound
-		}
-		return json.Unmarshal(v, &result)
-	})
-	if err != nil {
-		return nil, err
 	}
-	return &result, nil
+	return nil, datastore.ErrNotFound
 }
 
 // SaveAIResult saves AI anomaly detection results for a polling.
@@ -236,18 +227,23 @@ func (s *Store) SaveAIResult(_ context.Context, result *datastore.AIResultEnt) e
 	if err != nil {
 		return err
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte("ai"))
 		if err != nil {
 			return err
 		}
 		return b.Put([]byte(result.PollingID), data)
 	})
+	if err == nil {
+		cp := *result
+		s.aiResults.Store(result.PollingID, &cp)
+	}
+	return err
 }
 
 // DeleteAIResult removes AI anomaly detection results for a polling, or all if id == "all".
 func (s *Store) DeleteAIResult(_ context.Context, id string) error {
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err := s.db.Update(func(tx *bbolt.Tx) error {
 		if id == "all" {
 			_ = tx.DeleteBucket([]byte("ai"))
 			_, err := tx.CreateBucketIfNotExists([]byte("ai"))
@@ -259,6 +255,14 @@ func (s *Store) DeleteAIResult(_ context.Context, id string) error {
 		}
 		return b.Delete([]byte(id))
 	})
+	if err == nil {
+		if id == "all" {
+			s.aiResults = sync.Map{}
+		} else {
+			s.aiResults.Delete(id)
+		}
+	}
+	return err
 }
 
 // GetAIConf retrieves the AI configuration settings.

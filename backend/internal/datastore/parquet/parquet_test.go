@@ -282,3 +282,106 @@ func TestStore_GetTotalSize(t *testing.T) {
 		t.Fatalf("expected positive total size after flush, got %d", totalSize)
 	}
 }
+
+func TestStore_GetRecentPollingLog(t *testing.T) {
+	store, _, cleanup := setupParquetTest(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 1. Check non-existent polling ID -> returns empty, no error, fast
+	logs, err := store.GetRecentPollingLog(ctx, "non-existent-poll", 50)
+	if err != nil {
+		t.Fatalf("unexpected error for non-existent poll: %v", err)
+	}
+	if len(logs) != 0 {
+		t.Fatalf("expected 0 logs, got %d", len(logs))
+	}
+
+	// 2. Write 3 polling logs to disk (flushed)
+	baseTime := time.Now().Add(-10 * time.Minute).UnixNano()
+	for i := 0; i < 3; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: baseTime + int64(i*1000000000),
+			Type: "polling",
+			Src:  "poll-1",
+			Log:  fmt.Sprintf(`{"State":"normal","Result":{"rtt":%d.5}}`, i+1),
+		})
+	}
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	// 3. Write 2 more polling logs into in-memory buffer (un-flushed!)
+	for i := 3; i < 5; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: baseTime + int64(i*1000000000),
+			Type: "polling",
+			Src:  "poll-1",
+			Log:  fmt.Sprintf(`{"State":"normal","Result":{"rtt":%d.5}}`, i+1),
+		})
+	}
+
+	// 4. GetRecentPollingLog should fetch all 5 logs in chronological order!
+	logs, err = store.GetRecentPollingLog(ctx, "poll-1", 10)
+	if err != nil {
+		t.Fatalf("failed to get recent polling log: %v", err)
+	}
+	if len(logs) != 5 {
+		t.Fatalf("expected 5 logs, got %d", len(logs))
+	}
+
+	// Verify chronological order (oldest to newest)
+	for i := 0; i < len(logs); i++ {
+		expectedRTT := float64(i+1) + 0.5
+		rttVal, ok := logs[i].Result["rtt"].(float64)
+		if !ok || rttVal != expectedRTT {
+			t.Errorf("log[%d] rtt mismatch: got %v, expected %f", i, logs[i].Result["rtt"], expectedRTT)
+		}
+	}
+}
+
+func TestStore_CountRecentLogs(t *testing.T) {
+	store, _, cleanup := setupParquetTest(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Write 5 syslog and 3 trap records
+	now := time.Now().UnixNano()
+	for i := 0; i < 5; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now - int64(i*1000000000),
+			Type: "syslog",
+			Src:  "192.168.1.1",
+			Log:  `{"message":"test syslog"}`,
+		})
+	}
+	for i := 0; i < 3; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now - int64(i*1000000000),
+			Type: "trap",
+			Src:  "192.168.1.1",
+			Log:  `{"message":"test trap"}`,
+		})
+	}
+
+	// 1. In-memory count test
+	counts := store.CountRecentLogs(ctx, 24*time.Hour, "syslog", "trap")
+	if counts["syslog"] != 5 {
+		t.Errorf("expected 5 in-memory syslog, got %d", counts["syslog"])
+	}
+	if counts["trap"] != 3 {
+		t.Errorf("expected 3 in-memory trap, got %d", counts["trap"])
+	}
+
+	// 2. Flush to disk and test disk counting
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+	counts = store.CountRecentLogs(ctx, 24*time.Hour, "syslog", "trap")
+	if counts["syslog"] != 5 {
+		t.Errorf("expected 5 disk syslog, got %d", counts["syslog"])
+	}
+	if counts["trap"] != 3 {
+		t.Errorf("expected 3 disk trap, got %d", counts["trap"])
+	}
+}

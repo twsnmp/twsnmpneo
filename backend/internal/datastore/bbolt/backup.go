@@ -402,6 +402,8 @@ func (s *Store) RestoreDB(backupFile string) error {
 	s.otelMetrics = sync.Map{}
 	s.mqttStats = sync.Map{}
 	s.sensors = sync.Map{}
+	s.users = sync.Map{}
+	s.aiResults = sync.Map{}
 	if err := s.loadCache(); err != nil {
 		slog.Warn("Failed to reload cache after restore", "error", err)
 	}

@@ -1383,5 +1383,182 @@ func TestSelfUpdateEndpoints(t *testing.T) {
 	}
 }
 
+func TestPublicDashboardAPI(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+	srv, err := api.NewServer(api.Config{
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	e := srv.GetEcho()
+	ctx := context.Background()
+
+	// 1. Initial state: public dashboard is disabled by default
+	req := httptest.NewRequest(http.MethodGet, "/public/api/dashboard/invalidkey", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden when dashboard disabled, got %d", rec.Code)
+	}
+
+	// 2. Prepare test data: Node, Polling, EventLog
+	node := &datastore.NodeEnt{
+		ID:       "node-1",
+		Name:     "Test Server",
+		IP:       "192.168.1.100", // Confidential! Must be sanitized
+		MAC:      "aa:bb:cc:dd:ee:ff", // Confidential!
+		State:    "normal",
+		Icon:     "server",
+		X:        100,
+		Y:        200,
+	}
+	_ = bStore.SaveNode(ctx, node)
+
+	poll := &datastore.PollingEnt{
+		ID:       "poll-1",
+		Name:     "Ping Test",
+		NodeID:   "node-1",
+		Type:     "ping",
+		State:    "normal",
+		LastTime: time.Now().UnixNano(),
+		Result: map[string]interface{}{
+			"rtt": 12.5,
+		},
+	}
+	_ = bStore.SavePolling(ctx, poll)
+
+	_ = bStore.AddEventLog(ctx, &datastore.EventLogEnt{
+		Time:     time.Now().UnixNano(),
+		Type:     "ping",
+		Level:    "info",
+		NodeName: "Test Server",
+		Event:    "Ping restored",
+	})
+
+	// 3. Configure Public Dashboard
+	testKey := "secret-dashboard-key-12345"
+	conf, _ := bStore.GetMapConf(ctx)
+	conf.EnablePublicDashboard = true
+	conf.PublicDashboardKey = testKey
+	conf.Community = "supersecretcommunity"
+	conf.LLMAPIKey = "sk-secret-llm-key"
+	conf.PublicDashboardItems = []datastore.PublicDashboardItemEnt{
+		{
+			ID:    "item-1",
+			Type:  "map",
+			Title: "Main Network",
+			Alert: datastore.PublicItemAlertConf{
+				Enable: true,
+				Level:  "warn",
+			},
+		},
+		{
+			ID:        "item-2",
+			Type:      "polling",
+			PollingID: "poll-1",
+			Title:     "Ping Monitor",
+			Alert: datastore.PublicItemAlertConf{
+				Enable: true,
+				Level:  "high",
+			},
+		},
+	}
+	conf.PublicDashboardAlert = datastore.PublicDashboardAlertConf{
+		Mode:  "all",
+		Level: "warn",
+		Sound: false,
+	}
+	_ = bStore.SaveMapConf(ctx, conf)
+
+	// 4. Test wrong key -> 403 Forbidden
+	req = httptest.NewRequest(http.MethodGet, "/public/api/dashboard/wrongkey", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for wrong key, got %d", rec.Code)
+	}
+
+	// 5. Test valid key -> 200 OK (No auth required)
+	req = httptest.NewRequest(http.MethodGet, "/public/api/dashboard/"+testKey, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for valid dashboard key, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify iframe embedding headers
+	if rec.Header().Get("X-Frame-Options") != "" {
+		t.Errorf("expected X-Frame-Options to be removed for embedding, got: %s", rec.Header().Get("X-Frame-Options"))
+	}
+	if rec.Header().Get("Content-Security-Policy") != "frame-ancestors *" {
+		t.Errorf("expected Content-Security-Policy to allow frame-ancestors *, got: %s", rec.Header().Get("Content-Security-Policy"))
+	}
+
+	var resp struct {
+		MapName    string                              `json:"mapName"`
+		Items      []datastore.PublicDashboardItemEnt  `json:"items"`
+		SummaryKPI datastore.PublicDashboardSummaryKPI `json:"summaryKpi"`
+		Map        map[string]interface{}              `json:"map"`
+		Pollings   map[string]map[string]interface{}   `json:"pollings"`
+		ItemAlerts map[string]interface{}              `json:"itemAlerts"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal public dashboard response: %v", err)
+	}
+
+	if len(resp.Items) != 2 {
+		t.Errorf("expected 2 items, got %d", len(resp.Items))
+	}
+	if resp.SummaryKPI.NodeTotal < 1 {
+		t.Errorf("expected nodeTotal >= 1, got %d", resp.SummaryKPI.NodeTotal)
+	}
+	if resp.SummaryKPI.PollingTotal < 1 {
+		t.Errorf("expected pollingTotal >= 1, got %d", resp.SummaryKPI.PollingTotal)
+	}
+
+	// Verify sanitization: Ensure community, LLMAPIKey, node IP, and MAC are NOT leaked
+	bodyStr := rec.Body.String()
+	if strings.Contains(bodyStr, "supersecretcommunity") {
+		t.Errorf("security violation: community string leaked in public dashboard response")
+	}
+	if strings.Contains(bodyStr, "sk-secret-llm-key") {
+		t.Errorf("security violation: LLM API key leaked in public dashboard response")
+	}
+	if strings.Contains(bodyStr, "192.168.1.100") {
+		t.Errorf("security violation: node IP leaked in public dashboard response")
+	}
+	if strings.Contains(bodyStr, "aa:bb:cc:dd:ee:ff") {
+		t.Errorf("security violation: node MAC leaked in public dashboard response")
+	}
+
+	// Verify polling object is present
+	pObj, exists := resp.Pollings["poll-1"]
+	if !exists {
+		t.Fatalf("expected pollings to contain poll-1")
+	}
+	if pObj["Name"] != "Ping Test" {
+		t.Errorf("expected polling name 'Ping Test', got %v", pObj["Name"])
+	}
+
+	// 6. Test Legacy TWSNMP FC map endpoint: /public/api/map/:key and /api/public/dashboard/:key
+	req = httptest.NewRequest(http.MethodGet, "/api/public/dashboard/"+testKey, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for /api/public/dashboard/:key, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/public/api/map/"+testKey, nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for legacy map endpoint, got %d", rec.Code)
+	}
+}
+
 
 

@@ -26,6 +26,8 @@
   import ConfigTabIcons from "./config/ConfigTabIcons.svelte";
   import ConfigTabUsers from "./config/ConfigTabUsers.svelte";
   import ConfigTabLoc from "./config/ConfigTabLoc.svelte";
+  import ConfigTabDashboard from "./config/ConfigTabDashboard.svelte";
+  import type { PublicDashboardItemEnt, PublicDashboardAlertConf } from "../api";
   import {
     X,
     Save,
@@ -40,6 +42,7 @@
     FolderTree,
     Users,
     MapPin,
+    LayoutDashboard,
   } from "@lucide/svelte";
   import { _ } from "svelte-i18n";
 
@@ -52,10 +55,10 @@
     show: boolean;
     onSaved?: () => void;
     currentUser?: UserEnt | null;
-    initialTab?: "map" | "loc" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users";
+    initialTab?: "map" | "loc" | "dashboard" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users";
   } = $props();
 
-  let activeTab = $state<"map" | "loc" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users">("map");
+  let activeTab = $state<"map" | "loc" | "dashboard" | "polling" | "receivers" | "notify" | "ai" | "database" | "mib" | "icons" | "users">("map");
 
   $effect(() => {
     if (show && initialTab) {
@@ -65,6 +68,17 @@
 
   let saveMsg = $state("");
   let saveError = $state("");
+
+  // Public Dashboard configuration
+  let enablePublicDashboard = $state(false);
+  let publicDashboardKey = $state("");
+  let publicDashboardItems = $state<PublicDashboardItemEnt[]>([]);
+  let publicDashboardAlert = $state<PublicDashboardAlertConf>({
+    mode: "all",
+    level: "warn",
+    sound: false,
+    soundTimeout: 30,
+  });
 
   // Map & Background Image configuration
   let mapName = $state("TWSNMP NEO");
@@ -228,6 +242,16 @@
         mcpFrom = conf.MCPFrom ?? (conf as any).mcp_from ?? "";
         logFormat = conf.LogFormat ?? conf.log_format ?? "parquet";
         geoIPInfo = conf.GeoIPInfo ?? conf.geo_ip_info ?? "";
+
+        enablePublicDashboard = Boolean(conf.EnablePublicDashboard ?? (conf as any).enable_public_dashboard ?? false);
+        publicDashboardKey = conf.PublicDashboardKey ?? (conf as any).public_dashboard_key ?? "";
+        publicDashboardItems = conf.PublicDashboardItems ?? (conf as any).public_dashboard_items ?? [];
+        publicDashboardAlert = conf.PublicDashboardAlert ?? (conf as any).public_dashboard_alert ?? {
+          mode: "all",
+          level: "warn",
+          sound: false,
+          soundTimeout: 30,
+        };
         await loadLocalAIInfo();
       }
 
@@ -335,6 +359,10 @@
         MCPMode: mcpMode,
         MCPFrom: mcpFrom,
         LogFormat: logFormat,
+        EnablePublicDashboard: Boolean(enablePublicDashboard),
+        PublicDashboardKey: publicDashboardKey,
+        PublicDashboardItems: publicDashboardItems,
+        PublicDashboardAlert: publicDashboardAlert,
       });
 
       // 2. Save Notify Conf
@@ -446,6 +474,14 @@
           </button>
           <button
             type="button"
+            onclick={() => (activeTab = "dashboard")}
+            class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'dashboard' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
+          >
+            <LayoutDashboard class="h-4 w-4" />
+            {$_('config.tabDashboard') || '公開ダッシュボード'}
+          </button>
+          <button
+            type="button"
             onclick={() => (activeTab = "polling")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'polling' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -547,6 +583,14 @@
                 saveMsg = $_('location.saved') || 'Saved map configuration.';
                 if (onSaved) onSaved();
               }}
+            />
+          {:else if activeTab === "dashboard"}
+            <ConfigTabDashboard
+              bind:enablePublicDashboard
+              bind:publicDashboardKey
+              bind:publicDashboardItems
+              onSuccess={(msg) => (saveMsg = msg)}
+              onError={(err) => (saveError = err)}
             />
           {:else if activeTab === "polling"}
             <ConfigTabPolling

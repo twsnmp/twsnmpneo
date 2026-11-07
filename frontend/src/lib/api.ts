@@ -1423,7 +1423,162 @@ export interface MapConfEnt {
   MCPToken?: string;
   LogFormat?: string;
   GeoIPInfo?: string;
+  EnablePublicDashboard?: boolean;
+  PublicDashboardKey?: string;
+  PublicDashboardItems?: PublicDashboardItemEnt[];
+  PublicDashboardAlert?: PublicDashboardAlertConf;
   [key: string]: any;
+}
+
+export interface PublicItemAlertConf {
+  enable: boolean;
+  level: "warn" | "high";
+  sound?: boolean;
+  soundTimeout?: number;
+}
+
+export interface PublicDashboardItemEnt {
+  id: string;
+  type: "map" | "polling";
+  pollingId?: string;
+  title?: string;
+  alert?: PublicItemAlertConf;
+}
+
+export interface PublicDashboardAlertConf {
+  mode: "none" | "all" | "state" | "polling";
+  level: "warn" | "high";
+  pollingId?: string;
+  sound?: boolean;
+  soundTimeout?: number;
+}
+
+export interface PublicDashboardSummaryKPI {
+  nodeTotal: number;
+  nodeHigh: number;
+  nodeLow: number;
+  nodeWarn: number;
+  nodeRepair?: number;
+  nodeNormal: number;
+  nodeUnknown?: number;
+
+  pollingTotal: number;
+  pollingHigh: number;
+  pollingLow: number;
+  pollingWarn: number;
+  pollingRepair?: number;
+  pollingNormal: number;
+  pollingUnknown?: number;
+
+  logEventCount: number;
+  logSyslogCount?: number;
+  logTrapCount?: number;
+
+  aiAnomalyCount: number;
+  aiMaxScore: number;
+}
+
+export interface PublicAlertState {
+  isActive: boolean;
+  nodeName: string;
+  targetName: string;
+  state: string;
+  valueText: string;
+  message: string;
+  lastTime: number;
+}
+
+export interface PublicDashboardData {
+  mapName: string;
+  items: PublicDashboardItemEnt[];
+  alertConf: PublicDashboardAlertConf;
+  summaryKpi: PublicDashboardSummaryKPI;
+  lastUpdate: number;
+  map?: any;
+  pollings?: Record<string, {
+    ID: string;
+    Name: string;
+    NodeID: string;
+    NodeName?: string;
+    Type: string;
+    Mode?: string;
+    State: string;
+    LastTime?: number;
+    Result?: Record<string, any>;
+    Logs?: Array<{
+      Time: number;
+      State: string;
+      Result: Record<string, any>;
+    }>;
+  }>;
+  activeAlert?: PublicAlertState;
+  itemAlerts?: Record<string, PublicAlertState>;
+}
+
+export async function fetchPublicDashboard(key: string): Promise<PublicDashboardData> {
+  const encKey = encodeURIComponent(key);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second safety timeout
+  const startTime = performance.now();
+
+  try {
+    // Try /api/public/dashboard first (covered by Vite dev proxy and standard api prefix)
+    let res = await fetch(`/api/public/dashboard/${encKey}`, { signal: controller.signal });
+    const ct1 = res.headers.get("content-type") || "";
+    if (!res.ok || ct1.includes("text/html")) {
+      // Fallback to /public/api/dashboard if /api/public did not return JSON
+      const res2 = await fetch(`/public/api/dashboard/${encKey}`, { signal: controller.signal });
+      const ct2 = res2.headers.get("content-type") || "";
+      if (res2.ok && ct2.includes("application/json")) {
+        res = res2;
+      }
+    }
+
+    const durationMs = Math.round(performance.now() - startTime);
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.warn(`[PublicDashboard API] HTTP error ${res.status} after ${durationMs}ms:`, errText);
+      throw new Error(`公開ダッシュボードの取得に失敗しました (${res.status}): ${errText || res.statusText}`);
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    const rawText = await res.text();
+    if (!contentType.includes("application/json") || rawText.trim().startsWith("<")) {
+      console.warn(`[PublicDashboard API] Non-JSON response after ${durationMs}ms:`, rawText.slice(0, 100));
+      throw new Error(`公開ダッシュボードのAPIからJSON以外の応答が返されました。`);
+    }
+
+    try {
+      const parsed = JSON.parse(rawText);
+      console.log(`[PublicDashboard API] Fetched successfully in ${durationMs}ms (HTTP ${res.status}, items: ${parsed?.items?.length || 0})`);
+      return parsed;
+    } catch (err: any) {
+      console.error(`[PublicDashboard API] JSON parse error after ${durationMs}ms:`, err);
+      throw new Error(`公開ダッシュボードのJSON解析に失敗しました: ${err.message}`);
+    }
+  } catch (err: any) {
+    const durationMs = Math.round(performance.now() - startTime);
+    if (err.name === "AbortError") {
+      console.error(`[PublicDashboard API] Request aborted after ${durationMs}ms (timeout)`);
+      throw new Error("公開ダッシュボードのAPI通信がタイムアウトしました (15s)。バックエンドの応答を確認してください。");
+    }
+    console.error(`[PublicDashboard API] Request failed after ${durationMs}ms:`, err);
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function fetchPublicMap(key: string): Promise<any> {
+  const encKey = encodeURIComponent(key);
+  let res = await fetch(`/api/public/map/${encKey}`);
+  const ct1 = res.headers.get("content-type") || "";
+  if (!res.ok || ct1.includes("text/html")) {
+    res = await fetch(`/public/api/map/${encKey}`);
+  }
+  if (!res.ok) throw new Error(`Fetch public map failed: ${res.statusText}`);
+  return res.json();
 }
 
 export async function fetchMapConf(): Promise<MapConfEnt> {

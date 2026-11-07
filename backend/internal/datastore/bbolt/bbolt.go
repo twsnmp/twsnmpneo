@@ -74,6 +74,8 @@ type Store struct {
 	otelMetrics sync.Map // string -> *datastore.OTelMetricEnt
 	mqttStats   sync.Map // string -> *datastore.MqttStatEnt
 	sensors     sync.Map // string -> *datastore.SensorEnt
+	users       sync.Map // string -> *datastore.UserEnt
+	aiResults   sync.Map // string -> *datastore.AIResultEnt
 
 	mapConf      datastore.MapConfEnt
 	notifyConf   datastore.NotifyConfEnt
@@ -392,6 +394,26 @@ func (s *Store) loadCache() error {
 					sn.StatsLen = len(sn.Stats)
 					sn.MonitorsLen = len(sn.Monitors)
 					s.sensors.Store(sn.ID, &sn)
+				}
+				return nil
+			})
+		}
+		// Load Users
+		if b := tx.Bucket(bucketUsers); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var u datastore.UserEnt
+				if err := json.Unmarshal(v, &u); err == nil {
+					s.users.Store(u.User, &u)
+				}
+				return nil
+			})
+		}
+		// Load AI Results
+		if b := tx.Bucket([]byte("ai")); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var r datastore.AIResultEnt
+				if err := json.Unmarshal(v, &r); err == nil && r.PollingID != "" {
+					s.aiResults.Store(r.PollingID, &r)
 				}
 				return nil
 			})
@@ -1526,8 +1548,8 @@ func (s *Store) CountEventLogs(_ context.Context) (int64, error) {
 
 // SaveArpTable saves the provided ARP table entries.
 func (s *Store) SaveArpTable(_ context.Context, entries []*datastore.ArpEnt) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -1578,8 +1600,8 @@ func (s *Store) LoadArpTable(_ context.Context) ([]*datastore.ArpEnt, error) {
 
 // DeleteArpEntries removes specific IP entries from the ARP table.
 func (s *Store) DeleteArpEntries(_ context.Context, ips []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -1598,8 +1620,8 @@ func (s *Store) DeleteArpEntries(_ context.Context, ips []string) error {
 
 // ResetArpTable removes all entries in the ARP table bucket.
 func (s *Store) ResetArpTable(_ context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -1658,8 +1680,8 @@ func (s *Store) GetOTelMetric(_ context.Context, host, service, scope, name stri
 
 // SaveOTelMetric stores or updates an OTel metric series in memory and bbolt.
 func (s *Store) SaveOTelMetric(_ context.Context, m *datastore.OTelMetricEnt) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -1685,8 +1707,8 @@ func (s *Store) SaveOTelMetric(_ context.Context, m *datastore.OTelMetricEnt) er
 
 // DeleteOTelMetric removes a metric series from cache and bbolt.
 func (s *Store) DeleteOTelMetric(_ context.Context, host, service, scope, name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -1860,8 +1882,8 @@ func (s *Store) GetOTelTrace(_ context.Context, bucket, traceID string) (*datast
 
 // SaveOTelTraces persists a slice of traces into their respective time buckets.
 func (s *Store) SaveOTelTraces(_ context.Context, traces []*datastore.OTelTraceEnt) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -1990,8 +2012,8 @@ func (s *Store) GetOTelTraceDAG(_ context.Context, buckets []string) (*datastore
 
 // DeleteAllOTelData purges all OTel metrics and traces from bbolt.
 func (s *Store) DeleteAllOTelData(_ context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -2015,8 +2037,8 @@ func (s *Store) DeleteAllOTelData(_ context.Context) error {
 
 // CleanOldOTelData deletes metrics and trace buckets older than retention hours.
 func (s *Store) CleanOldOTelData(_ context.Context, retentionHours int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
@@ -2501,6 +2523,12 @@ func (s *Store) GetUser(ctx context.Context, username string) (*datastore.UserEn
 	if username == "" {
 		return nil, datastore.ErrInvalidParams
 	}
+	if val, ok := s.users.Load(username); ok {
+		if u, ok := val.(*datastore.UserEnt); ok {
+			cp := *u
+			return &cp, nil
+		}
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
@@ -2519,16 +2547,33 @@ func (s *Store) GetUser(ctx context.Context, username string) (*datastore.UserEn
 		u = &datastore.UserEnt{}
 		return json.Unmarshal(v, u)
 	})
+	if err == nil && u != nil {
+		cp := *u
+		s.users.Store(username, &cp)
+	}
 	return u, err
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]*datastore.UserEnt, error) {
+	users := make([]*datastore.UserEnt, 0)
+	s.users.Range(func(_, v any) bool {
+		if u, ok := v.(*datastore.UserEnt); ok {
+			cp := *u
+			users = append(users, &cp)
+		}
+		return true
+	})
+	if len(users) > 0 {
+		sort.Slice(users, func(i, j int) bool {
+			return users[i].User < users[j].User
+		})
+		return users, nil
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
 	}
-	users := make([]*datastore.UserEnt, 0)
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketUsers)
 		if b == nil {
@@ -2537,6 +2582,8 @@ func (s *Store) ListUsers(ctx context.Context) ([]*datastore.UserEnt, error) {
 		return b.ForEach(func(k, v []byte) error {
 			var u datastore.UserEnt
 			if err := json.Unmarshal(v, &u); err == nil {
+				cp := u
+				s.users.Store(u.User, &cp)
 				users = append(users, &u)
 			}
 			return nil
@@ -2559,12 +2606,12 @@ func (s *Store) SaveUser(ctx context.Context, u *datastore.UserEnt) error {
 		return fmt.Errorf("marshal user: %w", err)
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketUsers)
 		if b == nil {
 			var bErr error
@@ -2575,33 +2622,49 @@ func (s *Store) SaveUser(ctx context.Context, u *datastore.UserEnt) error {
 		}
 		return b.Put([]byte(u.User), data)
 	})
+	if err == nil {
+		cp := *u
+		s.users.Store(u.User, &cp)
+	}
+	return err
 }
 
 func (s *Store) DeleteUser(ctx context.Context, username string) error {
 	if username == "" {
 		return datastore.ErrInvalidParams
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err := s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketUsers)
 		if b == nil {
 			return nil
 		}
 		return b.Delete([]byte(username))
 	})
+	if err == nil {
+		s.users.Delete(username)
+	}
+	return err
 }
 
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
+	count := 0
+	s.users.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+	if count > 0 {
+		return count, nil
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return 0, datastore.ErrDBNotOpen
 	}
-	count := 0
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketUsers)
 		if b != nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gosnmp/gosnmp"
@@ -102,6 +104,36 @@ func NewServer(cfg Config) (*Server, error) {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
+	// HTTP Access & Latency Logging Middleware
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			start := time.Now()
+			err := next(c)
+			if err != nil {
+				c.Error(err)
+			}
+			latency := time.Since(start)
+
+			req := c.Request()
+			res := c.Response()
+			uri := req.RequestURI
+
+			// Output access log for all API routes, public dashboard routes, and any errors (status >= 400)
+			isAPI := strings.HasPrefix(uri, "/api/") || strings.HasPrefix(uri, "/public/")
+			if isAPI || res.Status >= 400 {
+				slog.Info("HTTP API Access",
+					"method", req.Method,
+					"uri", uri,
+					"status", res.Status,
+					"latency", latency.String(),
+					"latency_ms", latency.Milliseconds(),
+					"ip", c.RealIP(),
+				)
+			}
+			return nil
+		}
+	})
+
 	authMgr := cfg.AuthManager
 	if authMgr == nil && cfg.Store != nil {
 		var aErr error
@@ -123,6 +155,49 @@ func NewServer(cfg Config) (*Server, error) {
 		}
 	}
 
+	var anomalySvc *ai.AnomalyService
+	if cfg.Store != nil {
+		anomalySvc = ai.NewAnomalyService(cfg.Store, cfg.LogStore)
+	}
+
+	findImageFile := func(name string) string {
+		cleanName := filepath.Base(filepath.Clean(name))
+		if cleanName == "." || cleanName == "/" || strings.Contains(cleanName, "..") || !filepath.IsLocal(cleanName) {
+			return ""
+		}
+		dirs := []string{}
+		if cfg.DataDir != "" && !strings.Contains(cfg.DataDir, "..") {
+			dirs = append(dirs, filepath.Clean(cfg.DataDir))
+		}
+		if cfg.Store != nil {
+			if sd := cfg.Store.GetDataDir(); sd != "" && !strings.Contains(sd, "..") {
+				dirs = append(dirs, filepath.Clean(sd))
+			}
+		}
+		dirs = append(dirs, "./data", ".")
+
+		for _, d := range dirs {
+			imgDir := filepath.Join(d, "images")
+			p := filepath.Clean(filepath.Join(imgDir, cleanName))
+			rel, err := filepath.Rel(imgDir, p)
+			if err == nil && !strings.HasPrefix(rel, "..") {
+				if _, err := os.Stat(p); err == nil {
+					return p
+				}
+			}
+			// Fallback search for backimage_map
+			if strings.Contains(cleanName, "japanesemap") || strings.Contains(cleanName, "backimage") {
+				for _, fallback := range []string{"backimage_map.png", "backimage_map.jpg"} {
+					fbPath := filepath.Join(d, "images", fallback)
+					if _, err := os.Stat(fbPath); err == nil {
+						return fbPath
+					}
+				}
+			}
+		}
+		return ""
+	}
+
 	// API Group
 	apiGroup := e.Group("/api")
 
@@ -135,6 +210,7 @@ func NewServer(cfg Config) (*Server, error) {
 			if path == "/api/login" || reqPath == "/api/login" ||
 				path == "/api/logout" || reqPath == "/api/logout" ||
 				path == "/api/health" || reqPath == "/api/health" ||
+				strings.HasPrefix(path, "/api/public/") || strings.HasPrefix(reqPath, "/api/public/") ||
 				(cfg.MCPServer != nil && cfg.MCPServer.Mode() != "auth" && (strings.HasPrefix(path, "/api/mcp") || strings.HasPrefix(reqPath, "/api/mcp"))) ||
 				strings.HasPrefix(path, "/api/notify/oauth2") || strings.HasPrefix(reqPath, "/api/notify/oauth2") ||
 				path == "/api/pki/ca.pem" || reqPath == "/api/pki/ca.pem" ||
@@ -985,7 +1061,9 @@ func NewServer(cfg Config) (*Server, error) {
 		})
 
 		// AI Anomaly Detection Endpoints
-		anomalySvc := ai.NewAnomalyService(cfg.Store, cfg.LogStore)
+		if anomalySvc == nil && cfg.Store != nil {
+			anomalySvc = ai.NewAnomalyService(cfg.Store, cfg.LogStore)
+		}
 
 		apiGroup.GET("/ai/list", func(c echo.Context) error {
 			list, err := anomalySvc.GetAIList(c.Request().Context())
@@ -2312,44 +2390,6 @@ func NewServer(cfg Config) (*Server, error) {
 			})
 		})
 
-		findImageFile := func(name string) string {
-			cleanName := filepath.Base(filepath.Clean(name))
-			if cleanName == "." || cleanName == "/" || strings.Contains(cleanName, "..") || !filepath.IsLocal(cleanName) {
-				return ""
-			}
-			dirs := []string{}
-			if cfg.DataDir != "" && !strings.Contains(cfg.DataDir, "..") {
-				dirs = append(dirs, filepath.Clean(cfg.DataDir))
-			}
-			if cfg.Store != nil {
-				if sd := cfg.Store.GetDataDir(); sd != "" && !strings.Contains(sd, "..") {
-					dirs = append(dirs, filepath.Clean(sd))
-				}
-			}
-			dirs = append(dirs, "./data", ".")
-
-			for _, d := range dirs {
-				imgDir := filepath.Join(d, "images")
-				p := filepath.Clean(filepath.Join(imgDir, cleanName))
-				rel, err := filepath.Rel(imgDir, p)
-				if err == nil && !strings.HasPrefix(rel, "..") {
-					if _, err := os.Stat(p); err == nil {
-						return p
-					}
-				}
-				// Fallback search for backimage_map
-				if strings.Contains(cleanName, "japanesemap") || strings.Contains(cleanName, "backimage") {
-					for _, fallback := range []string{"backimage_map.png", "backimage_map.jpg"} {
-						fbPath := filepath.Join(d, "images", fallback)
-						if _, err := os.Stat(fbPath); err == nil {
-							return fbPath
-						}
-					}
-				}
-			}
-			return ""
-		}
-
 		apiGroup.GET("/map/image/:name", func(c echo.Context) error {
 			name := filepath.Base(filepath.Clean(c.Param("name")))
 			if name == "." || name == "/" || strings.Contains(name, "..") || !filepath.IsLocal(name) {
@@ -3181,6 +3221,659 @@ func NewServer(cfg Config) (*Server, error) {
 		return c.JSON(http.StatusOK, map[string]string{"status": "sent"})
 	})
 
+	// Public Dashboard API Endpoints (No Auth Required)
+	type PublicNodeEnt struct {
+		ID    string `json:"ID"`
+		Name  string `json:"Name"`
+		Icon  string `json:"Icon"`
+		Image string `json:"Image"`
+		State string `json:"State"`
+		X     int    `json:"X"`
+		Y     int    `json:"Y"`
+	}
+
+	type PublicPollingEnt struct {
+		ID       string                     `json:"ID"`
+		Name     string                     `json:"Name"`
+		NodeID   string                     `json:"NodeID"`
+		NodeName string                     `json:"NodeName,omitempty"`
+		Type     string                     `json:"Type"`
+		Mode     string                     `json:"Mode,omitempty"`
+		State    string                     `json:"State"`
+		LastTime int64                      `json:"LastTime,omitempty"`
+		Result   map[string]interface{}     `json:"Result,omitempty"`
+		Logs     []*datastore.PollingLogEnt `json:"Logs,omitempty"`
+	}
+
+	type PublicAlertState struct {
+		IsActive   bool   `json:"isActive"`
+		NodeName   string `json:"nodeName"`
+		TargetName string `json:"targetName"`
+		State      string `json:"state"`
+		ValueText  string `json:"valueText"`
+		Message    string `json:"message"`
+		LastTime   int64  `json:"lastTime"`
+	}
+
+	var (
+		imagesCacheMu      sync.Mutex
+		cachedImages       []string
+		imagesCacheExpires time.Time
+		imagesRefreshing   bool
+	)
+
+	listAvailableImages := func() []string {
+		now := time.Now()
+		imagesCacheMu.Lock()
+		res := make([]string, len(cachedImages))
+		copy(res, cachedImages)
+		if now.Before(imagesCacheExpires) {
+			imagesCacheMu.Unlock()
+			return res
+		}
+		alreadyRefreshing := imagesRefreshing
+		if !alreadyRefreshing {
+			imagesRefreshing = true
+		}
+		imagesCacheMu.Unlock()
+
+		if alreadyRefreshing {
+			return res
+		}
+
+		ch := make(chan []string, 1)
+		go func() {
+			defer func() {
+				imagesCacheMu.Lock()
+				imagesRefreshing = false
+				imagesCacheMu.Unlock()
+			}()
+
+			found := []string{}
+			seen := make(map[string]bool)
+			dirs := []string{}
+			if cfg.DataDir != "" {
+				dirs = append(dirs, filepath.Join(cfg.DataDir, "images"))
+			}
+			if cfg.Store != nil && cfg.Store.GetDataDir() != "" {
+				dirs = append(dirs, filepath.Join(cfg.Store.GetDataDir(), "images"))
+			}
+			for _, d := range dirs {
+				if entries, err := os.ReadDir(d); err == nil {
+					for _, e := range entries {
+						if !e.IsDir() && !seen[e.Name()] {
+							seen[e.Name()] = true
+							found = append(found, e.Name())
+						}
+					}
+				}
+			}
+
+			imagesCacheMu.Lock()
+			cachedImages = found
+			imagesCacheExpires = time.Now().Add(30 * time.Second)
+			imagesCacheMu.Unlock()
+			ch <- found
+		}()
+
+		select {
+		case found := <-ch:
+			return found
+		case <-time.After(30 * time.Millisecond):
+			return res
+		}
+	}
+
+	verifyPublicDashboardKey := func(ctx context.Context, key string) (*datastore.MapConfEnt, error) {
+		if key == "" {
+			return nil, echo.ErrForbidden
+		}
+		conf, err := cfg.Store.GetMapConf(ctx)
+		if err != nil || conf == nil || !conf.EnablePublicDashboard || conf.PublicDashboardKey == "" || conf.PublicDashboardKey != key {
+			return nil, echo.ErrForbidden
+		}
+		return conf, nil
+	}
+
+	var (
+		kpiCacheMu      sync.Mutex
+		cachedEventCnt  int
+		cachedSyslogCnt int
+		cachedTrapCnt   int
+		kpiCacheExpires time.Time
+		kpiRefreshing   bool
+	)
+
+	refreshKPICache := func() (int, int, int) {
+		if cfg.Store == nil {
+			return 0, 0, 0
+		}
+		now := time.Now()
+		cutoff24h := now.Add(-24 * time.Hour).UnixNano()
+		evCount := 0
+		cfg.Store.ForEachLastEventLog(func(e *datastore.EventLogEnt) bool {
+			if e.Time < cutoff24h || evCount >= 2000 {
+				return false
+			}
+			evCount++
+			return true
+		})
+
+		syslogCnt := 0
+		trapCnt := 0
+		if cfg.LogStore != nil {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			logCounts := cfg.LogStore.CountRecentLogs(bgCtx, 24*time.Hour, "syslog", "trap", "snmptrap")
+			cancel()
+			syslogCnt = logCounts["syslog"]
+			trapCnt = logCounts["trap"] + logCounts["snmptrap"]
+		}
+
+		kpiCacheMu.Lock()
+		cachedEventCnt = evCount
+		cachedSyslogCnt = syslogCnt
+		cachedTrapCnt = trapCnt
+		kpiCacheExpires = time.Now().Add(15 * time.Second)
+		kpiCacheMu.Unlock()
+		return evCount, syslogCnt, trapCnt
+	}
+
+	getKPILogCountsFast := func() (int, int, int) {
+		now := time.Now()
+		kpiCacheMu.Lock()
+		ev, sys, tr := cachedEventCnt, cachedSyslogCnt, cachedTrapCnt
+		if now.Before(kpiCacheExpires) {
+			kpiCacheMu.Unlock()
+			return ev, sys, tr
+		}
+		alreadyRefreshing := kpiRefreshing
+		if !alreadyRefreshing {
+			kpiRefreshing = true
+		}
+		kpiCacheMu.Unlock()
+
+		if alreadyRefreshing {
+			return ev, sys, tr
+		}
+
+		type kpiRes struct {
+			ev, sys, tr int
+		}
+		ch := make(chan kpiRes, 1)
+		go func() {
+			defer func() {
+				kpiCacheMu.Lock()
+				kpiRefreshing = false
+				kpiCacheMu.Unlock()
+			}()
+			e, s, t := refreshKPICache()
+			ch <- kpiRes{ev: e, sys: s, tr: t}
+		}()
+
+		select {
+		case r := <-ch:
+			return r.ev, r.sys, r.tr
+		case <-time.After(50 * time.Millisecond):
+			return ev, sys, tr
+		}
+	}
+
+	var (
+		pubPollCacheMu sync.Mutex
+		pubPollCache   = make(map[string][]*datastore.PollingLogEnt)
+		pubPollLoading = make(map[string]bool)
+	)
+
+	getPublicPollingLogsFast := func(pollingID string) []*datastore.PollingLogEnt {
+		if cfg.LogStore == nil || pollingID == "" {
+			return nil
+		}
+		type res struct {
+			logs []*datastore.PollingLogEnt
+		}
+		ch := make(chan res, 1)
+
+		pubPollCacheMu.Lock()
+		cached := pubPollCache[pollingID]
+		alreadyLoading := pubPollLoading[pollingID]
+		if !alreadyLoading {
+			pubPollLoading[pollingID] = true
+			go func(pid string) {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				logs, err := cfg.LogStore.GetRecentPollingLog(bgCtx, pid, 100)
+				cancel()
+				pubPollCacheMu.Lock()
+				if err == nil {
+					pubPollCache[pid] = logs
+				}
+				pubPollLoading[pid] = false
+				pubPollCacheMu.Unlock()
+				ch <- res{logs: logs}
+			}(pollingID)
+		}
+		pubPollCacheMu.Unlock()
+
+		if alreadyLoading {
+			return cached
+		}
+
+		select {
+		case r := <-ch:
+			if r.logs != nil {
+				return r.logs
+			}
+			return cached
+		case <-time.After(80 * time.Millisecond):
+			return cached
+		}
+	}
+
+	collectSummaryKPI := func(ctx context.Context) datastore.PublicDashboardSummaryKPI {
+		var kpi datastore.PublicDashboardSummaryKPI
+
+		cfg.Store.ForEachNodes(func(n *datastore.NodeEnt) bool {
+			kpi.NodeTotal++
+			switch strings.ToLower(n.State) {
+			case "high":
+				kpi.NodeHigh++
+			case "low":
+				kpi.NodeLow++
+			case "warn":
+				kpi.NodeWarn++
+			case "repair":
+				kpi.NodeRepair++
+			case "normal":
+				kpi.NodeNormal++
+			default:
+				kpi.NodeUnknown++
+			}
+			return true
+		})
+
+		cfg.Store.ForEachPollings(func(p *datastore.PollingEnt) bool {
+			kpi.PollingTotal++
+			switch strings.ToLower(p.State) {
+			case "high":
+				kpi.PollingHigh++
+			case "low":
+				kpi.PollingLow++
+			case "warn":
+				kpi.PollingWarn++
+			case "repair":
+				kpi.PollingRepair++
+			case "normal":
+				kpi.PollingNormal++
+			default:
+				kpi.PollingUnknown++
+			}
+			return true
+		})
+
+		if anomalySvc != nil {
+			thresh := 35.0
+			if conf, err := cfg.Store.GetMapConf(ctx); err == nil && conf != nil && conf.ScoreThreshold > 0 {
+				thresh = conf.ScoreThreshold
+			}
+			// Fast AI anomaly metrics collection directly from in-memory store cache
+			cfg.Store.ForEachPollings(func(p *datastore.PollingEnt) bool {
+				if p.LogMode != datastore.LogModeAI {
+					return true
+				}
+				if air, err := cfg.Store.GetAIResult(p.ID); err == nil && air != nil && len(air.ScoreData) > 0 {
+					lastScore := air.ScoreData[len(air.ScoreData)-1][1]
+					if lastScore > kpi.AIMaxScore {
+						kpi.AIMaxScore = lastScore
+					}
+					if lastScore >= thresh {
+						kpi.AIAnomalyCount++
+					}
+				}
+				return true
+			})
+		}
+
+		kpi.LogEventCount, kpi.LogSyslogCount, kpi.LogTrapCount = getKPILogCountsFast()
+
+		return kpi
+	}
+
+	buildPublicMapData := func(ctx context.Context, conf *datastore.MapConfEnt) map[string]interface{} {
+		safeConf := *conf
+		safeConf.Community = ""
+		safeConf.SnmpUser = ""
+		safeConf.SnmpPassword = ""
+		safeConf.LLMAPIKey = ""
+		safeConf.PublicDashboardKey = ""
+		safeConf.ArpWatchRange = ""
+		safeConf.GeoIPInfo = ""
+		safeConf.OTelFrom = ""
+
+		nodes := make(map[string]*PublicNodeEnt)
+		cfg.Store.ForEachNodes(func(n *datastore.NodeEnt) bool {
+			nodes[n.ID] = &PublicNodeEnt{
+				ID:    n.ID,
+				Name:  n.Name,
+				Icon:  n.Icon,
+				Image: n.Image,
+				State: n.State,
+				X:     n.X,
+				Y:     n.Y,
+			}
+			return true
+		})
+
+		itemsMap := make(map[string]*datastore.DrawItemEnt)
+		if drawItems, err := cfg.Store.ListDrawItems(ctx); err == nil {
+			for _, di := range drawItems {
+				checkDrawItem(ctx, cfg.Store, di)
+				itemsMap[di.ID] = di
+			}
+		}
+
+		networks := make(map[string]*datastore.NetworkEnt)
+		cfg.Store.ForEachNetworks(func(nw *datastore.NetworkEnt) bool {
+			ports := []datastore.PortEnt{}
+			for _, p := range nw.Ports {
+				ports = append(ports, datastore.PortEnt{
+					ID:    p.ID,
+					Name:  p.Name,
+					Index: p.Index,
+					X:     p.X,
+					Y:     p.Y,
+					State: p.State,
+				})
+			}
+			networks[nw.ID] = &datastore.NetworkEnt{
+				ID:    nw.ID,
+				Name:  nw.Name,
+				X:     nw.X,
+				Y:     nw.Y,
+				W:     nw.W,
+				H:     nw.H,
+				Ports: ports,
+			}
+			return true
+		})
+
+		lines := []*datastore.LineEnt{}
+		cfg.Store.ForEachLines(func(l *datastore.LineEnt) bool {
+			lines = append(lines, l)
+			return true
+		})
+
+		pollings := make(map[string][]*PublicPollingEnt)
+		cfg.Store.ForEachPollings(func(p *datastore.PollingEnt) bool {
+			pollings[p.NodeID] = append(pollings[p.NodeID], &PublicPollingEnt{
+				ID:     p.ID,
+				Name:   p.Name,
+				NodeID: p.NodeID,
+				Type:   p.Type,
+				Mode:   p.Mode,
+				State:  p.State,
+			})
+			return true
+		})
+
+		customIcons, _ := cfg.Store.GetCustomIcons(ctx)
+
+		return map[string]interface{}{
+			"MapConf":    &safeConf,
+			"Nodes":      nodes,
+			"Items":      itemsMap,
+			"Networks":   networks,
+			"Lines":      lines,
+			"Pollings":   pollings,
+			"Images":     listAvailableImages(),
+			"Icons":      customIcons,
+			"LastUpdate": time.Now().Unix(),
+		}
+	}
+
+	// Full Public Dashboard API
+	handlePublicDashboard := func(c echo.Context) error {
+		startTotal := time.Now()
+		c.Response().Header().Del("X-Frame-Options")
+		c.Response().Header().Set("Content-Security-Policy", "frame-ancestors *")
+
+		key := c.Param("key")
+		conf, err := verifyPublicDashboardKey(c.Request().Context(), key)
+		if err != nil {
+			return err
+		}
+
+		ctx := c.Request().Context()
+		kpiStart := time.Now()
+		kpi := collectSummaryKPI(ctx)
+		kpiDur := time.Since(kpiStart)
+
+		items := conf.PublicDashboardItems
+		if len(items) == 0 {
+			items = []datastore.PublicDashboardItemEnt{
+				{ID: "map", Type: "map", Title: conf.MapName},
+			}
+		}
+
+		resp := map[string]interface{}{
+			"mapName":    conf.MapName,
+			"items":      items,
+			"alertConf":  conf.PublicDashboardAlert,
+			"summaryKpi": kpi,
+			"lastUpdate": time.Now().Unix(),
+		}
+
+		pollStart := time.Now()
+		needMap := false
+		pollingMap := make(map[string]*PublicPollingEnt)
+		for _, item := range items {
+			if item.Type == "map" {
+				needMap = true
+			} else if item.Type == "polling" && item.PollingID != "" {
+				if p, err := cfg.Store.GetPolling(ctx, item.PollingID); err == nil && p != nil {
+					nodeName := ""
+					if node, _ := cfg.Store.GetNode(ctx, p.NodeID); node != nil {
+						nodeName = node.Name
+					}
+					logs := getPublicPollingLogsFast(p.ID)
+					cleanResult := make(map[string]interface{})
+					if p.Result != nil {
+						for k, v := range p.Result {
+							switch val := v.(type) {
+							case float64:
+								if math.IsNaN(val) || math.IsInf(val, 0) {
+									cleanResult[k] = 0
+								} else {
+									cleanResult[k] = val
+								}
+							case float32:
+								f := float64(val)
+								if math.IsNaN(f) || math.IsInf(f, 0) {
+									cleanResult[k] = 0
+								} else {
+									cleanResult[k] = val
+								}
+							default:
+								cleanResult[k] = v
+							}
+						}
+					}
+					pollingMap[p.ID] = &PublicPollingEnt{
+						ID:       p.ID,
+						Name:     p.Name,
+						NodeID:   p.NodeID,
+						NodeName: nodeName,
+						Type:     p.Type,
+						Mode:     p.Mode,
+						State:    p.State,
+						LastTime: p.LastTime,
+						Result:   cleanResult,
+						Logs:     logs,
+					}
+				}
+			}
+		}
+		pollDur := time.Since(pollStart)
+
+		mapStart := time.Now()
+		if needMap {
+			resp["map"] = buildPublicMapData(ctx, conf)
+		}
+		mapDur := time.Since(mapStart)
+
+		resp["pollings"] = pollingMap
+
+		// Evaluate Drama Alert Triggers for each item individually
+		itemAlerts := make(map[string]*PublicAlertState)
+		var firstActiveAlert *PublicAlertState
+
+		for _, item := range items {
+			if !item.Alert.Enable {
+				continue
+			}
+			isTriggerLevel := func(state string) bool {
+				st := strings.ToLower(state)
+				if item.Alert.Level == "high" {
+					return st == "high"
+				}
+				return st == "high" || st == "low" || st == "warn"
+			}
+
+			if item.Type == "map" {
+				cfg.Store.ForEachNodes(func(n *datastore.NodeEnt) bool {
+					if isTriggerLevel(n.State) {
+						alert := &PublicAlertState{
+							IsActive:   true,
+							NodeName:   n.Name,
+							TargetName: item.Title,
+							State:      n.State,
+							ValueText:  fmt.Sprintf("State: %s", strings.ToUpper(n.State)),
+							Message:    fmt.Sprintf("障害ノード検知: %s (%s)", n.Name, n.State),
+							LastTime:   time.Now().UnixNano(),
+						}
+						itemAlerts[item.ID] = alert
+						if firstActiveAlert == nil {
+							firstActiveAlert = alert
+						}
+						return false
+					}
+					return true
+				})
+			} else if item.Type == "polling" && item.PollingID != "" {
+				if p, exists := pollingMap[item.PollingID]; exists {
+					if isTriggerLevel(p.State) {
+						valStr := ""
+						if p.Result != nil {
+							for k, v := range p.Result {
+								valStr = fmt.Sprintf("%s: %v", k, v)
+								break
+							}
+						}
+						alert := &PublicAlertState{
+							IsActive:   true,
+							NodeName:   p.NodeName,
+							TargetName: p.Name,
+							State:      p.State,
+							ValueText:  valStr,
+							Message:    fmt.Sprintf("ポーリング障害検知: %s (%s)", p.Name, p.State),
+							LastTime:   p.LastTime,
+						}
+						itemAlerts[item.ID] = alert
+						if firstActiveAlert == nil {
+							firstActiveAlert = alert
+						}
+					}
+				}
+			}
+		}
+
+		resp["itemAlerts"] = itemAlerts
+		if firstActiveAlert != nil {
+			resp["activeAlert"] = firstActiveAlert
+		}
+
+		totalDur := time.Since(startTotal)
+		displayKey := key
+		if len(displayKey) > 8 {
+			displayKey = displayKey[:8] + "..."
+		}
+		slog.Info("Public Dashboard API processed",
+			"key", displayKey,
+			"total_ms", totalDur.Milliseconds(),
+			"kpi_ms", kpiDur.Milliseconds(),
+			"map_ms", mapDur.Milliseconds(),
+			"poll_ms", pollDur.Milliseconds(),
+			"items", len(items),
+		)
+
+		return c.JSON(http.StatusOK, resp)
+	}
+
+	// Legacy TWSNMP FC compatible public map endpoint
+	handlePublicMap := func(c echo.Context) error {
+		c.Response().Header().Del("X-Frame-Options")
+		c.Response().Header().Set("Content-Security-Policy", "frame-ancestors *")
+
+		key := c.Param("key")
+		conf, err := verifyPublicDashboardKey(c.Request().Context(), key)
+		if err != nil {
+			return err
+		}
+		return c.JSON(http.StatusOK, buildPublicMapData(c.Request().Context(), conf))
+	}
+
+	// Public Dashboard image & icon endpoints
+	handlePublicImage := func(c echo.Context) error {
+		c.Response().Header().Del("X-Frame-Options")
+		c.Response().Header().Set("Content-Security-Policy", "frame-ancestors *")
+
+		key := c.Param("key")
+		if _, err := verifyPublicDashboardKey(c.Request().Context(), key); err != nil {
+			return err
+		}
+		name := filepath.Base(filepath.Clean(c.Param("name")))
+		if name == "." || name == "/" || strings.Contains(name, "..") || !filepath.IsLocal(name) {
+			return c.NoContent(http.StatusBadRequest)
+		}
+		path := findImageFile(name)
+		if path == "" {
+			return c.NoContent(http.StatusNotFound)
+		}
+		return c.File(path)
+	}
+
+	handlePublicIcon := func(c echo.Context) error {
+		c.Response().Header().Del("X-Frame-Options")
+		c.Response().Header().Set("Content-Security-Policy", "frame-ancestors *")
+
+		key := c.Param("key")
+		if _, err := verifyPublicDashboardKey(c.Request().Context(), key); err != nil {
+			return err
+		}
+		id := c.Param("id")
+		icons, err := cfg.Store.GetCustomIcons(c.Request().Context())
+		if err != nil {
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		for _, ic := range icons {
+			if ic.ID == id {
+				return c.JSON(http.StatusOK, ic)
+			}
+		}
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	// Register Public Dashboard routes
+	// 1. On apiGroup: /api/public/...
+	apiGroup.GET("/public/dashboard/:key", handlePublicDashboard)
+	apiGroup.GET("/public/map/:key", handlePublicMap)
+	apiGroup.GET("/public/dashboard/:key/image/:name", handlePublicImage)
+	apiGroup.GET("/public/dashboard/:key/icon/:id", handlePublicIcon)
+
+	// 2. On root router e: /public/api/...
+	e.GET("/public/api/dashboard/:key", handlePublicDashboard)
+	e.GET("/public/api/map/:key", handlePublicMap)
+	e.GET("/public/api/dashboard/:key/image/:name", handlePublicImage)
+	e.GET("/public/api/dashboard/:key/icon/:id", handlePublicIcon)
+
 	// Static Files (Frontend SPA)
 	staticFS, err := web.GetStaticFS()
 	if err != nil {
@@ -3188,9 +3881,13 @@ func NewServer(cfg Config) (*Server, error) {
 	} else {
 		fileServer := http.FileServer(staticFS)
 		e.GET("/*", echo.WrapHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
+			if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/public/api/") {
 				http.Error(w, `{"error":"API endpoint not found"}`, http.StatusNotFound)
 				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/dashboard/") {
+				w.Header().Del("X-Frame-Options")
+				w.Header().Set("Content-Security-Policy", "frame-ancestors *")
 			}
 			f, err := staticFS.Open(r.URL.Path)
 			if err == nil {
