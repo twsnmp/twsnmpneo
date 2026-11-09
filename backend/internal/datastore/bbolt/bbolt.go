@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -2254,6 +2255,22 @@ func (s *Store) GetOTelMetric(_ context.Context, host, service, scope, name stri
 	return nil, datastore.ErrNotFound
 }
 
+// ForEachOTelMetric iterates over all registered OTel metric series in memory.
+// It stops iteration early if fn returns false.
+func (s *Store) ForEachOTelMetric(fn func(*datastore.OTelMetricEnt) bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return
+	}
+	s.otelMetrics.Range(func(_, value any) bool {
+		if m, ok := value.(*datastore.OTelMetricEnt); ok {
+			return fn(m)
+		}
+		return true
+	})
+}
+
 // SaveOTelMetric stores or updates an OTel metric series in memory and bbolt.
 func (s *Store) SaveOTelMetric(_ context.Context, m *datastore.OTelMetricEnt) error {
 	s.mu.RLock()
@@ -2489,6 +2506,42 @@ func (s *Store) SaveOTelTraces(_ context.Context, traces []*datastore.OTelTraceE
 		}
 		return nil
 	})
+}
+
+var errStopOTelIteration = errors.New("stop otel iteration")
+
+// ForEachOTelTrace iterates over all traces within a specific time bucket.
+// It stops iteration early if fn returns false.
+func (s *Store) ForEachOTelTrace(bucket string, fn func(*datastore.OTelTraceEnt) bool) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return datastore.ErrDBNotOpen
+	}
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		root := tx.Bucket(bucketOTelTrace)
+		if root == nil {
+			return nil
+		}
+		b := root.Bucket([]byte(bucket))
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(_, v []byte) error {
+			var t datastore.OTelTraceEnt
+			if err := json.Unmarshal(v, &t); err == nil {
+				if !fn(&t) {
+					return errStopOTelIteration
+				}
+			}
+			return nil
+		})
+	})
+	if errors.Is(err, errStopOTelIteration) {
+		return nil
+	}
+	return err
 }
 
 // GetOTelTraceDAG builds service call dependency graph for selected buckets.

@@ -49,7 +49,7 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
   8. **ネイティブ AI & MCP (Model Context Protocol) 統合**:
      - `tensai` によるマルチLLM（Gemini, OpenAI, Claude, Ollama）オーケストレーション。
      - **Streamable HTTP (`/api/mcp`)** による最新の双方向トランスポート、IPホワイトリスト制限（`-mcpFrom`）、および JWT 認証（`-mcpMode auth|noauth`）を完備したビルトイン MCP サーバー。
-     - 全22種類以上のツール群（Map/Node/Polling/Ping/SNMP/MIB、レポート・センサー・IPAM・Wi-Fi・Bluetooth・証明書・リソースモニター、イベントログ・Syslog・Trap・IP/MAC情報）および19種の Prompt テンプレートを提供。
+     - 全25種類以上のツール群（Map/Node/Polling/Ping/SNMP/MIB、OpenTelemetry APMメトリクス/トレース、レポートサマリー、センサー［種別フィルタ対応］・IPAM・Wi-Fi・Bluetooth・証明書・リソースモニター、イベントログ・Syslog・Trap・IP/MAC情報）および19種の Prompt テンプレートを提供。
      - インラインAI支援ダイアログ（ログ原因分析、ポーリング生成支援、ノード診断）。
   9. **シングルバイナリ配布**:
      - Svelte 5 でビルドされたフロントエンド資産を Go の `embed.FS` で単一実行ファイルに完全内包。
@@ -202,6 +202,7 @@ twsnmpneo/
    - OTel専用監視ビュー。左側サイドバー（`w-60`）による **Metrics**, **Traces**, **Logs** の切り替えとリアルタイム件数バッジ表示。
    - 上部サマリーダッシュボード（縦並び4大KPI、メトリック種別円グラフ、サービス別メトリック数横棒グラフ、散布図所要時間分析）。
    - タイムラインスパン階層ツリー、インタラクティブサービスDAGトポロジー図、全列ソート対応テーブル。
+   - 上部アクションバー（再読み込み、ポーリング作成/AI支援、レポート、一括削除、削除）およびメトリック/トレース行からのワンクリックポーリング作成（ホスト名・IP自動マッチング連動）。
 7. **MQTT 画面 (`MQTTView.svelte`)**:
    - MQTT専用監視ビュー。左側サイドバー（`w-60`）による **統計 (Stats)** および **ログ (Logs)** の切り替えとリアルタイム件数バッジ表示。
    - 上部サマリーダッシュボード（縦並び4大KPI、State分布ドーナツグラフ、Top 10トピック横棒グラフ）。
@@ -250,6 +251,15 @@ twsnmpneo/
    - **定期日報レポートへのストレージ容量集計**: 毎朝の定期日報レポート（HTMLメール / Webhook送信）において、bbolt データベースサイズに加え、Apache Parquet 列指向ログストレージの合計容量・使用状況を集計して自動レポート表示。
 
 ### 4.9 ネイティブ AI & MCP 統合および共通UI標準規約
+
+* **内蔵 MCP サーバーツール群 (25種類以上)**:
+  - **マップ・ネットワーク**: `get_node_list`, `add_node`, `update_node`, `get_network_list`, `get_polling_list`, `get_polling_log`, `get_polling_log_data`, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`, `get_system_status`, `diagnose_node`
+  - **レポート・アナリティクス**: `get_sensor_list`（種別フィルタ `type_filter` 対応）, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`（各種レポート件数一括取得）
+  - **OpenTelemetry APM**: `get_otel_metrics`（メトリック一覧・値取得）, `get_otel_traces`（分散トレーススパン取得）
+  - **ログ・診断**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `get_ip_address_info`, `get_mac_address_info`
+* **OTel APM & LLM エンドポイント監視ポーリング**:
+  - **OTel APM (`otel`)**: `metric`（Gauge/Sum等の直接集計・評価）、`trace`（期間内エラー率・P95所要時間・HTTP 4xx/5xx/gRPCエラー評価）、`heartbeat`/`last`（ハートビート途絶検知）
+  - **LLM API監視 (`http`)**: `llm/openai`（OpenAI互換 `/v1/models`）、`llm/ollama`（Ollama `/api/tags`）、`metrics/json` によるAPI死活・RTT（`rtt_ms`）・モデル数（`models`）監視、`pe.Filter` による認証トークン（Bearer/API Key）自動付与
 
 * **対象コンポーネント**:
   - `LogAIDialog`: ログ行の詳細AI原因分析・復旧対策提示モーダル。

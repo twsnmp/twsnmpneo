@@ -132,6 +132,7 @@
     { value: "mqtt", label: "MQTT" },
     { value: "email", label: "EMAIL" },
     { value: "stun", label: "STUN" },
+    { value: "otel", label: "OpenTelemetry" },
   ];
 
   const controlClass =
@@ -332,6 +333,15 @@
                 <option value="">{$_("polling.modeDefault")}</option>
                 <option value="hash">hash (コンテンツSHA256変化検知)</option>
                 <option value="metrics">metrics (サーバーメトリクス解析)</option>
+                <option value="metrics/json">metrics/json (JSONメトリクス)</option>
+                <option value="llm/openai">llm/openai (OpenAI/vLLM /v1/models)</option>
+                <option value="llm/ollama">llm/ollama (Ollama /api/tags)</option>
+              </select>
+            {:else if type === "otel"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="metric">metric (メトリクス値監視)</option>
+                <option value="trace">trace (トレースエラー率・遅延監視)</option>
+                <option value="heartbeat">heartbeat (ハートビート受信途絶監視)</option>
               </select>
             {:else if type === "tcp" || type === "tls"}
               <select id="poll-mode" bind:value={mode} class={controlClass}>
@@ -440,7 +450,15 @@
           <label for="poll-params" class={labelClass}>{$_("polling.params")}</label>
           <input id="poll-params" class={`${controlClass} font-mono`} bind:value={params} />
           <p class="text-[11px] text-slate-500 dark:text-slate-400">
-            {type === "ping" ? $_("polling.pingParamsHelp") : $_("polling.paramsHelp")}
+            {#if type === "otel"}
+              {$_("polling.otelParamsHelp")}
+            {:else if (type === "http" || type === "https") && mode.startsWith("llm")}
+              {$_("polling.llmParamsHelp")}
+            {:else if type === "ping"}
+              {$_("polling.pingParamsHelp")}
+            {:else}
+              {$_("polling.paramsHelp")}
+            {/if}
           </p>
         </div>
 
@@ -486,7 +504,15 @@
             </button>
           </div>
           <CodeJar id="poll-script" syntax="javascript" {highlight} catchTab={true} bind:value={script} />
-          <p class="text-[11px] text-slate-500 dark:text-slate-400">{$_("polling.scriptHelp")}</p>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">
+            {#if type === "otel"}
+              {$_("polling.otelScriptHelp")}
+            {:else if (type === "http" || type === "https") && mode.startsWith("llm")}
+              {$_("polling.llmScriptHelp")}
+            {:else}
+              {$_("polling.scriptHelp")}
+            {/if}
+          </p>
         </div>
 
         <!-- AI options (logMode === 3) -->

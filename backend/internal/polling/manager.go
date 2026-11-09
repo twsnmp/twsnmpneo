@@ -76,6 +76,7 @@ func NewManager(cfg Config) *Manager {
 	m.RegisterPoller("pihole", NewPiHolePoller())
 	m.RegisterPoller("lxi", NewLXIPoller())
 	m.RegisterPoller("twlogeye", NewTwLogEyePoller())
+	m.RegisterPoller("otel", NewOTelPoller(cfg.Store))
 	m.RegisterPoller("report", NewCmdPoller()) // Placeholder for report type
 
 	return m

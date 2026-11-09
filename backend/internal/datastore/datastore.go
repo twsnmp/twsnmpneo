@@ -119,10 +119,12 @@ type DataStore interface {
 	GetOTelMetric(ctx context.Context, host, service, scope, name string) (*OTelMetricEnt, error)
 	SaveOTelMetric(ctx context.Context, m *OTelMetricEnt) error
 	DeleteOTelMetric(ctx context.Context, host, service, scope, name string) error
+	ForEachOTelMetric(fn func(*OTelMetricEnt) bool)
 	GetOTelTraceBuckets(ctx context.Context) ([]string, error)
 	ListOTelTraces(ctx context.Context, buckets []string, limit int) ([]*OTelTraceSummaryEnt, error)
 	GetOTelTrace(ctx context.Context, bucket, traceID string) (*OTelTraceEnt, error)
 	SaveOTelTraces(ctx context.Context, traces []*OTelTraceEnt) error
+	ForEachOTelTrace(bucket string, fn func(*OTelTraceEnt) bool) error
 	GetOTelTraceDAG(ctx context.Context, buckets []string) (*OTelTraceDAGEnt, error)
 	DeleteAllOTelData(ctx context.Context) error
 	CleanOldOTelData(ctx context.Context, retentionHours int) error

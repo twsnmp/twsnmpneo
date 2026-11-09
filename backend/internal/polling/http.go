@@ -33,16 +33,27 @@ func NewHTTPPoller() *HTTPPoller {
 	}
 }
 
+// NewHTTPPollerWithClient creates an HTTPPoller with a custom http.Client (e.g. for testing).
+func NewHTTPPollerWithClient(client *http.Client) *HTTPPoller {
+	if client == nil {
+		return NewHTTPPoller()
+	}
+	return &HTTPPoller{client: client}
+}
+
 func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *datastore.NodeEnt) (*Result, error) {
 	mode := strings.ToLower(pe.Mode)
-	switch mode {
-	case "", "http", "https", "hash", "metrics", "apache", "nginx", "fiber":
-	default:
-		return &Result{
-			State:   StateUnknown,
-			Message: fmt.Sprintf("unsupported http mode: %s", pe.Mode),
-			Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported http mode: %s", pe.Mode)},
-		}, nil
+	isLLM := strings.HasPrefix(mode, "llm")
+	if !isLLM {
+		switch mode {
+		case "", "http", "https", "hash", "metrics", "metrics/json", "apache", "nginx", "fiber":
+		default:
+			return &Result{
+				State:   StateUnknown,
+				Message: fmt.Sprintf("unsupported http mode: %s", pe.Mode),
+				Fields:  map[string]interface{}{"error": fmt.Sprintf("unsupported http mode: %s", pe.Mode)},
+			}, nil
+		}
 	}
 	url := pe.Params
 	if url == "" {
@@ -74,11 +85,34 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	var lastErr error
 	ok := false
 
+	isAuthFilter := false
+	if pe.Filter != "" {
+		if strings.HasPrefix(pe.Filter, "Bearer ") || strings.HasPrefix(pe.Filter, "token ") || strings.HasPrefix(pe.Filter, "sk-") {
+			isAuthFilter = true
+		} else if strings.Contains(pe.Filter, ":") && (isLLM || strings.HasPrefix(pe.Filter, "Authorization:") || strings.Contains(pe.Filter, "api-key")) {
+			isAuthFilter = true
+		}
+	}
+
 	for i := 0; !ok && i <= pe.Retry; i++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			lastErr = err
 			continue
+		}
+
+		if pe.Mode == "metrics/json" || isLLM {
+			req.Header.Set("Accept", "application/json")
+		}
+		if pe.Filter != "" {
+			if strings.HasPrefix(pe.Filter, "Bearer ") || strings.HasPrefix(pe.Filter, "token ") {
+				req.Header.Set("Authorization", pe.Filter)
+			} else if strings.HasPrefix(pe.Filter, "sk-") {
+				req.Header.Set("Authorization", "Bearer "+pe.Filter)
+			} else if strings.Contains(pe.Filter, ":") && isAuthFilter {
+				parts := strings.SplitN(pe.Filter, ":", 2)
+				req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+			}
 		}
 
 		p.client.Timeout = timeout
@@ -134,7 +168,7 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	}
 
 	// Filter regex check (backward compatibility)
-	if pe.Filter != "" {
+	if pe.Filter != "" && !isAuthFilter && !isLLM {
 		matched, err := regexp.MatchString(pe.Filter, bodyStr)
 		if err != nil || !matched {
 			return &Result{
@@ -190,6 +224,23 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 		}
 	}
 
+	// Mode handling: LLM API (/v1/models or /api/tags)
+	if isLLM {
+		var jsonMap map[string]any
+		var modelCount float64
+		if err := json.Unmarshal(bodyBytes, &jsonMap); err == nil {
+			if dataList, ok := jsonMap["data"].([]any); ok {
+				// OpenAI compatible format: {"data": [...]}
+				modelCount = float64(len(dataList))
+			} else if modelsList, ok := jsonMap["models"].([]any); ok {
+				// Ollama format: {"models": [...]}
+				modelCount = float64(len(modelsList))
+			}
+		}
+		fields["models"] = modelCount
+		fields["rtt_ms"] = float64(rtt.Nanoseconds()) / 1e6
+	}
+
 	// Set up Otto VM for extractor and script evaluation
 	vm := otto.New()
 	SetupOttoVM(pe, vm, fields)
@@ -198,6 +249,10 @@ func (p *HTTPPoller) Poll(ctx context.Context, pe *datastore.PollingEnt, node *d
 	_ = vm.Set("code", statusCode)
 	_ = vm.Set("rtt", float64(rtt.Nanoseconds()))
 	_ = vm.Set("interval", float64(pe.PollInt))
+	if isLLM {
+		_ = vm.Set("models", fields["models"])
+		_ = vm.Set("rtt_ms", fields["rtt_ms"])
+	}
 
 	// Extractor support (getBody, jsonpath, goquery, grok)
 	if pe.Extractor != "" {

@@ -10,6 +10,8 @@
     fetchOTelDAG,
     fetchOTelLogs,
     deleteAllOTelData,
+    fetchNodes,
+    type NodeEnt,
     type OTelMetricEnt,
     type OTelTraceSummaryEnt,
     type OTelTraceEnt,
@@ -18,6 +20,7 @@
   import { showConfirm, showLoading, hideLoading } from "../stores/modalStore";
   import { formatTimeStr, renderTimeMili } from "../common";
   import TablePagination from "../components/common/TablePagination.svelte";
+  import PollingDialog from "../components/PollingDialog.svelte";
   import {
     showOTelTrace,
     showOTelDAG,
@@ -35,6 +38,7 @@
     FileText,
     GitBranch,
     Info,
+    PlusCircle,
     RefreshCw,
     Search,
     Trash2,
@@ -123,8 +127,59 @@
   let metricTimeChartInstance: any = null;
   let logLevelChartInstance: any = null;
 
+  // --- Polling Creation State ---
+  let nodes = $state<NodeEnt[]>([]);
+  let showPollingDialog = $state(false);
+  let newPolling = $state<any>(null);
+
+  const openAddPolling = () => {
+    if (activeTab === "metric" && selectedMetric) {
+      const m = selectedMetric;
+      let matchedNode = nodes.find(
+        (n) => (n.ip && n.ip === m.Host) || (n.name && n.name === m.Host) || (m.Host && n.ip && n.ip.startsWith(m.Host))
+      );
+      const script = m.Type === "Gauge" ? "gauge < 80.0" : "count > 0";
+      newPolling = {
+        name: `OTel:${m.Service}:${m.Name}`,
+        nodeId: matchedNode ? (matchedNode.id || (matchedNode as any).ID) : (nodes[0]?.id || (nodes[0] as any)?.ID || ""),
+        type: "otel",
+        mode: "metric",
+        params: `service=${m.Service},name=${m.Name},scope=${m.Scope},host=${m.Host}`,
+        script: script,
+        level: "warn",
+        pollInt: 60,
+        timeout: 5,
+        retry: 1,
+      };
+      showPollingDialog = true;
+    } else if (activeTab === "trace" && selectedTrace) {
+      const t = selectedTrace;
+      const svc = t.Services ? t.Services.split(",")[0].trim() : "";
+      const host = t.Hosts ? t.Hosts.split(",")[0].trim() : "";
+      let matchedNode = nodes.find(
+        (n) => (n.ip && n.ip === host) || (n.name && n.name === host) || (host && n.ip && n.ip.startsWith(host))
+      );
+      newPolling = {
+        name: `OTelTrace:${svc}`,
+        nodeId: matchedNode ? (matchedNode.id || (matchedNode as any).ID) : (nodes[0]?.id || (nodes[0] as any)?.ID || ""),
+        type: "otel",
+        mode: "trace",
+        params: `service=${svc}`,
+        script: "errorRate < 5.0 && p95Dur < 1.0",
+        level: "high",
+        pollInt: 60,
+        timeout: 5,
+        retry: 1,
+      };
+      showPollingDialog = true;
+    }
+  };
+
   onMount(() => {
     void refresh(true);
+    fetchNodes().then((n) => {
+      nodes = n || [];
+    }).catch(console.error);
     const handleResize = () => {
       metricTypeChartInstance?.resize();
       metricServiceChartInstance?.resize();
@@ -884,6 +939,15 @@
             <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>{$_('otel.btnReport')}</span>
           </button>
+
+          <button
+            type="button"
+            onclick={openAddPolling}
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+          >
+            <PlusCircle class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            <span>{$_('otel.btnPolling')}</span>
+          </button>
         {/if}
 
         {#if activeTab === "trace"}
@@ -904,6 +968,15 @@
             >
               <Activity class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>{$_('otel.btnReport')}</span>
+            </button>
+
+            <button
+              type="button"
+              onclick={openAddPolling}
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-300 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+            >
+              <PlusCircle class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <span>{$_('otel.btnPolling')}</span>
             </button>
           {/if}
         {/if}
@@ -2137,3 +2210,12 @@
     </div>
   </div>
 {/if}
+
+<PollingDialog
+  bind:show={showPollingDialog}
+  bind:polling={newPolling}
+  {nodes}
+  onSave={() => {
+    showPollingDialog = false;
+  }}
+/>

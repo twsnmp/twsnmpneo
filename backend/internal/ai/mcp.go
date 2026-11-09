@@ -168,6 +168,7 @@ func NewMCPServer(cfg MCPConfig) *MCPServer {
 	s.registerMapTools(server)
 	s.registerReportTools(server)
 	s.registerLogTools(server)
+	s.registerOTelTools(server)
 	s.registerPrompts(server)
 
 	s.server = server

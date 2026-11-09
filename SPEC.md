@@ -195,6 +195,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Dedicated telemetry viewer featuring a left sidebar (`w-60`) for switching between **Metrics**, **Traces**, and **Logs** with real-time badge counts.
    - Top overview dashboard (`h-64`) featuring 4 vertical KPIs, metric type donut chart, service metric horizontal bar chart, and trace duration scatter plot.
    - Interactive service DAG topology graph, span hierarchy timeline tree, and fully sortable tables.
+   - Top header action bar (Reload, Create Polling, Report, Delete All, Delete) and one-click polling creation (`btnPolling`) from Metric and Trace tables with automatic node association (IP or hostname match) and prepopulated polling dialog.
    - **AI Anomaly & Root-Cause Diagnosis**: Integrated `ReportAIExplainModal` across OTel telemetry:
      - **Metric Anomaly Diagnosis (`otel_metric`)**: AI analysis of Gauge/Sum/Histogram distributions, spikes, and P95/P99 latency regressions.
      - **Trace Latency & Bottleneck Diagnosis (`otel_trace`)**: AI analysis of span hierarchy critical path, slow database queries, external API dependencies, and error spans.
@@ -354,7 +355,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
        - `script`: Free-form Otto JavaScript polling injecting a callable `snmpGet(oidName)` function.
     3. **gNMI (`gnmi`)**: OpenConfig gNMI telemetry polling via `github.com/openconfig/gnmic/pkg/api` (`get` and `subscribe` streaming modes) with target authentication and JSON path/XPath data extraction.
     4. **TCP (`tcp`)**: Plain TCP socket connectivity check with optional banner capture and regex pattern matching.
-    5. **HTTP / HTTPS (`http`)**: Web service polling with support for `hash` mode (SHA256 response body change detection), `metrics` mode (Apache, Nginx, Fiber JSON metrics parsing), and Otto JavaScript scripting with full HTTP context (`status`, `code`, `rtt`, `interval`).
+    5. **HTTP / HTTPS (`http`)**: Web service and API polling with support for `hash` mode (SHA256 response body change detection), `metrics` mode (Apache, Nginx, Fiber JSON metrics parsing), `metrics/json` mode (dynamic JSON object metric extraction), and **AI/LLM endpoint monitoring** (`llm/openai`, `llm/ollama`, and `llm/*` prefix) querying API model lists (`/v1/models` or `/api/tags`) to monitor availability, response latency (`rtt_ms`), and available model count (`models`) with automatic authentication token extraction (`Bearer ...`, `sk-...`, `Key: Val`) from `Filter`, and Otto JavaScript scripting with full HTTP context (`status`, `code`, `rtt`, `interval`).
     6. **TLS (`tls`)**: TLS certificate check supporting modes `verify` (valid certificate chain), `version` (TLS protocol version restriction), `expire` (remaining days threshold verification), and `cert` (dedicated server certificate monitoring report with full attributes: issuer, subject, serialNumber, start/end dates, remaining days, key strength, and state evaluated against configured polling Level). Populates FK-compatible fields (`rtt`, `version`, `cipherSuite`, `valid`, `issuer`, `subject`, `notAfter`, `notBefore`, `serialNumber`, `days`, `key`).
     7. **DNS (`dns`)**: Supports record resolution types (`ipaddr`, `addr`, `host`, `mx`, `ns`, `txt`, `cname`). In `ipaddr` mode, automatically detects IP address changes across polling runs. Evaluates JavaScript boolean expressions via Otto VM in other modes.
     8. **NTP (`ntp`)**: Uses `beevik/ntp` to query target servers and populates `rtt`, `stratum`, `refid`, and clock `offset` in nanoseconds, matching FK fields.
@@ -371,6 +372,11 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
     19. **LXI (`lxi`)**: Scientific and industrial test instrumentation polling over SCPI raw TCP socket (port 5025). Exposes `lxiCommand(cmd)` and `lxiQuery(cmd)` built-in functions inside Otto VM scripts.
     20. **Monitor (`monitor`)**: Gathers local host resource telemetry (CPU, Memory, Disk, Load, Network, Goroutines, Heap) via `monitor.Monitor` and supports Otto JavaScript threshold scripting.
     21. **MQTT (`mqtt`)**: Connects to external MQTT brokers (plain TCP or TLS) or inspects topics received by the embedded MQTT broker (`ListMqttStats` and Parquet `mqtt` logs), supporting `twagentneo` topic telemetry extraction (`metrics`, `interface`, `status`, `alert`, `fim`, `sca`) and JavaScript evaluation.
+    22. **OpenTelemetry APM (`otel`)**: Ingested OpenTelemetry telemetry evaluation without external agents:
+        - `metric`: Evaluates OTel metrics (Gauge, Sum) matching metric name and optional host/service filters; computes `gauge`, `sum`, `min`, `max`, `count`, and `elapsed` (seconds since last received metric).
+        - `trace`: Evaluates distributed trace spans across selectable lookback windows (`5m`, `15m`, etc.) with optional service/operation filters; computes `totalSpans`, `errorSpans`, `errorRate` (percentage), `avgDur`, and `p95Dur` (P95 duration in milliseconds), detecting HTTP 4xx/5xx status codes, gRPC errors, and span error attributes.
+        - `heartbeat` / `last`: Verifies heartbeat activity by measuring seconds since the most recent telemetry was ingested against configured threshold (`pe.Timeout`).
+        - Supports Otto JavaScript scripting and custom severity thresholding.
     23. **STUN (`stun`)**: Discovers mapped public IP, external port, and local socket via `internal/stun` (UDP4/UDP6). Tracks external IP changes and supports Otto VM evaluation.
 
 * **Otto JavaScript VM Script Engine & Built-in Functions**:
@@ -395,6 +401,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   - **Frontend Template Selector (`PollingTemplateDialog.svelte`)**:
     - Accessible directly from `ListView.svelte` and `MapView.svelte` ("テンプレートから追加" button).
     - Features keyword search, protocol type filtering, side-by-side template detail preview, single-template application, and batch auto-deployment across interfaces.
+    - Includes pre-packaged templates for OTel Metric monitoring, OTel Trace error rate/P95 latency, OTel Telemetry heartbeat, and OpenAI-compatible/Ollama LLM API health and model monitoring.
 
 ---
 
@@ -513,9 +520,10 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
     - Dedicated REST APIs: `GET /api/ai/hardware`, `GET /api/ai/models`, `GET /api/ai/models/presets`, `POST /api/ai/models/download`, `POST /api/ai/models/cancel`, `DELETE /api/ai/models/:name`, `POST /api/ai/hardware/download-gpu`, `POST /api/ai/hardware/cancel-gpu`, and `GET /api/ai/download/status`.
 * **MCP Server Implementation**:
   - Standard JSON-RPC 2.0 tools and prompts over modern **Streamable HTTP** (`/api/mcp`) with IP whitelist (`-mcpFrom`) and optional JWT authentication (`-mcpMode auth|noauth`).
-  - **Comprehensive Tools (22+ tools)**:
+  - **Comprehensive Tools (25+ tools)**:
     - **Map & Network**: `get_node_list`, `add_node`, `update_node`, `get_network_list`, `get_polling_list`, `get_polling_log`, `get_polling_log_data`, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`, `get_system_status`, `diagnose_node`.
-    - **Reports & Analytics**: `get_sensor_list`, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`.
+    - **Reports & Analytics**: `get_sensor_list` (with optional `type_filter`), `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`.
+    - **OpenTelemetry APM**: `get_otel_metrics`, `get_otel_traces`.
     - **Logs & Diagnostics**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `get_ip_address_info`, `get_mac_address_info`.
   - **MCP Prompts**: Full suite of 19 interactive prompt templates for node inspection, poller queries, ping, SNMP walk, log search, and IP/MAC info retrieval.
 * **UI AI Assist Dialogs & Common Interaction Standards**:

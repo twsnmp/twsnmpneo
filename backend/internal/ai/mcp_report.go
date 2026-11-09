@@ -31,7 +31,13 @@ type mcpSensorEnt struct {
 }
 
 type mcpGetSensorListParams struct {
+	TypeFilter  string `json:"type_filter,omitempty" jsonschema:"Sensor type regex filter (e.g. twWifiScan, twBlueScan, twpcap, twwinlog, twagentneo). If blank, all sensors are returned."`
 	StateFilter string `json:"state_filter,omitempty" jsonschema:"state_filter uses a regular expression to specify criteria for sensor state (normal,warn,low,high,unknown)."`
+}
+
+type mcpGetReportSummaryParams struct {
+	ReportType string `json:"report_type" jsonschema:"Report kind name (e.g. wifiAP, blueDevice, envMonitor, dnsq, winEventID, twAgentAlert, twAgentInfo)."`
+	Limit      int    `json:"limit,omitempty" jsonschema:"Maximum number of records to return (1-200, default 50)."`
 }
 
 type mcpMACEnt struct {
@@ -120,44 +126,7 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_sensor_list",
 		Description: "Get list of remote monitoring sensors reporting to TWSNMP NEO",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args mcpGetSensorListParams) (*mcp.CallToolResult, any, error) {
-		if s.store == nil {
-			return jsonResult([]mcpSensorEnt{})
-		}
-		sensors, err := s.store.ListSensors(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		stateFilter := makeRegexFilter(args.StateFilter)
-		list := make([]mcpSensorEnt, 0)
-		for _, sn := range sensors {
-			if sn.Ignore {
-				continue
-			}
-			if stateFilter != nil && !stateFilter.MatchString(sn.State) {
-				continue
-			}
-			mon := mcpSensorMonitorEnt{}
-			if len(sn.Monitors) > 0 {
-				last := sn.Monitors[len(sn.Monitors)-1]
-				mon.CPU = last.CPU
-				mon.Memory = last.Mem
-				mon.Load = last.Load
-				mon.Process = last.Process
-			}
-			list = append(list, mcpSensorEnt{
-				Host:      sn.Host,
-				Type:      sn.Type,
-				Total:     sn.Total,
-				Send:      sn.Send,
-				State:     sn.State,
-				Monitor:   mon,
-				FirstTime: time.Unix(0, sn.FirstTime).Format(time.RFC3339Nano),
-				LastTime:  time.Unix(0, sn.LastTime).Format(time.RFC3339Nano),
-			})
-		}
-		return jsonResult(list)
-	})
+	}, s.getSensorList)
 
 	// 2. get_mac_address_list
 	mcp.AddTool(server, &mcp.Tool{
@@ -391,4 +360,83 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 		}
 		return jsonResult(list)
 	})
+
+	// 8. get_report_summary
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_report_summary",
+		Description: "Get report summary (wifiAP, blueDevice, envMonitor, dnsq, winEventID, twAgentAlert, twAgentInfo, etc.) from TWSNMP NEO",
+	}, s.getReportSummary)
+}
+
+func (s *MCPServer) getSensorList(ctx context.Context, req *mcp.CallToolRequest, args mcpGetSensorListParams) (*mcp.CallToolResult, any, error) {
+	if s.store == nil {
+		return jsonResult([]mcpSensorEnt{})
+	}
+	sensors, err := s.store.ListSensors(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	typeFilter := makeRegexFilter(args.TypeFilter)
+	stateFilter := makeRegexFilter(args.StateFilter)
+	list := make([]mcpSensorEnt, 0)
+	for _, sn := range sensors {
+		if sn.Ignore {
+			continue
+		}
+		if typeFilter != nil && !typeFilter.MatchString(sn.Type) {
+			continue
+		}
+		if stateFilter != nil && !stateFilter.MatchString(sn.State) {
+			continue
+		}
+		mon := mcpSensorMonitorEnt{}
+		if len(sn.Monitors) > 0 {
+			last := sn.Monitors[len(sn.Monitors)-1]
+			mon.CPU = last.CPU
+			mon.Memory = last.Mem
+			mon.Load = last.Load
+			mon.Process = last.Process
+		}
+		list = append(list, mcpSensorEnt{
+			Host:      sn.Host,
+			Type:      sn.Type,
+			Total:     sn.Total,
+			Send:      sn.Send,
+			State:     sn.State,
+			Monitor:   mon,
+			FirstTime: time.Unix(0, sn.FirstTime).Format(time.RFC3339Nano),
+			LastTime:  time.Unix(0, sn.LastTime).Format(time.RFC3339Nano),
+		})
+	}
+	return jsonResult(list)
+}
+
+func (s *MCPServer) getReportSummary(ctx context.Context, req *mcp.CallToolRequest, args mcpGetReportSummaryParams) (*mcp.CallToolResult, any, error) {
+	if s.store == nil {
+		return jsonResult([]any{})
+	}
+	if args.ReportType == "" {
+		return textResult("report_type is required (e.g. wifiAP, blueDevice, envMonitor, dnsq, winEventID, twAgentAlert, twAgentInfo)"), nil, nil
+	}
+	limit := args.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rawMap, err := s.store.ListLogReportData(ctx, args.ReportType)
+	if err != nil {
+		return textResult(fmt.Sprintf("failed to get report data: %v", err)), nil, nil
+	}
+	list := make([]any, 0, limit)
+	count := 0
+	for _, b := range rawMap {
+		var obj any
+		if err := json.Unmarshal(b, &obj); err == nil {
+			list = append(list, obj)
+			count++
+			if count >= limit {
+				break
+			}
+		}
+	}
+	return jsonResult(list)
 }
