@@ -25,6 +25,7 @@ import {
   type LineEnt,
   type NetworkEnt,
   type DrawItemEnt,
+  normalizeDrawItem,
 } from "../api";
 import { gauge, line, bar, kpi, classicGauge } from "./chart/drawitem";
 import portImgUrl from "../../assets/images/port.png";
@@ -33,6 +34,7 @@ let mapSizeX = 2500;
 let mapSizeY = 5000;
 let mapRedraw = true;
 let readOnly = false;
+let publicDashboardKey = "";
 
 let mapCallBack: any = undefined;
 
@@ -81,7 +83,7 @@ let mapConf: any = undefined;
 let portImage: any = undefined;
 
 const isDark = (): boolean => {
-  return document.documentElement.classList.contains("dark");
+  return typeof document !== "undefined" && (document.documentElement.classList.contains("dark") || readOnly);
 };
 
 let mapInitGen = 0;
@@ -133,6 +135,7 @@ export const resetMap = () => {
     _mapP5 = undefined;
   }
   publicPreloadedData = null;
+  publicDashboardKey = "";
   readOnly = false;
   lastBackImagePath = "";
   _backImage = undefined;
@@ -152,9 +155,203 @@ export const ensureFontsReady = async () => {
   }
 };
 
-export const initPublicMAP = async (div: HTMLElement, mapData: any) => {
+const updateDrawItemImages = (dark: boolean) => {
+  const backColor = dark ? "rgb(23,23,23)" : "rgb(252,252,252)";
+
+  for (const k in items) {
+    const it = items[k];
+    switch (it.type) {
+      case 2:
+      case 4: {
+        const displayText = it.formatted_text || (it as any).FormattedText || it.text || (it as any).Text || (it.type === 4 ? "No Value" : "Empty");
+        const textLen = Math.max(displayText.length, 4);
+        const sz = it.size || 14;
+        it.w = (it.w && it.w > 0) ? it.w : sz * textLen;
+        it.h = (it.h && it.h > 0) ? it.h : sz;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        if (imageMap.has(k)) {
+          imageMap.delete(k);
+        }
+        break;
+      }
+      case 3: {
+        if (it.path && _mapP5) {
+          let itemImgUrl = it.path;
+          if (readOnly && publicDashboardKey) {
+            const fileName = it.path.split("/").pop() || it.path;
+            itemImgUrl = `/api/public/dashboard/${encodeURIComponent(publicDashboardKey)}/image/${encodeURIComponent(fileName)}`;
+          } else if (!itemImgUrl.startsWith("http") && !itemImgUrl.startsWith("/") && !itemImgUrl.startsWith("data:")) {
+            itemImgUrl = `/api/map/image/${itemImgUrl}`;
+          }
+          const loadKey = `item_path_${k}_${itemImgUrl}`;
+          if (!imageMap.has(k) && !loadingImages.has(loadKey)) {
+            loadingImages.add(loadKey);
+            _mapP5.loadImage(
+              itemImgUrl,
+              (loaded) => {
+                imageMap.set(k, loaded);
+                loadingImages.delete(loadKey);
+                mapRedraw = true;
+              },
+              () => {
+                if (readOnly && publicDashboardKey) {
+                  const fileName = it.path!.split("/").pop() || it.path!;
+                  _mapP5?.loadImage(
+                    `/public/api/dashboard/${encodeURIComponent(publicDashboardKey)}/image/${encodeURIComponent(fileName)}`,
+                    (fallbackLoaded) => {
+                      imageMap.set(k, fallbackLoaded);
+                      loadingImages.delete(loadKey);
+                      mapRedraw = true;
+                    },
+                    () => {
+                      loadingImages.delete(loadKey);
+                    }
+                  );
+                } else {
+                  loadingImages.delete(loadKey);
+                }
+              }
+            );
+          }
+        }
+        break;
+      }
+      case 5: {
+        const sz = it.size || 16;
+        it.w = sz * 10;
+        it.h = sz * 10;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        const dataUrl = classicGauge(it.text || "", it.color || "#00d2ff", it.value || 0, sz, dark);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey) && _mapP5) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
+        break;
+      }
+      case 6: {
+        const gh = it.h || 120;
+        it.h = gh;
+        it.w = gh;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        const dataUrl = gauge(it.text || "", it.value || 0, backColor);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey) && _mapP5) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
+        break;
+      }
+      case 7: {
+        const bh = it.h || 80;
+        it.h = bh;
+        it.w = bh * 4;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        const dataUrl = bar(it.text || "", it.color || "white", it.value || 0, backColor);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey) && _mapP5) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
+        break;
+      }
+      case 8: {
+        const lh = it.h || 80;
+        it.h = lh;
+        it.w = lh * 4;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        const dataUrl = line(it.text || "", it.color || "white", it.values || [], backColor);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey) && _mapP5) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
+        break;
+      }
+      case 11: {
+        const kpiW = (it.w || 0) > 0 ? it.w! : 220;
+        const kpiH = (it.h || 0) > 0 ? it.h! : 84;
+        it.w = kpiW;
+        it.h = kpiH;
+        (it as any).W = it.w;
+        (it as any).H = it.h;
+        let title = it.text || "";
+        if (title.includes("\t")) title = title.split("\t")[0];
+        let text = (it as any).formatted_text || (it as any).FormattedText || "";
+        if (!text && it.value !== undefined) text = it.value.toFixed(1);
+        const dataUrl = kpi(title, text, it.value || 0, it.color || "#00d2ff", it.values || [], dark, it.w, it.h);
+        const loadKey = `item_data_${k}_${dataUrl}`;
+        if (!loadingImages.has(loadKey) && _mapP5) {
+          loadingImages.add(loadKey);
+          _mapP5.loadImage(
+            dataUrl,
+            (loaded) => {
+              imageMap.set(k, loaded);
+              loadingImages.delete(loadKey);
+              mapRedraw = true;
+            },
+            () => {
+              loadingImages.delete(loadKey);
+            }
+          );
+        }
+        break;
+      }
+    }
+  }
+};
+
+export const initPublicMAP = async (div: HTMLElement, mapData: any, key: string = "") => {
   const gen = ++mapInitGen;
   readOnly = true;
+  if (key) {
+    publicDashboardKey = key;
+  }
   publicPreloadedData = mapData;
   if (mapData?.MapConf) {
     mapConf = mapData.MapConf;
@@ -178,7 +375,7 @@ export const initPublicMAP = async (div: HTMLElement, mapData: any) => {
   mapCallBack = () => {};
   mapRedraw = false;
   if (_mapP5 != undefined) {
-    updatePublicMAP(mapData);
+    updatePublicMAP(mapData, key);
     return;
   }
   div.oncontextmenu = (e) => {
@@ -206,10 +403,13 @@ export const initPublicMAP = async (div: HTMLElement, mapData: any) => {
   _mapP5 = new P5(mapMain, div);
 };
 
-export const updatePublicMAP = (mapData: any) => {
+export const updatePublicMAP = (mapData: any, key: string = "") => {
   if (!mapData) return;
   publicPreloadedData = mapData;
   readOnly = true;
+  if (key) {
+    publicDashboardKey = key;
+  }
 
   if (mapData.MapConf) {
     mapConf = mapData.MapConf;
@@ -264,24 +464,24 @@ export const updatePublicMAP = (mapData: any) => {
   // Lines
   lines = Array.isArray(mapData.Lines) ? mapData.Lines : [];
 
-  // Items
+  // Items (normalized)
   items = {};
   const rawItems = mapData.Items || {};
   if (Array.isArray(rawItems)) {
     rawItems.forEach((it: any) => {
-      const id = it.id || it.ID || '';
-      if (id) {
-        checkItemPos(it);
-        items[id] = it;
+      const normalized = normalizeDrawItem(it);
+      if (normalized.id) {
+        checkItemPos(normalized);
+        items[normalized.id] = normalized;
       }
     });
   } else {
     for (const [id, it] of Object.entries(rawItems)) {
-      const itemObj: any = it;
-      if (id && itemObj) {
-        if (!itemObj.id) itemObj.id = id;
-        checkItemPos(itemObj);
-        items[id] = itemObj;
+      if (id && it) {
+        const itemObj: any = { ...it, id: (it as any).id || (it as any).ID || id };
+        const normalized = normalizeDrawItem(itemObj);
+        checkItemPos(normalized);
+        items[normalized.id] = normalized;
       }
     }
   }
@@ -335,25 +535,82 @@ export const updatePublicMAP = (mapData: any) => {
     }
   }
 
+  // Port image for network switches
+  if (!portImage && _mapP5 && !loadingImages.has("portImage")) {
+    loadingImages.add("portImage");
+    _mapP5.loadImage(
+      portImgUrl,
+      (loaded) => {
+        portImage = loaded;
+        loadingImages.delete("portImage");
+        mapRedraw = true;
+      },
+      () => {
+        loadingImages.delete("portImage");
+      }
+    );
+  }
+
+  // Update draw item images (KPI, gauges, line, bar, image)
+  _setMapState();
+  updateDrawItemImages(isDark());
+
   // Background Image for public map
-  if (mapData.MapConf?.BackImage) {
-    const bi = mapData.MapConf.BackImage;
+  const bi = mapData.BackImage || mapData.MapConf?.BackImage;
+  if (bi) {
     backImage = bi;
     if (bi.Path && (bi.Path !== lastBackImagePath || !_backImage) && _mapP5) {
       lastBackImagePath = bi.Path;
       let imgUrl = bi.Path;
-      if (!imgUrl.startsWith("http") && !imgUrl.startsWith("/") && !imgUrl.startsWith("data:")) {
+      if (bi.Path.startsWith("data:") || bi.Path.startsWith("http://") || bi.Path.startsWith("https://")) {
+        imgUrl = bi.Path;
+      } else if (publicDashboardKey) {
+        const fileName = bi.Path.split("/").pop() || bi.Path;
+        imgUrl = `/api/public/dashboard/${encodeURIComponent(publicDashboardKey)}/image/${encodeURIComponent(fileName)}`;
+      } else if (!imgUrl.startsWith("/")) {
         imgUrl = `/api/map/image/${imgUrl}`;
       }
+      loadingImages.add("backimage");
       _mapP5.loadImage(
         imgUrl,
         (img) => {
           _backImage = img;
+          loadingImages.delete("backimage");
           mapRedraw = true;
         },
-        () => {}
+        () => {
+          if (_mapP5 && publicDashboardKey) {
+            const fileName = bi.Path.split("/").pop() || bi.Path;
+            _mapP5.loadImage(
+              `/public/api/dashboard/${encodeURIComponent(publicDashboardKey)}/image/${encodeURIComponent(fileName)}`,
+              (img2) => {
+                _backImage = img2;
+                loadingImages.delete("backimage");
+                mapRedraw = true;
+              },
+              () => {
+                _mapP5?.loadImage(
+                  `/backimage?t=${Date.now()}`,
+                  (fcImg) => {
+                    _backImage = fcImg;
+                    loadingImages.delete("backimage");
+                    mapRedraw = true;
+                  },
+                  () => {
+                    loadingImages.delete("backimage");
+                  }
+                );
+              }
+            );
+          } else {
+            loadingImages.delete("backimage");
+          }
+        }
       );
     }
+  } else {
+    lastBackImagePath = "";
+    _backImage = undefined;
   }
 
   mapRedraw = true;
@@ -455,7 +712,7 @@ export interface MapPreloadedData {
 export const updateMAP = async (preloaded?: MapPreloadedData) => {
   if (readOnly) {
     if (publicPreloadedData) {
-      updatePublicMAP(publicPreloadedData);
+      updatePublicMAP(publicPreloadedData, publicDashboardKey);
     }
     return;
   }
@@ -668,172 +925,7 @@ export const updateMAP = async (preloaded?: MapPreloadedData) => {
   _setMapState();
   mapRedraw = true;
 
-  const backColor = dark ? "rgb(23,23,23)" : "rgb(252,252,252)";
-
-  for (const k in items) {
-    const it = items[k];
-    switch (it.type) {
-      case 2:
-      case 4: {
-        const displayText = it.formatted_text || (it as any).FormattedText || it.text || (it as any).Text || (it.type === 4 ? "No Value" : "Empty");
-        const textLen = Math.max(displayText.length, 4);
-        const sz = it.size || 14;
-        it.w = (it.w && it.w > 0) ? it.w : sz * textLen;
-        it.h = (it.h && it.h > 0) ? it.h : sz;
-        (it as any).W = it.w;
-        (it as any).H = it.h;
-        if (imageMap.has(k)) {
-          imageMap.delete(k);
-        }
-        break;
-      }
-      case 3: {
-        if (it.path && _mapP5) {
-          const loadKey = `item_path_${k}_${it.path}`;
-          if (!imageMap.has(k) && !loadingImages.has(loadKey)) {
-            loadingImages.add(loadKey);
-            _mapP5.loadImage(
-              it.path,
-              (loaded) => {
-                imageMap.set(k, loaded);
-                loadingImages.delete(loadKey);
-                mapRedraw = true;
-              },
-              () => {
-                loadingImages.delete(loadKey);
-              }
-            );
-          }
-        }
-        break;
-      }
-      case 5: {
-        const sz = it.size || 16;
-        it.w = sz * 10;
-        it.h = sz * 10;
-        (it as any).W = it.w;
-        (it as any).H = it.h;
-        const dataUrl = classicGauge(it.text || "", it.color || "#00d2ff", it.value || 0, sz, dark);
-        const loadKey = `item_data_${k}_${dataUrl}`;
-        if (!loadingImages.has(loadKey)) {
-          loadingImages.add(loadKey);
-          _mapP5.loadImage(
-            dataUrl,
-            (loaded) => {
-              imageMap.set(k, loaded);
-              loadingImages.delete(loadKey);
-              mapRedraw = true;
-            },
-            () => {
-              loadingImages.delete(loadKey);
-            }
-          );
-        }
-        break;
-      }
-      case 6: {
-        const gh = it.h || 120;
-        it.h = gh;
-        it.w = gh;
-        (it as any).W = it.w;
-        (it as any).H = it.h;
-        const dataUrl = gauge(it.text || "", it.value || 0, backColor);
-        const loadKey = `item_data_${k}_${dataUrl}`;
-        if (!loadingImages.has(loadKey)) {
-          loadingImages.add(loadKey);
-          _mapP5.loadImage(
-            dataUrl,
-            (loaded) => {
-              imageMap.set(k, loaded);
-              loadingImages.delete(loadKey);
-              mapRedraw = true;
-            },
-            () => {
-              loadingImages.delete(loadKey);
-            }
-          );
-        }
-        break;
-      }
-      case 7: {
-        const bh = it.h || 80;
-        it.h = bh;
-        it.w = bh * 4;
-        (it as any).W = it.w;
-        (it as any).H = it.h;
-        const dataUrl = bar(it.text || "", it.color || "white", it.value || 0, backColor);
-        const loadKey = `item_data_${k}_${dataUrl}`;
-        if (!loadingImages.has(loadKey)) {
-          loadingImages.add(loadKey);
-          _mapP5.loadImage(
-            dataUrl,
-            (loaded) => {
-              imageMap.set(k, loaded);
-              loadingImages.delete(loadKey);
-              mapRedraw = true;
-            },
-            () => {
-              loadingImages.delete(loadKey);
-            }
-          );
-        }
-        break;
-      }
-      case 8: {
-        const lh = it.h || 80;
-        it.h = lh;
-        it.w = lh * 4;
-        (it as any).W = it.w;
-        (it as any).H = it.h;
-        const dataUrl = line(it.text || "", it.color || "white", it.values || [], backColor);
-        const loadKey = `item_data_${k}_${dataUrl}`;
-        if (!loadingImages.has(loadKey)) {
-          loadingImages.add(loadKey);
-          _mapP5.loadImage(
-            dataUrl,
-            (loaded) => {
-              imageMap.set(k, loaded);
-              loadingImages.delete(loadKey);
-              mapRedraw = true;
-            },
-            () => {
-              loadingImages.delete(loadKey);
-            }
-          );
-        }
-        break;
-      }
-      case 11: {
-        const kpiW = (it.w || 0) > 0 ? it.w! : 220;
-        const kpiH = (it.h || 0) > 0 ? it.h! : 84;
-        it.w = kpiW;
-        it.h = kpiH;
-        (it as any).W = it.w;
-        (it as any).H = it.h;
-        let title = it.text || "";
-        if (title.includes("\t")) title = title.split("\t")[0];
-        let text = (it as any).formatted_text || (it as any).FormattedText || "";
-        if (!text && it.value !== undefined) text = it.value.toFixed(1);
-        const dataUrl = kpi(title, text, it.value || 0, it.color || "#00d2ff", it.values || [], dark, it.w, it.h);
-        const loadKey = `item_data_${k}_${dataUrl}`;
-        if (!loadingImages.has(loadKey)) {
-          loadingImages.add(loadKey);
-          _mapP5.loadImage(
-            dataUrl,
-            (loaded) => {
-              imageMap.set(k, loaded);
-              loadingImages.delete(loadKey);
-              mapRedraw = true;
-            },
-            () => {
-              loadingImages.delete(loadKey);
-            }
-          );
-        }
-        break;
-      }
-    }
-  }
+  updateDrawItemImages(dark);
 
   mapRedraw = true;
 };
@@ -1098,6 +1190,7 @@ export const circle = async (selected: string[]) => {
 };
 
 const mapMain = (p5: P5) => {
+  _mapP5 = p5;
   let startMouseX = 0;
   let startMouseY = 0;
   let lastMouseX = 0;
@@ -1110,6 +1203,7 @@ const mapMain = (p5: P5) => {
   let clickInCanvas = false;
 
   p5.setup = () => {
+    _mapP5 = p5;
     const c = p5.createCanvas(mapSizeX, mapSizeY);
     c.mousePressed(canvasMousePressed);
     c.elt.addEventListener("contextmenu", handleCanvasContextMenu);
@@ -1122,7 +1216,7 @@ const mapMain = (p5: P5) => {
     p5.textFont("Roboto, sans-serif");
     if (readOnly || publicPreloadedData) {
       if (publicPreloadedData) {
-        updatePublicMAP(publicPreloadedData);
+        updatePublicMAP(publicPreloadedData, publicDashboardKey);
       }
     } else {
       updateMAP();

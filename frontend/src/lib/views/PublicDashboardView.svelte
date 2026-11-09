@@ -292,9 +292,9 @@
     try {
       if (!mapInitialized) {
         mapInitialized = true;
-        initPublicMAP(mapContainer, mapData);
+        initPublicMAP(mapContainer, mapData, key);
       } else {
-        updatePublicMAP(mapData);
+        updatePublicMAP(mapData, key);
       }
     } catch (err) {
       console.error("renderMap failed:", err);

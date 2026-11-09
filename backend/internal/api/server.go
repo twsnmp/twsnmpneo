@@ -174,7 +174,7 @@ func NewServer(cfg Config) (*Server, error) {
 				dirs = append(dirs, filepath.Clean(sd))
 			}
 		}
-		dirs = append(dirs, "./data", ".")
+		dirs = append(dirs, "./data", "./backend/data", ".")
 
 		for _, d := range dirs {
 			imgDir := filepath.Join(d, "images")
@@ -185,12 +185,20 @@ func NewServer(cfg Config) (*Server, error) {
 					return p
 				}
 			}
+			pDirect := filepath.Clean(filepath.Join(d, cleanName))
+			if _, err := os.Stat(pDirect); err == nil {
+				return pDirect
+			}
 			// Fallback search for backimage_map
 			if strings.Contains(cleanName, "japanesemap") || strings.Contains(cleanName, "backimage") {
 				for _, fallback := range []string{"backimage_map.png", "backimage_map.jpg"} {
 					fbPath := filepath.Join(d, "images", fallback)
 					if _, err := os.Stat(fbPath); err == nil {
 						return fbPath
+					}
+					fbPathDirect := filepath.Join(d, fallback)
+					if _, err := os.Stat(fbPathDirect); err == nil {
+						return fbPathDirect
 					}
 				}
 			}
@@ -3616,8 +3624,24 @@ func NewServer(cfg Config) (*Server, error) {
 
 		customIcons, _ := cfg.Store.GetCustomIcons(ctx)
 
+		var backImage *datastore.BackImageEnt
+		if cfg.Store != nil {
+			if bi, err := cfg.Store.GetBackImage(ctx); err == nil && bi != nil && bi.Path != "" {
+				backImage = bi
+			}
+		}
+		if backImage == nil {
+			for _, fb := range []string{"backimage_map.png", "backimage_map.jpg"} {
+				if p := findImageFile(fb); p != "" {
+					backImage = &datastore.BackImageEnt{Path: fb}
+					break
+				}
+			}
+		}
+
 		return map[string]interface{}{
 			"MapConf":    &safeConf,
+			"BackImage":  backImage,
 			"Nodes":      nodes,
 			"Items":      itemsMap,
 			"Networks":   networks,
@@ -3834,6 +3858,19 @@ func NewServer(cfg Config) (*Server, error) {
 			return c.NoContent(http.StatusBadRequest)
 		}
 		path := findImageFile(name)
+		if path == "" && cfg.Store != nil {
+			if bi, err := cfg.Store.GetBackImage(c.Request().Context()); err == nil && bi != nil && bi.Path != "" {
+				path = findImageFile(filepath.Base(bi.Path))
+			}
+		}
+		if path == "" {
+			for _, fb := range []string{"backimage_map.png", "backimage_map.jpg"} {
+				if p := findImageFile(fb); p != "" {
+					path = p
+					break
+				}
+			}
+		}
 		if path == "" {
 			return c.NoContent(http.StatusNotFound)
 		}

@@ -1473,6 +1473,11 @@ func TestPublicDashboardAPI(t *testing.T) {
 		Sound: false,
 	}
 	_ = bStore.SaveMapConf(ctx, conf)
+	_ = bStore.SaveBackImage(ctx, &datastore.BackImageEnt{
+		Path:   "/api/map/image/japanesemap-10012-500x500.png",
+		Width:  500,
+		Height: 500,
+	})
 
 	// 4. Test wrong key -> 403 Forbidden
 	req = httptest.NewRequest(http.MethodGet, "/public/api/dashboard/wrongkey", nil)
@@ -1544,6 +1549,12 @@ func TestPublicDashboardAPI(t *testing.T) {
 		t.Errorf("expected polling name 'Ping Test', got %v", pObj["Name"])
 	}
 
+	// Verify BackImage is returned in Map object
+	biObj, biExists := resp.Map["BackImage"]
+	if !biExists || biObj == nil {
+		t.Errorf("expected BackImage to be present in Map object")
+	}
+
 	// 6. Test Legacy TWSNMP FC map endpoint: /public/api/map/:key and /api/public/dashboard/:key
 	req = httptest.NewRequest(http.MethodGet, "/api/public/dashboard/"+testKey, nil)
 	rec = httptest.NewRecorder()
@@ -1557,6 +1568,21 @@ func TestPublicDashboardAPI(t *testing.T) {
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK for legacy map endpoint, got %d", rec.Code)
+	}
+
+	// 7. Test Public Image endpoint with valid key and invalid key
+	req = httptest.NewRequest(http.MethodGet, "/api/public/dashboard/wrongkey/image/japanesemap-10012-500x500.png", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for wrong key on image endpoint, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/public/dashboard/"+testKey+"/image/japanesemap-10012-500x500.png", nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
+		t.Errorf("expected 200 OK or 404 for image endpoint, got %d", rec.Code)
 	}
 }
 
