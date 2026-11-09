@@ -120,11 +120,7 @@ export const initMAP = async (div: HTMLElement, cb: any) => {
   div.oncontextmenu = (e) => {
     e.preventDefault();
   };
-  if (typeof document !== "undefined" && (document as any).fonts) {
-    (document as any).fonts.ready.then(() => {
-      mapRedraw = true;
-    });
-  }
+  ensureFontsReady();
   _mapP5 = new P5(mapMain, div);
 };
 
@@ -145,14 +141,61 @@ export const resetMap = () => {
 };
 
 let publicPreloadedData: any = null;
+let mdiFontReady = false;
 
-export const ensureFontsReady = async () => {
-  if (typeof document !== "undefined" && (document as any).fonts) {
-    try {
-      await (document as any).fonts.load('24px "Material Design Icons"');
-      await (document as any).fonts.ready;
-    } catch {}
+// Global font readiness listener
+if (typeof document !== "undefined" && (document as any).fonts) {
+  (document as any).fonts.ready.then(() => {
+    mdiFontReady = true;
+    mapRedraw = true;
+    if (_mapP5) {
+      try {
+        _mapP5.redraw();
+      } catch {}
+    }
+  });
+  if ((document as any).fonts.addEventListener) {
+    (document as any).fonts.addEventListener("loadingdone", () => {
+      mdiFontReady = true;
+      mapRedraw = true;
+      if (_mapP5) {
+        try {
+          _mapP5.redraw();
+        } catch {}
+      }
+    });
   }
+}
+
+export const ensureFontsReady = async (): Promise<boolean> => {
+  if (mdiFontReady) return true;
+  if (typeof document === "undefined" || !(document as any).fonts) {
+    mdiFontReady = true;
+    return true;
+  }
+  try {
+    // Note: MDI webfont contains glyphs only in PUA (0xF0000+), NOT 0x20 space.
+    // We must pass a valid glyph codepoint (\uF0379) for fonts.load and fonts.check.
+    await (document as any).fonts.load('16px "Material Design Icons"', "\uF0379");
+    await (document as any).fonts.ready;
+    if ((document as any).fonts.check('16px "Material Design Icons"', "\uF0379")) {
+      mdiFontReady = true;
+    }
+  } catch (e) {
+    console.warn("ensureFontsReady warn:", e);
+  }
+  if (!mdiFontReady && (document as any).fonts.check) {
+    mdiFontReady = (document as any).fonts.check('16px "Material Design Icons"', "\uF0379");
+  }
+  if (mdiFontReady) {
+    mapRedraw = true;
+    if (_mapP5) {
+      try {
+        _mapP5.redraw();
+      } catch {}
+    }
+  }
+  return mdiFontReady;
 };
 
 const updateDrawItemImages = (dark: boolean) => {
@@ -409,6 +452,9 @@ export const updatePublicMAP = (mapData: any, key: string = "") => {
   readOnly = true;
   if (key) {
     publicDashboardKey = key;
+  }
+  if (!mdiFontReady) {
+    ensureFontsReady();
   }
 
   if (mapData.MapConf) {
@@ -1736,8 +1782,13 @@ const mapMain = (p5: P5) => {
             const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
             p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
           }
-          const isFontReady = typeof document === "undefined" || !(document as any).fonts || (document as any).fonts.check('16px "Material Design Icons"');
+          const isFontReady =
+            mdiFontReady ||
+            typeof document === "undefined" ||
+            !(document as any).fonts ||
+            (document as any).fonts.check('16px "Material Design Icons"', icon || "\uF0379");
           if (isFontReady) {
+            mdiFontReady = true;
             p5.textFont("Material Design Icons");
             p5.textAlign(p5.CENTER, p5.CENTER);
             p5.textSize(iconSize);
@@ -1747,6 +1798,7 @@ const mapMain = (p5: P5) => {
             p5.noStroke();
             p5.fill(stColor);
             p5.circle(0, 0, iconSize * 0.7);
+            ensureFontsReady();
           }
 
           p5.textFont("Roboto, sans-serif");
@@ -1769,8 +1821,13 @@ const mapMain = (p5: P5) => {
           const selH = iconSize + 16 + fontSize + (showNodeInfo ? fontSize : 0);
           p5.rect(-selW / 2, -iconSize / 2 - 8, selW, selH, 6);
         }
-        const isFontReady = typeof document === "undefined" || !(document as any).fonts || (document as any).fonts.check('16px "Material Design Icons"');
+        const isFontReady =
+          mdiFontReady ||
+          typeof document === "undefined" ||
+          !(document as any).fonts ||
+          (document as any).fonts.check('16px "Material Design Icons"', icon || "\uF0379");
         if (isFontReady) {
+          mdiFontReady = true;
           p5.textFont("Material Design Icons");
           p5.textAlign(p5.CENTER, p5.CENTER);
           p5.textSize(iconSize);
@@ -1780,6 +1837,7 @@ const mapMain = (p5: P5) => {
           p5.noStroke();
           p5.fill(stColor);
           p5.circle(0, 0, iconSize * 0.7);
+          ensureFontsReady();
         }
 
         // Node label

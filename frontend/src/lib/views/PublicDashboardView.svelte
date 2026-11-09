@@ -12,6 +12,7 @@
     resetMap,
     zoom,
     resetZoom,
+    ensureFontsReady,
   } from "../map/map";
   import * as echarts from "echarts";
   import {
@@ -35,7 +36,10 @@
     Volume2,
     VolumeX,
     Eye,
+    Languages,
   } from "@lucide/svelte";
+  import { _, locale } from "svelte-i18n";
+  import { switchLocale, getSavedLocale, type SupportedLocale } from "../i18n";
 
   let { key = "" }: { key: string } = $props();
 
@@ -47,6 +51,19 @@
   let refreshTimer: any = null;
   let isFullscreen = $state(false);
   let isEmbed = $state(false);
+  let currentLocale = $state<SupportedLocale>(getSavedLocale());
+
+  const toggleLocale = () => {
+    const next: SupportedLocale = currentLocale === "ja" ? "en" : "ja";
+    currentLocale = next;
+    switchLocale(next);
+  };
+
+  $effect(() => {
+    if ($locale && ($locale === "ja" || $locale === "en") && $locale !== currentLocale) {
+      currentLocale = $locale as SupportedLocale;
+    }
+  });
 
   // Drama Alert Overlay State
   let isAlertDismissed = $state(false);
@@ -151,10 +168,10 @@
       return {
         isActive: true,
         nodeName: selectedPolling?.NodeName || (selectedPolling as any)?.nodeName || "Core-Switch-01",
-        targetName: selectedItem?.title || "Incident Target",
+        targetName: selectedItem?.title || $_("publicDashboard.incidentTarget"),
         state: "high",
         valueText: "Threshold exceeded / Connection Down",
-        message: "CRITICAL: 障害が検知されました",
+        message: $_("publicDashboard.defaultAlertMsg"),
         lastTime: Date.now() * 1000000,
       } as PublicAlertState;
     }
@@ -185,7 +202,12 @@
           targetName: selectedPolling.Name || (selectedPolling as any).name,
           state: selectedPolling.State || (selectedPolling as any).state,
           valueText: valStr,
-          message: `ポーリング障害検知: ${selectedPolling.Name || (selectedPolling as any).name} (${selectedPolling.State || (selectedPolling as any).state})`,
+          message: $_("publicDashboard.pollingAlertMsg", {
+            values: {
+              name: selectedPolling.Name || (selectedPolling as any).name,
+              state: selectedPolling.State || (selectedPolling as any).state,
+            },
+          }),
           lastTime: selectedPolling.LastTime || Date.now() * 1000000,
         };
       }
@@ -224,7 +246,8 @@
     if (!nsOrSec) return "-";
     const ms = nsOrSec > 1e12 ? Math.floor(nsOrSec / 1e6) : nsOrSec * 1000;
     const d = new Date(ms);
-    return d.toLocaleString("ja-JP", {
+    const isJa = ($locale || "ja").startsWith("ja");
+    return d.toLocaleString(isJa ? "ja-JP" : "en-US", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -238,7 +261,7 @@
 
   const loadData = async () => {
     if (!key) {
-      errorMsg = "公開ダッシュボードキーが指定されていません。";
+      errorMsg = $_("publicDashboard.noKeyError");
       loading = false;
       return;
     }
@@ -260,7 +283,7 @@
       console.log(`[PublicDashboard View] View updated in ${Math.round(performance.now() - t0)}ms`);
     } catch (e: any) {
       console.error(`[PublicDashboard View] Load error after ${Math.round(performance.now() - t0)}ms:`, e);
-      errorMsg = e.message || "ダッシュボードの取得に失敗しました。";
+      errorMsg = e.message || $_("publicDashboard.loadError");
     } finally {
       isFetching = false;
       loading = false;
@@ -274,6 +297,8 @@
   });
 
   $effect(() => {
+    // Re-render chart on item selection, data change, or locale change
+    const _loc = $locale;
     if (chartDom && selectedItem?.type === "polling" && selectedPolling) {
       renderPollingChart();
     }
@@ -348,7 +373,7 @@
       const option: echarts.EChartsOption = {
         backgroundColor: "transparent",
         title: seriesData.length === 0 ? {
-          text: "データ収集中 (過去ログなし)",
+          text: $_("publicDashboard.collectingData"),
           left: "center",
           top: "center",
           textStyle: { color: "rgba(255, 255, 255, 0.35)", fontSize: 13, fontWeight: "normal" },
@@ -484,6 +509,7 @@
     const params = new URLSearchParams(window.location.search);
     isEmbed = params.get("embed") === "true";
 
+    ensureFontsReady();
     loadData();
 
     const handleResize = () => {
@@ -509,13 +535,13 @@
       <div class="flex items-center gap-2">
         <div class="h-2.5 w-2.5 rounded-full {isGlobalCritical ? 'bg-rose-500 animate-ping' : isGlobalWarning ? 'bg-amber-500' : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'}"></div>
         <h1 class="font-extrabold tracking-tight text-white {isEmbed ? 'text-sm' : 'text-base sm:text-lg'}">
-          {data?.mapName || "TWSNMP NEO Dashboard"}
+          {data?.mapName || $_("publicDashboard.title")}
         </h1>
       </div>
 
       <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase border {isGlobalCritical ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : isGlobalWarning ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'}">
         <span class="h-1.5 w-1.5 rounded-full {isGlobalCritical ? 'bg-rose-500' : isGlobalWarning ? 'bg-amber-400' : 'bg-emerald-400'}"></span>
-        {isGlobalCritical ? "CRITICAL" : isGlobalWarning ? "WARNING" : "OPERATIONAL"}
+        {isGlobalCritical ? $_("publicDashboard.critical") : isGlobalWarning ? $_("publicDashboard.warning") : $_("publicDashboard.operational")}
       </span>
     </div>
 
@@ -527,21 +553,32 @@
         </span>
       {/if}
 
+      <!-- Language Switcher -->
+      <button
+        type="button"
+        onclick={toggleLocale}
+        title={$_("publicDashboard.language")}
+        class="flex h-7 items-center gap-1 px-2 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors cursor-pointer text-xs font-semibold"
+      >
+        <Languages class="w-3.5 h-3.5 text-cyan-400" />
+        <span>{currentLocale.toUpperCase()}</span>
+      </button>
+
       <!-- Auto Refresh Select -->
       <select
         bind:value={autoRefreshInterval}
         class="bg-slate-800/80 border border-slate-700/80 rounded-lg px-2 py-1 text-[11px] text-slate-200 outline-none focus:border-cyan-500"
       >
-        <option value={0}>自動更新: OFF</option>
-        <option value={10}>10 秒</option>
-        <option value={30}>30 秒</option>
-        <option value={60}>60 秒</option>
+        <option value={0}>{$_("publicDashboard.autoRefreshOff")}</option>
+        <option value={10}>{$_("publicDashboard.sec", { values: { n: 10 } })}</option>
+        <option value={30}>{$_("publicDashboard.sec", { values: { n: 30 } })}</option>
+        <option value={60}>{$_("publicDashboard.sec", { values: { n: 60 } })}</option>
       </select>
 
       <button
         type="button"
         onclick={loadData}
-        title="最新情報に更新"
+        title={$_("publicDashboard.refresh")}
         class="p-1.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
       >
         <RefreshCw class="w-3.5 h-3.5 {loading ? 'animate-spin text-cyan-400' : ''}" />
@@ -551,7 +588,7 @@
         <button
           type="button"
           onclick={triggerTestAlert}
-          title="警報画面テスト表示"
+          title={$_("publicDashboard.testAlert")}
           class="p-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
         >
           <ShieldAlert class="w-3.5 h-3.5" />
@@ -560,7 +597,7 @@
         <button
           type="button"
           onclick={toggleFullscreen}
-          title="フルスクリーン表示"
+          title={isFullscreen ? $_("publicDashboard.exitFullscreen") : $_("publicDashboard.fullscreen")}
           class="p-1.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
         >
           {#if isFullscreen}
@@ -580,34 +617,34 @@
       <div class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-2.5 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1.5">
           <div class="flex items-center gap-1.5">
-            <Network class="w-3.5 h-3.5 text-cyan-400" />
-            <span class="text-[11px] font-bold text-slate-200">ノード状態</span>
+            <Network class="w-4 h-4 text-cyan-400" />
+            <span class="text-xs font-bold text-slate-200">{$_("publicDashboard.nodeStatus")}</span>
           </div>
-          <span class="text-xs font-mono font-extrabold text-cyan-300">
-            {data.summaryKpi.nodeTotal} <span class="text-[10px] text-slate-400 font-normal">台</span>
+          <span class="text-sm font-mono font-extrabold text-cyan-300">
+            {data.summaryKpi.nodeTotal} <span class="text-[10px] text-slate-400 font-normal">{$_("publicDashboard.unitNodes")}</span>
           </span>
         </div>
-        <!-- Level Breakdown Pills -->
-        <div class="flex items-center justify-between gap-1 text-[11px] font-mono">
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300" title="重度障害 (High)">
-            <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-            <span>{data.summaryKpi.nodeHigh}</span>
+        <!-- Level Breakdown Pills: grid-cols-5 gives balanced spacing and larger badge items -->
+        <div class="grid grid-cols-5 gap-1.5 text-xs font-mono">
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300" title={$_("publicDashboard.high")}>
+            <span class="h-2 w-2 rounded-full bg-rose-500 shrink-0 {data.summaryKpi.nodeHigh > 0 ? 'animate-pulse' : ''}"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.nodeHigh}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/20 text-orange-300" title="軽度障害 (Low)">
-            <span class="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
-            <span>{data.summaryKpi.nodeLow}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300" title={$_("publicDashboard.low")}>
+            <span class="h-2 w-2 rounded-full bg-orange-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.nodeLow}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300" title="警告/注意 (Warn)">
-            <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-            <span>{data.summaryKpi.nodeWarn}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300" title={$_("publicDashboard.warn")}>
+            <span class="h-2 w-2 rounded-full bg-amber-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.nodeWarn}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300" title="復旧 (Repair)">
-            <span class="h-1.5 w-1.5 rounded-full bg-blue-400"></span>
-            <span>{data.summaryKpi.nodeRepair || 0}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300" title={$_("publicDashboard.repair")}>
+            <span class="h-2 w-2 rounded-full bg-blue-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.nodeRepair || 0}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300" title="正常 (Normal)">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-            <span>{data.summaryKpi.nodeNormal}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300" title={$_("publicDashboard.normal")}>
+            <span class="h-2 w-2 rounded-full bg-emerald-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.nodeNormal}</span>
           </div>
         </div>
       </div>
@@ -616,34 +653,34 @@
       <div class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-2.5 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1.5">
           <div class="flex items-center gap-1.5">
-            <Activity class="w-3.5 h-3.5 text-blue-400" />
-            <span class="text-[11px] font-bold text-slate-200">ポーリング状態</span>
+            <Activity class="w-4 h-4 text-blue-400" />
+            <span class="text-xs font-bold text-slate-200">{$_("publicDashboard.pollingStatus")}</span>
           </div>
-          <span class="text-xs font-mono font-extrabold text-blue-300">
-            {data.summaryKpi.pollingTotal} <span class="text-[10px] text-slate-400 font-normal">件</span>
+          <span class="text-sm font-mono font-extrabold text-blue-300">
+            {data.summaryKpi.pollingTotal} <span class="text-[10px] text-slate-400 font-normal">{$_("publicDashboard.unitItems")}</span>
           </span>
         </div>
-        <!-- Level Breakdown Pills -->
-        <div class="flex items-center justify-between gap-1 text-[11px] font-mono">
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300" title="重度障害 (High)">
-            <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-            <span>{data.summaryKpi.pollingHigh}</span>
+        <!-- Level Breakdown Pills: grid-cols-5 gives balanced spacing and larger badge items -->
+        <div class="grid grid-cols-5 gap-1.5 text-xs font-mono">
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300" title={$_("publicDashboard.high")}>
+            <span class="h-2 w-2 rounded-full bg-rose-500 shrink-0 {data.summaryKpi.pollingHigh > 0 ? 'animate-pulse' : ''}"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.pollingHigh}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/20 text-orange-300" title="軽度障害 (Low)">
-            <span class="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
-            <span>{data.summaryKpi.pollingLow}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300" title={$_("publicDashboard.low")}>
+            <span class="h-2 w-2 rounded-full bg-orange-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.pollingLow}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300" title="警告/注意 (Warn)">
-            <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-            <span>{data.summaryKpi.pollingWarn}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300" title={$_("publicDashboard.warn")}>
+            <span class="h-2 w-2 rounded-full bg-amber-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.pollingWarn}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300" title="復旧 (Repair)">
-            <span class="h-1.5 w-1.5 rounded-full bg-blue-400"></span>
-            <span>{data.summaryKpi.pollingRepair || 0}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300" title={$_("publicDashboard.repair")}>
+            <span class="h-2 w-2 rounded-full bg-blue-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.pollingRepair || 0}</span>
           </div>
-          <div class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300" title="正常 (Normal)">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-            <span>{data.summaryKpi.pollingNormal}</span>
+          <div class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300" title={$_("publicDashboard.normal")}>
+            <span class="h-2 w-2 rounded-full bg-emerald-400 shrink-0"></span>
+            <span class="text-xs sm:text-sm font-bold font-mono">{data.summaryKpi.pollingNormal}</span>
           </div>
         </div>
       </div>
@@ -652,25 +689,25 @@
       <div class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-2.5 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1.5">
           <div class="flex items-center gap-1.5">
-            <Calendar class="w-3.5 h-3.5 text-indigo-400" />
-            <span class="text-[11px] font-bold text-slate-200">24H 受信ログ</span>
+            <Calendar class="w-4 h-4 text-indigo-400" />
+            <span class="text-xs font-bold text-slate-200">{$_("publicDashboard.log24h")}</span>
           </div>
-          <span class="text-xs font-mono font-extrabold text-indigo-300">
-            {data.summaryKpi.logEventCount + (data.summaryKpi.logSyslogCount || 0) + (data.summaryKpi.logTrapCount || 0)} <span class="text-[10px] text-slate-400 font-normal">件</span>
+          <span class="text-sm font-mono font-extrabold text-indigo-300">
+            {data.summaryKpi.logEventCount + (data.summaryKpi.logSyslogCount || 0) + (data.summaryKpi.logTrapCount || 0)} <span class="text-[10px] text-slate-400 font-normal">{$_("publicDashboard.unitItems")}</span>
           </span>
         </div>
-        <div class="grid grid-cols-3 gap-1 text-[11px] font-mono text-center">
-          <div class="px-1.5 py-0.5 rounded bg-slate-800/60 border border-slate-700/50" title="イベントログ">
-            <span class="text-[9px] text-slate-400 block truncate">イベント</span>
-            <span class="font-bold text-slate-200">{data.summaryKpi.logEventCount}</span>
+        <div class="grid grid-cols-3 gap-1.5 text-xs font-mono text-center">
+          <div class="py-1 px-1 rounded-lg bg-slate-800/60 border border-slate-700/50" title={$_("publicDashboard.logEvent")}>
+            <span class="text-[10px] text-slate-400 block truncate">{$_("publicDashboard.logEvent")}</span>
+            <span class="text-xs sm:text-sm font-bold text-slate-200">{data.summaryKpi.logEventCount}</span>
           </div>
-          <div class="px-1.5 py-0.5 rounded bg-slate-800/60 border border-slate-700/50" title="Syslog">
-            <span class="text-[9px] text-slate-400 block truncate">Syslog</span>
-            <span class="font-bold text-slate-200">{data.summaryKpi.logSyslogCount || 0}</span>
+          <div class="py-1 px-1 rounded-lg bg-slate-800/60 border border-slate-700/50" title={$_("publicDashboard.logSyslog")}>
+            <span class="text-[10px] text-slate-400 block truncate">{$_("publicDashboard.logSyslog")}</span>
+            <span class="text-xs sm:text-sm font-bold text-slate-200">{data.summaryKpi.logSyslogCount || 0}</span>
           </div>
-          <div class="px-1.5 py-0.5 rounded bg-slate-800/60 border border-slate-700/50" title="SNMP Trap">
-            <span class="text-[9px] text-slate-400 block truncate">Trap</span>
-            <span class="font-bold text-slate-200">{data.summaryKpi.logTrapCount || 0}</span>
+          <div class="py-1 px-1 rounded-lg bg-slate-800/60 border border-slate-700/50" title={$_("publicDashboard.logTrap")}>
+            <span class="text-[10px] text-slate-400 block truncate">{$_("publicDashboard.logTrap")}</span>
+            <span class="text-xs sm:text-sm font-bold text-slate-200">{data.summaryKpi.logTrapCount || 0}</span>
           </div>
         </div>
       </div>
@@ -679,22 +716,22 @@
       <div class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-2.5 flex flex-col justify-between shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-800/60 pb-1.5 mb-1.5">
           <div class="flex items-center gap-1.5">
-            <Cpu class="w-3.5 h-3.5 text-purple-400" />
-            <span class="text-[11px] font-bold text-slate-200">AI 異常検知</span>
+            <Cpu class="w-4 h-4 text-purple-400" />
+            <span class="text-xs font-bold text-slate-200">{$_("publicDashboard.aiAnomaly")}</span>
           </div>
           <span class="text-[10px] font-mono text-slate-400">
-            Max <span class="font-bold text-purple-300">{data.summaryKpi.aiMaxScore ? data.summaryKpi.aiMaxScore.toFixed(0) : 0}</span>
+            {$_("publicDashboard.maxScore")} <span class="font-bold text-purple-300">{data.summaryKpi.aiMaxScore ? data.summaryKpi.aiMaxScore.toFixed(0) : 0}</span>
           </span>
         </div>
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between py-0.5">
           <div class="flex items-baseline gap-1.5">
             <span class="text-xl font-extrabold font-mono {data.summaryKpi.aiAnomalyCount > 0 ? 'text-purple-300' : 'text-slate-400'}">
               {data.summaryKpi.aiAnomalyCount}
             </span>
-            <span class="text-[10px] text-slate-400 font-mono">件検知</span>
+            <span class="text-[10px] text-slate-400 font-mono">{$_("publicDashboard.detectedCount")}</span>
           </div>
           <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {data.summaryKpi.aiAnomalyCount > 0 ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-slate-800 text-slate-400'}">
-            {data.summaryKpi.aiAnomalyCount > 0 ? 'Anomaly' : 'Clear'}
+            {data.summaryKpi.aiAnomalyCount > 0 ? $_("publicDashboard.anomaly") : $_("publicDashboard.clear")}
           </span>
         </div>
       </div>
@@ -715,7 +752,7 @@
           {:else}
             <Activity class="w-3.5 h-3.5" />
           {/if}
-          <span>{item.title || (item.type === 'map' ? 'ネットワークマップ' : 'ポーリング')}</span>
+          <span>{item.title || (item.type === 'map' ? $_("publicDashboard.networkMap") : $_("publicDashboard.polling"))}</span>
         </button>
       {/each}
     </div>
@@ -731,7 +768,7 @@
     {:else if loading && !data}
       <div class="flex-1 flex items-center justify-center text-slate-400 text-xs gap-2">
         <RefreshCw class="w-5 h-5 animate-spin text-cyan-400" />
-        <span>ダッシュボード読み込み中...</span>
+        <span>{$_("publicDashboard.loadingDashboard")}</span>
       </div>
     {:else if selectedItem?.type === 'map'}
       <!-- Map Display View -->
@@ -741,7 +778,7 @@
           <button
             type="button"
             onclick={() => zoom(false)}
-            title="縮小"
+            title={$_("publicDashboard.zoomOut")}
             class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
             <ZoomOut class="w-4 h-4" />
@@ -749,7 +786,7 @@
           <button
             type="button"
             onclick={() => resetZoom()}
-            title="リセット (100%)"
+            title={$_("publicDashboard.resetZoom")}
             class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
             <RotateCcw class="w-4 h-4" />
@@ -757,7 +794,7 @@
           <button
             type="button"
             onclick={() => zoom(true)}
-            title="拡大"
+            title={$_("publicDashboard.zoomIn")}
             class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
             <ZoomIn class="w-4 h-4" />
@@ -766,7 +803,7 @@
           <button
             type="button"
             onclick={downloadMapImage}
-            title="マップ画像をダウンロード (PNG)"
+            title={$_("publicDashboard.downloadPng")}
             class="p-1.5 hover:bg-slate-800 rounded-lg text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
           >
             <Download class="w-4 h-4" />
@@ -782,14 +819,14 @@
           <!-- Polling Top KPI Cards -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 shadow-sm">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">監視対象ノード</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{$_("publicDashboard.monitoredNode")}</span>
               <span class="text-sm font-bold text-cyan-400 mt-1 block truncate">
                 {selectedPolling.NodeName || (selectedPolling as any).nodeName || selectedPolling.NodeID || (selectedPolling as any).node_id || '-'}
               </span>
             </div>
 
             <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 shadow-sm">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">現在の状態</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{$_("publicDashboard.currentState")}</span>
               <div class="flex items-center gap-1.5 mt-1">
                 <span class="h-2 w-2 rounded-full {pollingStateStr === 'normal' ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : pollingStateStr === 'repair' ? 'bg-blue-400 shadow-[0_0_8px_#60a5fa]' : pollingStateStr === 'warn' ? 'bg-amber-400' : 'bg-rose-500'}"></span>
                 <span class="text-sm font-bold uppercase {pollingStateStr === 'normal' ? 'text-emerald-400' : pollingStateStr === 'repair' ? 'text-blue-400' : pollingStateStr === 'warn' ? 'text-amber-400' : 'text-rose-400'}">
@@ -799,14 +836,14 @@
             </div>
 
             <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 shadow-sm">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">種別 / モード</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{$_("publicDashboard.typeMode")}</span>
               <span class="text-sm font-bold text-slate-200 mt-1 block uppercase">
                 {selectedPolling.Type || (selectedPolling as any).type || '-'} {(selectedPolling.Mode || (selectedPolling as any).mode) ? `(${selectedPolling.Mode || (selectedPolling as any).mode})` : ''}
               </span>
             </div>
 
             <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 shadow-sm">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">最終収集日時</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{$_("publicDashboard.lastTime")}</span>
               <span class="text-xs font-mono text-slate-300 mt-1 block">
                 {formatTimestamp(selectedPolling.LastTime)}
               </span>
@@ -819,11 +856,11 @@
               <div class="flex items-center gap-2">
                 <Activity class="w-4 h-4 text-cyan-400" />
                 <h2 class="text-xs font-bold uppercase tracking-wider text-slate-200">
-                  時系列推移チャート ({selectedPolling.Name || (selectedPolling as any).name || 'メトリクス'})
+                  {$_("publicDashboard.timeSeriesChart")} ({selectedPolling.Name || (selectedPolling as any).name || 'Metric'})
                 </h2>
               </div>
               <span class="text-[10px] text-slate-400 font-mono">
-                過去ログ {selectedPolling.Logs?.length || 0} 件
+                {$_("publicDashboard.pastLogs", { values: { n: selectedPolling.Logs?.length || 0 } })}
               </span>
             </div>
             <div bind:this={chartDom} class="w-full h-64 sm:h-80 min-h-[260px]"></div>
@@ -834,14 +871,14 @@
             <div class="rounded-2xl border border-slate-800 bg-slate-900/70 overflow-hidden shadow-lg">
               <div class="px-4 py-2.5 border-b border-slate-800/80 bg-slate-950/40 text-xs font-bold text-slate-300 flex items-center gap-2">
                 <Cpu class="w-4 h-4 text-cyan-400" />
-                <span>最新取得メトリクス (Result)</span>
+                <span>{$_("publicDashboard.latestMetrics")}</span>
               </div>
               <div class="p-3 overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr class="border-b border-slate-800 text-[10px] uppercase text-slate-400">
-                      <th class="py-1.5 px-3 w-1/3">パラメータ名</th>
-                      <th class="py-1.5 px-3">測定値</th>
+                      <th class="py-1.5 px-3 w-1/3">{$_("publicDashboard.paramName")}</th>
+                      <th class="py-1.5 px-3">{$_("publicDashboard.metricValue")}</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
@@ -863,16 +900,16 @@
         <div class="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs gap-3 p-6 text-center">
           <Activity class="w-8 h-8 text-cyan-500/60 animate-pulse" />
           <div class="font-bold text-slate-300">
-            ポーリング情報取得中...
+            {$_("publicDashboard.loadingPolling")}
           </div>
           <div class="text-[11px] text-slate-500">
-            {selectedItem.title || '監視ポーリング'} のデータを読み込んでいます。
+            {$_("publicDashboard.loadingPollingDesc", { values: { title: selectedItem.title || $_("publicDashboard.polling") } })}
           </div>
         </div>
       {/if}
     {:else}
       <div class="flex-1 flex items-center justify-center text-slate-400 text-xs">
-        表示するアイテムが選択されていません。
+        {$_("publicDashboard.noItemSelected")}
       </div>
     {/if}
   </main>
@@ -889,7 +926,7 @@
         <div class="mt-4 mb-2 flex items-center gap-2">
           <div class="h-4 w-4 rounded-full bg-rose-500 animate-ping"></div>
           <span class="text-xl sm:text-2xl font-black text-rose-500 tracking-wider">
-            🚨 CRITICAL ALERT 🚨
+            {$_("publicDashboard.criticalAlert")}
           </span>
           <div class="h-4 w-4 rounded-full bg-rose-500 animate-ping"></div>
         </div>
@@ -906,22 +943,22 @@
             </div>
           {/if}
           <div class="text-xs font-semibold text-rose-200 mt-1">
-            {activeAlert.message || "異常な状態が検知されました"}
+            {activeAlert.message || $_("publicDashboard.defaultAlertMsg")}
           </div>
         </div>
 
         <!-- Alert Meta Info -->
         <div class="grid grid-cols-3 gap-3 my-4 w-full max-w-md text-xs font-mono">
           <div class="rounded-lg bg-black/40 border border-slate-800 p-2">
-            <span class="text-[10px] text-slate-400 block">発生回数</span>
-            <span class="font-bold text-rose-400 text-sm">{alertCount} 回</span>
+            <span class="text-[10px] text-slate-400 block">{$_("publicDashboard.occurrenceCount")}</span>
+            <span class="font-bold text-rose-400 text-sm">{alertCount} {$_("publicDashboard.unitTimes")}</span>
           </div>
           <div class="rounded-lg bg-black/40 border border-slate-800 p-2">
-            <span class="text-[10px] text-slate-400 block">初検時刻</span>
+            <span class="text-[10px] text-slate-400 block">{$_("publicDashboard.firstSeen")}</span>
             <span class="font-bold text-slate-200 text-[10px] truncate block">{alertFirstTime || '-'}</span>
           </div>
           <div class="rounded-lg bg-black/40 border border-slate-800 p-2">
-            <span class="text-[10px] text-slate-400 block">最新時刻</span>
+            <span class="text-[10px] text-slate-400 block">{$_("publicDashboard.lastSeen")}</span>
             <span class="font-bold text-slate-200 text-[10px] truncate block">{alertLastTime || '-'}</span>
           </div>
         </div>
@@ -932,11 +969,14 @@
           onclick={dismissAlert}
           class="mt-2 mb-4 px-8 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-[0_0_25px_rgba(239,68,68,0.7)] transition-all cursor-pointer active:scale-95"
         >
-          警報確認 (DISMISS)
+          {$_("publicDashboard.dismiss")}
         </button>
       </div>
     </div>
   {/if}
+
+  <!-- Preload Material Design Icons font so browser fetches woff2 immediately -->
+  <span class="mdi mdi-monitor pointer-events-none fixed -top-[9999px] -left-[9999px] opacity-0" aria-hidden="true"></span>
 </div>
 
 <style>

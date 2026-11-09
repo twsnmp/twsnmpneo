@@ -810,7 +810,8 @@ Consolidating and extending the public dashboard capabilities ported from **TWSN
   - Users can register multiple public items (Topology Map or specific Node Pollings) with custom display titles.
   - Tabbed switcher allows smooth switching between map canvas and individual polling analytics.
 * **twFathom-Style Dashboard Design**:
-  - **Top KPI Cards**: High critical count, Warning count, AI Anomaly score/count, 24-hour event log volume, Anomalous flow (Fumble) count, and overall healthy nodes/pollings ratio.
+  - **Top KPI Cards**: Balanced 5-level severity breakdown pills (high, low, warn, repair, normal) in equal-width grids for enhanced readability. Real-time overview of node status, polling status, 24-hour log volume, and AI anomaly detection.
+  - **Bilingual Internationalization (i18n)**: Instant JA/EN locale toggle button in the header with persistent preferences, localizing all metrics, status labels, chart tooltips, and alert overlays.
   - **Time-Series Charting**: Area gradient line charts powered by ECharts with data zoom and hover tooltips for selected pollings.
   - **Drama Alert Overlay (Per-Item Configurable)**:
     - Fullscreen TV-drama-style hazard alert overlay with top/bottom hazard stripes, pulsing red gradient background, detailed incident telemetry (node, polling, value, timestamp, count), and DISMISS acknowledgment button.
