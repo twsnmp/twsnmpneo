@@ -23,10 +23,11 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 - **Zero-Install Web Experience**: Full management capabilities accessible from any modern desktop or mobile browser.
 - **p5.js & 3D WebGL Canvas**: Hardware-accurate switching hub panels with real-time port LEDs and full 3D interactive hardware panels (`vpanel`).
 - **GIS Geographic Map (MapLibre)**: Plot network nodes across geographic tile layers (OpenStreetMap, GSI, CARTO, etc.) with real-time health status coloring and interactive positioning.
+- **Public Dashboard & Embed System**: Token-authenticated public view (`/dashboard/:key`) featuring multiple item rotations, twFathom-style KPI cards, TV drama alert overlay with audio hazard alarm, and iframe embedding.
 - **TWAgent & AI Security Telemetry (`twagentneo`)**: Zero-config cross-platform agent ingestion, live host telemetry, Sigma rule detection with local LLM verification, File Integrity Monitoring (FIM), and CIS Benchmark Security Configuration Assessment (SCA).
-- **Apache Parquet Columnar Storage**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios and sub-second query performance.
+- **Apache Parquet Columnar Storage & Fast Compaction**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios, in-memory caching, timestamp range filtering, and automated background file compaction.
 - **Enterprise Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile`, automated recurring schedules, generation rotation, web-based archive management, and offline CLI disaster recovery & compaction.
-- **Native AI & Built-in MCP Server**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis and natural language polling creation.
+- **Native AI & Built-in MCP Server (25+ Tools)**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis, OTel APM metrics/traces inspection, and natural language polling creation.
 - **Self-Contained Private PKI**: Issue, renew, and automate TLS certificates via ACME and SCEP directly within your network manager.
 
 ---
@@ -281,7 +282,9 @@ The node configuration dialog features an expansive two-column layout:
 
 - **PING**: ICMP, UDP, Smokeping, MTR
 - **SNMP**: v1 / v2c / v3 Get, Walk, and Table extractions
-- **HTTP / HTTPS**: Response codes, latency, body regex matching, SSL validity
+- **HTTP / HTTPS**: Response codes, latency, body regex matching, SSL validity, dynamic JSON metrics (`metrics/json`)
+- **AI / LLM Endpoint Monitoring (`http`)**: Health, latency (`rtt_ms`), and available model count (`models`) monitoring for OpenAI-compatible (`/v1/models`) and Ollama (`/api/tags`) endpoints with auto-bearer token extraction
+- **OpenTelemetry APM (`otel`)**: OTel metrics aggregation (Gauge/Sum direct calculation, min/max/count/elapsed), distributed trace evaluation (error rate, P95 duration, HTTP 4xx/5xx and gRPC errors), and telemetry heartbeat loss detection
 - **TCP / TLS**: Port reachability and handshake latency
 - **DNS / NTP**: Query resolution and time offset
 - **gNMI**: gRPC telemetry streaming and config inspection
@@ -320,7 +323,7 @@ Browse standard RFC MIBs and vendor private MIB trees. Perform Get / GetNext / W
 
 ### gNMI Tool
 
-Query modern telemetry streams and inspect configurations over gRPC.
+Query modern telemetry streams and inspect configurations over gRPC. Features resizable table columns, inline real-time search, pagination (10 to 100 items), and keyboard shortcuts (Enter to Get, Escape to close).
 
 ![](./images/en/gnmi_tool.png)
 
@@ -359,7 +362,7 @@ IoT/Smart device message volume statistics by topic, client connections, and AI 
 ![](./images/en/report_mqtt.png)
 
 ### OpenTelemetry (OTel) Reports
-Distributed trace summaries, service latencies, and AI bottleneck diagnostics.
+Distributed trace summaries, service latencies, and AI bottleneck diagnostics. Features a top header action bar for reload, report, and deletion, along with **one-click polling creation** directly from metric and trace tables (with automatic hostname and IP address node matching).
 
 ![](./images/en/report_opentelemetry.png)
 
@@ -408,12 +411,14 @@ Built on **Apache Parquet** columnar compression, TWSNMP NEO processes massive l
 ![](./images/en/log_arp.png)
 
 ### Receivers & Daemons Settings
-Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow UDP:2055, sFlow UDP:6343, ARP Watch CIDR, OpenTelemetry OTLP gRPC/HTTP:4318, MQTT Broker) can be enabled or configured under Receivers & Daemons settings:
+Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow UDP:2055, sFlow UDP:6343, ARP Watch CIDR, OpenTelemetry OTLP gRPC/HTTP:4318, MQTT Broker) can be enabled or configured under Receivers & Daemons settings.
+Configuration updates dynamically reload and restart target daemons without restarting the application. Full support for SNMPv3 TRAP decryption and MIB OID name resolution is built-in.
 
 ![](./images/en/settings_receivers.png)
 
-### Independent Log Retention Policy
+### Independent Log Retention Policy & Parquet Compaction
 Database event logs (bbolt) and high-volume streaming logs (Parquet) feature independent retention periods. A background cleaner runs every 10 minutes to automatically purge expired bbolt event records and rotate Parquet files based on both age and disk quotas.
+In addition, in-memory caching (`sync.Map`) with deferred batch flushing, fast timestamp range query pruning, and automated background file compaction (Compact) ensure peak query speeds and low disk fragmentation across years of operation.
 
 ### Probe Tag Auto-Parsing & Cached Reverse DNS
 Automatically recognizes and normalizes syslog probe tags (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`, etc.) even when upstream relays embed or prepend tags to hostnames, extracting clean `type=` key-value payloads. In addition, report generation automatically executes reverse DNS lookups for unregistered IP nodes, caching hostnames with a 1-hour TTL for high-performance zero-delay visualization.
@@ -467,13 +472,37 @@ TWSNMP NEO includes an offline inference engine (`tensai` v0.0.35+) requiring ze
 ### Native Streamable HTTP MCP Server
 
 TWSNMP NEO provides a built-in **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
-Autonomous AI agents like Cursor, Claude Desktop, and Antigravity connect directly to inspect network status, query logs, and execute diagnostic tools autonomously.
+Over 25 diagnostic and management tools (node/map management, Ping/SNMP/MIB, OTel APM metrics/traces, report summaries, sensor type filters) and 19 prompt templates are exposed directly to AI agents like Cursor, Claude Desktop, and Antigravity to inspect network status, query logs, and execute diagnostic tools autonomously.
 
 Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](prompt.html)** for architecture details.
 
 ---
 
-## 12. Settings & System Administration
+## 12. Public Dashboard & Embed System
+
+TWSNMP NEO features a secure, token-authenticated public dashboard designed for external sharing, NOC video walls, and team monitors without login credentials.
+
+![](./images/en/public_dashboard.png)
+
+### Key Features
+- **Secure Token-Based Public Access (`/dashboard/:key`)**:
+  Read-only public URL using a randomized secret key. Sensitive data (IP addresses, MAC addresses, credentials, LLM API keys) is automatically sanitized and masked before transmission.
+- **Multiple Item Registration & Auto-Rotation**:
+  Register multiple views (complete topology map and specific critical node polling metrics like response times, bandwidth, or CPU load) and rotate through them automatically at custom intervals.
+- **twFathom-Style Summary KPI Cards**:
+  Displays 6 high-level KPIs across the top banner: High Critical count, Warning count, AI Anomaly score & count, 24-hour event log volume, Anomalous flow (Fumble) count, and overall healthy nodes ratio.
+- **Smooth Time-Series Charting**:
+  Features smooth gradient area and line charts powered by Apache ECharts for historical trending and instant spike detection.
+- **TV-Drama Style Emergency Alert Overlay (Drama Alert Overlay)**:
+  Configure alert trigger conditions independently per item (Warning and above, or High Critical only). When triggered, an eye-catching full-screen hazard overlay displays top/bottom hazard stripes, a pulsing red background, exact incident details (node, poller, value, timestamp, count), and a DISMISS button.
+- **Web Audio Audible Siren**:
+  Synthesizes an electronic beep siren directly via the browser's Web Audio API (configurable per item with auto-silence timeout).
+- **External Embedding (iframe)**:
+  Supports embedding into internal portals and wikis with `Content-Security-Policy: frame-ancestors *`. Use `?embed=true` to enable compact mode with reduced header padding.
+
+---
+
+## 13. Settings & System Administration
 
 ### System Status & Resource Monitor (Two-Tab Layout)
 
@@ -489,6 +518,12 @@ The system administration interface is organized into two dedicated tabs:
   - Real-time telemetry charts for CPU utilization, memory heap, active Goroutines, swap, and disk I/O metrics.
 
 ![](./images/en/system_resource_monitor.png)
+
+### Public Dashboard Configuration
+
+Configure the public dashboard via the "Dashboard" tab in System Configuration: enable/disable public access, regenerate keys, add and reorder public items (map and pollings), set custom titles and rotation intervals, configure Drama Alert trigger rules, and copy URLs or iframe embed snippets with a single click:
+
+![](./images/en/settings_dashboard.png)
 
 ### Notifications (Email / Webhook)
 

@@ -23,10 +23,11 @@ layout: default
 - **ブラウザだけで完結する高度な運用**: インストール不要でPCやタブレットのブラウザからアクセス可能。
 - **p5.js & 3D WebGL マップ**: スイッチングハブの物理ポートやLED点灯状態、3Dハードウェアパネルをリアルに再現。
 - **GIS 位置情報マップ (MapLibre)**: 国土地理院やOpenStreetMap等の各種地図タイル上にノードを配置し、広域ネットワークの物理配置を直感的に監視。
+- **公開ダッシュボード & 外部埋め込み**: トークン認証による安全な公開画面（`/dashboard/:key`）。複数アイテム（マップ、ポーリング）の自動ローテーション、twFathom風KPIカード、TVドラマ風緊急警報画面（Drama Alert Overlay）と電子警告音、および Wiki/社内ポータル向け iframe 埋め込みに対応。
 - **TWAgent & AI セキュリティ監査 (`twagentneo`)**: クロスプラットフォームエージェントの自動認識、リアルタイムテレメトリ、Sigmaルール検知＋ローカルAI判定、ファイル整合性監視 (FIM)、CIS ベンチマークセキュリティ設定診断 (SCA)。
-- **Apache Parquet 列指向ストレージ**: 数百万件の Syslog、TRAP、NetFlow、sFlow を高速圧縮保存し、瞬時に検索・集計。
+- **Apache Parquet 列指向ストレージ & 高速コンパクション**: 数百万件の Syslog、TRAP、NetFlow、sFlow を高速圧縮保存し、インメモリキャッシュと Parquet 自動結合（コンパクション）により瞬時に検索・集計。
 - **安全なデータベース運用 & 自動バックアップ**: トランザクションセーフなスナップショットによる定期バックアップ・自動世代管理、Web UIからの即時バックアップ/ダウンロード/復元管理、およびCLIオフライン復元・DB圧縮に対応。
-- **マルチLLM & 内蔵 MCP サーバー**: 生成AI（Gemini, OpenAI, Claude, Ollama）と Model Context Protocol (MCP) を標準搭載し、AIによるログ原因調査やポーリング作成を支援。
+- **マルチLLM & 内蔵 MCP サーバー (25+ ツール)**: 生成AI（Gemini, OpenAI, Claude, Ollama）と Model Context Protocol (MCP) を標準搭載し、AIによるログ原因調査、OTel APM/トレース取得、ポーリング作成を支援。
 - **ゼロ依存プライベート PKI**: ブラウザから即座に Root CA を立ち上げ、ACME/SCEP による証明書自動配布を実現。
 
 ---
@@ -289,7 +290,9 @@ MapLibre GL を採用し、ノードの緯度・経度情報をもとに実際�
 TWSNMP NEO は以下のプロトコル・方式による死活・性能監視に対応しています：
 - **PING (ICMP / UDP / Smokeping / MTR)**
 - **SNMP (v1 / v2c / v3 - Get / Walk / 表形式)**
-- **HTTP / HTTPS (ステータスコード / レスポンスタイム / キーワード照合 / SSL証明書)**
+- **HTTP / HTTPS (ステータスコード / レスポンスタイム / キーワード照合 / SSL証明書 / JSONメトリクス)**
+- **AI/LLM エンドポイント監視 (`http`)**: OpenAI互換 API（`/v1/models`）および Ollama（`/api/tags`）の死活・応答時間（`rtt_ms`）・利用可能モデル数（`models`）監視、認証トークン（Bearer / API Key）自動付与
+- **OpenTelemetry APM (`otel`)**: OTel メトリック集計（Gauge/Sumの直接集計、min/max/count/elapsed）、分散トレース評価（エラー率、P95所要時間、HTTP 4xx/5xx・gRPCエラー検知）、ハートビート途絶検知
 - **TCP / TLS ポート開放確認**
 - **DNS / NTP クエリ**
 - **gNMI (gRPC ネットワーク管理)**
@@ -329,7 +332,7 @@ SNMP Get / GetNext / Walk / Table 取得をワンクリックで実行し、表�
 
 ### gNMI ツール
 
-次世代ネットワーク機器（gRPC Network Management Interface）の Telemetry 取得や Config 参照を行えます。
+次世代ネットワーク機器（gRPC Network Management Interface）の Telemetry 取得や Config 参照を行えます。テーブル列幅のドラッグ調整、リアルタイムインライン検索、10〜100件のページネーション、およびキーボードショートカット（EnterでGet実行、Escapeで閉じる）に対応しています。
 
 ![](./images/ja/gnmi_tool.png)
 
@@ -369,7 +372,7 @@ IoT/スマートデバイス向け MQTT のトピック別メッセージ頻度�
 ![](./images/ja/report_mqtt.png)
 
 ### OpenTelemetry (OTel) レポート
-分散トレーシングや OTel メトリクスのサービス別集計、レイテンシ傾向、および AI によるボトルネック分析。
+分散トレーシングや OTel メトリクスのサービス別集計、レイテンシ傾向、および AI によるボトルネック分析。上部アクションバーから再読み込みや一括削除が行えるほか、メトリック一覧やトレース一覧から対象ノード（IP/ホスト名自動照合）への**ワンクリックポーリング作成**に対応し、OTel APM 監視体制を即座に構築できます。
 
 ![](./images/ja/report_opentelemetry.png)
 
@@ -419,12 +422,14 @@ TWSNMP NEO は、ログストレージに **Apache Parquet** 列指向圧縮フ�
 ![](./images/ja/log_arp.png)
 
 ### レシーバー & デーモン設定
-各ログ・パケット受信デーモン（Syslog UDP/TCP:514、SNMP TRAP UDP:162、NetFlow UDP:2055、sFlow UDP:6343、ARP Watch 監視CIDR範囲、OpenTelemetry OTLP gRPC/HTTP:4318、MQTT ブローカー）の有効化・待受ポートは、システム設定内の「レシーバー & デーモン設定」から個別に制御できます：
+各ログ・パケット受信デーモン（Syslog UDP/TCP:514、SNMP TRAP UDP:162、NetFlow UDP:2055、sFlow UDP:6343、ARP Watch 監視CIDR範囲、OpenTelemetry OTLP gRPC/HTTP:4318、MQTT ブローカー）の有効化・待受ポートは、システム設定内の「レシーバー & デーモン設定」から個別に制御できます。
+設定変更時はアプリケーション全体を再起動することなく、対象レシーバーのみを安全に動的リロードします。また、SNMPv3 TRAP の暗号化デコードおよび MIB OID 名前解決にも標準対応しています。
 
 ![](./images/ja/settings_receivers.png)
 
-### 独立したログ保持期間ポリシー
+### 独立したログ保持期間ポリシー & Parquet コンパクション
 データベース内のイベントログ（bbolt）と大量の受信ストリーミングログ（Parquet）は、それぞれ独立した保持日数を設定できます。10分ごとのバックグラウンドクリーンアップ処理により、期限切れのイベントログ削除とParquetログファイルの自動ローテーション（日数および最大容量制限）が確実に実行されます。
+さらに、bbolt のインメモリキャッシュ（`sync.Map`）と遅延フラッシュ、タイムスタンプ範囲によるログ検索の高速化、および断片化した Parquet ファイルを自動結合・最適化するコンパクション（Compact）により、長期間の運用でも安定した高速パフォーマンスを維持します。
 
 ### プローブタグ自動解析 & DNS 逆引きキャッシュ
 各種 Syslog プローブ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）から送信されたログにおいて、リレーやヘッダ構成によりタグがホスト名やメッセージ本文に混在した場合でも、自動的にプローブタグを検知して `type=` のKey-Valueを正規化パースします。また、レポート集計時にマップ未登録のIPアドレスについて DNS 逆引き（Reverse Lookup）を行い、TTL 1時間のキャッシュにより高速かつ低負荷にホスト名を自動解決・表示します。
@@ -476,13 +481,37 @@ TWSNMP NEO 自体の Web UI を HTTPS (TLS) で運用する際、Let's Encrypt �
 ![](./images/ja/ai_gpu_manager.png)
 
 ### 内蔵 MCP サーバー
-Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせや障害診断を自律的に実行させる連携が可能です。
+Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。25種以上の運用・診断ツール（ノード/マップ操作、Ping/SNMP/MIB、OTel APMメトリクス/トレース、各種レポートサマリー、センサー種別フィルタ等）と19種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせや障害診断を自律的に実行させる連携が可能です。
 
 詳細な構想やツール一覧は、**[MCP サーバー仕様・連携ガイド](mcp_ja.html)** および **[AI プロンプトガイド](prompt_ja.html)** をご覧ください。
 
 ---
 
-## 12. 設定 & システム管理
+## 12. 公開ダッシュボード (Public Dashboard)
+
+TWSNMP NEO は、ログイン不要で外部共有できる安全な「公開ダッシュボード」機能を搭載しています。社内ポータルやサイネージ、監視ルームの大画面ディスプレイへの投影に最適です。
+
+![](./images/ja/public_dashboard.png)
+
+### 主な特徴と機能
+- **セキュアなトークン公開アクセス (`/dashboard/:key`)**:
+  ランダムなアクセスキーに基づく読み取り専用公開 URL。レスポンス返却時にノード IP アドレス、MAC アドレス、認証情報、LLM API キー等の機密情報を自動サニタイズ（マスキング）して配信します。
+- **複数アイテムの登録 & 自動ローテーション**:
+  ネットワークマップ全体や、重要サーバーの特定ポーリング（レスポンスタイム、トラフィック、CPU 負荷等）を複数アイテムとして登録可能。指定秒数ごとにタブを自動切り替え（ローテーション）しながら常時監視できます。
+- **twFathom 風サマリー KPI カード**:
+  画面上部に重度障害件数、注意件数、AI 異常検知スコア・件数、24時間イベントログ数、Fumble（異常通信）件数、正常ノード比率の 6 大 KPI カードを配置し、システム全体の健全性をひと目で把握できます。
+- **滑らかな時系列チャート**:
+  ポーリングアイテムでは、Apache ECharts による滑らかなグラデーション折れ線・エリアチャートを表示。過去の推移や異常スパイクを直感的に捉えられます。
+- **TV ドラマ風の緊迫感ある緊急警報画面 (Drama Alert Overlay)**:
+  アイテムごとに「緊急警報」のトリガー条件（注意以上、または重度障害のみ）を設定可能。障害が検知されると、黄色と黒のハザードストライプと赤点滅のパルス背景による大迫力のフルスクリーン警報オーバーレイが即座に起動します。障害対象、最新値、発生回数、初検・終検時刻が表示され、DISMISS ボタンで警報を確認・解除できます。
+- **Web Audio 電子警告音**:
+  ブラウザの Web Audio API による合成電子警告音（ビープ音）の自動再生に対応（アイテムごとに有効/無効を設定可能、一定時間で自動停止）。
+- **外部サイト埋め込み（iframe）対応**:
+  `X-Frame-Options` および `Content-Security-Policy: frame-ancestors *` に対応しており、Wiki やグループウェア、社内ダッシュボードに自由なサイズで埋め込み可能です。`?embed=true` クエリパラメータを付与することで、上部ヘッダーを縮小したコンパクトモードで綺麗に収まります。
+
+---
+
+## 13. 設定 & システム管理
 
 ### システム状態 & リソースモニター（2タブ構成）
 
@@ -498,6 +527,12 @@ Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標
   - プロセス別・システム全体の CPU 負荷、メモリヒープ、Goroutine 数、ディスク I/O 推移を高精度チャートでリアルタイム監視。
 
 ![](./images/ja/system_resource_monitor.png)
+
+### 公開ダッシュボード設定
+
+システム設定内の「ダッシュボード」タブから、公開ダッシュボードの全体有効化、アクセスキーの再生成、公開対象アイテム（マップ・ポーリング）の追加・編集・並べ替え、表示タイトル、ローテーション間隔、緊急警報（Drama Alert）条件、およびワンクリックでの URL / iframe 埋め込みタグのコピーが行えます：
+
+![](./images/ja/settings_dashboard.png)
 
 ### 通知設定（Email / Webhook）
 
