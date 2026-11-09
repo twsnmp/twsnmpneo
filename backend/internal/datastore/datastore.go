@@ -35,6 +35,7 @@ type DataStore interface {
 	ListNodes(ctx context.Context) ([]*NodeEnt, error)
 	SaveNode(ctx context.Context, node *NodeEnt) error
 	SaveNodes(ctx context.Context, nodes []*NodeEnt) error
+	UpdateNodeState(ctx context.Context, node *NodeEnt) error
 	DeleteNode(ctx context.Context, id string) error
 
 	// Lines
@@ -59,6 +60,7 @@ type DataStore interface {
 	GetPolling(ctx context.Context, id string) (*PollingEnt, error)
 	ListPollings(ctx context.Context) ([]*PollingEnt, error)
 	SavePolling(ctx context.Context, p *PollingEnt) error
+	UpdatePollingState(ctx context.Context, p *PollingEnt) error
 	DeletePolling(ctx context.Context, id string) error
 
 	// Configurations

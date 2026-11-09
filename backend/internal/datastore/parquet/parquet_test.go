@@ -385,3 +385,123 @@ func TestStore_CountRecentLogs(t *testing.T) {
 		t.Errorf("expected 3 disk trap, got %d", counts["trap"])
 	}
 }
+
+func TestStore_Compact(t *testing.T) {
+	store, dir, cleanup := setupParquetTest(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Create 3 separate small parquet files and rename them to yesterday's timestamp
+	yesterday := time.Now().Add(-25 * time.Hour)
+	for i := 0; i < 3; i++ {
+		recTime := yesterday.Add(time.Duration(i) * time.Minute)
+		if err := store.WriteLog(&parquet.ParquetLogRecord{
+			Time: recTime.UnixNano(),
+			Type: "syslog",
+			Src:  "192.168.1.50",
+			Log:  fmt.Sprintf(`{"msg":"compact test %d"}`, i),
+		}); err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
+		if err := store.Flush(); err != nil {
+			t.Fatalf("flush failed: %v", err)
+		}
+	}
+
+	typeDir := filepath.Join(dir, "syslog")
+	entries, err := os.ReadDir(typeDir)
+	if err != nil || len(entries) != 3 {
+		t.Fatalf("expected 3 parquet files before compact, got %d (err=%v)", len(entries), err)
+	}
+
+	// Rename files to yesterday's timestamp so Compact() treats them as a completed past day bucket
+	for i, e := range entries {
+		oldPath := filepath.Join(typeDir, e.Name())
+		ts := yesterday.Add(time.Duration(i) * time.Minute).Format("20060102150405")
+		newPath := filepath.Join(typeDir, fmt.Sprintf("syslog_%s_000%d.parquet", ts, i))
+		if err := os.Rename(oldPath, newPath); err != nil {
+			t.Fatalf("rename failed: %v", err)
+		}
+		_ = os.Chtimes(newPath, yesterday, yesterday)
+	}
+
+	compacted, err := store.Compact()
+	if err != nil {
+		t.Fatalf("Compact failed: %v", err)
+	}
+	if compacted != 3 {
+		t.Fatalf("expected 3 files compacted, got %d", compacted)
+	}
+
+	afterEntries, err := os.ReadDir(typeDir)
+	if err != nil || len(afterEntries) != 1 {
+		t.Fatalf("expected 1 compacted parquet file, got %d (err=%v)", len(afterEntries), err)
+	}
+
+	// Verify Query still returns all 3 records in descending chronological order
+	records, err := store.Query(ctx, parquet.LogFilter{
+		Type:  "syslog",
+		Limit: 10,
+	})
+	if err != nil {
+		t.Fatalf("Query after compact failed: %v", err)
+	}
+	if len(records) != 3 {
+		t.Fatalf("expected 3 records after compact, got %d", len(records))
+	}
+	if records[0].Time < records[1].Time || records[1].Time < records[2].Time {
+		t.Errorf("expected descending time order after compact: %d, %d, %d", records[0].Time, records[1].Time, records[2].Time)
+	}
+}
+
+func TestStore_FlushSpeed(t *testing.T) {
+	dir, err := os.MkdirTemp("", "twsnmpneo-parquet-speed-*")
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := parquet.New(parquet.Config{
+		Dir:            dir,
+		BufferSize:     10000,
+		BufferInterval: 1 * time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("create parquet store: %v", err)
+	}
+	defer store.Close()
+
+	now := time.Now().UnixNano()
+	for i := 0; i < 1000; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "syslog",
+			Src:  "192.168.1.1",
+			Log:  fmt.Sprintf(`{"msg":"syslog message %d with extra details and some length to simulate real payload"}`, i),
+		})
+	}
+	for i := 0; i < 800; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "netflow",
+			Src:  "192.168.1.2",
+			Log:  fmt.Sprintf(`{"msg":"netflow packet %d with flow headers and bytes counts"}`, i),
+		})
+	}
+	for i := 0; i < 150; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "sflow",
+			Src:  "192.168.1.3",
+			Log:  fmt.Sprintf(`{"msg":"sflow counter sample %d"}`, i),
+		})
+	}
+
+	st := time.Now()
+	err = store.Flush()
+	dur := time.Since(st)
+	if err != nil {
+		t.Fatalf("Flush error: %v", err)
+	}
+	t.Logf("Flush 1950 records in 1 shot took: %v", dur)
+}

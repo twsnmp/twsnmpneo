@@ -118,9 +118,9 @@ func NewServer(cfg Config) (*Server, error) {
 			res := c.Response()
 			uri := req.RequestURI
 
-			// Output access log for all API routes, public dashboard routes, and any errors (status >= 400)
+			// Output access log only for slow requests (latency >= 1s) or errors (status >= 400)
 			isAPI := strings.HasPrefix(uri, "/api/") || strings.HasPrefix(uri, "/public/")
-			if isAPI || res.Status >= 400 {
+			if (isAPI && latency >= time.Second) || res.Status >= 400 {
 				slog.Info("HTTP API Access",
 					"method", req.Method,
 					"uri", uri,

@@ -178,7 +178,7 @@
         fetchLines(),
         fetchNetworks(),
         fetchDrawItems(),
-        fetchEventLogs(),
+        fetchEventLogs({ limit: 100 }),
         fetchPollings(),
         fetchCustomIcons().catch(() => []),
       ]);
@@ -191,7 +191,13 @@
       if (icons && icons.length > 0) {
         setCustomIcons(icons);
       }
-      await updateMAP();
+      await updateMAP({
+        nodes: n,
+        lines: l,
+        networks: net,
+        drawItems: di,
+        customIcons: icons,
+      });
     } catch (e) {
       console.error("Failed to load map data:", e);
     } finally {
@@ -305,14 +311,20 @@
       if (isReloading) return;
       isReloading = true;
       try {
-        const [el, pl, n] = await Promise.all([
-          fetchEventLogs(),
+        const [el, pl, n, l, di, net] = await Promise.all([
+          fetchEventLogs({ limit: 100 }),
           fetchPollings(),
           fetchNodes(),
+          fetchLines(),
+          fetchDrawItems(),
+          fetchNetworks(),
         ]);
         eventLogs = el;
         pollings = pl;
         nodes = n;
+        lines = l;
+        drawItems = di;
+        networks = net;
         const cur = detailNode;
         if (cur) {
           const curId = cur.id || (cur as any).ID;
@@ -323,7 +335,13 @@
             detailNode = updated;
           }
         }
-        await updateMAP();
+        await updateMAP({
+          nodes: n,
+          lines: l,
+          drawItems: di,
+          networks: net,
+          skipStatic: true,
+        });
       } catch (e) {
         console.error("Polling error:", e);
       } finally {

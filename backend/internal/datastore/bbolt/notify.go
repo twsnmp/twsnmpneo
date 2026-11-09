@@ -3,6 +3,7 @@ package bbolt
 import (
 	"context"
 	"embed"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -157,7 +158,8 @@ func (s *Store) SetMailTemplate(t, content string) {
 // Callback returns false to stop iteration.
 func (s *Store) ForEachNodes(fn func(*datastore.NodeEnt) bool) {
 	s.nodes.Range(func(_, v any) bool {
-		return fn(v.(*datastore.NodeEnt))
+		cp := *v.(*datastore.NodeEnt)
+		return fn(&cp)
 	})
 }
 
@@ -168,23 +170,56 @@ func (s *Store) ForEachNetworks(fn func(*datastore.NetworkEnt) bool) {
 	})
 }
 
-// ForEachLines iterates over all lines in the in-memory cache.
+// ForEachLines iterates over all lines in the in-memory cache with populated runtime states.
 func (s *Store) ForEachLines(fn func(*datastore.LineEnt) bool) {
 	s.lines.Range(func(_, v any) bool {
-		return fn(v.(*datastore.LineEnt))
+		return fn(s.populateLineState(v.(*datastore.LineEnt)))
 	})
 }
 
 // ForEachPollings iterates over all pollings in the in-memory cache.
 func (s *Store) ForEachPollings(fn func(*datastore.PollingEnt) bool) {
 	s.pollings.Range(func(_, v any) bool {
-		return fn(clonePolling(v.(*datastore.PollingEnt)))
+		cp := *v.(*datastore.PollingEnt)
+		return fn(&cp)
 	})
 }
 
 // ForEachLastEventLog iterates event logs in reverse chronological order (newest first).
 // Callback returns false to stop iteration.
 func (s *Store) ForEachLastEventLog(fn func(*datastore.EventLogEnt) bool) {
+	s.recentEventsMu.RLock()
+	recentLen := len(s.recentEvents)
+	var snapshot []*datastore.EventLogEnt
+	if recentLen > 0 {
+		snapshot = make([]*datastore.EventLogEnt, recentLen)
+		copy(snapshot, s.recentEvents)
+	}
+	s.recentEventsMu.RUnlock()
+
+	if s.eventLogCount.Load() <= int64(recentLen) {
+		for i := len(snapshot) - 1; i >= 0; i-- {
+			cp := *snapshot[i]
+			if !fn(&cp) {
+				return
+			}
+		}
+		return
+	}
+
+	for i := len(snapshot) - 1; i >= 0; i-- {
+		cp := *snapshot[i]
+		if !fn(&cp) {
+			return
+		}
+	}
+
+	s.flushPendingEventLogs()
+	var oldestInMem int64
+	if len(snapshot) > 0 {
+		oldestInMem = snapshot[0].Time
+	}
+
 	_ = s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketEventLog)
 		if b == nil {
@@ -192,6 +227,12 @@ func (s *Store) ForEachLastEventLog(fn func(*datastore.EventLogEnt) bool) {
 		}
 		c := b.Cursor()
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
+			if oldestInMem > 0 && len(k) >= 8 {
+				t := int64(binary.BigEndian.Uint64(k[0:8]))
+				if t >= oldestInMem {
+					continue
+				}
+			}
 			var ev datastore.EventLogEnt
 			if err := json.Unmarshal(v, &ev); err != nil {
 				continue
@@ -207,8 +248,6 @@ func (s *Store) ForEachLastEventLog(fn func(*datastore.EventLogEnt) bool) {
 // --- AI Results ---
 
 // GetAIResult returns AI anomaly detection results for a polling.
-// This is a stub that reads from a dedicated "ai" bucket if it exists,
-// matching twsnmpfk's storage pattern.
 func (s *Store) GetAIResult(pollingID string) (*datastore.AIResultEnt, error) {
 	if val, ok := s.aiResults.Load(pollingID); ok {
 		if r, ok := val.(*datastore.AIResultEnt); ok {
@@ -265,27 +304,15 @@ func (s *Store) DeleteAIResult(_ context.Context, id string) error {
 	return err
 }
 
-// GetAIConf retrieves the AI configuration settings.
+// GetAIConf retrieves the AI configuration settings from in-memory cache.
 func (s *Store) GetAIConf(_ context.Context) (*datastore.AIConfEnt, error) {
-	var conf datastore.AIConfEnt
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("config"))
-		if b == nil {
-			return nil
-		}
-		v := b.Get([]byte("aiConf"))
-		if v == nil {
-			return nil
-		}
-		return json.Unmarshal(v, &conf)
-	})
-	if err != nil {
-		return nil, err
-	}
+	s.confMu.RLock()
+	defer s.confMu.RUnlock()
+	conf := s.aiConf
 	return &conf, nil
 }
 
-// SaveAIConf stores the AI configuration settings.
+// SaveAIConf stores the AI configuration settings in memory and bbolt.
 func (s *Store) SaveAIConf(_ context.Context, conf *datastore.AIConfEnt) error {
 	if conf == nil {
 		return datastore.ErrInvalidParams
@@ -294,13 +321,19 @@ func (s *Store) SaveAIConf(_ context.Context, conf *datastore.AIConfEnt) error {
 	if err != nil {
 		return err
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte("config"))
 		if err != nil {
 			return err
 		}
 		return b.Put([]byte("aiConf"), data)
 	})
+	if err == nil {
+		s.confMu.Lock()
+		s.aiConf = *conf
+		s.confMu.Unlock()
+	}
+	return err
 }
 
 // --- DB Size ---

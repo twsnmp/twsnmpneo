@@ -339,17 +339,21 @@ func recalcScores[T any, P interface {
 	now := time.Now().UnixNano()
 	for id, p := range ents {
 		si := p.scoreInfo()
+		oldScore := si.Score
+		oldValid := si.ValidScore
 		if sd != 0 {
 			si.Score = 10*(float64(100-si.Penalty)-mean)/sd + 50
 		} else {
 			si.Score = 50
 		}
 		si.ValidScore = true
-		b, err := json.Marshal(p)
-		if err != nil {
-			continue
+		if !oldValid || math.Abs(si.Score-oldScore) > 1e-6 {
+			b, err := json.Marshal(p)
+			if err != nil {
+				continue
+			}
+			out[id] = b
 		}
-		out[id] = b
 
 		// Anomaly score alert
 		if si.Score < scoreThreshold {
@@ -359,6 +363,9 @@ func recalcScores[T any, P interface {
 				scoreAlertSuppressed.Store(suppressKey, now)
 			}
 		}
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return s.store.SaveLogReportData(s.ctx, kind, out)
 }

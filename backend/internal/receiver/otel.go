@@ -44,6 +44,7 @@ type OTelServer struct {
 	from      string
 	server    *http.Server
 	mu        sync.Mutex
+	metricMu  sync.Mutex
 
 	activeTraces sync.Map // traceID (string) -> *datastore.OTelTraceEnt
 	lastSave     int64
@@ -272,6 +273,7 @@ func (s *OTelServer) processMetrics(ctx context.Context, srcIP string, body []by
 				}
 				mType := determineMetricType(m)
 
+				s.metricMu.Lock()
 				var metric *datastore.OTelMetricEnt
 				if s.store != nil {
 					metric, _ = s.store.GetOTelMetric(ctx, host, service, scope, mName)
@@ -300,6 +302,7 @@ func (s *OTelServer) processMetrics(ctx context.Context, srcIP string, body []by
 				if s.store != nil {
 					_ = s.store.SaveOTelMetric(ctx, metric)
 				}
+				s.metricMu.Unlock()
 			}
 		}
 	}

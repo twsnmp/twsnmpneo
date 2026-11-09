@@ -58,6 +58,9 @@ type cachedDiskCountEntry struct {
 	expiresAt time.Time
 }
 
+const maxCompactedRecordsPerFile = 500000
+const maxCompactedFileSizeBytes = 16 * 1024 * 1024
+
 // Store manages buffered log writes, Parquet file generation, and queries.
 type Store struct {
 	dir            string
@@ -68,9 +71,13 @@ type Store struct {
 	typeBuffers map[string][]*ParquetLogRecord
 	bufferCount int
 
-	cacheMu         sync.RWMutex
-	pollingLogCache map[string]cachedPollingEntry
-	diskCountCache  map[string]cachedDiskCountEntry
+	compactMu sync.Mutex
+
+	cacheMu          sync.RWMutex
+	pollingLogCache  map[string]cachedPollingEntry
+	diskCountCache   map[string]cachedDiskCountEntry
+	totalCountCache  map[string]int64
+	totalCountLoaded bool
 
 	stopCh chan struct{}
 	doneCh chan struct{}
@@ -88,11 +95,11 @@ func New(cfg Config) (*Store, error) {
 
 	bufSize := cfg.BufferSize
 	if bufSize <= 0 {
-		bufSize = 5000
+		bufSize = 10000
 	}
 	bufInterval := cfg.BufferInterval
 	if bufInterval <= 0 {
-		bufInterval = 10 * time.Second
+		bufInterval = 60 * time.Second
 	}
 
 	s := &Store{
@@ -102,6 +109,7 @@ func New(cfg Config) (*Store, error) {
 		typeBuffers:     make(map[string][]*ParquetLogRecord),
 		pollingLogCache: make(map[string]cachedPollingEntry),
 		diskCountCache:  make(map[string]cachedDiskCountEntry),
+		totalCountCache: make(map[string]int64),
 		stopCh:          make(chan struct{}),
 		doneCh:          make(chan struct{}),
 	}
@@ -190,7 +198,12 @@ func (s *Store) Flush() error {
 	sf := 0
 	oc := 0
 
-	var firstErr error
+	type flushTarget struct {
+		logType string
+		records []*ParquetLogRecord
+	}
+	var targets []flushTarget
+
 	for logType, records := range toFlush {
 		count := len(records)
 		if count == 0 {
@@ -210,22 +223,42 @@ func (s *Store) Flush() error {
 		default:
 			oc += count
 		}
-		if err := s.writeParquetFile(logType, records); err != nil {
-			slog.Error("Failed to flush parquet file", "type", logType, "error", err)
-			if firstErr == nil {
-				firstErr = err
-			}
-		} else {
-			s.cacheMu.Lock()
-			for k, entry := range s.diskCountCache {
-				if strings.HasPrefix(k, logType+":") {
-					entry.count += count
-					s.diskCountCache[k] = entry
-				}
-			}
-			s.cacheMu.Unlock()
-		}
+		targets = append(targets, flushTarget{logType: logType, records: records})
 	}
+
+	var wg sync.WaitGroup
+	var errMu sync.Mutex
+	var firstErr error
+
+	for _, tgt := range targets {
+		wg.Add(1)
+		go func(t flushTarget) {
+			defer wg.Done()
+			if err := s.writeParquetFile(t.logType, t.records); err != nil {
+				slog.Error("Failed to flush parquet file", "type", t.logType, "error", err)
+				errMu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				errMu.Unlock()
+			} else {
+				count := len(t.records)
+				s.cacheMu.Lock()
+				if s.totalCountLoaded {
+					s.totalCountCache[t.logType] += int64(count)
+				}
+				for k, entry := range s.diskCountCache {
+					if strings.HasPrefix(k, t.logType+":") {
+						entry.count += count
+						s.diskCountCache[k] = entry
+					}
+				}
+				s.cacheMu.Unlock()
+			}
+		}(tgt)
+	}
+	wg.Wait()
+
 	slog.Info("Flush completed", "syslog", sc, "netflow", nfc, "trap", tc, "arplog", ac, "sflow", sf, "other", oc, "duration", time.Since(st))
 	return firstErr
 }
@@ -275,51 +308,82 @@ func (s *Store) CountByType(ctx context.Context) (map[string]int64, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	_ = s.Flush()
 
-	counts := make(map[string]int64)
+	s.cacheMu.RLock()
+	loaded := s.totalCountLoaded
+	counts := make(map[string]int64, len(s.totalCountCache))
+	if loaded {
+		for k, v := range s.totalCountCache {
+			counts[k] = v
+		}
+	}
+	s.cacheMu.RUnlock()
 
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return counts, nil
+	if !loaded {
+		diskCounts := make(map[string]int64)
+		scanDeadline := time.Now().Add(500 * time.Millisecond)
+		timedOut := false
+		if entries, err := os.ReadDir(s.dir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() {
+					continue
+				}
+				logType := e.Name()
+				typeDir := filepath.Join(s.dir, logType)
+				fileEntries, err := os.ReadDir(typeDir)
+				if err != nil {
+					continue
+				}
+
+				var total int64
+				for i := len(fileEntries) - 1; i >= 0; i-- {
+					if ctx.Err() != nil || time.Now().After(scanDeadline) {
+						timedOut = true
+						break
+					}
+					fe := fileEntries[i]
+					if fe.IsDir() || !strings.HasSuffix(fe.Name(), ".parquet") {
+						continue
+					}
+					filePath := filepath.Join(typeDir, fe.Name())
+					f, err := os.Open(filePath)
+					if err != nil {
+						continue
+					}
+					stat, err := f.Stat()
+					if err != nil {
+						_ = f.Close()
+						continue
+					}
+					pf, err := parquet.OpenFile(f, stat.Size())
+					if err != nil {
+						_ = f.Close()
+						continue
+					}
+					total += pf.NumRows()
+					_ = f.Close()
+				}
+				diskCounts[logType] = total
+				counts[logType] = total
+			}
+		}
+		if !timedOut && ctx.Err() == nil {
+			s.cacheMu.Lock()
+			s.totalCountCache = diskCounts
+			s.totalCountLoaded = true
+			s.cacheMu.Unlock()
+		}
 	}
 
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+	// Add un-flushed in-memory records
+	s.mu.Lock()
+	for logType, buf := range s.typeBuffers {
+		if len(buf) > 0 {
+			counts[logType] += int64(len(buf))
 		}
-		logType := e.Name()
-		typeDir := filepath.Join(s.dir, logType)
-		fileEntries, err := os.ReadDir(typeDir)
-		if err != nil {
-			continue
-		}
-
-		var total int64
-		for _, fe := range fileEntries {
-			if fe.IsDir() || !strings.HasSuffix(fe.Name(), ".parquet") {
-				continue
-			}
-			filePath := filepath.Join(typeDir, fe.Name())
-			f, err := os.Open(filePath)
-			if err != nil {
-				continue
-			}
-			stat, err := f.Stat()
-			if err != nil {
-				_ = f.Close()
-				continue
-			}
-			pf, err := parquet.OpenFile(f, stat.Size())
-			if err != nil {
-				_ = f.Close()
-				continue
-			}
-			total += pf.NumRows()
-			_ = f.Close()
-		}
-		counts[logType] = total
 	}
+	s.mu.Unlock()
+
 	return counts, nil
 }
 
@@ -467,13 +531,40 @@ func (s *Store) CountLogs24h(ctx context.Context, d time.Duration) map[string]in
 	return s.CountRecentLogs(ctx, d)
 }
 
-// Query searches across parquet files matching the filter.
+func hasRegexMeta(s string) bool {
+	return regexp.QuoteMeta(s) != s
+}
+
+func containsFold(s, substr string) bool {
+	if substr == "" {
+		return true
+	}
+	if len(substr) > len(s) {
+		return false
+	}
+	n := len(substr)
+	first := substr[0]
+	if first >= 'A' && first <= 'Z' {
+		first += 'a' - 'A'
+	}
+	limit := len(s) - n
+	for i := 0; i <= limit; i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c == first && strings.EqualFold(s[i:i+n], substr) {
+			return true
+		}
+	}
+	return false
+}
+
+// Query searches across in-memory buffers and parquet files matching the filter.
 func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	// First flush any pending buffers so query results are up-to-date
-	_ = s.Flush()
 
 	limit := filter.Limit
 	if limit <= 0 {
@@ -485,9 +576,11 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 
 	// Determine directories to scan
 	dirs := make([]string, 0)
+	var cleanFilterType string
 	if filter.Type != "" {
 		cleanType := filepath.Base(filepath.Clean(filter.Type))
 		if cleanType != "." && cleanType != "/" && !strings.Contains(cleanType, "..") && filepath.IsLocal(cleanType) {
+			cleanFilterType = cleanType
 			targetDir := filepath.Clean(filepath.Join(s.dir, cleanType))
 			rel, err := filepath.Rel(s.dir, targetDir)
 			if err == nil && !strings.HasPrefix(rel, "..") {
@@ -506,37 +599,16 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 		}
 	}
 
-	// Collect parquet files
-	files := make([]string, 0)
-	for _, d := range dirs {
-		entries, err := os.ReadDir(d)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if !e.IsDir() && strings.HasSuffix(e.Name(), ".parquet") {
-				files = append(files, filepath.Join(d, e.Name()))
-			}
-		}
-	}
-
-	// Sort files newest first (reverse lexicographical based on timestamp naming)
-	sort.Slice(files, func(i, j int) bool {
-		return files[i] > files[j]
-	})
-
-	results := make([]*ParquetLogRecord, 0, 256)
-
 	var regexKeyword *regexp.Regexp
-	if filter.Filter != "" {
+	if filter.Filter != "" && hasRegexMeta(filter.Filter) {
 		regexKeyword, _ = regexp.Compile("(?i)" + filter.Filter)
 	}
 	var regexSrc *regexp.Regexp
-	if filter.Src != "" {
+	if filter.Src != "" && hasRegexMeta(filter.Src) {
 		regexSrc, _ = regexp.Compile("(?i)" + filter.Src)
 	}
 	var regexTag *regexp.Regexp
-	if filter.Tag != "" {
+	if filter.Tag != "" && hasRegexMeta(filter.Tag) {
 		regexTag, _ = regexp.Compile("(?i)" + filter.Tag)
 	}
 
@@ -575,23 +647,147 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 			}
 		}
 		// String level check
-		lower := strings.ToLower(logStr)
 		if maxSev == 2 {
-			return strings.Contains(lower, `"level":"high"`)
+			return containsFold(logStr, `"level":"high"`)
 		} else if maxSev == 3 {
-			return strings.Contains(lower, `"level":"high"`) || strings.Contains(lower, `"level":"low"`)
+			return containsFold(logStr, `"level":"high"`) || containsFold(logStr, `"level":"low"`)
 		} else if maxSev == 4 {
-			return strings.Contains(lower, `"level":"high"`) || strings.Contains(lower, `"level":"low"`) || strings.Contains(lower, `"level":"warn"`)
+			return containsFold(logStr, `"level":"high"`) || containsFold(logStr, `"level":"low"`) || containsFold(logStr, `"level":"warn"`)
 		}
 		return true
+	}
+
+	matchRecord := func(rec *ParquetLogRecord) bool {
+		if filter.StartTime > 0 && rec.Time < filter.StartTime {
+			return false
+		}
+		if filter.EndTime > 0 && rec.Time > filter.EndTime {
+			return false
+		}
+		if filter.Src != "" {
+			if regexSrc != nil {
+				if !regexSrc.MatchString(rec.Src) {
+					return false
+				}
+			} else if !containsFold(rec.Src, filter.Src) {
+				return false
+			}
+		}
+		if filter.Tag != "" {
+			if regexTag != nil {
+				if !regexTag.MatchString(rec.Log) {
+					return false
+				}
+			} else if !containsFold(rec.Log, filter.Tag) {
+				return false
+			}
+		}
+		if filter.Level != "" && filter.Level != "all" {
+			if !matchSyslogLevel(rec.Log, filter.Level) {
+				return false
+			}
+		}
+		if filter.Filter != "" {
+			if regexKeyword != nil {
+				if !regexKeyword.MatchString(rec.Log) && !regexKeyword.MatchString(rec.Src) {
+					return false
+				}
+			} else {
+				if !containsFold(rec.Log, filter.Filter) && !containsFold(rec.Src, filter.Filter) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	results := make([]*ParquetLogRecord, 0, 256)
+
+	// 1. Scan un-flushed in-memory buffers first (newest records, avoids synchronous disk Flush)
+	var memSnapshot []*ParquetLogRecord
+	s.mu.Lock()
+	if cleanFilterType != "" {
+		if buf := s.typeBuffers[cleanFilterType]; len(buf) > 0 {
+			memSnapshot = make([]*ParquetLogRecord, len(buf))
+			copy(memSnapshot, buf)
+		}
+	} else {
+		for _, buf := range s.typeBuffers {
+			memSnapshot = append(memSnapshot, buf...)
+		}
+	}
+	s.mu.Unlock()
+
+	for i := len(memSnapshot) - 1; i >= 0 && len(results) < limit; i-- {
+		rec := memSnapshot[i]
+		if matchRecord(rec) {
+			cp := *rec
+			results = append(results, &cp)
+		}
+	}
+	if len(results) >= limit {
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Time > results[j].Time
+		})
+		return results[:limit], nil
+	}
+
+	// 2. Collect parquet files on disk
+	files := make([]string, 0)
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".parquet") {
+				files = append(files, filepath.Join(d, e.Name()))
+			}
+		}
+	}
+
+	// Sort files newest first (reverse lexicographical based on timestamp naming)
+	sort.Slice(files, func(i, j int) bool {
+		return files[i] > files[j]
+	})
+
+	noContentFilter := filter.Filter == "" && filter.Src == "" && filter.Tag == "" && (filter.Level == "" || filter.Level == "all") && filter.EndTime == 0
+	deadlineDur := 1500 * time.Millisecond
+	if filter.StartTime > 0 || filter.Filter != "" || filter.Src != "" || filter.Tag != "" {
+		deadlineDur = 3 * time.Second
+	}
+	queryDeadline := time.Now().Add(deadlineDur)
+
+	if len(files) > 100 {
+		// Trigger background compaction if directory is fragmented
+		go func() {
+			_, _ = s.Compact()
+		}()
 	}
 
 	for _, file := range files {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if len(results) >= limit {
+		if len(results) >= limit || time.Now().After(queryDeadline) {
 			break
+		}
+
+		baseName := filepath.Base(file)
+		if fts, ok := parseFilenameTime(baseName); ok {
+			// Fast filename timestamp check for StartTime without os.Open/Stat
+			if filter.StartTime > 0 && fts.Add(5*time.Minute).UnixNano() < filter.StartTime {
+				if cleanFilterType != "" {
+					// Files in a single type directory are sorted newest filename first;
+					// all subsequent files have even older filename timestamps.
+					break
+				}
+				continue
+			}
+			// Fast filename timestamp check for EndTime (if file was created > 24h after EndTime, skip)
+			if filter.EndTime > 0 && fts.Add(-25*time.Hour).UnixNano() > filter.EndTime {
+				continue
+			}
 		}
 
 		f, err := os.Open(file)
@@ -618,61 +814,27 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 		}
 
 		reader := parquet.NewGenericReader[ParquetLogRecord](pf)
-		buffer := make([]ParquetLogRecord, 256)
+		needed := limit - len(results)
+		if noContentFilter && filter.StartTime == 0 {
+			if numRows := pf.NumRows(); numRows > int64(needed) {
+				_ = reader.SeekToRow(numRows - int64(needed))
+			}
+		}
+
+		buffer := make([]ParquetLogRecord, 512)
+		var fileMatches []*ParquetLogRecord
 
 		for {
-			if len(results) >= limit || ctx.Err() != nil {
+			if ctx.Err() != nil || time.Now().After(queryDeadline) {
 				break
 			}
 			n, err := reader.Read(buffer)
 			if n > 0 {
 				for i := 0; i < n; i++ {
 					rec := buffer[i]
-					if filter.StartTime > 0 && rec.Time < filter.StartTime {
-						continue
-					}
-					if filter.EndTime > 0 && rec.Time > filter.EndTime {
-						continue
-					}
-					if filter.Src != "" {
-						if regexSrc != nil {
-							if !regexSrc.MatchString(rec.Src) {
-								continue
-							}
-						} else if !strings.Contains(strings.ToLower(rec.Src), strings.ToLower(filter.Src)) {
-							continue
-						}
-					}
-					if filter.Tag != "" {
-						if regexTag != nil {
-							if !regexTag.MatchString(rec.Log) {
-								continue
-							}
-						} else if !strings.Contains(strings.ToLower(rec.Log), strings.ToLower(filter.Tag)) {
-							continue
-						}
-					}
-					if filter.Level != "" && filter.Level != "all" {
-						if !matchSyslogLevel(rec.Log, filter.Level) {
-							continue
-						}
-					}
-					if filter.Filter != "" {
-						if regexKeyword != nil {
-							if !regexKeyword.MatchString(rec.Log) && !regexKeyword.MatchString(rec.Src) {
-								continue
-							}
-						} else {
-							kw := strings.ToLower(filter.Filter)
-							if !strings.Contains(strings.ToLower(rec.Log), kw) && !strings.Contains(strings.ToLower(rec.Src), kw) {
-								continue
-							}
-						}
-					}
-					cp := rec
-					results = append(results, &cp)
-					if len(results) >= limit {
-						break
+					if matchRecord(&rec) {
+						cp := rec
+						fileMatches = append(fileMatches, &cp)
 					}
 				}
 			}
@@ -682,6 +844,11 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 		}
 		_ = reader.Close()
 		_ = f.Close()
+
+		// Append newest records from this file first
+		for i := len(fileMatches) - 1; i >= 0 && len(results) < limit; i-- {
+			results = append(results, fileMatches[i])
+		}
 	}
 
 	// Sort descending by time
@@ -693,6 +860,391 @@ func (s *Store) Query(ctx context.Context, filter LogFilter) ([]*ParquetLogRecor
 	}
 
 	return results, nil
+}
+
+func isAllDigits(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func parseFilenameTime(name string) (time.Time, bool) {
+	idx := strings.IndexByte(name, '_')
+	if idx < 0 || len(name) < idx+1+14 {
+		return time.Time{}, false
+	}
+	tsStr := name[idx+1 : idx+1+14]
+	if !isAllDigits(tsStr) {
+		return time.Time{}, false
+	}
+	t, err := time.ParseInLocation("20060102150405", tsStr, time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+func extractFileTimestamp14(logType, name string, modTime time.Time) string {
+	prefix := logType + "_"
+	if strings.HasPrefix(name, prefix) && len(name) >= len(prefix)+14 {
+		ts := name[len(prefix) : len(prefix)+14]
+		if isAllDigits(ts) {
+			modStr := modTime.Format("20060102150405")
+			if modStr[:8] < ts[:8] {
+				return modStr
+			}
+			return ts
+		}
+	}
+	return modTime.Format("20060102150405")
+}
+
+// Compact merges fragmented small parquet files in each log type directory into larger consolidated files.
+// Past days are merged per day (YYYYMMDD), past hours of today are merged per hour (YYYYMMDDHH),
+// and completed 10-minute windows of the current hour are merged per 10-minute window.
+func (s *Store) Compact() (int, error) {
+	s.compactMu.Lock()
+	defer s.compactMu.Unlock()
+
+	st := time.Now()
+	slog.Info("Starting parquet log compaction", "dir", s.dir)
+
+	_ = s.Flush()
+
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("Parquet log compaction skipped: directory does not exist", "dir", s.dir)
+			return 0, nil
+		}
+		slog.Error("Failed to read parquet root directory for compaction", "dir", s.dir, "error", err)
+		return 0, err
+	}
+
+	now := time.Now()
+	totalMerged := 0
+	totalCreated := 0
+	totalRecords := 0
+	var firstErr error
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		logType := e.Name()
+		typeDir := filepath.Join(s.dir, logType)
+		merged, created, recs, err := s.compactTypeDir(typeDir, logType, now)
+		totalMerged += merged
+		totalCreated += created
+		totalRecords += recs
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	if totalMerged > 0 {
+		s.cacheMu.Lock()
+		s.diskCountCache = make(map[string]cachedDiskCountEntry)
+		s.pollingLogCache = make(map[string]cachedPollingEntry)
+		s.cacheMu.Unlock()
+
+		slog.Info("Parquet log compaction finished",
+			"mergedSourceFiles", totalMerged,
+			"compactedFiles", totalCreated,
+			"records", totalRecords,
+			"reducedFiles", totalMerged-totalCreated,
+			"duration", time.Since(st),
+		)
+	} else {
+		slog.Info("Parquet log compaction completed: no small files to merge", "duration", time.Since(st))
+	}
+
+	return totalMerged, firstErr
+}
+
+type compactCandidate struct {
+	path    string
+	name    string
+	ts14    string
+	modTime time.Time
+	size    int64
+}
+
+func (s *Store) compactTypeDir(typeDir, logType string, now time.Time) (int, int, int, error) {
+	entries, err := os.ReadDir(typeDir)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	todayStr := now.Format("20060102")
+	curHourStr := now.Format("2006010215")
+	curTenMinStr := now.Format("200601021504")[:11]
+
+	buckets := make(map[string][]compactCandidate)
+	var bucketKeys []string
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Clean up any leftover temporary compaction files
+		if strings.HasPrefix(name, "compacting_") || strings.HasSuffix(name, ".tmp") {
+			_ = os.Remove(filepath.Join(typeDir, name))
+			continue
+		}
+		if !strings.HasSuffix(name, ".parquet") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		// Skip files that are already large enough
+		if info.Size() >= maxCompactedFileSizeBytes {
+			continue
+		}
+
+		ts14 := extractFileTimestamp14(logType, name, info.ModTime())
+		var key string
+		if ts14[:8] < todayStr {
+			key = "day_" + ts14[:8]
+		} else if ts14[:10] < curHourStr {
+			key = "hour_" + ts14[:10]
+		} else if ts14[:11] < curTenMinStr {
+			key = "ten_" + ts14[:11]
+		} else {
+			continue
+		}
+
+		if _, exists := buckets[key]; !exists {
+			bucketKeys = append(bucketKeys, key)
+		}
+		buckets[key] = append(buckets[key], compactCandidate{
+			path:    filepath.Join(typeDir, name),
+			name:    name,
+			ts14:    ts14,
+			modTime: info.ModTime(),
+			size:    info.Size(),
+		})
+	}
+
+	// Sort bucket keys descending so newest buckets (today's completed windows, yesterday, etc.) are compacted first
+	sort.Slice(bucketKeys, func(i, j int) bool {
+		return bucketKeys[i] > bucketKeys[j]
+	})
+	mergedFilesCount := 0
+	createdFilesCount := 0
+	recordsCount := 0
+
+	for _, key := range bucketKeys {
+		cands := buckets[key]
+		if len(cands) < 2 {
+			continue
+		}
+		// Sort oldest first so rows inside the compacted file stay in chronological order
+		sort.Slice(cands, func(i, j int) bool {
+			if cands[i].ts14 != cands[j].ts14 {
+				return cands[i].ts14 < cands[j].ts14
+			}
+			return cands[i].name < cands[j].name
+		})
+
+		merged, created, recs, err := s.compactBucket(typeDir, logType, cands, key)
+		if err != nil {
+			return mergedFilesCount, createdFilesCount, recordsCount, err
+		}
+		mergedFilesCount += merged
+		createdFilesCount += created
+		recordsCount += recs
+	}
+
+	return mergedFilesCount, createdFilesCount, recordsCount, nil
+}
+
+func (s *Store) compactBucket(typeDir, logType string, cands []compactCandidate, bucketKey string) (int, int, int, error) {
+	bucketStart := time.Now()
+	maxTS14 := cands[len(cands)-1].ts14
+	maxModTime := cands[len(cands)-1].modTime
+	for _, c := range cands {
+		if c.modTime.After(maxModTime) {
+			maxModTime = c.modTime
+		}
+		if c.ts14 > maxTS14 {
+			maxTS14 = c.ts14
+		}
+	}
+
+	var createdTempFiles []string
+	var createdFinalFiles []string
+
+	var currentWriter *parquet.GenericWriter[ParquetLogRecord]
+	var currentFile *os.File
+	var currentCount int
+	seq := 0
+
+	closeCurrentWriter := func() error {
+		if currentWriter != nil {
+			if err := currentWriter.Close(); err != nil {
+				_ = currentFile.Close()
+				currentWriter = nil
+				currentFile = nil
+				return err
+			}
+			if err := currentFile.Close(); err != nil {
+				currentWriter = nil
+				currentFile = nil
+				return err
+			}
+			currentWriter = nil
+			currentFile = nil
+		}
+		return nil
+	}
+
+	cleanupTemps := func() {
+		for _, tf := range createdTempFiles {
+			_ = os.Remove(tf)
+		}
+	}
+
+	openNewWriter := func() error {
+		if err := closeCurrentWriter(); err != nil {
+			return err
+		}
+		randBytes := make([]byte, 4)
+		_, _ = rand.Read(randBytes)
+		randHex := hex.EncodeToString(randBytes)
+
+		tmpName := fmt.Sprintf("compacting_%s_%s_c%04d_%s.parquet.tmp", logType, maxTS14, seq, randHex)
+		finalName := fmt.Sprintf("%s_%s_c%04d_%s.parquet", logType, maxTS14, seq, randHex)
+		seq++
+
+		tmpPath := filepath.Join(typeDir, tmpName)
+		finalPath := filepath.Join(typeDir, finalName)
+
+		outFile, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return fmt.Errorf("create compacted parquet file: %w", err)
+		}
+		currentFile = outFile
+		currentWriter = parquet.NewGenericWriter[ParquetLogRecord](outFile)
+		currentCount = 0
+
+		createdTempFiles = append(createdTempFiles, tmpPath)
+		createdFinalFiles = append(createdFinalFiles, finalPath)
+		return nil
+	}
+
+	defer func() {
+		_ = closeCurrentWriter()
+	}()
+
+	buf := make([]ParquetLogRecord, 1024)
+	totalProcessed := 0
+	var validSourceFiles []string
+
+	for _, cand := range cands {
+		f, err := os.Open(cand.path)
+		if err != nil {
+			continue
+		}
+		fi, err := f.Stat()
+		if err != nil || fi.Size() == 0 {
+			_ = f.Close()
+			if err == nil && fi.Size() == 0 {
+				validSourceFiles = append(validSourceFiles, cand.path)
+			}
+			continue
+		}
+		pf, err := parquet.OpenFile(f, fi.Size())
+		if err != nil {
+			_ = f.Close()
+			continue
+		}
+
+		reader := parquet.NewGenericReader[ParquetLogRecord](pf)
+		fileReadOK := true
+		for {
+			n, rErr := reader.Read(buf)
+			if n > 0 {
+				if currentWriter == nil {
+					if err := openNewWriter(); err != nil {
+						_ = reader.Close()
+						_ = f.Close()
+						cleanupTemps()
+						return 0, 0, 0, err
+					}
+				}
+				if _, wErr := currentWriter.Write(buf[:n]); wErr != nil {
+					_ = reader.Close()
+					_ = f.Close()
+					cleanupTemps()
+					return 0, 0, 0, fmt.Errorf("write compacted parquet: %w", wErr)
+				}
+				currentCount += n
+				totalProcessed += n
+
+				if currentCount >= maxCompactedRecordsPerFile {
+					if err := openNewWriter(); err != nil {
+						_ = reader.Close()
+						_ = f.Close()
+						cleanupTemps()
+						return 0, 0, 0, err
+					}
+				}
+			}
+			if rErr != nil {
+				break
+			}
+		}
+		_ = reader.Close()
+		_ = f.Close()
+		if fileReadOK {
+			validSourceFiles = append(validSourceFiles, cand.path)
+		}
+	}
+
+	if err := closeCurrentWriter(); err != nil {
+		cleanupTemps()
+		return 0, 0, 0, err
+	}
+
+	if totalProcessed == 0 || len(validSourceFiles) < 2 {
+		cleanupTemps()
+		return 0, 0, 0, nil
+	}
+
+	// Preserve maxModTime on compacted files and atomically rename into place
+	for i := range createdTempFiles {
+		_ = os.Chtimes(createdTempFiles[i], maxModTime, maxModTime)
+		if err := os.Rename(createdTempFiles[i], createdFinalFiles[i]); err != nil {
+			cleanupTemps()
+			return 0, 0, 0, err
+		}
+	}
+
+	// Remove the original small source files
+	for _, srcPath := range validSourceFiles {
+		_ = os.Remove(srcPath)
+	}
+
+	slog.Info("Compacted parquet bucket",
+		"type", logType,
+		"bucket", bucketKey,
+		"sourceFiles", len(validSourceFiles),
+		"compactedFiles", len(createdFinalFiles),
+		"records", totalProcessed,
+		"duration", time.Since(bucketStart),
+	)
+
+	return len(validSourceFiles), len(createdFinalFiles), totalProcessed, nil
 }
 
 // Rotate removes files older than retentionDays.
@@ -714,6 +1266,12 @@ func (s *Store) Rotate(retentionDays int) (int, error) {
 		}
 		return nil
 	})
+	if deleted > 0 {
+		s.cacheMu.Lock()
+		s.totalCountLoaded = false
+		s.totalCountCache = make(map[string]int64)
+		s.cacheMu.Unlock()
+	}
 	return deleted, err
 }
 
@@ -730,6 +1288,12 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 
 	s.cacheMu.Lock()
 	s.diskCountCache = make(map[string]cachedDiskCountEntry)
+	if logType != "" {
+		delete(s.totalCountCache, logType)
+	} else {
+		s.totalCountCache = make(map[string]int64)
+		s.totalCountLoaded = false
+	}
 	if logType == "" || logType == "polling" {
 		s.pollingLogCache = make(map[string]cachedPollingEntry)
 	}

@@ -682,6 +682,9 @@ func (m *Manager) cleanOldData(ctx context.Context) {
 		if rotated, err := m.cfg.LogStore.Rotate(parquetDays); err == nil && rotated > 0 {
 			slog.Info("Rotated old parquet log files", "deletedFiles", rotated, "retentionDays", parquetDays)
 		}
+		if compacted, err := m.cfg.LogStore.Compact(); err == nil && compacted > 0 {
+			slog.Info("Compacted small parquet log files", "mergedFiles", compacted)
+		}
 	}
 }
 

@@ -31,7 +31,7 @@ var configOnlyBuckets = map[string]bool{
 	"sensor":          true,
 }
 
-// GetBackupConf retrieves the backup configuration from the config bucket.
+// GetBackupConf retrieves the backup configuration from the in-memory cache.
 func (s *Store) GetBackupConf(_ context.Context) (*datastore.BackupConfEnt, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -40,35 +40,17 @@ func (s *Store) GetBackupConf(_ context.Context) (*datastore.BackupConfEnt, erro
 		return nil, datastore.ErrDBNotOpen
 	}
 
-	conf := &datastore.BackupConfEnt{
-		Mode:         "",
-		ScheduleTime: "03:00",
-		ConfigOnly:   true,
-		Generation:   6,
-	}
+	s.confMu.RLock()
+	defer s.confMu.RUnlock()
 
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketConfig)
-		if b == nil {
-			return nil
-		}
-		v := b.Get(keyBackupConf)
-		if v == nil {
-			return nil
-		}
-		return json.Unmarshal(v, conf)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to load backup config: %w", err)
+	c := s.backupConf
+	if c.ScheduleTime == "" {
+		c.ScheduleTime = "03:00"
 	}
-
-	if conf.ScheduleTime == "" {
-		conf.ScheduleTime = "03:00"
-	}
-	return conf, nil
+	return &c, nil
 }
 
-// SaveBackupConf saves the backup configuration to the config bucket.
+// SaveBackupConf saves the backup configuration to the config bucket and updates the in-memory cache.
 func (s *Store) SaveBackupConf(_ context.Context, conf *datastore.BackupConfEnt) error {
 	if conf == nil {
 		return datastore.ErrInvalidParams
@@ -89,7 +71,7 @@ func (s *Store) SaveBackupConf(_ context.Context, conf *datastore.BackupConfEnt)
 		return datastore.ErrDBNotOpen
 	}
 
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	if err := s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketConfig)
 		if b == nil {
 			var err error
@@ -99,12 +81,21 @@ func (s *Store) SaveBackupConf(_ context.Context, conf *datastore.BackupConfEnt)
 			}
 		}
 		return b.Put(keyBackupConf, data)
-	})
+	}); err != nil {
+		return err
+	}
+
+	s.confMu.Lock()
+	s.backupConf = *conf
+	s.confMu.Unlock()
+	return nil
 }
 
 // BackupDB performs a transaction-safe backup of the bbolt database.
 // If configOnly is true, only configuration/topology buckets are copied.
 func (s *Store) BackupDB(ctx context.Context, dstFile string, configOnly bool) (int64, error) {
+	s.FlushAll()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -360,6 +351,8 @@ func (s *Store) GetBackupFilePath(backupDir, name string) (string, error) {
 // RestoreDB restores the database from a backup file.
 // Before restoration, the current database file is automatically saved as <db>.pre_restore.<timestamp>.
 func (s *Store) RestoreDB(backupFile string) error {
+	s.FlushAll()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -404,6 +397,21 @@ func (s *Store) RestoreDB(backupFile string) error {
 	s.sensors = sync.Map{}
 	s.users = sync.Map{}
 	s.aiResults = sync.Map{}
+	s.arpTable = sync.Map{}
+	s.certMonitors = sync.Map{}
+	s.pkiCerts = sync.Map{}
+	s.logReports = sync.Map{}
+	s.dirtyNodes = sync.Map{}
+	s.dirtyPollings = sync.Map{}
+	s.dirtyArp = sync.Map{}
+	s.dirtyLogReports = sync.Map{}
+	s.recentEventsMu.Lock()
+	s.recentEvents = nil
+	s.recentEventsMu.Unlock()
+	s.pendingEventsMu.Lock()
+	s.pendingEvents = nil
+	s.pendingEventsMu.Unlock()
+	s.eventLogCount.Store(0)
 	if err := s.loadCache(); err != nil {
 		slog.Warn("Failed to reload cache after restore", "error", err)
 	}
@@ -414,6 +422,8 @@ func (s *Store) RestoreDB(backupFile string) error {
 
 // CompactDB compacts the bbolt database into dstFile.
 func (s *Store) CompactDB(dstFile string) error {
+	s.FlushAll()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

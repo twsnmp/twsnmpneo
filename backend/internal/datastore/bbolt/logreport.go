@@ -2,12 +2,29 @@ package bbolt
 
 import (
 	"context"
+	"sync"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"go.etcd.io/bbolt"
 )
 
-// GetLogReportData returns the raw JSON of one report entity, or (nil, nil) if absent.
+func (s *Store) getOrCreateLogReportMap(kind string) *sync.Map {
+	if v, ok := s.logReports.Load(kind); ok {
+		return v.(*sync.Map)
+	}
+	actual, _ := s.logReports.LoadOrStore(kind, &sync.Map{})
+	return actual.(*sync.Map)
+}
+
+func (s *Store) getOrCreateDirtyLogReportMap(kind string) *sync.Map {
+	if v, ok := s.dirtyLogReports.Load(kind); ok {
+		return v.(*sync.Map)
+	}
+	actual, _ := s.dirtyLogReports.LoadOrStore(kind, &sync.Map{})
+	return actual.(*sync.Map)
+}
+
+// GetLogReportData returns the raw JSON of one report entity from the in-memory sync.Map cache, or (nil, nil) if absent.
 func (s *Store) GetLogReportData(_ context.Context, kind, id string) ([]byte, error) {
 	if kind == "" || id == "" {
 		return nil, datastore.ErrInvalidParams
@@ -17,25 +34,18 @@ func (s *Store) GetLogReportData(_ context.Context, kind, id string) ([]byte, er
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
 	}
-	var ret []byte
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		root := tx.Bucket(bucketLogReport)
-		if root == nil {
-			return nil
-		}
-		b := root.Bucket([]byte(kind))
-		if b == nil {
-			return nil
-		}
-		if v := b.Get([]byte(id)); v != nil {
-			ret = append([]byte(nil), v...)
-		}
-		return nil
-	})
-	return ret, err
+	v, ok := s.logReports.Load(kind)
+	if !ok {
+		return nil, nil
+	}
+	val, ok := v.(*sync.Map).Load(id)
+	if !ok {
+		return nil, nil
+	}
+	return append([]byte(nil), val.([]byte)...), nil
 }
 
-// ListLogReportData returns every entity of a report kind keyed by ID.
+// ListLogReportData returns every entity of a report kind keyed by ID from the in-memory sync.Map cache.
 func (s *Store) ListLogReportData(_ context.Context, kind string) (map[string][]byte, error) {
 	if kind == "" {
 		return nil, datastore.ErrInvalidParams
@@ -46,24 +56,18 @@ func (s *Store) ListLogReportData(_ context.Context, kind string) (map[string][]
 		return nil, datastore.ErrDBNotOpen
 	}
 	ret := make(map[string][]byte)
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		root := tx.Bucket(bucketLogReport)
-		if root == nil {
-			return nil
-		}
-		b := root.Bucket([]byte(kind))
-		if b == nil {
-			return nil
-		}
-		return b.ForEach(func(k, v []byte) error {
-			ret[string(k)] = append([]byte(nil), v...)
-			return nil
-		})
+	v, ok := s.logReports.Load(kind)
+	if !ok {
+		return ret, nil
+	}
+	v.(*sync.Map).Range(func(k, val any) bool {
+		ret[k.(string)] = append([]byte(nil), val.([]byte)...)
+		return true
 	})
-	return ret, err
+	return ret, nil
 }
 
-// SaveLogReportData upserts entities of a report kind in a single transaction.
+// SaveLogReportData updates entities in the in-memory sync.Map cache and marks them dirty for periodic batch persistence.
 func (s *Store) SaveLogReportData(_ context.Context, kind string, items map[string][]byte) error {
 	if kind == "" {
 		return datastore.ErrInvalidParams
@@ -76,28 +80,20 @@ func (s *Store) SaveLogReportData(_ context.Context, kind string, items map[stri
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
-		root, err := tx.CreateBucketIfNotExists(bucketLogReport)
-		if err != nil {
-			return err
+	m := s.getOrCreateLogReportMap(kind)
+	dm := s.getOrCreateDirtyLogReportMap(kind)
+	for id, v := range items {
+		if id == "" {
+			continue
 		}
-		b, err := root.CreateBucketIfNotExists([]byte(kind))
-		if err != nil {
-			return err
-		}
-		for id, v := range items {
-			if id == "" {
-				continue
-			}
-			if err := b.Put([]byte(id), v); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+		cp := append([]byte(nil), v...)
+		m.Store(id, cp)
+		dm.Store(id, struct{}{})
+	}
+	return nil
 }
 
-// DeleteLogReportData removes the given entity IDs of a report kind.
+// DeleteLogReportData removes the given entity IDs of a report kind from memory and bbolt.
 func (s *Store) DeleteLogReportData(_ context.Context, kind string, ids []string) error {
 	if kind == "" {
 		return datastore.ErrInvalidParams
@@ -109,6 +105,18 @@ func (s *Store) DeleteLogReportData(_ context.Context, kind string, ids []string
 	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
+	}
+	if v, ok := s.logReports.Load(kind); ok {
+		m := v.(*sync.Map)
+		for _, id := range ids {
+			m.Delete(id)
+		}
+	}
+	if dv, ok := s.dirtyLogReports.Load(kind); ok {
+		dm := dv.(*sync.Map)
+		for _, id := range ids {
+			dm.Delete(id)
+		}
 	}
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		root := tx.Bucket(bucketLogReport)
@@ -128,12 +136,22 @@ func (s *Store) DeleteLogReportData(_ context.Context, kind string, ids []string
 	})
 }
 
-// ResetLogReportData removes all entities of a kind (or all kinds when kind is empty).
+// ResetLogReportData removes all entities of a kind (or all kinds when kind is empty) from memory and bbolt.
 func (s *Store) ResetLogReportData(_ context.Context, kind string) error {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
+	}
+	if kind == "" {
+		s.logReports = sync.Map{}
+		s.dirtyLogReports = sync.Map{}
+	} else {
+		s.logReports.Delete(kind)
+		s.dirtyLogReports.Delete(kind)
 	}
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		if kind == "" {

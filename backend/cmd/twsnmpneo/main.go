@@ -660,8 +660,8 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	pqDir := filepath.Join(cfg.dataDir, "logs")
 	pqStore, err := parquet.New(parquet.Config{
 		Dir:            pqDir,
-		BufferSize:     5000,
-		BufferInterval: 10 * time.Second,
+		BufferSize:     10000,
+		BufferInterval: 60 * time.Second,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize parquet log store: %w", err)

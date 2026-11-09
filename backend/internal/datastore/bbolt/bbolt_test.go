@@ -832,5 +832,124 @@ func TestStore_PKIConf_SerialAutoCorrection(t *testing.T) {
 	}
 }
 
+func TestStore_DeferredPersistenceAndLineState(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "deferred_test.db")
+	ctx := context.Background()
+
+	s1, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("new store failed: %v", err)
+	}
+
+	n1 := &datastore.NodeEnt{Name: "Node1", IP: "10.0.0.1", State: "unknown"}
+	n2 := &datastore.NodeEnt{Name: "Node2", IP: "10.0.0.2", State: "unknown"}
+	if err := s1.SaveNode(ctx, n1); err != nil {
+		t.Fatalf("SaveNode n1: %v", err)
+	}
+	if err := s1.SaveNode(ctx, n2); err != nil {
+		t.Fatalf("SaveNode n2: %v", err)
+	}
+
+	p1 := &datastore.PollingEnt{Name: "Ping1", NodeID: n1.ID, Type: "ping", State: "unknown"}
+	p2 := &datastore.PollingEnt{Name: "Traffic", NodeID: n2.ID, Type: "snmp", Mode: "traffic", State: "unknown"}
+	if err := s1.SavePolling(ctx, p1); err != nil {
+		t.Fatalf("SavePolling p1: %v", err)
+	}
+	if err := s1.SavePolling(ctx, p2); err != nil {
+		t.Fatalf("SavePolling p2: %v", err)
+	}
+
+	line := &datastore.LineEnt{
+		NodeID1:    n1.ID,
+		PollingID1: p1.ID,
+		NodeID2:    n2.ID,
+		PollingID2: p1.ID,
+		PollingID:  p2.ID,
+		Width:      1,
+	}
+	if err := s1.SaveLine(ctx, line); err != nil {
+		t.Fatalf("SaveLine: %v", err)
+	}
+
+	// Update states via deferred in-memory state updates
+	n1.State = "high"
+	if err := s1.UpdateNodeState(ctx, n1); err != nil {
+		t.Fatalf("UpdateNodeState: %v", err)
+	}
+	p1.State = "high"
+	p1.LastTime = 123456789
+	if err := s1.UpdatePollingState(ctx, p1); err != nil {
+		t.Fatalf("UpdatePollingState p1: %v", err)
+	}
+	p2.State = "normal"
+	p2.Result = map[string]interface{}{"bps": float64(2500000000)}
+	if err := s1.UpdatePollingState(ctx, p2); err != nil {
+		t.Fatalf("UpdatePollingState p2: %v", err)
+	}
+
+	// Verify dynamic line state population from in-memory pollings
+	gotLine, err := s1.GetLine(ctx, line.ID)
+	if err != nil {
+		t.Fatalf("GetLine: %v", err)
+	}
+	if gotLine.State1 != "high" || gotLine.State2 != "high" || gotLine.Width != 5 {
+		t.Fatalf("expected dynamically populated line State1=high, State2=high, Width=5, got %+v", gotLine)
+	}
+
+	// Deferred ARP, LogReport, and EventLog writes
+	if err := s1.SaveArpTable(ctx, []*datastore.ArpEnt{
+		{IP: "10.0.0.1", MAC: "00:11:22:33:44:55", NodeID: n1.ID},
+	}); err != nil {
+		t.Fatalf("SaveArpTable: %v", err)
+	}
+	if err := s1.SaveLogReportData(ctx, "devices", map[string][]byte{"00:11:22:33:44:55": []byte(`{"id":"00:11:22:33:44:55"}`)}); err != nil {
+		t.Fatalf("SaveLogReportData: %v", err)
+	}
+	if err := s1.AddEventLog(ctx, &datastore.EventLogEnt{
+		Time:     time.Now().UnixNano(),
+		Type:     "polling",
+		Level:    "high",
+		NodeID:   n1.ID,
+		NodeName: n1.Name,
+		Event:    "Deferred event",
+	}); err != nil {
+		t.Fatalf("AddEventLog: %v", err)
+	}
+
+	// Close flushes all dirty states to disk
+	if err := s1.Close(); err != nil {
+		t.Fatalf("Close s1: %v", err)
+	}
+
+	// Reopen and verify all deferred writes were persisted to bbolt
+	s2, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	defer s2.Close()
+
+	reloadedNode, err := s2.GetNode(ctx, n1.ID)
+	if err != nil || reloadedNode.State != "high" {
+		t.Fatalf("expected persisted node state 'high', got %+v (err=%v)", reloadedNode, err)
+	}
+	reloadedPoll, err := s2.GetPolling(ctx, p1.ID)
+	if err != nil || reloadedPoll.State != "high" || reloadedPoll.LastTime != 123456789 {
+		t.Fatalf("expected persisted polling state 'high', got %+v (err=%v)", reloadedPoll, err)
+	}
+	arps, err := s2.LoadArpTable(ctx)
+	if err != nil || len(arps) != 1 || arps[0].MAC != "00:11:22:33:44:55" {
+		t.Fatalf("expected 1 persisted ARP entry, got %+v (err=%v)", arps, err)
+	}
+	lr, err := s2.GetLogReportData(ctx, "devices", "00:11:22:33:44:55")
+	if err != nil || string(lr) != `{"id":"00:11:22:33:44:55"}` {
+		t.Fatalf("expected persisted logReport data, got %s (err=%v)", string(lr), err)
+	}
+	evLogs, err := s2.ListEventLogs(ctx, 10)
+	if err != nil || len(evLogs) != 1 || evLogs[0].Event != "Deferred event" {
+		t.Fatalf("expected 1 persisted event log, got %+v (err=%v)", evLogs, err)
+	}
+}
+
 
 

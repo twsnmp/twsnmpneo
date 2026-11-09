@@ -143,6 +143,17 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 
 	// Defensive copy to prevent concurrent map/struct race conditions
 	p := clonePolling(orig)
+	if m.store != nil && p.ID != "" {
+		if saved, err := m.store.GetPolling(ctx, p.ID); err == nil && saved != nil {
+			p.State = saved.State
+			p.FailTime = saved.FailTime
+			p.LastTime = saved.LastTime
+			p.NextTime = saved.NextTime
+			if saved.Result != nil {
+				p.Result = saved.Result
+			}
+		}
+	}
 
 	m.mu.RLock()
 	poller, ok := m.pollers[p.Type]
@@ -246,9 +257,9 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 	}
 	p.NextTime = now + int64(pollInt)*int64(time.Second)
 
-	// Save polling state
+	// Save polling state in memory and mark dirty for batch flush
 	if m.store != nil {
-		_ = m.store.SavePolling(ctx, p)
+		_ = m.store.UpdatePollingState(ctx, p)
 
 		// Record state change event log
 		if sendEvent {
@@ -279,8 +290,8 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 			go doAction(context.Background(), p, m.store)
 		}
 
-		// Update node state by aggregating all active pollings
-		if node != nil {
+		// Update node state by aggregating all active pollings when state may have changed
+		if node != nil && (oldState != p.State || p.State == StateRepair || node.State == "" || node.State == StateUnknown) {
 			m.updateNodeState(ctx, node)
 		}
 	}
@@ -301,7 +312,7 @@ func (m *Manager) ExecuteOne(ctx context.Context, orig *datastore.PollingEnt) (*
 		})
 	}
 
-	if orig != nil {
+	if orig != nil && (m.store == nil || orig.ID == "") {
 		orig.State = p.State
 		orig.FailTime = p.FailTime
 		orig.LastTime = p.LastTime
@@ -354,7 +365,7 @@ func (m *Manager) CheckAll(ctx context.Context) int {
 		}
 		p.State = StateUnknown
 		p.NextTime = 0
-		_ = m.store.SavePolling(ctx, p)
+		_ = m.store.UpdatePollingState(ctx, p)
 
 		node, _ := m.store.GetNode(ctx, p.NodeID)
 		nodeName := p.NodeID
@@ -362,7 +373,7 @@ func (m *Manager) CheckAll(ctx context.Context) int {
 			nodeName = node.Name
 			if node.State != StateUnknown {
 				node.State = StateUnknown
-				_ = m.store.SaveNode(ctx, node)
+				_ = m.store.UpdateNodeState(ctx, node)
 			}
 		}
 
@@ -400,7 +411,7 @@ func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 	}
 
 	node.State = StateUnknown
-	_ = m.store.SaveNode(ctx, node)
+	_ = m.store.UpdateNodeState(ctx, node)
 
 	pollings, err := m.store.ListPollings(ctx)
 	if err != nil {
@@ -414,7 +425,7 @@ func (m *Manager) CheckNode(ctx context.Context, nodeID string) (int, error) {
 		}
 		p.State = StateUnknown
 		p.NextTime = 0
-		_ = m.store.SavePolling(ctx, p)
+		_ = m.store.UpdatePollingState(ctx, p)
 
 		_ = m.store.AddEventLog(ctx, &datastore.EventLogEnt{
 			Time:     now,
@@ -464,25 +475,21 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 	if m.store == nil || node == nil {
 		return
 	}
-	pollings, err := m.store.ListPollings(ctx)
-	if err != nil {
-		return
-	}
 
 	bestPriority := -1
 	newState := StateUnknown
 	hasActivePolling := false
 
-	for _, p := range pollings {
+	m.store.ForEachPollings(func(p *datastore.PollingEnt) bool {
 		if p.NodeID != node.ID || p.Level == "off" {
-			continue
+			return true
 		}
 		hasActivePolling = true
 		s := p.State
 		if s == StateRepair && node.AutoAck {
 			p.State = StateNormal
 			s = StateNormal
-			_ = m.store.SavePolling(ctx, p)
+			_ = m.store.UpdatePollingState(ctx, p)
 		}
 		pr := statePriority(s)
 		if pr > bestPriority {
@@ -493,7 +500,8 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 				newState = s
 			}
 		}
-	}
+		return true
+	})
 
 	if !hasActivePolling {
 		if node.State == "" || node.State == StateHigh || node.State == StateLow || node.State == StateWarn || node.State == StateRepair {
@@ -505,7 +513,7 @@ func (m *Manager) updateNodeState(ctx context.Context, node *datastore.NodeEnt) 
 
 	if node.State != newState {
 		node.State = newState
-		_ = m.store.SaveNode(ctx, node)
+		_ = m.store.UpdateNodeState(ctx, node)
 	}
 }
 
@@ -523,7 +531,7 @@ func (m *Manager) ClearRepairPollings(ctx context.Context) int {
 		if p.State == StateRepair {
 			p.State = StateUnknown
 			p.NextTime = 0
-			_ = m.store.SavePolling(ctx, p)
+			_ = m.store.UpdatePollingState(ctx, p)
 			count++
 		}
 	}

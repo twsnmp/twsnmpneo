@@ -441,7 +441,18 @@ export const checkNetworkPos = (net: any) => {
   net.Y = net.y;
 };
 
-export const updateMAP = async () => {
+export interface MapPreloadedData {
+  nodes?: NodeEnt[];
+  lines?: LineEnt[];
+  networks?: NetworkEnt[];
+  drawItems?: DrawItemEnt[];
+  customIcons?: any[];
+  mapConf?: any;
+  backImage?: any;
+  skipStatic?: boolean;
+}
+
+export const updateMAP = async (preloaded?: MapPreloadedData) => {
   if (readOnly) {
     if (publicPreloadedData) {
       updatePublicMAP(publicPreloadedData);
@@ -453,11 +464,44 @@ export const updateMAP = async () => {
     _mapP5.loop();
   } catch {}
   const dark = isDark();
-  try {
-    mapConf = await fetchMapConf();
-  } catch {
-    if (!mapConf) mapConf = { IconSize: 3, MapSize: 0 };
+
+  const shouldFetchStatic = !preloaded?.skipStatic || !mapConf;
+  const [
+    fetchedMapConf,
+    nodeList,
+    lineList,
+    itemList,
+    netList,
+    iconListRes,
+    fetchedBackImage,
+  ] = await Promise.all([
+    preloaded?.mapConf !== undefined
+      ? Promise.resolve(preloaded.mapConf)
+      : shouldFetchStatic
+        ? fetchMapConf().catch(() => null)
+        : Promise.resolve(mapConf),
+    preloaded?.nodes !== undefined ? Promise.resolve(preloaded.nodes) : fetchNodes(),
+    preloaded?.lines !== undefined ? Promise.resolve(preloaded.lines) : fetchLines(),
+    preloaded?.drawItems !== undefined ? Promise.resolve(preloaded.drawItems) : fetchDrawItems(),
+    preloaded?.networks !== undefined ? Promise.resolve(preloaded.networks) : fetchNetworks(),
+    preloaded?.customIcons !== undefined
+      ? Promise.resolve(preloaded.customIcons)
+      : shouldFetchStatic
+        ? fetchCustomIcons().catch(() => [])
+        : Promise.resolve(null),
+    preloaded?.backImage !== undefined
+      ? Promise.resolve(preloaded.backImage)
+      : shouldFetchStatic
+        ? fetchBackImage().catch(() => null)
+        : Promise.resolve(backImage),
+  ]);
+
+  if (fetchedMapConf) {
+    mapConf = fetchedMapConf;
+  } else if (!mapConf) {
+    mapConf = { IconSize: 3, MapSize: 0 };
   }
+
   switch (mapConf?.MapSize) {
     case 1:
       mapSizeX = 2894;
@@ -484,7 +528,6 @@ export const updateMAP = async () => {
   }
 
   try {
-    const nodeList = await fetchNodes();
     nodes = {};
     nodeList.forEach((n) => {
       const id = n.id || (n as any).ID || '';
@@ -494,9 +537,8 @@ export const updateMAP = async () => {
       }
     });
 
-    lines = await fetchLines();
+    lines = lineList;
 
-    const itemList = await fetchDrawItems();
     items = {};
     itemList.forEach((item) => {
       const id = item.id || (item as any).ID || '';
@@ -506,7 +548,6 @@ export const updateMAP = async () => {
       }
     });
 
-    const netList = await fetchNetworks();
     networks = {};
     netList.forEach((net) => {
       const id = net.id || (net as any).ID || '';
@@ -516,13 +557,8 @@ export const updateMAP = async () => {
       }
     });
 
-    try {
-      const iconListRes = await fetchCustomIcons().catch(() => []);
-      if (iconListRes && iconListRes.length > 0) {
-        setCustomIcons(iconListRes);
-      }
-    } catch {
-      // ignore
+    if (iconListRes && iconListRes.length > 0) {
+      setCustomIcons(iconListRes);
     }
 
     for (const k in nodes) {
@@ -547,7 +583,7 @@ export const updateMAP = async () => {
     }
 
     try {
-      backImage = await fetchBackImage();
+      backImage = fetchedBackImage;
       // If backImage has no path but mapConf has BackImage metadata, fallback
       if (!backImage?.Path && (mapConf as any)?.BackImage?.Path) {
         backImage = (mapConf as any).BackImage;

@@ -58,6 +58,14 @@ var (
 )
 
 
+const maxRecentEventLogs = 20000
+
+type kvPair struct {
+	id  string
+	key []byte
+	val []byte
+}
+
 // Store implements datastore.DataStore using bbolt.
 type Store struct {
 	db     *bbolt.DB
@@ -66,22 +74,46 @@ type Store struct {
 	mu     sync.RWMutex
 
 	// In-memory cache for ultra-fast queries
-	nodes       sync.Map // string -> *datastore.NodeEnt
-	lines       sync.Map // string -> *datastore.LineEnt
-	networks    sync.Map // string -> *datastore.NetworkEnt
-	items       sync.Map // string -> *datastore.DrawItemEnt
-	pollings    sync.Map // string -> *datastore.PollingEnt
-	otelMetrics sync.Map // string -> *datastore.OTelMetricEnt
-	mqttStats   sync.Map // string -> *datastore.MqttStatEnt
-	sensors     sync.Map // string -> *datastore.SensorEnt
-	users       sync.Map // string -> *datastore.UserEnt
-	aiResults   sync.Map // string -> *datastore.AIResultEnt
+	nodes        sync.Map // string -> *datastore.NodeEnt
+	lines        sync.Map // string -> *datastore.LineEnt
+	networks     sync.Map // string -> *datastore.NetworkEnt
+	items        sync.Map // string -> *datastore.DrawItemEnt
+	pollings     sync.Map // string -> *datastore.PollingEnt
+	otelMetrics  sync.Map // string -> *datastore.OTelMetricEnt
+	mqttStats    sync.Map // string -> *datastore.MqttStatEnt
+	sensors      sync.Map // string -> *datastore.SensorEnt
+	users        sync.Map // string -> *datastore.UserEnt
+	aiResults    sync.Map // string -> *datastore.AIResultEnt
+	arpTable     sync.Map // string (IP) -> *datastore.ArpEnt
+	certMonitors sync.Map // string (ID) -> *datastore.CertMonitorEnt
+	pkiCerts     sync.Map // string (ID) -> *datastore.PKICertEnt
+	logReports   sync.Map // string (kind) -> *sync.Map (id -> []byte)
+
+	// Dirty tracking for deferred batch persistence (twsnmpfc style)
+	dirtyNodes      sync.Map // string (nodeID) -> struct{}
+	dirtyPollings   sync.Map // string (pollingID) -> struct{}
+	dirtyArp        sync.Map // string (IP) -> struct{}
+	dirtyLogReports sync.Map // string (kind) -> *sync.Map (id -> struct{})
+	flushMu         sync.Mutex
+	flushStopOnce   sync.Once
+	flushStopCh     chan struct{}
+	flushDoneCh     chan struct{}
+
+	// Event log in-memory cache (sorted oldest -> newest) & async write buffer
+	recentEventsMu  sync.RWMutex
+	recentEvents    []*datastore.EventLogEnt
+	pendingEventsMu sync.Mutex
+	pendingEvents   []kvPair
+	eventLogCount   atomic.Int64
 
 	mapConf      datastore.MapConfEnt
 	notifyConf   datastore.NotifyConfEnt
 	locConf      datastore.LocConfEnt
 	backImage    datastore.BackImageEnt
 	discoverConf datastore.DiscoverConfEnt
+	pkiConf      datastore.PKIConfEnt
+	aiConf       datastore.AIConfEnt
+	backupConf   datastore.BackupConfEnt
 	confMu       sync.RWMutex
 
 	customIcons []*datastore.IconEnt
@@ -110,8 +142,10 @@ func New(dbPath string) (*Store, error) {
 	}
 
 	s := &Store{
-		db:   db,
-		path: dbPath,
+		db:          db,
+		path:        dbPath,
+		flushStopCh: make(chan struct{}),
+		flushDoneCh: make(chan struct{}),
 	}
 
 	// Initialize default buckets
@@ -211,6 +245,8 @@ func New(dbPath string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("load cache: %w", err)
 	}
+
+	go s.runBackgroundFlusher()
 
 	slog.Info("Initialized bbolt datastore", "path", dbPath)
 	return s, nil
@@ -365,6 +401,29 @@ func (s *Store) loadCache() error {
 					s.customIcons = icons
 				}
 			}
+			// Load PKI Conf
+			s.pkiConf = datastore.DefaultPKIConf()
+			if v := b.Get(keyPKIConf); v != nil {
+				_ = json.Unmarshal(v, &s.pkiConf)
+			}
+			// Load AI Conf
+			s.aiConf = datastore.AIConfEnt{}
+			if v := b.Get([]byte("aiConf")); v != nil {
+				_ = json.Unmarshal(v, &s.aiConf)
+			}
+			// Load Backup Conf
+			s.backupConf = datastore.BackupConfEnt{
+				Mode:         "",
+				ScheduleTime: "03:00",
+				ConfigOnly:   true,
+				Generation:   6,
+			}
+			if v := b.Get(keyBackupConf); v != nil {
+				_ = json.Unmarshal(v, &s.backupConf)
+				if s.backupConf.ScheduleTime == "" {
+					s.backupConf.ScheduleTime = "03:00"
+				}
+			}
 		}
 		// Load OTel metrics
 		if b := tx.Bucket(bucketOTelMetric); b != nil {
@@ -417,6 +476,82 @@ func (s *Store) loadCache() error {
 				}
 				return nil
 			})
+		}
+		// Load ARP Table
+		if b := tx.Bucket(bucketArp); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var ent datastore.ArpEnt
+				if err := json.Unmarshal(v, &ent); err == nil && ent.IP != "" {
+					s.arpTable.Store(ent.IP, &ent)
+				}
+				return nil
+			})
+		}
+		// Load Cert Monitors
+		if b := tx.Bucket(bucketCertMonitor); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				var ent datastore.CertMonitorEnt
+				if err := json.Unmarshal(v, &ent); err == nil && ent.ID != "" {
+					s.certMonitors.Store(ent.ID, &ent)
+				}
+				return nil
+			})
+		}
+		// Load PKI Certs & update max serial
+		if b := tx.Bucket(bucketCerts); b != nil {
+			_ = b.ForEach(func(k, v []byte) error {
+				if sn, err := strconv.ParseInt(string(k), 16, 64); err == nil {
+					if sn >= s.pkiConf.Serial {
+						s.pkiConf.Serial = sn + 1
+					}
+				}
+				var cert datastore.PKICertEnt
+				if err := json.Unmarshal(v, &cert); err == nil && cert.ID != "" {
+					s.pkiCerts.Store(cert.ID, &cert)
+				}
+				return nil
+			})
+		}
+		// Load Log Reports
+		if root := tx.Bucket(bucketLogReport); root != nil {
+			_ = root.ForEachBucket(func(k []byte) error {
+				kind := string(k)
+				b := root.Bucket(k)
+				if b == nil {
+					return nil
+				}
+				m := &sync.Map{}
+				_ = b.ForEach(func(ik, iv []byte) error {
+					cp := append([]byte(nil), iv...)
+					m.Store(string(ik), cp)
+					return nil
+				})
+				s.logReports.Store(kind, m)
+				return nil
+			})
+		}
+		// Load Event Log count & recent entries
+		if b := tx.Bucket(bucketEventLog); b != nil {
+			s.eventLogCount.Store(int64(b.Stats().KeyN))
+			c := b.Cursor()
+			rev := make([]*datastore.EventLogEnt, 0, maxRecentEventLogs)
+			for k, v := c.Last(); k != nil && len(rev) < maxRecentEventLogs; k, v = c.Prev() {
+				var ev datastore.EventLogEnt
+				if err := json.Unmarshal(v, &ev); err == nil {
+					rev = append(rev, &ev)
+				}
+			}
+			for i, j := 0, len(rev)-1; i < j; i, j = i+1, j-1 {
+				rev[i], rev[j] = rev[j], rev[i]
+			}
+			s.recentEventsMu.Lock()
+			s.recentEvents = rev
+			s.recentEventsMu.Unlock()
+		} else {
+			s.eventLogCount.Store(0)
+			s.recentEventsMu.Lock()
+			s.recentEvents = nil
+			s.recentEventsMu.Unlock()
 		}
 		return nil
 	})
@@ -548,7 +683,199 @@ func (s *Store) initDefaultLocConf() {
 	}
 }
 
+func (s *Store) runBackgroundFlusher() {
+	defer close(s.flushDoneCh)
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.flushStopCh:
+			return
+		case <-ticker.C:
+			s.FlushAll()
+		}
+	}
+}
+
+// FlushAll persists all dirty in-memory states (nodes, pollings, arp, log reports, event logs)
+// to bbolt in a single transaction to minimize disk fsync overhead.
+func (s *Store) FlushAll() {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed || s.db == nil {
+		return
+	}
+
+	var nodePairs []kvPair
+	s.dirtyNodes.Range(func(k, _ any) bool {
+		id := k.(string)
+		s.dirtyNodes.Delete(id)
+		if v, ok := s.nodes.Load(id); ok {
+			if data, err := json.Marshal(v.(*datastore.NodeEnt)); err == nil {
+				nodePairs = append(nodePairs, kvPair{id: id, key: []byte(id), val: data})
+			}
+		}
+		return true
+	})
+
+	var pollingPairs []kvPair
+	s.dirtyPollings.Range(func(k, _ any) bool {
+		id := k.(string)
+		s.dirtyPollings.Delete(id)
+		if v, ok := s.pollings.Load(id); ok {
+			if data, err := json.Marshal(v.(*datastore.PollingEnt)); err == nil {
+				pollingPairs = append(pollingPairs, kvPair{id: id, key: []byte(id), val: data})
+			}
+		}
+		return true
+	})
+
+	var arpPairs []kvPair
+	s.dirtyArp.Range(func(k, _ any) bool {
+		ip := k.(string)
+		s.dirtyArp.Delete(ip)
+		if v, ok := s.arpTable.Load(ip); ok {
+			if data, err := json.Marshal(v.(*datastore.ArpEnt)); err == nil {
+				arpPairs = append(arpPairs, kvPair{id: ip, key: []byte(ip), val: data})
+			}
+		}
+		return true
+	})
+
+	reportBatches := make(map[string][]kvPair)
+	s.dirtyLogReports.Range(func(k, v any) bool {
+		kind := k.(string)
+		dm := v.(*sync.Map)
+		var pairs []kvPair
+		dm.Range(func(ik, _ any) bool {
+			id := ik.(string)
+			dm.Delete(id)
+			if mVal, ok := s.logReports.Load(kind); ok {
+				if val, ok := mVal.(*sync.Map).Load(id); ok {
+					pairs = append(pairs, kvPair{id: id, key: []byte(id), val: val.([]byte)})
+				}
+			}
+			return true
+		})
+		if len(pairs) > 0 {
+			reportBatches[kind] = pairs
+		}
+		return true
+	})
+
+	s.pendingEventsMu.Lock()
+	events := s.pendingEvents
+	s.pendingEvents = nil
+	s.pendingEventsMu.Unlock()
+
+	if len(nodePairs) == 0 && len(pollingPairs) == 0 && len(arpPairs) == 0 && len(reportBatches) == 0 && len(events) == 0 {
+		return
+	}
+
+	_ = s.db.Update(func(tx *bbolt.Tx) error {
+		if len(nodePairs) > 0 {
+			if b := tx.Bucket(bucketNodes); b != nil {
+				for _, kv := range nodePairs {
+					if _, exists := s.nodes.Load(kv.id); exists {
+						_ = b.Put(kv.key, kv.val)
+					}
+				}
+			}
+		}
+		if len(pollingPairs) > 0 {
+			if b := tx.Bucket(bucketPollings); b != nil {
+				for _, kv := range pollingPairs {
+					if _, exists := s.pollings.Load(kv.id); exists {
+						_ = b.Put(kv.key, kv.val)
+					}
+				}
+			}
+		}
+		if len(arpPairs) > 0 {
+			if b := tx.Bucket(bucketArp); b != nil {
+				for _, kv := range arpPairs {
+					if _, exists := s.arpTable.Load(kv.id); exists {
+						_ = b.Put(kv.key, kv.val)
+					}
+				}
+			}
+		}
+		if len(reportBatches) > 0 {
+			if root, err := tx.CreateBucketIfNotExists(bucketLogReport); err == nil {
+				for kind, pairs := range reportBatches {
+					mVal, kindExists := s.logReports.Load(kind)
+					if !kindExists {
+						continue
+					}
+					m := mVal.(*sync.Map)
+					if b, err := root.CreateBucketIfNotExists([]byte(kind)); err == nil {
+						for _, kv := range pairs {
+							if _, exists := m.Load(kv.id); exists {
+								_ = b.Put(kv.key, kv.val)
+							}
+						}
+					}
+				}
+			}
+		}
+		if len(events) > 0 {
+			if b := tx.Bucket(bucketEventLog); b != nil {
+				for _, kv := range events {
+					_ = b.Put(kv.key, kv.val)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func (s *Store) flushPendingEventLogs() {
+	s.pendingEventsMu.Lock()
+	if len(s.pendingEvents) == 0 {
+		s.pendingEventsMu.Unlock()
+		return
+	}
+	events := s.pendingEvents
+	s.pendingEvents = nil
+	s.pendingEventsMu.Unlock()
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed || s.db == nil {
+		return
+	}
+	_ = s.db.Update(func(tx *bbolt.Tx) error {
+		if b := tx.Bucket(bucketEventLog); b != nil {
+			for _, kv := range events {
+				_ = b.Put(kv.key, kv.val)
+			}
+		}
+		return nil
+	})
+}
+
 func (s *Store) Close() error {
+	s.mu.RLock()
+	closed := s.closed
+	s.mu.RUnlock()
+	if closed {
+		return nil
+	}
+
+	s.flushStopOnce.Do(func() {
+		if s.flushStopCh != nil {
+			close(s.flushStopCh)
+		}
+	})
+	if s.flushDoneCh != nil {
+		<-s.flushDoneCh
+	}
+
+	s.FlushAll()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -581,7 +908,8 @@ func makeID() string {
 
 func (s *Store) GetNode(_ context.Context, id string) (*datastore.NodeEnt, error) {
 	if val, ok := s.nodes.Load(id); ok {
-		return val.(*datastore.NodeEnt), nil
+		cp := *val.(*datastore.NodeEnt)
+		return &cp, nil
 	}
 	return nil, datastore.ErrNotFound
 }
@@ -589,7 +917,8 @@ func (s *Store) GetNode(_ context.Context, id string) (*datastore.NodeEnt, error
 func (s *Store) ListNodes(_ context.Context) ([]*datastore.NodeEnt, error) {
 	res := make([]*datastore.NodeEnt, 0)
 	s.nodes.Range(func(_, val any) bool {
-		res = append(res, val.(*datastore.NodeEnt))
+		cp := *val.(*datastore.NodeEnt)
+		res = append(res, &cp)
 		return true
 	})
 	sort.Slice(res, func(i, j int) bool {
@@ -605,18 +934,20 @@ func (s *Store) SaveNode(_ context.Context, node *datastore.NodeEnt) error {
 	if node.ID == "" {
 		node.ID = makeID()
 	}
-	data, err := json.Marshal(node)
+	cp := *node
+	data, err := json.Marshal(&cp)
 	if err != nil {
 		return fmt.Errorf("marshal node: %w", err)
 	}
 
 	err = s.db.Update(func(tx *bbolt.Tx) error {
-		return tx.Bucket(bucketNodes).Put([]byte(node.ID), data)
+		return tx.Bucket(bucketNodes).Put([]byte(cp.ID), data)
 	})
 	if err != nil {
 		return err
 	}
-	s.nodes.Store(node.ID, node)
+	s.nodes.Store(cp.ID, &cp)
+	s.dirtyNodes.Delete(cp.ID)
 	return nil
 }
 
@@ -633,17 +964,31 @@ func (s *Store) SaveNodes(_ context.Context, nodes []*datastore.NodeEnt) error {
 			if node.ID == "" {
 				node.ID = makeID()
 			}
-			data, err := json.Marshal(node)
+			cp := *node
+			data, err := json.Marshal(&cp)
 			if err != nil {
-				return fmt.Errorf("marshal node %s: %w", node.ID, err)
+				return fmt.Errorf("marshal node %s: %w", cp.ID, err)
 			}
-			if err := b.Put([]byte(node.ID), data); err != nil {
+			if err := b.Put([]byte(cp.ID), data); err != nil {
 				return err
 			}
-			s.nodes.Store(node.ID, node)
+			s.nodes.Store(cp.ID, &cp)
+			s.dirtyNodes.Delete(cp.ID)
 		}
 		return nil
 	})
+}
+
+// UpdateNodeState updates the node in the in-memory sync.Map cache and marks it dirty
+// for periodic batch persistence (matching twsnmpfc's updateNodeState design).
+func (s *Store) UpdateNodeState(_ context.Context, node *datastore.NodeEnt) error {
+	if node == nil || node.ID == "" {
+		return datastore.ErrInvalidParams
+	}
+	cp := *node
+	s.nodes.Store(cp.ID, &cp)
+	s.dirtyNodes.Store(cp.ID, struct{}{})
+	return nil
 }
 
 func (s *Store) DeleteNode(_ context.Context, id string) error {
@@ -677,6 +1022,17 @@ func (s *Store) DeleteNode(_ context.Context, id string) error {
 		}
 		return true
 	})
+
+	// Remove from memory & dirty sets first so background flusher cannot re-insert
+	s.nodes.Delete(id)
+	s.dirtyNodes.Delete(id)
+	for _, pid := range delPollings {
+		s.pollings.Delete(pid)
+		s.dirtyPollings.Delete(pid)
+	}
+	for _, lid := range delLines {
+		s.lines.Delete(lid)
+	}
 
 	// 3. Delete from DB atomically
 	err := s.db.Update(func(tx *bbolt.Tx) error {
@@ -717,25 +1073,109 @@ func (s *Store) DeleteNode(_ context.Context, id string) error {
 		return err
 	}
 
-	// 4. Delete from memory caches
-	s.nodes.Delete(id)
-	for _, pid := range delPollings {
-		s.pollings.Delete(pid)
-	}
-	for _, lid := range delLines {
-		s.lines.Delete(lid)
-	}
-
-	// 5. Cleanup any potential remaining orphans
+	// 4. Cleanup any potential remaining orphans
 	s.cleanupOrphans()
 	return nil
 }
 
 // --- Line Operations ---
 
+func (s *Store) populateLineState(l *datastore.LineEnt) *datastore.LineEnt {
+	if l == nil {
+		return nil
+	}
+	cp := *l
+	if strings.HasPrefix(cp.NodeID1, "NET:") {
+		netID := strings.TrimPrefix(cp.NodeID1, "NET:")
+		if v, ok := s.networks.Load(netID); ok {
+			nw := v.(*datastore.NetworkEnt)
+			if nw.Error != "" {
+				cp.State1 = "high"
+			} else if cp.PollingID1 != "" {
+				cp.State1 = "unknown"
+				for _, pt := range nw.Ports {
+					if pt.ID == cp.PollingID1 {
+						cp.State1 = pt.State
+						break
+					}
+				}
+			}
+		}
+	} else if cp.PollingID1 != "" {
+		if v, ok := s.pollings.Load(cp.PollingID1); ok {
+			p := v.(*datastore.PollingEnt)
+			cp.State1 = p.State
+		}
+	}
+
+	if strings.HasPrefix(cp.NodeID2, "NET:") {
+		netID := strings.TrimPrefix(cp.NodeID2, "NET:")
+		if v, ok := s.networks.Load(netID); ok {
+			nw := v.(*datastore.NetworkEnt)
+			if nw.Error != "" {
+				cp.State2 = "high"
+			} else if cp.PollingID2 != "" {
+				cp.State2 = "unknown"
+				for _, pt := range nw.Ports {
+					if pt.ID == cp.PollingID2 {
+						cp.State2 = pt.State
+						break
+					}
+				}
+			}
+		}
+	} else if cp.PollingID2 != "" {
+		if v, ok := s.pollings.Load(cp.PollingID2); ok {
+			p := v.(*datastore.PollingEnt)
+			cp.State2 = p.State
+		}
+	}
+
+	if cp.PollingID != "" {
+		if v, ok := s.pollings.Load(cp.PollingID); ok {
+			p := v.(*datastore.PollingEnt)
+			cp.State = p.State
+			if p.Result != nil {
+				if val, ok := p.Result["bps"]; ok {
+					var bps float64
+					switch tv := val.(type) {
+					case float64:
+						bps = tv
+					case int64:
+						bps = float64(tv)
+					case int:
+						bps = float64(tv)
+					}
+					if bps > 0 {
+						w := int(uint64(bps) / (1000 * 1000 * 10))
+						if w > 5 {
+							w = 5
+						}
+						if w < 1 {
+							w = 1
+						}
+						cp.Width = w
+						bytesPerSec := bps / 8.0
+						if bytesPerSec >= 1e9 {
+							cp.Info = fmt.Sprintf("%.1f GBPS", bytesPerSec/1e9)
+						} else if bytesPerSec >= 1e6 {
+							cp.Info = fmt.Sprintf("%.1f MBPS", bytesPerSec/1e6)
+						} else if bytesPerSec >= 1e3 {
+							cp.Info = fmt.Sprintf("%.1f KBPS", bytesPerSec/1e3)
+						} else {
+							cp.Info = fmt.Sprintf("%.0f BPS", bytesPerSec)
+						}
+					}
+				}
+			}
+		}
+	}
+	return &cp
+}
+
 func (s *Store) GetLine(_ context.Context, id string) (*datastore.LineEnt, error) {
 	if val, ok := s.lines.Load(id); ok {
-		return val.(*datastore.LineEnt), nil
+		return s.populateLineState(val.(*datastore.LineEnt)), nil
 	}
 	return nil, datastore.ErrNotFound
 }
@@ -743,7 +1183,7 @@ func (s *Store) GetLine(_ context.Context, id string) (*datastore.LineEnt, error
 func (s *Store) ListLines(_ context.Context) ([]*datastore.LineEnt, error) {
 	res := make([]*datastore.LineEnt, 0)
 	s.lines.Range(func(_, val any) bool {
-		res = append(res, val.(*datastore.LineEnt))
+		res = append(res, s.populateLineState(val.(*datastore.LineEnt)))
 		return true
 	})
 	return res, nil
@@ -892,23 +1332,7 @@ func (s *Store) GetDrawItem(_ context.Context, id string) (*datastore.DrawItemEn
 	if val, ok := s.items.Load(id); ok {
 		return val.(*datastore.DrawItemEnt), nil
 	}
-	var item datastore.DrawItemEnt
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketItems)
-		if b == nil {
-			return datastore.ErrNotFound
-		}
-		v := b.Get([]byte(id))
-		if v == nil {
-			return datastore.ErrNotFound
-		}
-		return json.Unmarshal(v, &item)
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.items.Store(item.ID, &item)
-	return &item, nil
+	return nil, datastore.ErrNotFound
 }
 
 func (s *Store) ListDrawItems(_ context.Context) ([]*datastore.DrawItemEnt, error) {
@@ -1008,6 +1432,19 @@ func (s *Store) SavePolling(_ context.Context, p *datastore.PollingEnt) error {
 		return err
 	}
 	s.pollings.Store(cp.ID, cp)
+	s.dirtyPollings.Delete(cp.ID)
+	return nil
+}
+
+// UpdatePollingState updates the polling runtime state in the in-memory sync.Map cache
+// and marks it dirty for periodic batch persistence (matching twsnmpfc's UpdatePolling design).
+func (s *Store) UpdatePollingState(_ context.Context, p *datastore.PollingEnt) error {
+	if p == nil || p.ID == "" {
+		return datastore.ErrInvalidParams
+	}
+	cp := clonePolling(p)
+	s.pollings.Store(cp.ID, cp)
+	s.dirtyPollings.Store(cp.ID, struct{}{})
 	return nil
 }
 
@@ -1024,6 +1461,12 @@ func (s *Store) DeletePolling(_ context.Context, id string) error {
 		}
 		return true
 	})
+
+	s.pollings.Delete(id)
+	s.dirtyPollings.Delete(id)
+	for _, lid := range delLines {
+		s.lines.Delete(lid)
+	}
 
 	err := s.db.Update(func(tx *bbolt.Tx) error {
 		if pb := tx.Bucket(bucketPollings); pb != nil {
@@ -1051,14 +1494,7 @@ func (s *Store) DeletePolling(_ context.Context, id string) error {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-	s.pollings.Delete(id)
-	for _, lid := range delLines {
-		s.lines.Delete(lid)
-	}
-	return nil
+	return err
 }
 
 // --- Config Operations ---
@@ -1318,19 +1754,47 @@ func (s *Store) AddEventLog(_ context.Context, event *datastore.EventLogEnt) err
 	if event.Time == 0 {
 		event.Time = time.Now().UnixNano()
 	}
-	data, err := json.Marshal(event)
+	cp := *event
+	data, err := json.Marshal(&cp)
 	if err != nil {
 		return fmt.Errorf("marshal event log: %w", err)
 	}
 
 	seq := atomic.AddUint32(&eventSeq, 1)
 	key := make([]byte, 12)
-	binary.BigEndian.PutUint64(key[0:8], uint64(event.Time))
+	binary.BigEndian.PutUint64(key[0:8], uint64(cp.Time))
 	binary.BigEndian.PutUint32(key[8:12], seq)
 
-	return s.db.Update(func(tx *bbolt.Tx) error {
-		return tx.Bucket(bucketEventLog).Put(key, data)
-	})
+	s.recentEventsMu.Lock()
+	n := len(s.recentEvents)
+	if n == 0 || cp.Time >= s.recentEvents[n-1].Time {
+		s.recentEvents = append(s.recentEvents, &cp)
+	} else {
+		idx := sort.Search(n, func(i int) bool {
+			return s.recentEvents[i].Time > cp.Time
+		})
+		s.recentEvents = append(s.recentEvents, nil)
+		copy(s.recentEvents[idx+1:], s.recentEvents[idx:n])
+		s.recentEvents[idx] = &cp
+	}
+	if len(s.recentEvents) > maxRecentEventLogs*2 {
+		trimmed := make([]*datastore.EventLogEnt, maxRecentEventLogs)
+		copy(trimmed, s.recentEvents[len(s.recentEvents)-maxRecentEventLogs:])
+		s.recentEvents = trimmed
+	}
+	s.recentEventsMu.Unlock()
+
+	s.eventLogCount.Add(1)
+
+	s.pendingEventsMu.Lock()
+	s.pendingEvents = append(s.pendingEvents, kvPair{key: key, val: data})
+	shouldFlush := len(s.pendingEvents) >= 1000
+	s.pendingEventsMu.Unlock()
+
+	if shouldFlush {
+		s.flushPendingEventLogs()
+	}
+	return nil
 }
 
 func (s *Store) ListEventLogs(ctx context.Context, limit int) ([]*datastore.EventLogEnt, error) {
@@ -1338,6 +1802,36 @@ func (s *Store) ListEventLogs(ctx context.Context, limit int) ([]*datastore.Even
 		limit = 100
 	}
 	return s.QueryEventLogs(ctx, datastore.EventLogFilter{Limit: limit})
+}
+
+func hasRegexMeta(s string) bool {
+	return regexp.QuoteMeta(s) != s
+}
+
+func containsFold(s, substr string) bool {
+	if substr == "" {
+		return true
+	}
+	if len(substr) > len(s) {
+		return false
+	}
+	// Fast ASCII case-insensitive search without allocations
+	n := len(substr)
+	first := substr[0]
+	if first >= 'A' && first <= 'Z' {
+		first += 'a' - 'A'
+	}
+	limit := len(s) - n
+	for i := 0; i <= limit; i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c == first && strings.EqualFold(s[i:i+n], substr) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFilter) ([]*datastore.EventLogEnt, error) {
@@ -1354,15 +1848,15 @@ func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFil
 	logs := make([]*datastore.EventLogEnt, 0, 256)
 
 	var regexType *regexp.Regexp
-	if filter.Type != "" && filter.Type != "all" {
+	if filter.Type != "" && filter.Type != "all" && hasRegexMeta(filter.Type) {
 		regexType, _ = regexp.Compile("(?i)" + filter.Type)
 	}
 	var regexNode *regexp.Regexp
-	if filter.NodeName != "" {
+	if filter.NodeName != "" && hasRegexMeta(filter.NodeName) {
 		regexNode, _ = regexp.Compile("(?i)" + filter.NodeName)
 	}
 	var regexKeyword *regexp.Regexp
-	if filter.Filter != "" {
+	if filter.Filter != "" && hasRegexMeta(filter.Filter) {
 		regexKeyword, _ = regexp.Compile("(?i)" + filter.Filter)
 	}
 
@@ -1396,87 +1890,149 @@ func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFil
 		}
 	}
 
+	matchEvent := func(ev *datastore.EventLogEnt) bool {
+		if filter.NodeID != "" && ev.NodeID != filter.NodeID {
+			return false
+		}
+		if !matchLevel(ev.Level) {
+			return false
+		}
+		if filter.NodeName != "" {
+			if regexNode != nil {
+				if !regexNode.MatchString(ev.NodeName) {
+					return false
+				}
+			} else if !containsFold(ev.NodeName, filter.NodeName) {
+				return false
+			}
+		}
+		if filter.Type != "" && filter.Type != "all" {
+			if regexType != nil {
+				if !regexType.MatchString(ev.Type) {
+					return false
+				}
+			} else if !containsFold(ev.Type, filter.Type) {
+				return false
+			}
+		}
+		if filter.Filter != "" {
+			if regexKeyword != nil {
+				if !regexKeyword.MatchString(ev.Event) &&
+					!regexKeyword.MatchString(ev.NodeName) &&
+					!regexKeyword.MatchString(ev.Type) &&
+					!regexKeyword.MatchString(ev.Level) {
+					return false
+				}
+			} else {
+				if !containsFold(ev.Event, filter.Filter) &&
+					!containsFold(ev.NodeName, filter.Filter) &&
+					!containsFold(ev.Type, filter.Filter) &&
+					!containsFold(ev.Level, filter.Filter) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	// Fast path: check in-memory recentEvents cache first
+	s.recentEventsMu.RLock()
+	recentLen := len(s.recentEvents)
+	var snapshot []*datastore.EventLogEnt
+	if recentLen > 0 {
+		snapshot = make([]*datastore.EventLogEnt, recentLen)
+		copy(snapshot, s.recentEvents)
+	}
+	s.recentEventsMu.RUnlock()
+
+	totalCount := s.eventLogCount.Load()
+	allInMemory := totalCount <= int64(recentLen)
+	hitStartCutoff := false
+
+	for i := len(snapshot) - 1; i >= 0 && len(logs) < limit; i-- {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		ev := snapshot[i]
+		if filter.EndTime > 0 && ev.Time > filter.EndTime {
+			continue
+		}
+		if filter.StartTime > 0 && ev.Time < filter.StartTime {
+			hitStartCutoff = true
+			break
+		}
+		if !matchEvent(ev) {
+			continue
+		}
+		cp := *ev
+		logs = append(logs, &cp)
+	}
+
+	if allInMemory || len(logs) >= limit || hitStartCutoff {
+		return logs, nil
+	}
+
+	// Fallback: scan bbolt only for historical events strictly older than snapshot[0]
+	var maxDiskTime int64 = filter.EndTime
+	if len(snapshot) > 0 {
+		oldestMem := snapshot[0].Time - 1
+		if maxDiskTime <= 0 || oldestMem < maxDiskTime {
+			maxDiskTime = oldestMem
+		}
+	}
+
 	err := s.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketEventLog)
 		if b == nil {
 			return nil
 		}
 		c := b.Cursor()
-		count := 0
 
 		var k, v []byte
-		if filter.EndTime > 0 {
+		if maxDiskTime > 0 {
 			endKey := make([]byte, 12)
-			binary.BigEndian.PutUint64(endKey[0:8], uint64(filter.EndTime))
+			binary.BigEndian.PutUint64(endKey[0:8], uint64(maxDiskTime))
 			binary.BigEndian.PutUint32(endKey[8:12], 0xFFFFFFFF)
 			k, v = c.Seek(endKey)
 			if k == nil {
 				k, v = c.Last()
+			} else if len(k) >= 8 && int64(binary.BigEndian.Uint64(k[0:8])) > maxDiskTime {
+				k, v = c.Prev()
 			}
 		} else {
 			k, v = c.Last()
 		}
 
-		for ; k != nil && count < limit; k, v = c.Prev() {
+		for ; k != nil && len(logs) < limit; k, v = c.Prev() {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
+			if len(k) >= 8 {
+				kt := int64(binary.BigEndian.Uint64(k[0:8]))
+				if maxDiskTime > 0 && kt > maxDiskTime {
+					continue
+				}
+				if filter.StartTime > 0 && kt < filter.StartTime {
+					break // Keys are monotonically increasing by timestamp, stop early
+				}
+			}
+
 			var ev datastore.EventLogEnt
 			if err := json.Unmarshal(v, &ev); err != nil {
 				continue
 			}
 
-			if filter.EndTime > 0 && ev.Time > filter.EndTime {
+			if maxDiskTime > 0 && ev.Time > maxDiskTime {
 				continue
 			}
 			if filter.StartTime > 0 && ev.Time < filter.StartTime {
-				break // Keys are monotonically increasing by timestamp, stop early
+				break
 			}
-			if filter.NodeID != "" && ev.NodeID != filter.NodeID {
+			if !matchEvent(&ev) {
 				continue
-			}
-			if !matchLevel(ev.Level) {
-				continue
-			}
-			if filter.NodeName != "" {
-				if regexNode != nil {
-					if !regexNode.MatchString(ev.NodeName) {
-						continue
-					}
-				} else if !strings.Contains(strings.ToLower(ev.NodeName), strings.ToLower(filter.NodeName)) {
-					continue
-				}
-			}
-			if filter.Type != "" && filter.Type != "all" {
-				if regexType != nil {
-					if !regexType.MatchString(ev.Type) {
-						continue
-					}
-				} else if !strings.EqualFold(ev.Type, filter.Type) {
-					continue
-				}
-			}
-			if filter.Filter != "" {
-				if regexKeyword != nil {
-					if !regexKeyword.MatchString(ev.Event) &&
-						!regexKeyword.MatchString(ev.NodeName) &&
-						!regexKeyword.MatchString(ev.Type) &&
-						!regexKeyword.MatchString(ev.Level) {
-						continue
-					}
-				} else {
-					kw := strings.ToLower(filter.Filter)
-					if !strings.Contains(strings.ToLower(ev.Event), kw) &&
-						!strings.Contains(strings.ToLower(ev.NodeName), kw) &&
-						!strings.Contains(strings.ToLower(ev.Type), kw) &&
-						!strings.Contains(strings.ToLower(ev.Level), kw) {
-						continue
-					}
-				}
 			}
 
 			logs = append(logs, &ev)
-			count++
 		}
 		return nil
 	})
@@ -1484,6 +2040,19 @@ func (s *Store) QueryEventLogs(ctx context.Context, filter datastore.EventLogFil
 }
 
 func (s *Store) DeleteEventLogs(_ context.Context) error {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+
+	s.pendingEventsMu.Lock()
+	s.pendingEvents = nil
+	s.pendingEventsMu.Unlock()
+
+	s.recentEventsMu.Lock()
+	s.recentEvents = nil
+	s.recentEventsMu.Unlock()
+
+	s.eventLogCount.Store(0)
+
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		if err := tx.DeleteBucket(bucketEventLog); err != nil && err != bbolt.ErrBucketNotFound {
 			return err
@@ -1498,9 +2067,13 @@ func (s *Store) CleanOldEventLogs(ctx context.Context, days int) (int, error) {
 	if days <= 0 {
 		return 0, nil
 	}
-	cutoff := uint64(time.Now().AddDate(0, 0, -days).UnixNano())
+	s.flushPendingEventLogs()
+
+	cutoffTime := time.Now().AddDate(0, 0, -days).UnixNano()
+	cutoff := uint64(cutoffTime)
 	deleted := 0
 
+	var remainingCount int64
 	err := s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketEventLog)
 		if b == nil {
@@ -1528,25 +2101,31 @@ func (s *Store) CleanOldEventLogs(ctx context.Context, days int) (int, error) {
 			}
 			deleted++
 		}
+		remainingCount = int64(b.Stats().KeyN) - int64(deleted)
+		if remainingCount < 0 {
+			remainingCount = 0
+		}
 		return nil
 	})
+	if err == nil && deleted > 0 {
+		s.recentEventsMu.Lock()
+		idx := sort.Search(len(s.recentEvents), func(i int) bool {
+			return s.recentEvents[i].Time >= cutoffTime
+		})
+		if idx > 0 {
+			s.recentEvents = append([]*datastore.EventLogEnt(nil), s.recentEvents[idx:]...)
+		}
+		s.recentEventsMu.Unlock()
+		s.eventLogCount.Store(remainingCount)
+	}
 	return deleted, err
 }
 
 func (s *Store) CountEventLogs(_ context.Context) (int64, error) {
-	var count int64
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketEventLog)
-		if b == nil {
-			return nil
-		}
-		count = int64(b.Stats().KeyN)
-		return nil
-	})
-	return count, err
+	return s.eventLogCount.Load(), nil
 }
 
-// SaveArpTable saves the provided ARP table entries.
+// SaveArpTable saves the provided ARP table entries into memory cache and marks them dirty for batch persistence.
 func (s *Store) SaveArpTable(_ context.Context, entries []*datastore.ArpEnt) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1554,26 +2133,18 @@ func (s *Store) SaveArpTable(_ context.Context, entries []*datastore.ArpEnt) err
 		return datastore.ErrDBNotOpen
 	}
 
-	return s.db.Batch(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketArp)
-		if b == nil {
-			return nil
+	for _, e := range entries {
+		if e == nil || e.IP == "" {
+			continue
 		}
-		for _, e := range entries {
-			if e == nil || e.IP == "" {
-				continue
-			}
-			data, err := json.Marshal(e)
-			if err != nil {
-				continue
-			}
-			_ = b.Put([]byte(e.IP), data)
-		}
-		return nil
-	})
+		cp := *e
+		s.arpTable.Store(cp.IP, &cp)
+		s.dirtyArp.Store(cp.IP, struct{}{})
+	}
+	return nil
 }
 
-// LoadArpTable loads all stored ARP table entries.
+// LoadArpTable loads all stored ARP table entries from the in-memory sync.Map cache.
 func (s *Store) LoadArpTable(_ context.Context) ([]*datastore.ArpEnt, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1581,21 +2152,15 @@ func (s *Store) LoadArpTable(_ context.Context) ([]*datastore.ArpEnt, error) {
 		return nil, datastore.ErrDBNotOpen
 	}
 
-	var results []*datastore.ArpEnt
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketArp)
-		if b == nil {
-			return nil
+	results := make([]*datastore.ArpEnt, 0)
+	s.arpTable.Range(func(_, v any) bool {
+		if ent, ok := v.(*datastore.ArpEnt); ok {
+			cp := *ent
+			results = append(results, &cp)
 		}
-		return b.ForEach(func(k, v []byte) error {
-			var ent datastore.ArpEnt
-			if err := json.Unmarshal(v, &ent); err == nil {
-				results = append(results, &ent)
-			}
-			return nil
-		})
+		return true
 	})
-	return results, err
+	return results, nil
 }
 
 // DeleteArpEntries removes specific IP entries from the ARP table.
@@ -1604,6 +2169,11 @@ func (s *Store) DeleteArpEntries(_ context.Context, ips []string) error {
 	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
+	}
+
+	for _, ip := range ips {
+		s.arpTable.Delete(ip)
+		s.dirtyArp.Delete(ip)
 	}
 
 	return s.db.Update(func(tx *bbolt.Tx) error {
@@ -1620,11 +2190,17 @@ func (s *Store) DeleteArpEntries(_ context.Context, ips []string) error {
 
 // ResetArpTable removes all entries in the ARP table bucket.
 func (s *Store) ResetArpTable(_ context.Context) error {
+	s.flushMu.Lock()
+	defer s.flushMu.Unlock()
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
+
+	s.arpTable = sync.Map{}
+	s.dirtyArp = sync.Map{}
 
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		_ = tx.DeleteBucket(bucketArp)
@@ -1650,7 +2226,7 @@ func (s *Store) ListOTelMetrics(_ context.Context) ([]*datastore.OTelMetricEnt, 
 	results := make([]*datastore.OTelMetricEnt, 0)
 	s.otelMetrics.Range(func(_, value any) bool {
 		if m, ok := value.(*datastore.OTelMetricEnt); ok {
-			results = append(results, m)
+			results = append(results, m.Clone())
 		}
 		return true
 	})
@@ -1672,7 +2248,7 @@ func (s *Store) GetOTelMetric(_ context.Context, host, service, scope, name stri
 	key := getOTelMetricKey(host, service, scope, name)
 	if val, ok := s.otelMetrics.Load(key); ok {
 		if m, ok := val.(*datastore.OTelMetricEnt); ok {
-			return m, nil
+			return m.Clone(), nil
 		}
 	}
 	return nil, datastore.ErrNotFound
@@ -1689,15 +2265,16 @@ func (s *Store) SaveOTelMetric(_ context.Context, m *datastore.OTelMetricEnt) er
 		return datastore.ErrInvalidParams
 	}
 
-	key := getOTelMetricKey(m.Host, m.Service, m.Scope, m.Name)
-	s.otelMetrics.Store(key, m)
+	cloned := m.Clone()
+	key := getOTelMetricKey(cloned.Host, cloned.Service, cloned.Scope, cloned.Name)
+	s.otelMetrics.Store(key, cloned)
 
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketOTelMetric)
 		if b == nil {
 			return nil
 		}
-		data, err := json.Marshal(m)
+		data, err := json.Marshal(cloned)
 		if err != nil {
 			return err
 		}
@@ -2247,32 +2824,19 @@ func (s *Store) GetPKIConf(ctx context.Context) (*datastore.PKIConfEnt, error) {
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
 	}
-	conf := datastore.DefaultPKIConf()
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketConfig)
-		if b == nil {
-			return nil
+	s.confMu.RLock()
+	conf := s.pkiConf
+	s.confMu.RUnlock()
+
+	s.pkiCerts.Range(func(k, _ any) bool {
+		if sn, err := strconv.ParseInt(k.(string), 16, 64); err == nil {
+			if sn >= conf.Serial {
+				conf.Serial = sn + 1
+			}
 		}
-		v := b.Get(keyPKIConf)
-		if v == nil {
-			return nil
-		}
-		if err := json.Unmarshal(v, &conf); err != nil {
-			return err
-		}
-		if bc := tx.Bucket(bucketCerts); bc != nil {
-			_ = bc.ForEach(func(k, _ []byte) error {
-				if sn, err := strconv.ParseInt(string(k), 16, 64); err == nil {
-					if sn >= conf.Serial {
-						conf.Serial = sn + 1
-					}
-				}
-				return nil
-			})
-		}
-		return nil
+		return true
 	})
-	return &conf, err
+	return &conf, nil
 }
 
 func (s *Store) SavePKIConf(ctx context.Context, conf *datastore.PKIConfEnt) error {
@@ -2288,13 +2852,19 @@ func (s *Store) SavePKIConf(ctx context.Context, conf *datastore.PKIConfEnt) err
 	if err != nil {
 		return fmt.Errorf("marshal pkiConf: %w", err)
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketConfig)
 		if b == nil {
 			return fmt.Errorf("config bucket not found")
 		}
 		return b.Put(keyPKIConf, v)
 	})
+	if err == nil {
+		s.confMu.Lock()
+		s.pkiConf = *conf
+		s.confMu.Unlock()
+	}
+	return err
 }
 
 func (s *Store) ListPKICerts(ctx context.Context) ([]*datastore.PKICertEnt, error) {
@@ -2304,21 +2874,14 @@ func (s *Store) ListPKICerts(ctx context.Context) ([]*datastore.PKICertEnt, erro
 		return nil, datastore.ErrDBNotOpen
 	}
 	certs := make([]*datastore.PKICertEnt, 0)
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketCerts)
-		if b == nil {
-			return nil
+	s.pkiCerts.Range(func(_, v any) bool {
+		if cert, ok := v.(*datastore.PKICertEnt); ok {
+			cp := *cert
+			certs = append(certs, &cp)
 		}
-		return b.ForEach(func(_, value []byte) error {
-			var cert datastore.PKICertEnt
-			if err := json.Unmarshal(value, &cert); err != nil {
-				return nil
-			}
-			certs = append(certs, &cert)
-			return nil
-		})
+		return true
 	})
-	return certs, err
+	return certs, nil
 }
 
 func (s *Store) GetPKICert(ctx context.Context, id string) (*datastore.PKICertEnt, error) {
@@ -2327,22 +2890,13 @@ func (s *Store) GetPKICert(ctx context.Context, id string) (*datastore.PKICertEn
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
 	}
-	var cert datastore.PKICertEnt
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketCerts)
-		if b == nil {
-			return datastore.ErrNotFound
+	if v, ok := s.pkiCerts.Load(id); ok {
+		if cert, ok := v.(*datastore.PKICertEnt); ok {
+			cp := *cert
+			return &cp, nil
 		}
-		v := b.Get([]byte(id))
-		if v == nil {
-			return datastore.ErrNotFound
-		}
-		return json.Unmarshal(v, &cert)
-	})
-	if err != nil {
-		return nil, err
 	}
-	return &cert, nil
+	return nil, datastore.ErrNotFound
 }
 
 func (s *Store) SavePKICert(ctx context.Context, cert *datastore.PKICertEnt) error {
@@ -2354,17 +2908,22 @@ func (s *Store) SavePKICert(ctx context.Context, cert *datastore.PKICertEnt) err
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
-	v, err := json.Marshal(cert)
+	cp := *cert
+	v, err := json.Marshal(&cp)
 	if err != nil {
 		return fmt.Errorf("marshal cert: %w", err)
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketCerts)
 		if b == nil {
 			return fmt.Errorf("certs bucket not found")
 		}
-		return b.Put([]byte(cert.ID), v)
+		return b.Put([]byte(cp.ID), v)
 	})
+	if err == nil {
+		s.pkiCerts.Store(cp.ID, &cp)
+	}
+	return err
 }
 
 func (s *Store) DeletePKICert(ctx context.Context, id string) error {
@@ -2373,6 +2932,7 @@ func (s *Store) DeletePKICert(ctx context.Context, id string) error {
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
+	s.pkiCerts.Delete(id)
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketCerts)
 		if b == nil {
@@ -2388,6 +2948,7 @@ func (s *Store) DeleteAllPKICerts(ctx context.Context) error {
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
+	s.pkiCerts = sync.Map{}
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		if err := tx.DeleteBucket(bucketCerts); err != nil && err != bbolt.ErrBucketNotFound {
 			return err
@@ -2403,20 +2964,12 @@ func (s *Store) ForEachPKICert(fn func(*datastore.PKICertEnt) bool) {
 	if s.closed {
 		return
 	}
-	_ = s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketCerts)
-		if b == nil {
-			return nil
+	s.pkiCerts.Range(func(_, v any) bool {
+		if cert, ok := v.(*datastore.PKICertEnt); ok {
+			cp := *cert
+			return fn(&cp)
 		}
-		return b.ForEach(func(_, value []byte) error {
-			var cert datastore.PKICertEnt
-			if err := json.Unmarshal(value, &cert); err == nil {
-				if !fn(&cert) {
-					return fmt.Errorf("stop")
-				}
-			}
-			return nil
-		})
+		return true
 	})
 }
 
@@ -2429,20 +2982,14 @@ func (s *Store) ListCertMonitors(ctx context.Context) ([]*datastore.CertMonitorE
 		return nil, datastore.ErrDBNotOpen
 	}
 	monitors := make([]*datastore.CertMonitorEnt, 0)
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketCertMonitor)
-		if b == nil {
-			return nil
+	s.certMonitors.Range(func(_, v any) bool {
+		if ent, ok := v.(*datastore.CertMonitorEnt); ok {
+			cp := *ent
+			monitors = append(monitors, &cp)
 		}
-		return b.ForEach(func(k, v []byte) error {
-			var ent datastore.CertMonitorEnt
-			if err := json.Unmarshal(v, &ent); err == nil {
-				monitors = append(monitors, &ent)
-			}
-			return nil
-		})
+		return true
 	})
-	return monitors, err
+	return monitors, nil
 }
 
 func (s *Store) GetCertMonitor(ctx context.Context, id string) (*datastore.CertMonitorEnt, error) {
@@ -2454,20 +3001,13 @@ func (s *Store) GetCertMonitor(ctx context.Context, id string) (*datastore.CertM
 	if s.closed {
 		return nil, datastore.ErrDBNotOpen
 	}
-	var ent *datastore.CertMonitorEnt
-	err := s.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketCertMonitor)
-		if b == nil {
-			return datastore.ErrNotFound
+	if v, ok := s.certMonitors.Load(id); ok {
+		if ent, ok := v.(*datastore.CertMonitorEnt); ok {
+			cp := *ent
+			return &cp, nil
 		}
-		v := b.Get([]byte(id))
-		if v == nil {
-			return datastore.ErrNotFound
-		}
-		ent = &datastore.CertMonitorEnt{}
-		return json.Unmarshal(v, ent)
-	})
-	return ent, err
+	}
+	return nil, datastore.ErrNotFound
 }
 
 func (s *Store) SaveCertMonitor(ctx context.Context, c *datastore.CertMonitorEnt) error {
@@ -2477,7 +3017,8 @@ func (s *Store) SaveCertMonitor(ctx context.Context, c *datastore.CertMonitorEnt
 	if c.ID == "" {
 		c.ID = datastore.GenerateID()
 	}
-	v, err := json.Marshal(c)
+	cp := *c
+	v, err := json.Marshal(&cp)
 	if err != nil {
 		return fmt.Errorf("encode cert monitor: %w", err)
 	}
@@ -2486,7 +3027,7 @@ func (s *Store) SaveCertMonitor(ctx context.Context, c *datastore.CertMonitorEnt
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketCertMonitor)
 		if b == nil {
 			var bErr error
@@ -2495,8 +3036,12 @@ func (s *Store) SaveCertMonitor(ctx context.Context, c *datastore.CertMonitorEnt
 				return bErr
 			}
 		}
-		return b.Put([]byte(c.ID), v)
+		return b.Put([]byte(cp.ID), v)
 	})
+	if err == nil {
+		s.certMonitors.Store(cp.ID, &cp)
+	}
+	return err
 }
 
 func (s *Store) DeleteCertMonitor(ctx context.Context, id string) error {
@@ -2508,6 +3053,7 @@ func (s *Store) DeleteCertMonitor(ctx context.Context, id string) error {
 	if s.closed {
 		return datastore.ErrDBNotOpen
 	}
+	s.certMonitors.Delete(id)
 	return s.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(bucketCertMonitor)
 		if b == nil {

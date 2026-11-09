@@ -588,6 +588,21 @@ type OTelMetricEnt struct {
 	Last        int64                     `json:"Last"`
 }
 
+// Clone creates a safe copy of OTelMetricEnt with an isolated DataPoints slice.
+func (m *OTelMetricEnt) Clone() *OTelMetricEnt {
+	if m == nil {
+		return nil
+	}
+	cp := *m
+	if len(m.DataPoints) > 0 {
+		cp.DataPoints = make([]*OTelMetricDataPointEnt, len(m.DataPoints))
+		copy(cp.DataPoints, m.DataPoints)
+	} else {
+		cp.DataPoints = make([]*OTelMetricDataPointEnt, 0)
+	}
+	return &cp
+}
+
 // OTelTraceSpanEnt represents a single span within an OpenTelemetry trace.
 type OTelTraceSpanEnt struct {
 	SpanID       string   `json:"SpanID"`
