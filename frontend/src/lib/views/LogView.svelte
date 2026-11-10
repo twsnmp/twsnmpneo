@@ -140,7 +140,7 @@
       message: `${getTabDisplayName(activeTab)} ログを読み込んでいます...`,
     });
     try {
-      refreshCounts();
+      await refreshCounts();
       const currentFilter = categoryFilters[activeTab];
       let startTime = 0;
       let endTime = 0;
@@ -157,7 +157,6 @@
           filter: currentFilter.keyword || undefined,
           limit: fetchLimit,
         });
-        logCounts["event"] = eventLogs.length;
       } else {
         const queryType = activeTab === "arp" ? "arplog" : activeTab === "sflow" && sflowCounter ? "sflowCounter" : activeTab;
         const pq = await queryParquetLogs({
@@ -379,6 +378,7 @@
     hitCount={filteredLogs.length}
     bind:fetchLimit
     {loading}
+    {sflowCounter}
     onTabSelect={handleTabSelect}
     onLimitChange={loadCurrentLogs}
   />

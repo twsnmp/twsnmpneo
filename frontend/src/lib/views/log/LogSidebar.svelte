@@ -10,6 +10,7 @@
     hitCount: number;
     fetchLimit: number;
     loading?: boolean;
+    sflowCounter?: boolean;
     onTabSelect: (tab: LogCategory) => void;
     onLimitChange: () => void;
   }
@@ -21,6 +22,7 @@
     hitCount = 0,
     fetchLimit = $bindable(),
     loading = false,
+    sflowCounter = false,
     onTabSelect,
     onLimitChange,
   }: Props = $props();
@@ -44,7 +46,12 @@
     </div>
 
     {#each categories as cat}
-      {@const count = logCounts[cat.id] ?? (activeTab === cat.id ? currentTabCount : 0)}
+      {@const catCount = (cat.id === "sflow" && sflowCounter) ? (logCounts["sflowCounter"] ?? logCounts["sflow"]) : logCounts[cat.id]}
+      {@const count = (catCount !== undefined && catCount > 0)
+        ? catCount
+        : (activeTab === cat.id && currentTabCount > 0
+          ? currentTabCount
+          : (catCount ?? 0))}
       <button
         type="button"
         onclick={() => onTabSelect(cat.id)}

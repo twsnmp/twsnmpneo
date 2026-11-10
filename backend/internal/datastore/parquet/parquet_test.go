@@ -505,3 +505,130 @@ func TestStore_FlushSpeed(t *testing.T) {
 	}
 	t.Logf("Flush 1950 records in 1 shot took: %v", dur)
 }
+
+func TestStore_CountByType(t *testing.T) {
+	dir, err := os.MkdirTemp("", "twsnmpneo-parquet-countbytype-*")
+	if err != nil {
+		t.Fatalf("create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	store, err := parquet.New(parquet.Config{
+		Dir:            dir,
+		BufferSize:     100,
+		BufferInterval: 10 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("create parquet store: %v", err)
+	}
+	defer store.Close()
+
+	now := time.Now().UnixNano()
+	for i := 0; i < 50; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "sflow",
+			Src:  "192.168.1.10",
+			Log:  `{"sample":"flow"}`,
+		})
+	}
+	for i := 0; i < 30; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "sflowCounter",
+			Src:  "192.168.1.10",
+			Log:  `{"sample":"counter"}`,
+		})
+	}
+	for i := 0; i < 120; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "netflow",
+			Src:  "192.168.1.20",
+			Log:  `{"sample":"netflow"}`,
+		})
+	}
+	for i := 0; i < 15; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i),
+			Type: "arplog",
+			Src:  "192.168.1.30",
+			Log:  `{"sample":"arp"}`,
+		})
+	}
+
+	// 1. Flush to disk
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+
+	// Add some in-memory buffered records
+	_ = store.WriteLog(&parquet.ParquetLogRecord{
+		Time: now + 1000,
+		Type: "sflow",
+		Src:  "192.168.1.10",
+		Log:  `{"sample":"flow_mem"}`,
+	})
+
+	counts, err := store.CountByType(context.Background())
+	if err != nil {
+		t.Fatalf("CountByType: %v", err)
+	}
+
+	if counts["sflow"] != 51 {
+		t.Errorf("expected sflow 51 (50 on disk + 1 in memory), got %d", counts["sflow"])
+	}
+	if counts["sflowCounter"] != 30 {
+		t.Errorf("expected sflowCounter 30, got %d", counts["sflowCounter"])
+	}
+	if counts["netflow"] != 120 {
+		t.Errorf("expected netflow 120, got %d", counts["netflow"])
+	}
+	if counts["arplog"] != 15 {
+		t.Errorf("expected arplog 15, got %d", counts["arplog"])
+	}
+
+	// Close store1 before reopening
+	_ = store.Close()
+
+	// 2. Test reopening store (simulating cold boot)
+	store2, err := parquet.New(parquet.Config{
+		Dir:            dir,
+		BufferSize:     100,
+		BufferInterval: 10 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("reopen store: %v", err)
+	}
+	defer store2.Close()
+
+	counts2, err := store2.CountByType(context.Background())
+	if err != nil {
+		t.Fatalf("CountByType on store2: %v", err)
+	}
+	// 50 was on disk, plus 1 that was flushed when store.Close() was called = 51
+	if counts2["sflow"] != 51 {
+		t.Errorf("expected sflow 51 from disk, got %d", counts2["sflow"])
+	}
+	if counts2["sflowCounter"] != 30 {
+		t.Errorf("expected sflowCounter 30 from disk, got %d", counts2["sflowCounter"])
+	}
+	if counts2["netflow"] != 120 {
+		t.Errorf("expected netflow 120 from disk, got %d", counts2["netflow"])
+	}
+
+	// 3. Test DeleteLogs
+	if err := store2.DeleteLogs(context.Background(), "sflow"); err != nil {
+		t.Fatalf("delete sflow: %v", err)
+	}
+	counts3, err := store2.CountByType(context.Background())
+	if err != nil {
+		t.Fatalf("CountByType after delete: %v", err)
+	}
+	if counts3["sflow"] != 0 {
+		t.Errorf("expected sflow 0 after delete, got %d", counts3["sflow"])
+	}
+	if counts3["netflow"] != 120 {
+		t.Errorf("expected netflow 120 retained, got %d", counts3["netflow"])
+	}
+}

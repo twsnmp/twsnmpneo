@@ -72,10 +72,12 @@ type Store struct {
 	bufferCount int
 
 	compactMu sync.Mutex
+	scanMu    sync.Mutex
 
 	cacheMu          sync.RWMutex
 	pollingLogCache  map[string]cachedPollingEntry
 	diskCountCache   map[string]cachedDiskCountEntry
+	fileRowsCache    map[string]int64
 	totalCountCache  map[string]int64
 	totalCountLoaded bool
 
@@ -109,12 +111,14 @@ func New(cfg Config) (*Store, error) {
 		typeBuffers:     make(map[string][]*ParquetLogRecord),
 		pollingLogCache: make(map[string]cachedPollingEntry),
 		diskCountCache:  make(map[string]cachedDiskCountEntry),
+		fileRowsCache:   make(map[string]int64),
 		totalCountCache: make(map[string]int64),
 		stopCh:          make(chan struct{}),
 		doneCh:          make(chan struct{}),
 	}
 
 	go s.flushLoop()
+	go s.warmupTotalCounts()
 	slog.Info("Initialized Parquet log store", "dir", s.dir)
 	return s, nil
 }
@@ -300,7 +304,152 @@ func (s *Store) writeParquetFile(logType string, records []*ParquetLogRecord) er
 	if err := writer.Close(); err != nil {
 		return fmt.Errorf("close parquet writer: %w", err)
 	}
+
+	s.cacheMu.Lock()
+	s.fileRowsCache[fileName] = int64(len(records))
+	s.cacheMu.Unlock()
+
 	return nil
+}
+
+func (s *Store) warmupTotalCounts() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	_, _ = s.scanTotalCounts(ctx)
+}
+
+func (s *Store) scanTotalCounts(ctx context.Context) (map[string]int64, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	s.scanMu.Lock()
+	defer s.scanMu.Unlock()
+
+	s.cacheMu.RLock()
+	if s.totalCountLoaded {
+		counts := make(map[string]int64, len(s.totalCountCache))
+		for k, v := range s.totalCountCache {
+			counts[k] = v
+		}
+		s.cacheMu.RUnlock()
+		return counts, nil
+	}
+	s.cacheMu.RUnlock()
+
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return make(map[string]int64), nil
+	}
+
+	type typeScanResult struct {
+		logType string
+		count   int64
+		fileMap map[string]int64
+	}
+
+	var validEntries []os.DirEntry
+	for _, e := range entries {
+		if e.IsDir() {
+			validEntries = append(validEntries, e)
+		}
+	}
+
+	resChan := make(chan typeScanResult, len(validEntries))
+	var wg sync.WaitGroup
+
+	for _, e := range validEntries {
+		wg.Add(1)
+		go func(logType string) {
+			defer wg.Done()
+			if ctx.Err() != nil {
+				return
+			}
+			typeDir := filepath.Join(s.dir, logType)
+			fileEntries, err := os.ReadDir(typeDir)
+			if err != nil {
+				resChan <- typeScanResult{logType: logType, count: 0}
+				return
+			}
+
+			s.cacheMu.RLock()
+			cachedRows := make(map[string]int64)
+			for _, fe := range fileEntries {
+				if fe.IsDir() || !strings.HasSuffix(fe.Name(), ".parquet") {
+					continue
+				}
+				if r, ok := s.fileRowsCache[fe.Name()]; ok {
+					cachedRows[fe.Name()] = r
+				}
+			}
+			s.cacheMu.RUnlock()
+
+			var total int64
+			newFileRows := make(map[string]int64)
+
+			for _, fe := range fileEntries {
+				if ctx.Err() != nil {
+					return
+				}
+				if fe.IsDir() || !strings.HasSuffix(fe.Name(), ".parquet") {
+					continue
+				}
+				name := fe.Name()
+				if r, ok := cachedRows[name]; ok {
+					total += r
+					continue
+				}
+
+				filePath := filepath.Join(typeDir, name)
+				f, err := os.Open(filePath)
+				if err != nil {
+					continue
+				}
+				stat, err := f.Stat()
+				if err != nil || stat.Size() == 0 {
+					_ = f.Close()
+					continue
+				}
+				pf, err := parquet.OpenFile(f, stat.Size())
+				if err != nil {
+					_ = f.Close()
+					continue
+				}
+				numRows := pf.NumRows()
+				_ = f.Close()
+
+				total += numRows
+				newFileRows[name] = numRows
+			}
+
+			resChan <- typeScanResult{
+				logType: logType,
+				count:   total,
+				fileMap: newFileRows,
+			}
+		}(e.Name())
+	}
+
+	wg.Wait()
+	close(resChan)
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	diskCounts := make(map[string]int64)
+	s.cacheMu.Lock()
+	for res := range resChan {
+		diskCounts[res.logType] = res.count
+		for fName, num := range res.fileMap {
+			s.fileRowsCache[fName] = num
+		}
+	}
+	s.totalCountCache = diskCounts
+	s.totalCountLoaded = true
+	s.cacheMu.Unlock()
+
+	return diskCounts, nil
 }
 
 // CountByType returns the number of records stored for each log type.
@@ -320,59 +469,11 @@ func (s *Store) CountByType(ctx context.Context) (map[string]int64, error) {
 	s.cacheMu.RUnlock()
 
 	if !loaded {
-		diskCounts := make(map[string]int64)
-		scanDeadline := time.Now().Add(500 * time.Millisecond)
-		timedOut := false
-		if entries, err := os.ReadDir(s.dir); err == nil {
-			for _, e := range entries {
-				if !e.IsDir() {
-					continue
-				}
-				logType := e.Name()
-				typeDir := filepath.Join(s.dir, logType)
-				fileEntries, err := os.ReadDir(typeDir)
-				if err != nil {
-					continue
-				}
-
-				var total int64
-				for i := len(fileEntries) - 1; i >= 0; i-- {
-					if ctx.Err() != nil || time.Now().After(scanDeadline) {
-						timedOut = true
-						break
-					}
-					fe := fileEntries[i]
-					if fe.IsDir() || !strings.HasSuffix(fe.Name(), ".parquet") {
-						continue
-					}
-					filePath := filepath.Join(typeDir, fe.Name())
-					f, err := os.Open(filePath)
-					if err != nil {
-						continue
-					}
-					stat, err := f.Stat()
-					if err != nil {
-						_ = f.Close()
-						continue
-					}
-					pf, err := parquet.OpenFile(f, stat.Size())
-					if err != nil {
-						_ = f.Close()
-						continue
-					}
-					total += pf.NumRows()
-					_ = f.Close()
-				}
-				diskCounts[logType] = total
-				counts[logType] = total
-			}
+		diskCounts, err := s.scanTotalCounts(ctx)
+		if err != nil {
+			return nil, err
 		}
-		if !timedOut && ctx.Err() == nil {
-			s.cacheMu.Lock()
-			s.totalCountCache = diskCounts
-			s.totalCountLoaded = true
-			s.cacheMu.Unlock()
-		}
+		counts = diskCounts
 	}
 
 	// Add un-flushed in-memory records
@@ -1235,6 +1336,15 @@ func (s *Store) compactBucket(typeDir, logType string, cands []compactCandidate,
 		_ = os.Remove(srcPath)
 	}
 
+	s.cacheMu.Lock()
+	for _, srcPath := range validSourceFiles {
+		delete(s.fileRowsCache, filepath.Base(srcPath))
+	}
+	if len(createdFinalFiles) == 1 {
+		s.fileRowsCache[filepath.Base(createdFinalFiles[0])] = int64(totalProcessed)
+	}
+	s.cacheMu.Unlock()
+
 	slog.Info("Compacted parquet bucket",
 		"type", logType,
 		"bucket", bucketKey,
@@ -1267,16 +1377,18 @@ func (s *Store) Rotate(retentionDays int) (int, error) {
 		return nil
 	})
 	if deleted > 0 {
-		s.cacheMu.Lock()
-		s.totalCountLoaded = false
-		s.totalCountCache = make(map[string]int64)
-		s.cacheMu.Unlock()
+		go func() {
+			_, _ = s.scanTotalCounts(context.Background())
+		}()
 	}
 	return deleted, err
 }
 
 // DeleteLogs removes all parquet files for the given logType, or all types if empty.
 func (s *Store) DeleteLogs(_ context.Context, logType string) error {
+	s.scanMu.Lock()
+	defer s.scanMu.Unlock()
+
 	s.mu.Lock()
 	if logType != "" {
 		delete(s.typeBuffers, logType)
@@ -1289,10 +1401,16 @@ func (s *Store) DeleteLogs(_ context.Context, logType string) error {
 	s.cacheMu.Lock()
 	s.diskCountCache = make(map[string]cachedDiskCountEntry)
 	if logType != "" {
-		delete(s.totalCountCache, logType)
+		s.totalCountCache[logType] = 0
+		for k := range s.fileRowsCache {
+			if strings.HasPrefix(k, logType+"_") {
+				delete(s.fileRowsCache, k)
+			}
+		}
 	} else {
 		s.totalCountCache = make(map[string]int64)
-		s.totalCountLoaded = false
+		s.fileRowsCache = make(map[string]int64)
+		s.totalCountLoaded = true
 	}
 	if logType == "" || logType == "polling" {
 		s.pollingLogCache = make(map[string]cachedPollingEntry)
