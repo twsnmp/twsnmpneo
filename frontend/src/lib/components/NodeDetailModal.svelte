@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack, onDestroy } from "svelte";
   import { initVPanel, setVPanel, deleteVPanel } from "../map/vpanel";
-  import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
+  import { getStateColor, getStateLabel, getStatusBadgeClass, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
   import {
     fetchPollings,
     deletePolling,
@@ -257,21 +257,7 @@
     }
   };
 
-  const getLevelBadgeClass = (lvl: string = "off") => {
-    switch (lvl?.toLowerCase()) {
-      case "high":
-        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30";
-      case "low":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30";
-      case "warn":
-        return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30";
-      case "info":
-        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30";
-      case "off":
-      default:
-        return "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-400/30";
-    }
-  };
+  const getLevelBadgeClass = (lvl: string = "off") => getStatusBadgeClass(lvl);
 
   // Copy feedback states
   let copiedIP = $state(false);
@@ -360,7 +346,7 @@
     }
 
     const color = getStateColor(nodeState);
-    const statusLabel = getStateName(nodeState, $_);
+    const statusLabel = getStateLabel(nodeState);
     const badgeStyle = `background-color: ${color}18; border-color: ${color}50; color: ${color};`;
     const iconStyle = `background-color: ${color}18; border-color: ${color}40; color: ${color};`;
 
@@ -369,10 +355,10 @@
     const stateOrder = ["normal", "repair", "warn", "low", "high", "unknown", "off"];
     for (const s of stateOrder) {
       if (counts[s] > 0) {
-        detailParts.push(`${getStateName(s, $_)}: ${counts[s]}`);
+        detailParts.push(`${getStateLabel(s)}: ${counts[s]}`);
       }
     }
-    const breakdown = detailParts.length > 0 ? detailParts.join(", ") : `${getStateName("normal", $_)}: 0`;
+    const breakdown = detailParts.length > 0 ? detailParts.join(", ") : `${getStateLabel("normal")}: 0`;
     const summaryText = isJaLocale
       ? `${nName} - 設定ポーリング: ${nodePollings.length}件 (${breakdown})`
       : `${nName} - Configured Pollings: ${nodePollings.length} (${breakdown})`;
@@ -889,14 +875,13 @@
             <div class="flex items-center gap-2">
               <h2 class="text-base font-bold text-slate-900 dark:text-slate-100">{node.name}</h2>
               <span
-                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border"
-                style="background-color: {getStateColor(node.state)}18; border-color: {getStateColor(node.state)}50; color: {getStateColor(node.state)}"
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadgeClass(node.state)}"
               >
                 <span
                   class="h-1.5 w-1.5 rounded-full"
                   style="background-color: {getStateColor(node.state)}"
                 ></span>
-                {getStateName(node.state, $_)}
+                {getStateLabel(node.state)}
               </span>
 
               {#if !isSnmpSupported && !isLoadingPorts}
@@ -1142,10 +1127,9 @@
                         style="background-color: {getStateColor(node.state)}"
                       ></span>
                       <span
-                        class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold border"
-                        style="background-color: {getStateColor(node.state)}18; border-color: {getStateColor(node.state)}50; color: {getStateColor(node.state)}"
+                        class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold uppercase border {getStatusBadgeClass(node.state)}"
                       >
-                        {getStateName(node.state, $_)}
+                        {getStateLabel(node.state)}
                       </span>
                     </div>
                   </td>
@@ -1504,19 +1488,19 @@
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         <td class="py-1 px-2 whitespace-nowrap">
                           <span
-                            class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold border"
-                            style="background-color: {getStateColor((p as PollingEnt).state)}18; border-color: {getStateColor((p as PollingEnt).state)}50; color: {getStateColor((p as PollingEnt).state)}"
+                            class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadgeClass((p as PollingEnt).state)}"
                           >
-                            <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor((p as PollingEnt).state)}"></span>
-                            {getStateName((p as PollingEnt).state, $_)}
+                            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor((p as PollingEnt).state)}"></span>
+                            {getStateLabel((p as PollingEnt).state)}
                           </span>
                         </td>
                         <td class="py-1 px-2 font-bold font-sans text-slate-900 dark:text-slate-100 text-[11px]">{(p as PollingEnt).name}</td>
                         <td class="py-1 px-2 whitespace-nowrap">
                           <span
-                            class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold border {getLevelBadgeClass(lvl)}"
+                            class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadgeClass(lvl)}"
                           >
-                            {$_(`polling.levels.${lvl}`) || lvl}
+                            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(lvl)}"></span>
+                            {getStateLabel(lvl)}
                           </span>
                         </td>
                         <td class="py-1 px-2 whitespace-nowrap">
@@ -1661,10 +1645,10 @@
                       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         <td class="py-1 px-2 whitespace-nowrap">
                           <span
-                            class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase border"
-                            style="background-color: {getStateColor((l as EventLogEnt).level)}18; border-color: {getStateColor((l as EventLogEnt).level)}50; color: {getStateColor((l as EventLogEnt).level)}"
+                            class="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase border {getStatusBadgeClass((l as EventLogEnt).level)}"
                           >
-                            {(l as EventLogEnt).level}
+                            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor((l as EventLogEnt).level)}"></span>
+                            {getStateLabel((l as EventLogEnt).level)}
                           </span>
                         </td>
                         <td class="py-1 px-2 text-blue-600 dark:text-cyan-400 font-semibold text-[11px] whitespace-nowrap">{formatTimeStr((l as EventLogEnt).time)}</td>
@@ -2245,8 +2229,7 @@
 
                         <!-- Status Badge -->
                         <span
-                          class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0"
-                          style="background-color: {getStateColor(card.st)}18; border-color: {getStateColor(card.st)}50; color: {getStateColor(card.st)}"
+                          class="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border shrink-0 {getStatusBadgeClass(card.st)}"
                         >
                           {#if card.isNormal}
                             <CheckCircle2 class="h-3 w-3" />
@@ -2261,7 +2244,7 @@
                           {:else}
                             <AlertCircle class="h-3 w-3" />
                           {/if}
-                          {getStateName(card.st, $_)}
+                          {getStateLabel(card.st)}
                         </span>
                       </div>
 

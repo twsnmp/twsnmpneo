@@ -1,4 +1,5 @@
 import type { NodeEnt, NetworkEnt, LineEnt, DrawItemEnt } from "../../api";
+import { getStatusBadgeClass } from "../../common";
 import {
   Type,
   Square,
@@ -57,18 +58,7 @@ export const isDrawItemOffscreen = (item: DrawItemEnt): boolean => {
 };
 
 export const getStatusBadge = (state: string): string => {
-  switch (state?.toLowerCase()) {
-    case "normal":
-      return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30";
-    case "warn":
-    case "low":
-      return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30";
-    case "high":
-    case "error":
-      return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30";
-    default:
-      return "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
-  }
+  return getStatusBadgeClass(state);
 };
 
 export const getDrawItemTypeName = (type: number, $_: (key: string) => string): string => {

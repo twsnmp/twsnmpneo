@@ -14,7 +14,7 @@
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
   import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
-  import { getStateColor, getStateName } from "../../common";
+  import { getStateColor, getStateName, getStateLabel, getStatusBadgeClass } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import type { PollingEnt, NodeEnt } from "../../api";
 
@@ -493,10 +493,10 @@
               </td>
               <td class="py-1 px-2">
                 <span
-                  class="rounded px-2 py-0.5 text-[10px] font-sans font-semibold leading-none border"
-                  style="background-color: {getStateColor(p.state)}15; color: {getStateColor(p.state)}; border-color: {getStateColor(p.state)}30;"
+                  class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getStatusBadgeClass(p.state)}"
                 >
-                  {getStateName(p.state)}
+                  <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(p.state)}"></span>
+                  {getStateLabel(p.state)}
                 </span>
               </td>
               <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">

@@ -605,11 +605,13 @@ To maintain consistent user experience, visual hierarchy, and cross-theme readab
   - Eliminate heavy, dark row divider borders. Use soft subtle dividers (`divide-y divide-slate-200/80 dark:divide-slate-800/40`) or borderless padding layouts.
   - Selected row highlight must adapt to themes: `bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-100`.
 * **Standardized Status & Level Badges**:
+  - State and severity levels (Node state, Polling status/level, Event logs, Reports, etc.) across ALL screens must be standardized to uppercase English representation (`HIGH`, `LOW`, `WARN`, `INFO`, `NORMAL`, `REPAIR`, `OFF`, `UNKNOWN`) even in Japanese mode. Do NOT translate them to Japanese in status badges or level selection options.
   - State and severity levels must be rendered with a colored circle dot (`h-1.5 w-1.5 rounded-full shrink-0`) and an uppercase micro-badge (`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none`):
-    - **Normal / Info**: Green dot (`bg-emerald-500`) + soft green badge (`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60`)
-    - **Warn / Low**: Amber dot (`bg-amber-500`) + soft amber badge (`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60`)
-    - **High / Error**: Rose dot (`bg-rose-500`) + soft rose badge (`bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60`)
-    - **Debug / Unknown**: Slate dot (`bg-slate-500`) + soft slate badge (`bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700`)
+    - **Normal / Info**: Green dot (`bg-emerald-500` / `bg-sky-500`) + soft badge (`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60` or `sky`)
+    - **Warn / Low**: Amber dot (`bg-amber-500`) + soft amber badge (`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60` / `bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30`). WARN color must strictly use Amber (`#f59e0b`), never Orange or olive yellow.
+    - **High / Error**: Rose dot (`bg-rose-500`) + soft rose badge (`bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60` / `bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30`)
+    - **Repair**: Cyan/Blue dot (`bg-cyan-500` / `bg-sky-500`) + soft cyan badge (`bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800/60`)
+    - **Debug / Unknown / Off**: Slate dot (`bg-slate-500`) + soft slate badge (`bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700`)
 * **Metric Color Coding Policy**:
   - Do NOT apply arbitrary color coding to arbitrary numeric columns (e.g. packet counts).
   - Color coding is reserved strictly for threshold-based metrics (e.g. duration, latency, CPU/memory usage percentages) where higher values indicate warning or danger.

@@ -8,13 +8,15 @@
     Edit3,
     AlertTriangle,
     CheckCircle2,
+    AlertCircle,
+    Layers,
     ArrowUp,
     ArrowDown,
     ArrowUpDown,
   } from "@lucide/svelte";
   import { deleteLine, type LineEnt, type NodeEnt, type NetworkEnt, type PollingEnt } from "../../api";
   import { showConfirm } from "../../stores/modalStore";
-  import { getStateColor, getStateName } from "../../common";
+  import { getStateColor, getStateLabel } from "../../common";
   import LineDialog from "../../components/LineDialog.svelte";
   import ListPagination from "./ListPagination.svelte";
   import { getStatusBadge, getTargetLabel, isLineOrphaned, compareSortValues } from "./listUtils";
@@ -46,24 +48,112 @@
   let showLineDialog = $state(false);
   let selectedLine = $state<LineEnt | null>(null);
 
+  let statusFilter = $state("all");
+
+  const getTargetState = (
+    id?: string,
+    nodesList: NodeEnt[] = [],
+    networksList: NetworkEnt[] = []
+  ): string => {
+    if (!id) return "unknown";
+    if (id.startsWith("NET:")) {
+      const netId = id.replace("NET:", "");
+      const nw = networksList.find((n) => (n.id || n.ID) === netId);
+      if (!nw) return "unknown";
+      return nw.error || (nw as any).Error ? "high" : "normal";
+    }
+    const node = nodesList.find((n) => (n.id || n.ID) === id);
+    if (!node) return "unknown";
+    return node.state || (node as any).State || "normal";
+  };
+
+  const getLineEffectiveInfo = (
+    l: LineEnt,
+    nodesList: NodeEnt[] = [],
+    networksList: NetworkEnt[] = []
+  ): { state: string; isOrphaned: boolean; tooltip: string } => {
+    const orphaned = isLineOrphaned(l, nodesList, networksList);
+    const id1 = l.node_id1 || (l as any).NodeID1;
+    const id2 = l.node_id2 || (l as any).NodeID2;
+    const label1 = getTargetLabel(id1, nodesList, networksList);
+    const label2 = getTargetLabel(id2, nodesList, networksList);
+    const st1 = getTargetState(id1, nodesList, networksList);
+    const st2 = getTargetState(id2, nodesList, networksList);
+
+    if (orphaned) {
+      return {
+        state: "warn",
+        isOrphaned: true,
+        tooltip: `${$_('list.table.orphaned') || '接続先未検出 (孤立)'}: ${label1} (${getStateLabel(st1)}) ↔ ${label2} (${getStateLabel(st2)})`,
+      };
+    }
+
+    const lState = l.state || (l as any).State;
+    const states = [st1, st2];
+    if (lState && lState !== "normal") states.push(lState);
+
+    const severityOrder = ["high", "error", "down", "low", "warn", "warning", "unknown", "repair", "info", "normal", "up"];
+    let worst = "normal";
+    let worstIndex = severityOrder.length;
+
+    for (const s of states) {
+      const idx = severityOrder.indexOf((s || "").toLowerCase());
+      if (idx !== -1 && idx < worstIndex) {
+        worstIndex = idx;
+        worst = severityOrder[idx];
+      }
+    }
+
+    return {
+      state: worst,
+      isOrphaned: false,
+      tooltip: `${label1} (${getStateLabel(st1)}) ↔ ${label2} (${getStateLabel(st2)})`,
+    };
+  };
+
+  const lineStatusCounts = $derived.by(() => {
+    let normal = 0;
+    let warn = 0;
+    let error = 0;
+    for (const l of lines) {
+      const info = getLineEffectiveInfo(l, nodes, networks);
+      const st = info.state.toLowerCase();
+      if (st === "warn" || st === "warning") {
+        warn++;
+      } else if (st === "high" || st === "low" || st === "error" || st === "down") {
+        error++;
+      } else {
+        normal++;
+      }
+    }
+    return { all: lines.length, normal, warn, error };
+  });
+
   const filteredLines = $derived(
     lines.filter((l) => {
       const q = searchQuery.toLowerCase();
       const t1 = getTargetLabel(l.node_id1 || (l as any).NodeID1, nodes, networks).toLowerCase();
       const t2 = getTargetLabel(l.node_id2 || (l as any).NodeID2, nodes, networks).toLowerCase();
       const info = (l.info || (l as any).Info || "").toLowerCase();
-      return !q || t1.includes(q) || t2.includes(q) || info.includes(q);
+      const matchSearch = !q || t1.includes(q) || t2.includes(q) || info.includes(q);
+      if (!matchSearch) return false;
+
+      if (statusFilter === "all") return true;
+      const eff = getLineEffectiveInfo(l, nodes, networks).state.toLowerCase();
+      if (statusFilter === "normal") return eff === "normal" || eff === "repair" || eff === "info" || eff === "up";
+      if (statusFilter === "warn") return eff === "warn" || eff === "warning";
+      if (statusFilter === "error") return eff === "high" || eff === "low" || eff === "error" || eff === "down";
+      return eff === statusFilter;
     })
   );
 
   const getLineSortValue = (item: LineEnt, column: string): unknown => {
     switch (column) {
-      case "status": return item.state || (item as any).State || "";
+      case "status": return getLineEffectiveInfo(item, nodes, networks).state;
       case "source1": return getTargetLabel(item.node_id1 || (item as any).NodeID1, nodes, networks);
       case "target2": return getTargetLabel(item.node_id2 || (item as any).NodeID2, nodes, networks);
       case "width": return item.width ?? (item as any).Width ?? 0;
       case "infoPort": return item.info || (item as any).Info || (item as any).port || "";
-      case "health": return isLineOrphaned(item, nodes, networks) ? 0 : 1;
     }
     return "";
   };
@@ -122,17 +212,17 @@
 
 {#snippet sortableHeader(column: string, label: string, classes = "")}
   <th
-    class="py-2.5 px-3.5 {classes}"
+    class="py-2.5 px-3.5 whitespace-nowrap {classes}"
     aria-sort={sortColumn === column
       ? sortDirection === "asc" ? "ascending" : "descending"
       : "none"}
   >
     <button
       type="button"
-      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap"
       onclick={() => handleSort(column)}
     >
-      <span>{label}</span>
+      <span class="whitespace-nowrap">{label}</span>
       {#if sortColumn === column}
         {#if sortDirection === "asc"}
           <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
@@ -160,6 +250,42 @@
           oninput={() => (currentPage = 1)}
           class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 py-1.5 pl-9 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-sans"
         />
+      </div>
+
+      <!-- Status Filters -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onclick={() => { statusFilter = "all"; currentPage = 1; }}
+          class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+        >
+          <Layers class="w-3.5 h-3.5" />
+          <span>ALL ({lineStatusCounts.all})</span>
+        </button>
+        <button
+          type="button"
+          onclick={() => { statusFilter = "normal"; currentPage = 1; }}
+          class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'normal' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+        >
+          <CheckCircle2 class="w-3.5 h-3.5 {statusFilter === 'normal' ? 'text-white' : 'text-emerald-500'}" />
+          <span>NORMAL ({lineStatusCounts.normal})</span>
+        </button>
+        <button
+          type="button"
+          onclick={() => { statusFilter = "warn"; currentPage = 1; }}
+          class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'warn' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+        >
+          <AlertTriangle class="w-3.5 h-3.5 {statusFilter === 'warn' ? 'text-white' : 'text-amber-500'}" />
+          <span>WARN ({lineStatusCounts.warn})</span>
+        </button>
+        <button
+          type="button"
+          onclick={() => { statusFilter = "error"; currentPage = 1; }}
+          class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'error' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
+        >
+          <AlertCircle class="w-3.5 h-3.5 {statusFilter === 'error' ? 'text-white' : 'text-rose-500'}" />
+          <span>HIGH / LOW ({lineStatusCounts.error})</span>
+        </button>
       </div>
     </div>
 
@@ -189,24 +315,31 @@
       <table class="w-full text-left text-xs">
         <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
           <tr>
-            {@render sortableHeader("status", $_('list.table.status'), "w-28")}
+            {@render sortableHeader("status", $_('list.table.status'), "w-36")}
             {@render sortableHeader("source1", $_('list.table.source1'))}
             {@render sortableHeader("target2", $_('list.table.target2'))}
             {@render sortableHeader("width", $_('list.table.width'), "w-24")}
             {@render sortableHeader("infoPort", $_('list.table.infoPort'))}
-            {@render sortableHeader("health", $_('list.table.health'), "w-48")}
-            <th class="py-1 px-2 text-right w-24">{$_('list.table.action')}</th>
+            <th class="py-1 px-2 text-right w-24 whitespace-nowrap">{$_('list.table.action')}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
           {#each paginatedLines as l}
-            {@const orphaned = isLineOrphaned(l, nodes, networks)}
-            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {orphaned ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
-              <td class="py-1 px-2">
-                <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(l.state)}">
-                  <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(l.state)}"></span>
-                  {getStateName(l.state, $_)}
-                </span>
+            {@const lineInfo = getLineEffectiveInfo(l, nodes, networks)}
+            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors {lineInfo.isOrphaned ? 'bg-amber-500/10 dark:bg-amber-950/20' : ''}">
+              <td class="py-1 px-2 whitespace-nowrap" title={lineInfo.tooltip}>
+                <div class="inline-flex items-center gap-1.5">
+                  <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(lineInfo.state)}">
+                    <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(lineInfo.state)}"></span>
+                    {getStateLabel(lineInfo.state)}
+                  </span>
+                  {#if lineInfo.isOrphaned}
+                    <span class="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30" title={$_('list.table.orphaned')}>
+                      <AlertTriangle class="h-3 w-3" />
+                      ORPHAN
+                    </span>
+                  {/if}
+                </div>
               </td>
               <td class="py-1 px-2 font-sans font-medium text-slate-800 dark:text-slate-200">
                 {getTargetLabel(l.node_id1 || (l as any).NodeID1, nodes, networks)}
@@ -217,19 +350,6 @@
               <td class="py-1 px-2 text-slate-700 dark:text-slate-300">{l.width} px</td>
               <td class="py-1 px-2 text-slate-700 dark:text-slate-300 font-sans">
                 {l.info || (l as any).port || "-"}
-              </td>
-              <td class="py-1 px-2 font-sans">
-                {#if orphaned}
-                  <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                    <AlertTriangle class="h-3 w-3" />
-                    {$_('list.table.orphaned')}
-                  </span>
-                {:else}
-                  <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <CheckCircle2 class="h-3 w-3" />
-                    {$_('list.table.healthy')}
-                  </span>
-                {/if}
               </td>
               <td class="py-0 px-1 text-right font-sans">
                 <div class="flex items-center justify-end">
@@ -253,7 +373,7 @@
           {/each}
           {#if filteredLines.length === 0}
             <tr>
-              <td colspan="7" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
+              <td colspan="6" class="py-12 text-center text-slate-400 dark:text-slate-500 font-sans">
                 {$_('list.empty.lines')}
               </td>
             </tr>

@@ -14,7 +14,7 @@
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
   import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
-  import { getStateColor, formatTimeStr } from "../../common";
+  import { getStateColor, getStatusBadgeClass, getStateLabel, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import type { EventLogEnt, NodeEnt } from "../../api";
 
@@ -995,11 +995,10 @@
               <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 <td class="py-1 px-2 font-bold whitespace-nowrap text-[11px]">
                   <span
-                    class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none"
-                    style="background-color: {getStateColor(row.level)}20; border-color: {getStateColor(row.level)}50; color: {getStateColor(row.level)}"
+                    class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getStatusBadgeClass(row.level)}"
                   >
                     <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(row.level)}"></span>
-                    {row.level}
+                    {getStateLabel(row.level)}
                   </span>
                 </td>
                 <td class="py-1 px-2 font-bold font-mono text-[11px] text-slate-900 dark:text-slate-100">

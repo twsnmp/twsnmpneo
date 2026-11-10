@@ -425,7 +425,7 @@
             <label for="poll-level" class={labelClass}>{$_("polling.level")}</label>
             <select id="poll-level" bind:value={level} class={controlClass}>
               {#each levels as value}
-                <option {value}>{$_(`polling.levels.${value}`)}</option>
+                <option {value}>{value.toUpperCase()}</option>
               {/each}
             </select>
           </div>

@@ -21,7 +21,7 @@
   import { showConfirm } from "../../stores/modalStore";
   import {
     getStateColor,
-    getStateName,
+    getStateLabel,
     formatTimeStr,
     getLogModeName,
     getLogModeBadgeClass,
@@ -200,17 +200,17 @@
 
 {#snippet sortableHeader(column: string, label: string, classes = "")}
   <th
-    class="py-2.5 px-3.5 {classes}"
+    class="py-2.5 px-3.5 whitespace-nowrap {classes}"
     aria-sort={sortColumn === column
       ? sortDirection === "asc" ? "ascending" : "descending"
       : "none"}
   >
     <button
       type="button"
-      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap"
       onclick={() => handleSort(column)}
     >
-      <span>{label}</span>
+      <span class="whitespace-nowrap">{label}</span>
       {#if sortColumn === column}
         {#if sortDirection === "asc"}
           <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
@@ -248,7 +248,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <Layers class="w-3.5 h-3.5" />
-          <span>{$_('list.filter.allStatus')} ({pollingStatusCounts.all})</span>
+          <span>ALL ({pollingStatusCounts.all})</span>
         </button>
         <button
           type="button"
@@ -256,7 +256,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'normal' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <CheckCircle2 class="w-3.5 h-3.5 {statusFilter === 'normal' ? 'text-white' : 'text-emerald-500'}" />
-          <span>{$_('list.filter.normalRepair')} ({pollingStatusCounts.normal})</span>
+          <span>NORMAL ({pollingStatusCounts.normal})</span>
         </button>
         <button
           type="button"
@@ -264,7 +264,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'warn' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <AlertTriangle class="w-3.5 h-3.5 {statusFilter === 'warn' ? 'text-white' : 'text-amber-500'}" />
-          <span>{$_('list.filter.warn')} ({pollingStatusCounts.warn})</span>
+          <span>WARN ({pollingStatusCounts.warn})</span>
         </button>
         <button
           type="button"
@@ -272,7 +272,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'error' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <AlertCircle class="w-3.5 h-3.5 {statusFilter === 'error' ? 'text-white' : 'text-rose-500'}" />
-          <span>{$_('list.filter.faultHeavyLight')} ({pollingStatusCounts.error})</span>
+          <span>HIGH / LOW ({pollingStatusCounts.error})</span>
         </button>
         <button
           type="button"
@@ -331,7 +331,7 @@
       <table class="w-full text-left text-xs">
         <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
           <tr>
-            {@render sortableHeader("status", $_('list.table.status'), "w-28")}
+            {@render sortableHeader("status", $_('list.table.status'), "w-32")}
             {@render sortableHeader("name", $_('list.table.pollingName'))}
             {@render sortableHeader("type", $_('list.table.type'), "w-24")}
             {@render sortableHeader("mode", $_('list.table.mode') || 'モード', "w-28")}
@@ -339,16 +339,16 @@
             {@render sortableHeader("targetNode", $_('list.table.targetNode'))}
             {@render sortableHeader("lastVal", $_('list.table.lastVal'), "w-32")}
             {@render sortableHeader("lastTime", $_('list.table.lastTime'), "w-40")}
-            <th class="py-1 px-2 text-right w-24">{$_('list.table.action')}</th>
+            <th class="py-1 px-2 text-right w-24 whitespace-nowrap">{$_('list.table.action')}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
           {#each paginatedPollings as p}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-1 px-2">
+              <td class="py-1 px-2 whitespace-nowrap">
                 <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(p.state)}">
-                  <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(p.state)}"></span>
-                  {getStateName(p.state, $_)}
+                  <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(p.state)}"></span>
+                  {getStateLabel(p.state)}
                 </span>
               </td>
               <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans">{p.name}</td>

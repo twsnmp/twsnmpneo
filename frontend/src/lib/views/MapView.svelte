@@ -60,7 +60,7 @@
     type EventLogEnt,
     type PollingEnt,
   } from "../api";
-  import { getStateColor, setCustomIcons } from "../common";
+  import { getStateColor, getStatusBadgeClass, getStateLabel, setCustomIcons } from "../common";
   import { _ } from "svelte-i18n";
   import {
     ZoomIn,
@@ -790,24 +790,7 @@
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
   };
 
-  const getLevelBadgeClass = (lvl: string) => {
-    switch (lvl?.toLowerCase()) {
-      case "normal":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-      case "repair":
-        return "bg-cyan-500/10 text-cyan-300 border-cyan-500/30";
-      case "warn":
-      case "low":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-      case "high":
-      case "error":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
-      case "info":
-        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
-      default:
-        return "bg-slate-800 text-slate-400 border-slate-700";
-    }
-  };
+  const getLevelBadgeClass = (lvl: string) => getStatusBadgeClass(lvl);
 </script>
 
 <svelte:window
@@ -900,7 +883,7 @@
               <td class="py-1 px-2">
                 <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getLevelBadgeClass(log.level || (log as any).Level)}">
                   <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(log.level || (log as any).Level)}"></span>
-                  {log.level || (log as any).Level || 'info'}
+                  {getStateLabel(log.level || (log as any).Level || 'info')}
                 </span>
               </td>
               <td class="py-1 px-2 text-slate-500 dark:text-slate-400 text-[11px]">

@@ -1,5 +1,5 @@
 import type { EventLogEnt } from "../../api";
-import { formatTimeStr, renderTimeMili, renderBytes, getSyslogType } from "../../common";
+import { formatTimeStr, renderTimeMili, renderBytes, getSyslogType, getStatusBadgeClass } from "../../common";
 import type { ColumnDef, LogCategory, LogItem } from "./types";
 
 export const parseJsonSafe = (str: string): any => {
@@ -263,22 +263,7 @@ export const getCategoryColumns = (t: (key: string) => string): Record<string, C
 });
 
 export const getLevelBadge = (level: string): string => {
-  switch (level?.toLowerCase()) {
-    case "normal":
-      return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30";
-    case "warn":
-    case "low":
-      return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30";
-    case "high":
-    case "error":
-    case "change":
-      return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30";
-    case "info":
-    case "new":
-      return "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30";
-    default:
-      return "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
-  }
+  return getStatusBadgeClass(level);
 };
 
 export const exportLogsCSV = (

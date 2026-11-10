@@ -18,7 +18,7 @@
   } from "@lucide/svelte";
   import { deleteNode, type NodeEnt, type PollingEnt } from "../../api";
   import { showConfirm } from "../../stores/modalStore";
-  import { getStateColor, getStateName, isImageIcon, getIconImage, getIconCode } from "../../common";
+  import { getStateColor, getStateLabel, isImageIcon, getIconImage, getIconCode } from "../../common";
   import { getVendor } from "../reports/utils";
   import NodeDialog from "../../components/NodeDialog.svelte";
   import NodeDetailModal from "../../components/NodeDetailModal.svelte";
@@ -173,17 +173,17 @@
 
 {#snippet sortableHeader(column: string, label: string, classes = "")}
   <th
-    class="py-2.5 px-3.5 {classes}"
+    class="py-2.5 px-3.5 whitespace-nowrap {classes}"
     aria-sort={sortColumn === column
       ? sortDirection === "asc" ? "ascending" : "descending"
       : "none"}
   >
     <button
       type="button"
-      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200"
+      class="inline-flex items-center gap-1 cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200 whitespace-nowrap"
       onclick={() => handleSort(column)}
     >
-      <span>{label}</span>
+      <span class="whitespace-nowrap">{label}</span>
       {#if sortColumn === column}
         {#if sortDirection === "asc"}
           <ArrowUp class="h-2.5 w-2.5 text-cyan-600 dark:text-cyan-400" />
@@ -221,7 +221,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <Layers class="w-3.5 h-3.5" />
-          <span>{$_('list.filter.allStatus')} ({nodeStatusCounts.all})</span>
+          <span>ALL ({nodeStatusCounts.all})</span>
         </button>
         <button
           type="button"
@@ -229,7 +229,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'normal' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <CheckCircle2 class="w-3.5 h-3.5 {statusFilter === 'normal' ? 'text-white' : 'text-emerald-500'}" />
-          <span>{$_('list.filter.normalRepair')} ({nodeStatusCounts.normal})</span>
+          <span>NORMAL ({nodeStatusCounts.normal})</span>
         </button>
         <button
           type="button"
@@ -237,7 +237,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'warn' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <AlertTriangle class="w-3.5 h-3.5 {statusFilter === 'warn' ? 'text-white' : 'text-amber-500'}" />
-          <span>{$_('list.filter.warn')} ({nodeStatusCounts.warn})</span>
+          <span>WARN ({nodeStatusCounts.warn})</span>
         </button>
         <button
           type="button"
@@ -245,7 +245,7 @@
           class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {statusFilter === 'error' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
           <AlertCircle class="w-3.5 h-3.5 {statusFilter === 'error' ? 'text-white' : 'text-rose-500'}" />
-          <span>{$_('list.filter.faultHeavyLight')} ({nodeStatusCounts.error})</span>
+          <span>HIGH / LOW ({nodeStatusCounts.error})</span>
         </button>
       </div>
     </div>
@@ -276,22 +276,22 @@
       <table class="w-full text-left text-xs">
         <thead class="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
           <tr>
-            {@render sortableHeader("status", $_('list.table.status'), "w-28")}
+            {@render sortableHeader("status", $_('list.table.status'), "w-32")}
             {@render sortableHeader("name", $_('list.table.nodeName'))}
             {@render sortableHeader("ip", $_('list.table.ip'))}
             {@render sortableHeader("mac", $_('list.table.mac'))}
             {@render sortableHeader("vendor", $_('list.table.vendor') || 'ベンダー')}
             {@render sortableHeader("descr", $_('list.table.descr'))}
-            <th class="py-1 px-2 text-right w-28">{$_('list.table.action')}</th>
+            <th class="py-1 px-2 text-right w-28 whitespace-nowrap">{$_('list.table.action')}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono text-slate-700 dark:text-slate-300">
           {#each paginatedNodes as n}
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-              <td class="py-1 px-2">
+              <td class="py-1 px-2 whitespace-nowrap">
                 <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadge(n.state)}">
-                  <span class="h-1.5 w-1.5 rounded-full" style="background-color: {getStateColor(n.state)}"></span>
-                  {getStateName(n.state, $_)}
+                  <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(n.state)}"></span>
+                  {getStateLabel(n.state)}
                 </span>
               </td>
               <td class="py-1 px-2 font-bold text-slate-900 dark:text-slate-100 font-sans flex items-center gap-2">

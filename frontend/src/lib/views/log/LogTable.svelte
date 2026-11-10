@@ -12,7 +12,7 @@
     Loader2,
   } from "@lucide/svelte";
   import AnimatedCatLogo from "../../components/common/AnimatedCatLogo.svelte";
-  import { formatTimeStr, renderTimeMili, renderBytes, getStateColor } from "../../common";
+  import { formatTimeStr, renderTimeMili, renderBytes, getStateColor, getStateLabel } from "../../common";
   import { getLevelBadge, formatCounterData } from "./logUtils";
   import type { ColumnDef, LogCategory, LogItem } from "./types";
 
@@ -140,7 +140,7 @@
                       class="h-1.5 w-1.5 rounded-full shrink-0"
                       style="background-color: {getStateColor(item.level || item.state || 'info')}"
                     ></span>
-                    {item.level || item.state || 'info'}
+                    {getStateLabel(item.level || item.state || 'info')}
                   </span>
                 {:else if col.key === "bytes" && typeof item.bytes === "number"}
                   <span class="font-sans text-[11px] text-slate-700 dark:text-slate-300 leading-tight">

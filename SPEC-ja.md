@@ -335,11 +335,13 @@ TWSNMP NEO のすべての画面・コンポーネント開発において、統
   - 不要な太い枠線や区切り線を排除し、繊細なボーダー（`divide-y divide-slate-200/80 dark:divide-slate-800/40`）または境界線なしの余白中心デザインとする。
   - 行選択時のハイライトは `bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-100` を適用する。
 * **ステータス & ログレベルバッジの統一**:
+  - ノード状態（State）、ポーリング状態/レベル（Polling State/Level）、イベント・ログ（Event Logs）、各種レポート等、全画面における状態・重要度の表示は、日本語モードであっても**イベント・ログ基準の英語大文字表記（`HIGH`, `LOW`, `WARN`, `INFO`, `NORMAL`, `REPAIR`, `OFF`, `UNKNOWN` 等）に完全統一**する。バッジやセレクトボックス等で日本語（「注意」「軽度」「復帰」など）に翻訳・表示ゆれさせない。
   - 状態（State）や重要度（Level）の表示は、すべて「色付き丸ドット（`h-1.5 w-1.5 rounded-full shrink-0`）＋極小タグ（`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none`）」スタイルで統一する。
-    - **Normal / Info**: 緑ドット（`bg-emerald-500`）＋薄緑バッジ（`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60`）
-    - **Warn / Low**: 橙ドット（`bg-amber-500`）＋薄橙バッジ（`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60`）
-    - **High / Error**: 赤ドット（`bg-rose-500`）＋薄赤バッジ（`bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60`）
-    - **Debug / Unknown**: 灰ドット（`bg-slate-500`）＋薄灰バッジ（`bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700`）
+    - **Normal / Info**: 緑・青ドット（`bg-emerald-500` / `bg-sky-500`）＋薄緑/青バッジ（`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60` または `sky`）
+    - **Warn / Low**: 橙ドット（`bg-amber-500`）＋薄橙バッジ（`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60` / `bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30`）。WARN の配色は厳格に Amber（`#f59e0b`）に統一し、Orange や黄緑色への分岐を禁止する。
+    - **High / Error**: 赤ドット（`bg-rose-500`）＋薄赤バッジ（`bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60` / `bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30`）
+    - **Repair**: 青緑/シアン・青ドット（`bg-cyan-500` / `bg-sky-500`）＋薄青バッジ（`bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800/60`）
+    - **Debug / Unknown / Off**: 灰ドット（`bg-slate-500`）＋薄灰バッジ（`bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700`）
 * **数値・メトリクス等の色分け原則**:
   - 単なるパケット数や回数などの列を無意味に列単位で色分けすることは禁止する。
   - 所要時間（ミリ秒・秒）やリソース使用率（CPU・メモリ負荷）など、「閾値を超えると問題となる数値」についてのみ、高負荷・長時間を強調する色分け（緑→黄→赤）を適用する。

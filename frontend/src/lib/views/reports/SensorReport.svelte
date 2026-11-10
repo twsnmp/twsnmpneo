@@ -38,7 +38,7 @@
     type SensorMonitorEnt,
     type NodeEnt,
   } from "../../api";
-  import { getStateColor, getStateName, formatTimeStr } from "../../common";
+  import { getStateColor, getStateName, getStateLabel, getStatusBadgeClass, formatTimeStr } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import ReportPagination from "./components/ReportPagination.svelte";
 
@@ -1148,12 +1148,10 @@
               <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group">
                 <!-- State -->
                 <td class="py-1 px-2 font-sans">
-                  <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
-                    style="border-color: {getStateColor(item.State)}40; background-color: {getStateColor(item.State)}15; color: {getStateColor(item.State)};"
-                  >
-                    <span class="w-1.5 h-1.5 rounded-full" style="background-color: {getStateColor(item.State)};"></span>
-                    <span>{getStateName(item.State)}</span>
-                  </div>
+                  <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border leading-none {getStatusBadgeClass(item.State)}">
+                    <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {getStateColor(item.State)}"></span>
+                    {getStateLabel(item.State)}
+                  </span>
                 </td>
 
                 <!-- Host -->

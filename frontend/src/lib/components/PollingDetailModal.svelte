@@ -1,6 +1,6 @@
 <script lang="ts">
   import { _, locale } from "svelte-i18n";
-  import { getStateColor, getStateName, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
+  import { getStateColor, getStateLabel, getStatusBadgeClass, formatTimeStr, getLogModeName, getLogModeBadgeClass } from "../common";
   import type { PollingEnt, NodeEnt } from "../api";
   import {
     X,
@@ -32,6 +32,7 @@
 
   let copied = $state(false);
   const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
+  const pollingState = $derived(polling?.state || (polling as any)?.State || "unknown");
 
   const copyResultJson = async () => {
     if (!polling?.result) return;
@@ -74,14 +75,13 @@
                 {polling.name || (polling as any).Name}
               </h2>
               <span
-                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border"
-                style="background-color: {getStateColor(polling.state || (polling as any).State)}18; border-color: {getStateColor(polling.state || (polling as any).State)}50; color: {getStateColor(polling.state || (polling as any).State)}"
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border {getStatusBadgeClass(pollingState)}"
               >
                 <span
                   class="h-1.5 w-1.5 rounded-full"
-                  style="background-color: {getStateColor(polling.state || (polling as any).State)}"
+                  style="background-color: {getStateColor(pollingState)}"
                 ></span>
-                {getStateName(polling.state || (polling as any).State, $_)}
+                {getStateLabel(pollingState)}
               </span>
               <span
                 class="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase bg-blue-50 dark:bg-cyan-500/10 text-blue-700 dark:text-cyan-300 border border-blue-200 dark:border-cyan-500/30"

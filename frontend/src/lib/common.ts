@@ -5,7 +5,7 @@ import { locale } from 'svelte-i18n';
 export const stateList = [
   { text: '重度障害', textEn: 'High Severity', color: '#e31a1c', icon: 'mdi-alert-circle', value: 'high' },
   { text: '軽度障害', textEn: 'Low Severity', color: '#fb9a99', icon: 'mdi-alert-circle', value: 'low' },
-  { text: '注意', textEn: 'Warning', color: '#dfdf22', icon: 'mdi-alert', value: 'warn' },
+  { text: '注意', textEn: 'Warning', color: '#f59e0b', icon: 'mdi-alert', value: 'warn' },
   { text: '正常', textEn: 'Normal', color: '#33a02c', icon: 'mdi-check-circle', value: 'normal' },
   { text: '復帰', textEn: 'Repaired', color: '#1f78b4', icon: 'mdi-autorenew', value: 'repair' },
   { text: '情報', textEn: 'Info', color: '#1f78b4', icon: 'mdi-information', value: 'info' },
@@ -26,6 +26,34 @@ stateList.forEach((e) => {
 export const getStateColor = (state: string): string => {
   if (!state) return '#999';
   return stateMap[state] ? stateMap[state].color : (stateMap[state.toLowerCase()] ? stateMap[state.toLowerCase()].color : '#999');
+};
+
+export const getStateLabel = (state: string): string => {
+  if (!state) return 'UNKNOWN';
+  return String(state).toUpperCase();
+};
+
+export const getStatusBadgeClass = (state: string): string => {
+  switch (state?.toLowerCase()) {
+    case 'normal':
+      return 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30';
+    case 'repair':
+      return 'bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-500/10 dark:text-cyan-300 dark:border-cyan-500/30';
+    case 'warn':
+    case 'low':
+      return 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30';
+    case 'high':
+    case 'error':
+    case 'down':
+    case 'change':
+      return 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30';
+    case 'info':
+    case 'new':
+      return 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30';
+    case 'off':
+    default:
+      return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
+  }
 };
 
 export const getStateName = (state: string, t?: (key: string) => string): string => {
