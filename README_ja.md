@@ -37,18 +37,18 @@
 - **MapLibre GIS 位置情報マップ**: 国土地理院・OpenStreetMap・CARTO 等の地図タイル上にノードを配置し、広域拠点網の地理的物理配置とリアルタイム稼働状態を監視。未配置ノード配置、マーカードラッグ＆ドロップ、表示位置保存に対応。
 - **3D 仮想ハードウェアパネル（`vpanel`）**: WebGLによる3Dスイッチングハブ描画。RJ45ポートテクスチャ、Link UP/DOWN緑LED、1Gbps+橙LED、POWER青LED、マウスによる3D回転・自動回転表示。
 - **Apache ECharts 分析チャート**: レスポンス推移、トラフィック量、IPAMヒートマップ、各種ログの時系列・ヒストグラム分析。
-- **公開ダッシュボード & 外部埋め込み (Public Dashboard)**: トークン認証による安全な公開画面（`/dashboard/:key`）。複数アイテム（マップ、ポーリング）の自動ローテーション、twFathom風サマリーKPIカード、TVドラマ風緊急警報画面（Drama Alert Overlay）と電子警告音、および Wiki/社内ポータル向け iframe 埋め込みに対応。
+- **公開ダッシュボード & 外部埋め込み (Public Dashboard)**: トークン認証による安全な公開画面（`/dashboard/:key`）。複数アイテム（マップ、ポーリング）の自動ローテーション、5段階状態（HIGH/LOW/WARN/REPAIR/NORMAL）の均等グリッドKPIカード、ヘッダー言語切替ボタンによる日英バイリンガル対応（i18n）、TVドラマ風緊急警報画面（Drama Alert Overlay）と電子警告音、および Wiki/社内ポータル向け iframe 埋め込みに対応。
 
 ### 2. Apache Parquet による大容量・超高速ログストレージ
 - **Syslog、SNMP TRAP、NetFlow v5/v9/IPFIX、sFlow v5、ARP Watch、OpenTelemetry、MQTT、ポーリング時系列ログ**を列指向圧縮フォーマット（Parquet）で効率的に保存。
 - 1万件単位の高速クエリ、複合条件フィルタ、および容量・日数指定による安全な自動ローテーション。
 - **独立したログ保持期間ポリシー**: bbolt（イベントログ）とParquet（受信ログ）の保存日数を個別に設定し、バックグラウンドで安全に自動パージ。
-- **高速検索 & Parquet コンパクション**: bbolt のインメモリキャッシュ＆遅延バッチフラッシュ、Parquet のタイムスタンプ高速フィルタリングおよびバックグラウンドファイル自動結合（コンパクション）による高速化。
+- **高速検索 & Parquet コンパクション**: bbolt のインメモリキャッシュ＆遅延バッチフラッシュ、Parquet のタイムスタンプ高速フィルタリング、行数キャッシュによる並列件数スキャン、およびバックグラウンドファイル自動結合（コンパクション）による高速化。
 - **Syslog プローブタグ柔軟解析 & DNS 逆引きキャッシュ**: 各種プローブログ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）のタグを自動判別・正規化し、レポート集計時は未登録ノードのホスト名を DNS 逆引きキャッシュで高速解決。
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
 - **Streamable HTTP MCP サーバー (`/api/mcp`)**: 25種以上の運用・診断ツール（OTelメトリクス/トレース、レポートサマリー、センサー等）と19種のプロンプトテンプレートをAIエージェント（Cursor, Claude Desktop, Antigravity など）に提供。
-- **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini, OpenAI, Claude, ローカル Ollama への接続および WebGPU オフライン推論に対応。
+- **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini, OpenAI, Claude, ローカル Ollama への接続、思考モデル（Thinking models）対応、タイムアウト延長（15分）、および WebGPU オフライン推論に対応。
 - **ワンクリック AI 診断**: イベントログの原因分析、全レポート画面（Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel 等）での統計データAI診断（Markdown表示、WAITアニメーション）、ノード健全性診断。
 - **OTel APM & AI/LLM ポーリング**: OTel メトリック集計・トレースエラー率/P95レイテンシ・ハートビート監視ポーリング、OTelView からのワンクリックポーリング作成、HTTP ポーリングによる OpenAI 互換 / Ollama API の死活・RTT・モデル数監視。
 
@@ -73,7 +73,8 @@
 - **診断ツール**: リアルタイムPing (ICMP/UDP)、Smokeping、MTR（AI解説付き）、MIBブラウザ / MIBツリー、gNMI（列幅調整・検索・ページネーション・ショートカット対応）、Wake-on-LAN (WOL)
 - **データベース定期バックアップ & 復元管理**: トランザクションセーフな `bbolt.Tx.CopyFile` によるスナップショットバックアップ（フル / 設定のみの軽量モード）、スケジュール定期実行（毎日/1回のみ/即時実行後毎日）と自動世代管理（1〜30世代）。Web UIでのバックアップ管理モーダル（一覧・即時作成・ダウンロード・削除）およびCLI（`-backup`, `-restore`, `-compact`）による確実な運用・リストア。
 - **URL パラメータ自動ログイン & セキュリティクリーンアップ**: URLクエリによる自動ログイン（`token` または ID/パスワード）と初期表示画面指定（`view`）、URL履歴からの機密パラメータ自動除去によるセキュアなマルチウィンドウ連携（`twsnmpmw`）。
-- **定期日報レポート**: 障害通知に加えて、毎朝の日報レポート（HTMLメール / Webhook）に bbolt および Parquet ログストレージの使用容量集計を自動掲載。
+- **定期日報レポート**: 障害通知に加えて、毎朝の日報レポート（HTMLメール / Webhook）に bbolt および Parquet ログストレージの使用容量集計、および同一警告イベントの集約（`count=N`）を自動掲載。
+- **UI & ステータス表示の統一**: 全画面で状態・重要度を英語大文字表記（`HIGH`, `LOW`, `WARN`, `INFO`, `NORMAL`, `REPAIR` 等）に完全統一し、WARN の配色を Amber（`#f59e0b`）に統一。ライン接続でのヘルス状態表示にも対応。
 - **システム管理**: システムステータス（デーモン稼働状態、DB容量予測、バックアップ管理、ワンクリックセルフアップデート）とリソースモニターの2タブ構成
 
 ---

@@ -466,6 +466,7 @@ Configure AI providers (Local `tensai` LLM, Gemini, OpenAI, Claude, Ollama) and 
 
 #### Local LLM & WebGPU Acceleration
 TWSNMP NEO includes an offline inference engine (`tensai` v0.0.35+) requiring zero external cloud dependencies or API keys. Supports one-click Hugging Face model downloads, expanded model presets, hardware-accelerated local WebGPU inference, rich Markdown output formatting, language switching, and smooth loading animations.
+HTTP timeouts for local and external LLMs are extended to 15 minutes, with built-in output parsing for reasoning and thinking models (such as DeepSeek-R1 and Qwen) via Ollama.
 
 ![](./images/en/ai_gpu_manager.png)
 
@@ -490,7 +491,9 @@ TWSNMP NEO features a secure, token-authenticated public dashboard designed for 
 - **Multiple Item Registration & Auto-Rotation**:
   Register multiple views (complete topology map and specific critical node polling metrics like response times, bandwidth, or CPU load) and rotate through them automatically at custom intervals.
 - **twFathom-Style Summary KPI Cards**:
-  Displays 6 high-level KPIs across the top banner: High Critical count, Warning count, AI Anomaly score & count, 24-hour event log volume, Anomalous flow (Fumble) count, and overall healthy nodes ratio.
+  Arranges balanced 5-level severity breakdown pills (HIGH, LOW, WARN, REPAIR, NORMAL) in equal-width grids across the top banner. Delivers instant visibility across node states, polling states, 24-hour log ingestion volume (Event/Syslog/Trap), and AI anomaly scores.
+- **Bilingual Internationalization (i18n)**:
+  Instant JA/EN locale toggle button in the header with persistent preferences, fully translating KPI labels, date formatting, chart tooltips, and alert overlay messages.
 - **Smooth Time-Series Charting**:
   Features smooth gradient area and line charts powered by Apache ECharts for historical trending and instant spike detection.
 - **TV-Drama Style Emergency Alert Overlay (Drama Alert Overlay)**:
@@ -528,8 +531,8 @@ Configure the public dashboard via the "Dashboard" tab in System Configuration: 
 ### Notifications (Email / Webhook)
 
 Receive instant alerts and periodic reports across supported channels:
-- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries (including direct access links back to TWSNMP NEO) and daily operational reports (including storage footprint analytics for both bbolt and Parquet).
-- **Webhooks**: Real-time event notifications and daily report postings sent directly to your custom webhook endpoints or automation workflows (including storage metrics).
+- **Email** (SMTP / Google OAuth2 / Microsoft 365 OAuth2): Formatted HTML alert summaries (including direct access links back to TWSNMP NEO) and daily operational reports (including storage footprint analytics for both bbolt and Parquet, alongside grouped warning event summaries `count=N`).
+- **Webhooks**: Real-time event notifications and daily report postings sent directly to your custom webhook endpoints or automation workflows (including storage metrics and grouped warning events).
 - **External Command Execution**: Execute arbitrary OS scripts or commands triggered on fault level state changes.
 
 ![](./images/en/settings_notify.png)

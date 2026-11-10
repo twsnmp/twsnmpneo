@@ -36,18 +36,18 @@
 - **MapLibre GIS Geographic Map**: Plot and monitor nodes across geographical layers (OpenStreetMap, GSI, CARTO) with real-time status coloring, marker drag-and-drop repositioning, unplaced node placement, and default view persistence.
 - **3D Virtual Hardware Panel (`vpanel`)**: WebGL-accelerated 3D switch rendering with RJ45 port textures, Link UP/DOWN & 1Gbps+ speed LEDs, power LEDs, and interactive orbit controls.
 - **Apache ECharts Analytics**: High-performance multi-axis time-series charts, IPAM utilization heatmaps, response time distribution, and traffic rate graphs.
-- **Public Dashboard & Embed System**: Token-authenticated public view (`/dashboard/:key`) featuring multiple item rotations (topology map, polling metrics), twFathom-style summary KPI cards, TV drama alert overlay with audio hazard alarm, and iframe embedding (`?embed=true`).
+- **Public Dashboard & Embed System**: Token-authenticated public view (`/dashboard/:key`) featuring multiple item rotations (topology map, polling metrics), balanced 5-level severity breakdown KPI pills, instant JA/EN locale switcher (i18n), TV drama alert overlay with audio hazard alarm, and iframe embedding (`?embed=true`).
 
 ### 2. Columnar Big Data Storage (Apache Parquet)
 - High-speed compressed storage for **Syslog, SNMP TRAP, NetFlow v5/v9/IPFIX, sFlow v5, ARP Watch, OpenTelemetry, MQTT**, and polling logs.
 - Lightning-fast multi-criteria filtering, pagination, and automated retention/rotation policies.
 - **Independent Log Retention**: Configurable separate retention durations for bbolt event logs and Parquet streaming logs with automated background purging.
-- **High-Speed Search & Parquet Compaction**: In-memory caching and deferred batch flushing for bbolt, timestamp-based fast filtering, and automated background file compaction for Parquet storage.
+- **High-Speed Search & Parquet Compaction**: In-memory caching and deferred batch flushing for bbolt, timestamp-based fast filtering, parallel count scanning with row cache, and automated background file compaction for Parquet storage.
 - **Probe Tag Parsing & Cached Reverse DNS**: Automatically extracts and normalizes tags for probe logs (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`) and resolves hostnames dynamically for unregistered IP nodes via cached reverse DNS lookup.
 
 ### 3. Native AI & Built-in MCP Server
 - **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 25+ diagnostic/management tools (OTel metrics/traces, report summary, sensor type filters) and 19 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
-- **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with WebGPU offline inference.
+- **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with support for thinking models, extended timeouts (15 minutes), and WebGPU offline inference.
 - **In-App AI Diagnosis**: One-click AI diagnosis across all report views (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) with rich Markdown output, smooth loading animations, and automated root cause analysis.
 - **OTel APM & AI/LLM Polling**: OTel metric evaluation, trace error-rate/P95 latency, and telemetry heartbeat polling with one-click polling generation from OTelView. HTTP polling monitoring OpenAI-compatible and Ollama endpoints (availability, RTT, model counts).
 
@@ -72,7 +72,8 @@
 - **Diagnostic Tools**: Interactive Ping (ICMP/UDP), Smokeping, MTR with AI analysis, MIB Browser / Tree, gNMI (with column width adjustment, search, pagination, and shortcuts), and Wake-on-LAN (WOL)
 - **Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile` (full and lightweight config-only modes), automated recurring schedule (daily/once/once_daily) with generation rotation (1–30 generations). Dedicated Backup Manager modal in the Web UI, along with offline CLI options (`-backup`, `-restore`, `-compact`).
 - **URL Parameter Auto-Login & History Sanitization**: One-click deep-linking with auto-authentication via `token` or credentials and direct view selection (`view`), automatically purging sensitive URL parameters from browser history for secure integration with portals like `twsnmpmw`.
-- **Log Storage in Periodic Reports**: Daily operational reports sent via email or webhook include aggregated storage consumption for both bbolt and Parquet log repositories.
+- **Log Storage & Deduplicated Events in Periodic Reports**: Daily operational reports sent via email or webhook include aggregated storage consumption for both bbolt and Parquet, alongside grouped warning event summaries (`count=N`).
+- **Standardized UI Badges & Severity Colors**: Unified uppercase English status indicators (`HIGH`, `LOW`, `WARN`, `INFO`, `NORMAL`, `REPAIR`) across all tables and modals, strict Amber theme coloring for warnings, and integrated line connection health status.
 - **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications, backup management modal, and one-click in-place upgrades
 
 ---
