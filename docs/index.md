@@ -498,6 +498,9 @@ TWSNMP NEO features a secure, token-authenticated public dashboard designed for 
   Features smooth gradient area and line charts powered by Apache ECharts for historical trending and instant spike detection.
 - **TV-Drama Style Emergency Alert Overlay (Drama Alert Overlay)**:
   Configure alert trigger conditions independently per item (Warning and above, or High Critical only). When triggered, an eye-catching full-screen hazard overlay displays top/bottom hazard stripes, a pulsing red background, exact incident details (node, poller, value, timestamp, count), and a DISMISS button.
+
+![](./images/en/public_dashboard_drama.png)
+
 - **Web Audio Audible Siren**:
   Synthesizes an electronic beep siren directly via the browser's Web Audio API (configurable per item with auto-silence timeout).
 - **External Embedding (iframe)**:
