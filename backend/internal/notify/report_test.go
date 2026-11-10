@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
 	"github.com/twsnmp/twsnmpneo/backend/internal/i18n"
 )
@@ -136,5 +138,96 @@ func TestManager_GetLogSizeFallbackToDataDir(t *testing.T) {
 	size := mgr.getLogSize()
 	if size != int64(len(dummyData)) {
 		t.Fatalf("expected log size %d, got %d", len(dummyData), size)
+	}
+}
+
+func TestManager_GetLLMSummary(t *testing.T) {
+	store, cleanup, err := setupTestDB(t)
+	if err != nil {
+		t.Fatalf("setupTestDB err=%v", err)
+	}
+	defer cleanup()
+
+	mgr := &Manager{store: store}
+	info := []reportInfoEnt{
+		{Name: "Test", Value: "1"},
+	}
+
+	// 1. LLMSummary disabled -> empty string
+	summary := mgr.getLLMSummary(context.Background(), &info)
+	if summary != "" {
+		t.Fatalf("expected empty summary when LLMSummary disabled, got %q", summary)
+	}
+
+	// 2. Cancelled context -> empty string
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	summary = mgr.getLLMSummary(cancelledCtx, &info)
+	if summary != "" {
+		t.Fatalf("expected empty summary with cancelled context, got %q", summary)
+	}
+}
+
+func TestBuildLLMReportPrompts_AggregationAndLimit(t *testing.T) {
+	store, cleanup, err := setupTestDB(t)
+	if err != nil {
+		t.Fatalf("setupTestDB err=%v", err)
+	}
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().UnixNano()
+
+	// 1. Add identical events multiple times to test grouping
+	for i := 0; i < 5; i++ {
+		_ = store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:     now - int64(i)*int64(time.Minute),
+			Level:    "warn",
+			Type:     "polling",
+			NodeName: "Node-1",
+			Event:    "Ping timeout",
+		})
+	}
+
+	// 2. Add distinct events exceeding 30 to test limit and omission message
+	for i := 2; i <= 35; i++ {
+		_ = store.AddEventLog(ctx, &datastore.EventLogEnt{
+			Time:     now - int64(i)*int64(time.Minute),
+			Level:    "high",
+			Type:     "snmptrap",
+			NodeName: fmt.Sprintf("Node-%d", i),
+			Event:    fmt.Sprintf("Link down on port %d", i),
+		})
+	}
+
+	info := []reportInfoEnt{
+		{Name: "DB Size", Value: "10 MB"},
+	}
+
+	prompts := buildLLMReportPrompts(store, &info)
+
+	// Check grouping: Ping timeout should have count=5
+	foundGrouped := false
+	for _, p := range prompts {
+		if strings.Contains(p, "Ping timeout") && strings.Contains(p, "(count=5)") {
+			foundGrouped = true
+			break
+		}
+	}
+	if !foundGrouped {
+		t.Fatalf("expected grouped Ping timeout with count=5 in prompts, got: %v", prompts)
+	}
+
+	// Check omission: 1 group (5 logs) + 34 distinct logs = 39 logs, 35 unique events.
+	// Max unique is 30, so 5 unique events (5 logs) should be omitted.
+	foundOmitted := false
+	for _, p := range prompts {
+		if strings.Contains(p, "omitted") || strings.Contains(p, "省略") {
+			foundOmitted = true
+			break
+		}
+	}
+	if !foundOmitted {
+		t.Fatalf("expected omitted notice in prompts, got: %v", prompts)
 	}
 }

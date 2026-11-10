@@ -85,6 +85,15 @@ func TestLLMClient(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected model not found error on DiagnoseAlert, got: %v", err)
 	}
+
+	// Verify default timeout is 10 minutes and SetTimeout works
+	if client.GetTimeout() != ai.DefaultLLMTimeout {
+		t.Fatalf("expected default timeout %v, got %v", ai.DefaultLLMTimeout, client.GetTimeout())
+	}
+	client.SetTimeout(5 * time.Minute)
+	if client.GetTimeout() != 5*time.Minute {
+		t.Fatalf("expected timeout %v after SetTimeout, got %v", 5*time.Minute, client.GetTimeout())
+	}
 }
 
 func TestMCPServer_ComprehensiveToolsAndPrompts(t *testing.T) {

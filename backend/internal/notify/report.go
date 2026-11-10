@@ -398,7 +398,7 @@ func (m *Manager) getLLMSummary(ctx context.Context, info *[]reportInfoEnt) stri
 	if !conf.LLMSummary || ctx.Err() != nil {
 		return ""
 	}
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute*3)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute*15)
 	defer cancel()
 
 	mapConf, err := m.store.GetMapConf(timeoutCtx)
@@ -407,24 +407,9 @@ func (m *Manager) getLLMSummary(ctx context.Context, info *[]reportInfoEnt) stri
 	}
 
 	llmClient := ai.NewLLMClient(mapConf)
+	llmClient.SetTimeout(time.Minute * 15)
 
-	prompts := []string{}
-	for _, e := range *info {
-		prompts = append(prompts, fmt.Sprintf("%s = %s", e.Name, e.Value))
-	}
-	prompts = append(prompts, i18n.Trans("Attached below is the event log with more than a warning"))
-	prompts = append(prompts, i18n.Trans("Time,Level,Type,Node,Event"))
-	st := time.Now().Add(time.Duration(-24) * time.Hour).UnixNano()
-	m.store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
-		if l.Time < st {
-			return false
-		}
-		switch l.Level {
-		case "high", "low", "warn":
-			prompts = append(prompts, fmt.Sprintf("%s,%s,%s,%s,%s", time.Unix(0, l.Time).Format(time.RFC3339), l.Level, l.Type, l.NodeName, l.Event))
-		}
-		return true
-	})
+	prompts := buildLLMReportPrompts(m.store, info)
 	system := `You are an expert in network management.
 Analyze and summarize the information provided by users in a way that is easy to understand.
 
@@ -441,6 +426,7 @@ Analyze and summarize the information provided by users in a way that is easy to
 ・The AI analysis score indicates the degree of abnormality, and the higher the score, the worse the condition.
 
 Do not include symbols such as # at the beginning of your answer.
+- Output only the summary without thought process tags or reasoning traces.
 `
 	if i18n.GetLang() == "ja" {
 		system = `あなたはネットワーク管理の専門家です。
@@ -451,6 +437,7 @@ Do not include symbols such as # at the beginning of your answer.
 ・Markdown形式（「#」による見出し、「*」や「-」による箇条書き、太字装飾など）は一切使用しないでください。
 ・特に、強調したい箇所に「**」を使わないでください。
 ・項目を分ける場合は、全角の「■」や「・」などの記号、または番号（1. 2.）を使用し、適宜改行を入れてください。
+・思考プロセスや推論過程（<think>タグなど）は出力せず、結論と要約のみを出力してください。
 
 【分析の優先順位】
 ・特に問題点について指摘してください。
@@ -473,3 +460,83 @@ Do not include symbols such as # at the beginning of your answer.
 
 // MonitorDataEnt is an alias for easy access.
 type MonitorDataEnt = monitor.MonitorDataEnt
+
+// buildLLMReportPrompts constructs a compact prompt payload for LLM report summary.
+// Groups identical events and limits the unique event list to prevent prompt explosion on local LLMs.
+func buildLLMReportPrompts(store datastore.DataStore, info *[]reportInfoEnt) []string {
+	prompts := []string{}
+	if info != nil {
+		for _, e := range *info {
+			prompts = append(prompts, fmt.Sprintf("%s = %s", e.Name, e.Value))
+		}
+	}
+	prompts = append(prompts, i18n.Trans("Attached below is the event log with more than a warning"))
+	prompts = append(prompts, i18n.Trans("Time,Level,Type,Node,Event"))
+
+	if store == nil {
+		return prompts
+	}
+
+	type eventKey struct {
+		level    string
+		logType  string
+		nodeName string
+		event    string
+	}
+	type eventSummary struct {
+		lastTime int64
+		count    int
+	}
+
+	eventMap := make(map[eventKey]*eventSummary)
+	var eventOrder []eventKey
+	totalWarnCount := 0
+
+	st := time.Now().Add(time.Duration(-24) * time.Hour).UnixNano()
+	store.ForEachLastEventLog(func(l *datastore.EventLogEnt) bool {
+		if l.Time < st {
+			return false
+		}
+		switch l.Level {
+		case "high", "low", "warn":
+			totalWarnCount++
+			key := eventKey{
+				level:    l.Level,
+				logType:  l.Type,
+				nodeName: l.NodeName,
+				event:    l.Event,
+			}
+			if summary, ok := eventMap[key]; ok {
+				summary.count++
+			} else {
+				eventMap[key] = &eventSummary{
+					lastTime: l.Time,
+					count:    1,
+				}
+				eventOrder = append(eventOrder, key)
+			}
+		}
+		return true
+	})
+
+	const maxReportEvents = 30
+	shownCount := 0
+	for i, key := range eventOrder {
+		if i >= maxReportEvents {
+			break
+		}
+		summary := eventMap[key]
+		tStr := time.Unix(0, summary.lastTime).Format(time.RFC3339)
+		if summary.count > 1 {
+			prompts = append(prompts, fmt.Sprintf("%s,%s,%s,%s,%s (count=%d)", tStr, key.level, key.logType, key.nodeName, key.event, summary.count))
+		} else {
+			prompts = append(prompts, fmt.Sprintf("%s,%s,%s,%s,%s", tStr, key.level, key.logType, key.nodeName, key.event))
+		}
+		shownCount += summary.count
+	}
+	if totalWarnCount > shownCount {
+		omitted := totalWarnCount - shownCount
+		prompts = append(prompts, fmt.Sprintf(i18n.Trans("... and %d other warning events omitted"), omitted))
+	}
+	return prompts
+}

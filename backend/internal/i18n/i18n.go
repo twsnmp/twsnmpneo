@@ -272,6 +272,9 @@ var transMap = map[string]map[string]string{
 	"Time,Level,Type,Node,Event": {
 		"ja": "日時,レベル,種別,ノード名,イベント",
 	},
+	"... and %d other warning events omitted": {
+		"ja": "…他 %d 件の警告イベントを省略",
+	},
 	"An error occurred when contacting AI. err=%v": {
 		"ja": "AIの問い合わせでエラーが発生しました。 err=%v",
 	},

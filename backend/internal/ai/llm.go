@@ -14,6 +14,10 @@ import (
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 )
 
+// DefaultLLMTimeout defines the default HTTP timeout for external/local LLM requests.
+// Set to 15 minutes to accommodate local models (e.g. Ollama, tensai) processing long prompts or heavy inference.
+const DefaultLLMTimeout = 15 * time.Minute
+
 // LLMClient provides a unified abstraction across Gemini, OpenAI, Claude, Ollama, and local models.
 type LLMClient struct {
 	provider   string
@@ -31,7 +35,7 @@ func NewLLMClient(conf *datastore.MapConfEnt, dataDirs ...string) *LLMClient {
 		dDir = dataDirs[0]
 	}
 	if conf == nil {
-		return &LLMClient{dataDir: dDir, httpClient: &http.Client{Timeout: 90 * time.Second}}
+		return &LLMClient{dataDir: dDir, httpClient: &http.Client{Timeout: DefaultLLMTimeout}}
 	}
 	return &LLMClient{
 		provider:   conf.LLMProvider,
@@ -39,8 +43,23 @@ func NewLLMClient(conf *datastore.MapConfEnt, dataDirs ...string) *LLMClient {
 		apiKey:     conf.LLMAPIKey,
 		baseURL:    conf.LLMBaseURL,
 		dataDir:    dDir,
-		httpClient: &http.Client{Timeout: 90 * time.Second},
+		httpClient: &http.Client{Timeout: DefaultLLMTimeout},
 	}
+}
+
+// SetTimeout sets the HTTP client timeout for LLM requests.
+func (c *LLMClient) SetTimeout(timeout time.Duration) {
+	if c.httpClient != nil {
+		c.httpClient.Timeout = timeout
+	}
+}
+
+// GetTimeout returns the HTTP client timeout for LLM requests.
+func (c *LLMClient) GetTimeout() time.Duration {
+	if c.httpClient != nil {
+		return c.httpClient.Timeout
+	}
+	return 0
 }
 
 // GenerateAnswer sends a prompt with system context to the configured LLM.
@@ -116,8 +135,10 @@ func (c *LLMClient) generateOllama(ctx context.Context, system, prompt string) (
 	defer resp.Body.Close()
 
 	var res struct {
-		Response string `json:"response"`
-		Error    string `json:"error"`
+		Response   string `json:"response"`
+		Thinking   string `json:"thinking"`
+		Error      string `json:"error"`
+		DoneReason string `json:"done_reason"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return "", err
@@ -125,7 +146,14 @@ func (c *LLMClient) generateOllama(ctx context.Context, system, prompt string) (
 	if res.Error != "" {
 		return "", fmt.Errorf("ollama error: %s", res.Error)
 	}
-	return res.Response, nil
+	ans := strings.TrimSpace(res.Response)
+	if ans == "" {
+		if strings.TrimSpace(res.Thinking) != "" {
+			return "", fmt.Errorf("ollama response is empty (thinking ended with reason: %s)", res.DoneReason)
+		}
+		return "", fmt.Errorf("empty response from ollama")
+	}
+	return ans, nil
 }
 
 func (c *LLMClient) generateOpenAI(ctx context.Context, system, prompt string) (string, error) {
