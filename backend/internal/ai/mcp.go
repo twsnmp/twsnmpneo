@@ -19,32 +19,46 @@ import (
 
 // MCPConfig defines options for initializing the embedded MCP server.
 type MCPConfig struct {
-	Store     datastore.DataStore
-	LogStore  *parquet.Store
-	Monitor   *monitor.Monitor
-	Version   string
-	MCPMode   string
-	MCPFrom   string
-	Password  string
-	Receivers map[string]any
+	Store            datastore.DataStore
+	LogStore         *parquet.Store
+	Monitor          *monitor.Monitor
+	Version          string
+	MCPMode          string
+	MCPFrom          string
+	ExplicitMode     bool
+	ExplicitFrom     bool
+	Password         string
+	Receivers        map[string]any
+	ReceiverStatus   func(mcpEnabled bool) map[string]any
+	CheckNode        func(ctx context.Context, nodeID string) (int, error)
+	ExecutePolling   func(ctx context.Context, p *datastore.PollingEnt) (string, string, map[string]any, error)
+	CheckAllPollings func(ctx context.Context) int
 }
 
 // MCPServer wraps the official Model Context Protocol server.
 type MCPServer struct {
-	store     datastore.DataStore
-	logStore  *parquet.Store
-	monitor   *monitor.Monitor
-	version   string
-	enabled   bool
-	mcpMode   string
-	mcpFrom   string
-	password  string
-	receivers map[string]any
-	startTime time.Time
-	server    *mcp.Server
-	allowIPs  sync.Map
-	httpHdr   http.Handler
-	mu        sync.RWMutex
+	store            datastore.DataStore
+	logStore         *parquet.Store
+	monitor          *monitor.Monitor
+	version          string
+	enabled          bool
+	mcpMode          string
+	mcpFrom          string
+	explicitMode     bool
+	explicitFrom     bool
+	pendingStoreInit bool
+	password         string
+	receivers        map[string]any
+	receiverStatus   func(mcpEnabled bool) map[string]any
+	checkNode        func(ctx context.Context, nodeID string) (int, error)
+	executePolling   func(ctx context.Context, p *datastore.PollingEnt) (string, string, map[string]any, error)
+	checkAllPollings func(ctx context.Context) int
+	startTime        time.Time
+	server           *mcp.Server
+	allowIPs         sync.Map
+	allowNets        []*net.IPNet
+	httpHdr          http.Handler
+	mu               sync.RWMutex
 }
 
 func textResult(text string) *mcp.CallToolResult {
@@ -131,31 +145,27 @@ func parseAnyTime(s string) (time.Time, error) {
 // NewMCPServer initializes the unified MCP server with all tools and prompts.
 func NewMCPServer(cfg MCPConfig) *MCPServer {
 	s := &MCPServer{
-		store:     cfg.Store,
-		logStore:  cfg.LogStore,
-		monitor:   cfg.Monitor,
-		version:   cfg.Version,
-		mcpMode:   cfg.MCPMode,
-		mcpFrom:   cfg.MCPFrom,
-		password:  cfg.Password,
-		receivers: cfg.Receivers,
-		startTime: time.Now(),
+		store:            cfg.Store,
+		logStore:         cfg.LogStore,
+		monitor:          cfg.Monitor,
+		version:          cfg.Version,
+		mcpMode:          cfg.MCPMode,
+		mcpFrom:          cfg.MCPFrom,
+		explicitMode:     cfg.ExplicitMode,
+		explicitFrom:     cfg.ExplicitFrom,
+		pendingStoreInit: cfg.Store != nil,
+		password:         cfg.Password,
+		receivers:        cfg.Receivers,
+		receiverStatus:   cfg.ReceiverStatus,
+		checkNode:        cfg.CheckNode,
+		executePolling:   cfg.ExecutePolling,
+		checkAllPollings: cfg.CheckAllPollings,
+		startTime:        time.Now(),
 	}
 
-	// Always allow loopback and test addresses
-	s.allowIPs.Store("127.0.0.1", true)
-	s.allowIPs.Store("::1", true)
-	s.allowIPs.Store("localhost", true)
-	s.allowIPs.Store("192.0.2.1", true)
-	s.allowIPs.Store("", true)
-	if cfg.MCPFrom != "" {
-		for _, ip := range strings.Split(cfg.MCPFrom, ",") {
-			ip = strings.TrimSpace(ip)
-			if ip != "" {
-				s.allowIPs.Store(ip, true)
-			}
-		}
-	}
+	s.mu.Lock()
+	s.rebuildAllowListLocked()
+	s.mu.Unlock()
 
 	server := mcp.NewServer(
 		&mcp.Implementation{
@@ -193,19 +203,47 @@ func (s *MCPServer) UpdateConf(conf *datastore.MapConfEnt) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	isInitialLoad := s.pendingStoreInit
+	s.pendingStoreInit = false
+
 	s.enabled = conf.EnableMCP
-	if conf.MCPMode != "" {
+	if !(isInitialLoad && s.explicitMode && s.mcpMode != "") && conf.MCPMode != "" {
 		s.mcpMode = conf.MCPMode
 	}
-	if conf.MCPFrom != "" {
+	if isInitialLoad && s.explicitFrom {
+		// Keep explicit CLI/env -mcpFrom override during initial MapConf load.
+	} else if isInitialLoad && conf.MCPFrom == "" && s.mcpFrom != "" {
+		// Preserve caller-provided MCPConfig.MCPFrom when stored MapConf is empty.
+	} else {
 		s.mcpFrom = conf.MCPFrom
 	}
 
-	// Clear and rebuild allowed IPs
-	s.allowIPs.Range(func(key, value any) bool {
+	s.rebuildAllowListLocked()
+}
+
+// ApplyCLIOverrides applies explicit -mcpMode and -mcpFrom overrides onto a running server.
+func (s *MCPServer) ApplyCLIOverrides(mode string, setMode bool, from string, setFrom bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if setMode && mode != "" {
+		s.mcpMode = mode
+		s.explicitMode = true
+	}
+	if setFrom {
+		s.mcpFrom = from
+		s.explicitFrom = true
+		s.rebuildAllowListLocked()
+	}
+}
+
+func (s *MCPServer) rebuildAllowListLocked() {
+	s.allowIPs.Range(func(key, _ any) bool {
 		s.allowIPs.Delete(key)
 		return true
 	})
+	s.allowNets = nil
+
+	// Always allow loopback and test addresses
 	s.allowIPs.Store("127.0.0.1", true)
 	s.allowIPs.Store("::1", true)
 	s.allowIPs.Store("localhost", true)
@@ -213,11 +251,16 @@ func (s *MCPServer) UpdateConf(conf *datastore.MapConfEnt) {
 	s.allowIPs.Store("", true)
 
 	if s.mcpFrom != "" {
-		for _, ip := range strings.Split(s.mcpFrom, ",") {
-			ip = strings.TrimSpace(ip)
-			if ip != "" {
-				s.allowIPs.Store(ip, true)
+		for _, entry := range strings.Split(s.mcpFrom, ",") {
+			entry = strings.TrimSpace(entry)
+			if entry == "" {
+				continue
 			}
+			if _, ipNet, err := net.ParseCIDR(entry); err == nil && ipNet != nil {
+				s.allowNets = append(s.allowNets, ipNet)
+				continue
+			}
+			s.allowIPs.Store(entry, true)
 		}
 	}
 }
@@ -231,20 +274,75 @@ func (s *MCPServer) IsEnabled() bool {
 
 // CheckFromAddress validates whether the remote IP is allowed according to the MCPFrom whitelist.
 func (s *MCPServer) CheckFromAddress(remoteAddr, realIP string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	candidates := make([]string, 0, 4)
 	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		if _, ok := s.allowIPs.Load(host); ok {
+		candidates = append(candidates, host)
+	}
+	candidates = append(candidates, remoteAddr)
+	if realIP != "" {
+		if host, _, err := net.SplitHostPort(realIP); err == nil {
+			candidates = append(candidates, host)
+		}
+		candidates = append(candidates, realIP)
+	}
+
+	for _, candidate := range candidates {
+		if _, ok := s.allowIPs.Load(candidate); ok {
 			return true
 		}
-	}
-	if _, ok := s.allowIPs.Load(remoteAddr); ok {
-		return true
-	}
-	if realIP != "" {
-		if _, ok := s.allowIPs.Load(realIP); ok {
-			return true
+		if len(s.allowNets) > 0 && candidate != "" {
+			if ip := net.ParseIP(candidate); ip != nil {
+				for _, ipNet := range s.allowNets {
+					if ipNet.Contains(ip) {
+						return true
+					}
+				}
+			}
 		}
 	}
 	return false
+}
+
+func (s *MCPServer) getReceiversStatus() map[string]any {
+	s.mu.RLock()
+	fn := s.receiverStatus
+	enabled := s.enabled
+	staticRecvs := s.receivers
+	s.mu.RUnlock()
+	if fn != nil {
+		if res := fn(enabled); res != nil {
+			return res
+		}
+	}
+	return staticRecvs
+}
+
+func unixTime(ts int64) time.Time {
+	switch {
+	case ts <= 0:
+		return time.Time{}
+	case ts >= 1e16:
+		return time.Unix(0, ts)
+	case ts >= 1e13:
+		return time.UnixMicro(ts)
+	case ts >= 1e11:
+		return time.UnixMilli(ts)
+	default:
+		return time.Unix(ts, 0)
+	}
+}
+
+func formatUnixTimestamp(ts int64, layout string) string {
+	if ts <= 0 {
+		return ""
+	}
+	if layout == "" {
+		layout = time.RFC3339Nano
+	}
+	return unixTime(ts).Format(layout)
 }
 
 // GetServer returns the underlying MCP server.

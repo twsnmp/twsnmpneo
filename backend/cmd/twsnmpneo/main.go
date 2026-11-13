@@ -98,7 +98,63 @@ type serverConfig struct {
 	httpPort        int
 	hostName        string
 	ipAddr          string
+	mcpFrom         string
+	mcpMode         string
 	explicitFlags   map[string]bool
+}
+
+func normalizeMCPMode(mode string) (string, error) {
+	m := strings.ToLower(strings.TrimSpace(mode))
+	switch m {
+	case "":
+		return "", nil
+	case "auth", "noauth":
+		return m, nil
+	default:
+		return "", fmt.Errorf("invalid -mcpMode %q (expected 'auth' or 'noauth')", mode)
+	}
+}
+
+func buildMCPConfig(
+	cfg serverConfig,
+	store datastore.DataStore,
+	pqStore *parquet.Store,
+	sysMon *monitor.Monitor,
+	pollMgr *polling.Manager,
+	recvMgr *receiver.Manager,
+) ai.MCPConfig {
+	mcpCfg := ai.MCPConfig{
+		Store:        store,
+		LogStore:     pqStore,
+		Monitor:      sysMon,
+		Version:      version,
+		MCPMode:      cfg.mcpMode,
+		MCPFrom:      cfg.mcpFrom,
+		ExplicitMode: cfg.explicitFlags["mcpMode"],
+		ExplicitFrom: cfg.explicitFlags["mcpFrom"],
+	}
+	if recvMgr != nil {
+		mcpCfg.ReceiverStatus = recvMgr.GetReceiverStatus
+	}
+	if pollMgr != nil {
+		mcpCfg.CheckNode = pollMgr.CheckNode
+		mcpCfg.CheckAllPollings = pollMgr.CheckAll
+		mcpCfg.ExecutePolling = func(execCtx context.Context, p *datastore.PollingEnt) (string, string, map[string]any, error) {
+			res, err := pollMgr.ExecuteOne(execCtx, p)
+			if err != nil {
+				return "", "", nil, err
+			}
+			if res == nil {
+				return p.State, "", p.Result, nil
+			}
+			fields := res.Fields
+			if updated, gerr := store.GetPolling(execCtx, p.ID); gerr == nil && updated != nil && updated.Result != nil {
+				fields = updated.Result
+			}
+			return res.State, res.Message, fields, nil
+		}
+	}
+	return mcpCfg
 }
 
 func handleServiceCommand(action string, remainingArgs []string) {
@@ -379,6 +435,10 @@ func main() {
 		importEvents   = fs.Bool("import-events", true, "Import event logs during TWSNMP FC migration")
 		forceImport    = fs.Bool("force", false, "Force overwrite of target database during migration")
 		runAfterImport = fs.Bool("run-after-import", false, "Start TWSNMP NEO server after completing migration")
+
+		// MCP server flags
+		mcpFrom = fs.String("mcpFrom", "", "Allowed client IPs or CIDRs for MCP server (comma-separated)")
+		mcpMode = fs.String("mcpMode", "", "MCP server authentication mode (auth or noauth)")
 	)
 
 	// Environment variable overrides (TWSNMP_<NAME> and legacy TWSNMPFC_<NAME>)
@@ -414,6 +474,18 @@ func main() {
 	fs.Visit(func(f *flag.Flag) {
 		explicitFlags[f.Name] = true
 	})
+	if os.Getenv("TWSNMP_MCPFROM") != "" {
+		explicitFlags["mcpFrom"] = true
+	}
+	if os.Getenv("TWSNMP_MCPMODE") != "" {
+		explicitFlags["mcpMode"] = true
+	}
+	normalizedMCPMode, err := normalizeMCPMode(*mcpMode)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(2)
+	}
+	*mcpMode = normalizedMCPMode
 
 	// Handle flag-based service management: -service <action>
 	if *serviceCmd != "" {
@@ -609,6 +681,8 @@ func main() {
 		httpPort:        *httpPort,
 		hostName:        *hostName,
 		ipAddr:          *ipAddr,
+		mcpFrom:         *mcpFrom,
+		mcpMode:         *mcpMode,
 		explicitFlags:   explicitFlags,
 	}
 
@@ -867,13 +941,8 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	// Start Notify Manager
 	notify.Start(ctx, store, sysMon, pqStore)
 
-	// Initialize MCP Server (configured via MapConf)
-	mcpServer := ai.NewMCPServer(ai.MCPConfig{
-		Store:    store,
-		LogStore: pqStore,
-		Monitor:  sysMon,
-		Version:  version,
-	})
+	// Initialize MCP Server (configured via MapConf with optional CLI overrides)
+	mcpServer := ai.NewMCPServer(buildMCPConfig(cfg, store, pqStore, sysMon, pollMgr, recvMgr))
 
 	// Receiver info map for UI
 	mcpEnabled := mapConf != nil && mapConf.EnableMCP

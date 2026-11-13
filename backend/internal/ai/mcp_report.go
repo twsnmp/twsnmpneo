@@ -154,14 +154,8 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 				name = n.Name
 				vendor = n.Vendor
 			}
-			firstTime := ""
-			lastTime := ""
-			if a.FirstTime > 0 {
-				firstTime = time.Unix(0, a.FirstTime).Format(time.RFC3339Nano)
-			}
-			if a.LastTime > 0 {
-				lastTime = time.Unix(0, a.LastTime).Format(time.RFC3339Nano)
-			}
+			firstTime := formatUnixTimestamp(a.FirstTime, time.RFC3339Nano)
+			lastTime := formatUnixTimestamp(a.LastTime, time.RFC3339Nano)
 			list = append(list, mcpMACEnt{
 				MAC:       a.MAC,
 				Name:      name,
@@ -197,14 +191,8 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 				name = n.Name
 				vendor = n.Vendor
 			}
-			firstTime := ""
-			lastTime := ""
-			if a.FirstTime > 0 {
-				firstTime = time.Unix(0, a.FirstTime).Format(time.RFC3339Nano)
-			}
-			if a.LastTime > 0 {
-				lastTime = time.Unix(0, a.LastTime).Format(time.RFC3339Nano)
-			}
+			firstTime := formatUnixTimestamp(a.FirstTime, time.RFC3339Nano)
+			lastTime := formatUnixTimestamp(a.LastTime, time.RFC3339Nano)
 			list = append(list, mcpIPEnt{
 				IP:        a.IP,
 				MAC:       a.MAC,
@@ -225,7 +213,7 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 		if s.store == nil {
 			return jsonResult([]mcpWifiAPEnt{})
 		}
-		rawMap, err := s.store.ListLogReportData(ctx, "wifi")
+		rawMap, err := s.store.ListLogReportData(ctx, logreport.KindWifiAP)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -263,7 +251,7 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 		if s.store == nil {
 			return jsonResult([]mcpBluetoothDeviceEnt{})
 		}
-		rawMap, err := s.store.ListLogReportData(ctx, "blueDevice")
+		rawMap, err := s.store.ListLogReportData(ctx, logreport.KindBlueDevice)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -349,7 +337,7 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 					continue
 				}
 				list = append(list, mcpResourceMonitorEnt{
-					Time:   time.Unix(m.Time, 0).Format(time.RFC3339),
+					Time:   formatUnixTimestamp(m.Time, time.RFC3339),
 					CPU:    fmt.Sprintf("%.02f%%", m.CPU),
 					Memory: fmt.Sprintf("%.02f%%", m.Mem),
 					Swap:   fmt.Sprintf("%.02f%%", m.Swap),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +81,31 @@ type mcpSnmpTrapLogEnt struct {
 	From      string `json:"from"`
 	TrapType  string `json:"trap_type"`
 	Variables string `json:"variables"`
+}
+
+type mcpNetFlowEnt struct {
+	Time     string  `json:"time"`
+	SrcAddr  string  `json:"src_addr"`
+	SrcPort  int     `json:"src_port"`
+	SrcLoc   string  `json:"src_loc,omitempty"`
+	DstAddr  string  `json:"dst_addr"`
+	DstPort  int     `json:"dst_port"`
+	DstLoc   string  `json:"dst_loc,omitempty"`
+	Protocol string  `json:"protocol"`
+	TCPFlags string  `json:"tcp_flags,omitempty"`
+	Bytes    int     `json:"bytes"`
+	Packets  int     `json:"packets"`
+	Dur      float64 `json:"dur"`
+}
+
+type mcpSearchNetFlowParams struct {
+	SrcFilter      string `json:"src_filter,omitempty" jsonschema:"regex filter for source IP address"`
+	DstFilter      string `json:"dst_filter,omitempty" jsonschema:"regex filter for destination IP address"`
+	ProtocolFilter string `json:"protocol_filter,omitempty" jsonschema:"regex filter for protocol (tcp, udp, icmp, etc.)"`
+	PortFilter     string `json:"port_filter,omitempty" jsonschema:"regex filter for source or destination port number"`
+	StartTime      string `json:"start_time,omitempty" jsonschema:"start date/time or duration (default -1h)"`
+	EndTime        string `json:"end_time,omitempty" jsonschema:"end date/time or duration (default now)"`
+	Limit          int    `json:"limit,omitempty" jsonschema:"maximum number of records (10 - 10000, default 500)"`
 }
 
 type mcpSearchSnmpTrapLogParams struct {
@@ -569,5 +595,86 @@ func (s *MCPServer) registerLogTools(server *mcp.Server) {
 		}
 
 		return jsonResult(res)
+	})
+
+	// 8. search_netflow
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "search_netflow",
+		Description: "Search NetFlow / IPFIX flow records from the Parquet data lake",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args mcpSearchNetFlowParams) (*mcp.CallToolResult, any, error) {
+		if s.logStore == nil {
+			return jsonResult([]mcpNetFlowEnt{})
+		}
+		st, et, err := getTimeRange(args.StartTime, args.EndTime)
+		if err != nil {
+			return nil, nil, err
+		}
+		limit := args.Limit
+		if limit < 10 {
+			limit = 500
+		}
+		if limit > 10000 {
+			limit = 10000
+		}
+
+		recs, err := s.logStore.Query(ctx, parquet.LogFilter{
+			Type:      "netflow",
+			StartTime: st,
+			EndTime:   et,
+			Limit:     limit * 2,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+
+		srcFilter := makeRegexFilter(args.SrcFilter)
+		dstFilter := makeRegexFilter(args.DstFilter)
+		protoFilter := makeRegexFilter(args.ProtocolFilter)
+		portFilter := makeRegexFilter(args.PortFilter)
+
+		list := make([]mcpNetFlowEnt, 0)
+		for _, r := range recs {
+			var f datastore.NetFlowEnt
+			if err := json.Unmarshal([]byte(r.Log), &f); err != nil {
+				continue
+			}
+			if f.SrcAddr == "" {
+				f.SrcAddr = r.Src
+			}
+			if srcFilter != nil && !srcFilter.MatchString(f.SrcAddr) {
+				continue
+			}
+			if dstFilter != nil && !dstFilter.MatchString(f.DstAddr) {
+				continue
+			}
+			if protoFilter != nil && !protoFilter.MatchString(f.Protocol) {
+				continue
+			}
+			if portFilter != nil && !portFilter.MatchString(strconv.Itoa(f.SrcPort)) && !portFilter.MatchString(strconv.Itoa(f.DstPort)) {
+				continue
+			}
+			ts := r.Time
+			if ts <= 0 {
+				ts = f.Time
+			}
+			list = append(list, mcpNetFlowEnt{
+				Time:     formatUnixTimestamp(ts, time.RFC3339Nano),
+				SrcAddr:  f.SrcAddr,
+				SrcPort:  f.SrcPort,
+				SrcLoc:   f.SrcLoc,
+				DstAddr:  f.DstAddr,
+				DstPort:  f.DstPort,
+				DstLoc:   f.DstLoc,
+				Protocol: f.Protocol,
+				TCPFlags: f.TCPFlags,
+				Bytes:    f.Bytes,
+				Packets:  f.Packets,
+				Dur:      f.Dur,
+			})
+			if len(list) >= limit {
+				break
+			}
+		}
+		return jsonResult(list)
 	})
 }

@@ -58,7 +58,7 @@ func (s *MCPServer) registerPrompts(server *mcp.Server) {
 	server.AddPrompt(&mcp.Prompt{
 		Name:        "add_node",
 		Title:       "Add a new node",
-		Description: "Add a new node to TWSNMP NEO (automatically adds a PING poller).",
+		Description: "Add a new node to TWSNMP NEO.",
 		Arguments: []*mcp.PromptArgument{
 			{Name: "name", Title: "Name", Description: "Node name", Required: true},
 			{Name: "ip", Title: "IP address", Description: "IP address", Required: true},
@@ -465,6 +465,261 @@ func (s *MCPServer) registerPrompts(server *mcp.Server) {
 		p := fmt.Sprintf("Get MAC address information by using get_mac_address_info tool. The MAC address to look up is %s.", mac)
 		return promptResult("Get MAC address info prompt", p), nil
 	})
+
+	// 20. get_node
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "get_node",
+		Title:       "Get node details",
+		Description: "Get detailed attributes and attached pollings of a node.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "id", Title: "Node ID or Name", Description: "Node ID, node name, or IP address", Required: true},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		id := strings.TrimSpace(req.Params.Arguments["id"])
+		if id == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		return promptResult("Get node details prompt", fmt.Sprintf("Get detailed information for node %q using get_node tool.", id)), nil
+	})
+
+	// 21. delete_node
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "delete_node",
+		Title:       "Delete node",
+		Description: "Delete a node and its attached pollings and lines.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "id", Title: "Node ID or Name", Description: "Node ID or unique node name", Required: true},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		id := strings.TrimSpace(req.Params.Arguments["id"])
+		if id == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		return promptResult("Delete node prompt", fmt.Sprintf("Delete node %q from TWSNMP NEO using delete_node tool.", id)), nil
+	})
+
+	// 22. get_line_list
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "get_line_list",
+		Title:       "Get topology lines",
+		Description: "List topology connection lines between nodes and networks.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "node_filter", Title: "Node filter", Description: "Regex filter for node ID or name", Required: false},
+			{Name: "state_filter", Title: "State filter", Description: "Regex filter for line state", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"node_filter", "Node filter"},
+			{"state_filter", "State filter"},
+		})
+		return promptResult("Get line list prompt", formatToolPrompt("List topology lines using get_line_list tool", c)), nil
+	})
+
+	// 23. add_line
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "add_line",
+		Title:       "Add topology line",
+		Description: "Connect two nodes on the map with a topology line.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "node_id1", Title: "Node 1", Description: "First node ID or unique name", Required: true},
+			{Name: "node_id2", Title: "Node 2", Description: "Second node ID or unique name", Required: true},
+			{Name: "polling_id1", Title: "Polling 1", Description: "Optional polling ID on Node 1", Required: false},
+			{Name: "polling_id2", Title: "Polling 2", Description: "Optional polling ID on Node 2", Required: false},
+			{Name: "info", Title: "Info", Description: "Optional line description", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		n1 := strings.TrimSpace(req.Params.Arguments["node_id1"])
+		n2 := strings.TrimSpace(req.Params.Arguments["node_id2"])
+		if n1 == "" || n2 == "" {
+			return nil, fmt.Errorf("node_id1 and node_id2 are required")
+		}
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"node_id1", "Node 1"},
+			{"node_id2", "Node 2"},
+			{"polling_id1", "Polling 1"},
+			{"polling_id2", "Polling 2"},
+			{"info", "Info"},
+		})
+		return promptResult("Add line prompt", formatToolPrompt("Connect two nodes using add_line tool", c)), nil
+	})
+
+	// 24. delete_line
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "delete_line",
+		Title:       "Delete topology line",
+		Description: "Delete a topology connection line by ID.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "id", Title: "Line ID", Description: "Line ID to delete", Required: true},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		id := strings.TrimSpace(req.Params.Arguments["id"])
+		if id == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		return promptResult("Delete line prompt", fmt.Sprintf("Delete topology line %q using delete_line tool.", id)), nil
+	})
+
+	// 25. get_polling
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "get_polling",
+		Title:       "Get polling details",
+		Description: "Get full configuration and result details for a polling.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "id", Title: "Polling ID", Description: "Polling ID", Required: true},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		id := strings.TrimSpace(req.Params.Arguments["id"])
+		if id == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		return promptResult("Get polling prompt", fmt.Sprintf("Get full configuration of polling %q using get_polling tool.", id)), nil
+	})
+
+	// 26. add_polling
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "add_polling",
+		Title:       "Add a polling",
+		Description: "Add a new monitoring polling task to an existing node.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "node_id", Title: "Node ID", Description: "Target node ID or unique name", Required: true},
+			{Name: "name", Title: "Name", Description: "Polling name", Required: true},
+			{Name: "type", Title: "Type", Description: "Polling type (ping, snmp, http, tcp, dns, tls, syslog, trap, netflow, etc.)", Required: true},
+			{Name: "params", Title: "Params", Description: "Polling target parameters", Required: false},
+			{Name: "script", Title: "Script", Description: "Normal condition expression", Required: false},
+			{Name: "level", Title: "Level", Description: "Failure alert level (off, info, warn, low, high)", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		if strings.TrimSpace(req.Params.Arguments["node_id"]) == "" || strings.TrimSpace(req.Params.Arguments["name"]) == "" || strings.TrimSpace(req.Params.Arguments["type"]) == "" {
+			return nil, fmt.Errorf("node_id, name, and type are required")
+		}
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"node_id", "Node"},
+			{"name", "Name"},
+			{"type", "Type"},
+			{"params", "Params"},
+			{"script", "Script"},
+			{"level", "Level"},
+		})
+		return promptResult("Add polling prompt", formatToolPrompt("Add a monitoring polling using add_polling tool", c)), nil
+	})
+
+	// 27. update_polling
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "update_polling",
+		Title:       "Update a polling",
+		Description: "Modify an existing polling configuration.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "id", Title: "Polling ID", Description: "Polling ID to update", Required: true},
+			{Name: "name", Title: "Name", Description: "New polling name", Required: false},
+			{Name: "params", Title: "Params", Description: "New target parameters", Required: false},
+			{Name: "script", Title: "Script", Description: "New evaluation script", Required: false},
+			{Name: "level", Title: "Level", Description: "New alert level", Required: false},
+			{Name: "poll_int", Title: "Interval", Description: "New polling interval in seconds", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		if strings.TrimSpace(req.Params.Arguments["id"]) == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"id", "Polling ID"},
+			{"name", "Name"},
+			{"params", "Params"},
+			{"script", "Script"},
+			{"level", "Level"},
+			{"poll_int", "Interval"},
+		})
+		return promptResult("Update polling prompt", formatToolPrompt("Update an existing polling using update_polling tool", c)), nil
+	})
+
+	// 28. delete_polling
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "delete_polling",
+		Title:       "Delete a polling",
+		Description: "Delete a polling task by ID.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "id", Title: "Polling ID", Description: "Polling ID to delete", Required: true},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		id := strings.TrimSpace(req.Params.Arguments["id"])
+		if id == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		return promptResult("Delete polling prompt", fmt.Sprintf("Delete polling %q using delete_polling tool.", id)), nil
+	})
+
+	// 29. check_polling
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "check_polling",
+		Title:       "Execute polling recheck",
+		Description: "Immediately execute a polling check for a polling ID or node.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "polling_id", Title: "Polling ID", Description: "Specific polling ID to run", Required: false},
+			{Name: "node_id", Title: "Node ID", Description: "Node ID or name to recheck non-normal pollings", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"polling_id", "Polling ID"},
+			{"node_id", "Node"},
+		})
+		return promptResult("Check polling prompt", formatToolPrompt("Run polling check immediately using check_polling tool", c)), nil
+	})
+
+	// 30. search_netflow
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "search_netflow",
+		Title:       "Search NetFlow/IPFIX logs",
+		Description: "Search NetFlow and IPFIX traffic flow logs.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "src_filter", Title: "Source IP filter", Description: "Regex filter for source IP", Required: false},
+			{Name: "dst_filter", Title: "Destination IP filter", Description: "Regex filter for destination IP", Required: false},
+			{Name: "protocol_filter", Title: "Protocol filter", Description: "Regex filter for protocol", Required: false},
+			{Name: "port_filter", Title: "Port filter", Description: "Regex filter for port", Required: false},
+			{Name: "start_time", Title: "Start time", Description: "Start time or duration (e.g. -1h)", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"src_filter", "Source filter"},
+			{"dst_filter", "Destination filter"},
+			{"protocol_filter", "Protocol filter"},
+			{"port_filter", "Port filter"},
+			{"start_time", "Start time"},
+		})
+		return promptResult("Search NetFlow prompt", formatToolPrompt("Search NetFlow/IPFIX records using search_netflow tool", c)), nil
+	})
+
+	// 31. get_ai_anomaly_list
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "get_ai_anomaly_list",
+		Title:       "Get AI anomaly scores",
+		Description: "Retrieve AI anomaly detection scores across AI-monitored pollings.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "node_filter", Title: "Node filter", Description: "Regex filter for node name", Required: false},
+			{Name: "min_score", Title: "Minimum score", Description: "Minimum anomaly score threshold", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"node_filter", "Node filter"},
+			{"min_score", "Minimum score"},
+		})
+		return promptResult("Get AI anomaly list prompt", formatToolPrompt("Retrieve AI anomaly detection scores using get_ai_anomaly_list tool", c)), nil
+	})
+}
+
+func collectPromptFilterArgs(args map[string]string, fields [][2]string) []string {
+	var out []string
+	for _, f := range fields {
+		if v := strings.TrimSpace(args[f[0]]); v != "" {
+			out = append(out, fmt.Sprintf("- %s: %s", f[1], v))
+		}
+	}
+	return out
+}
+
+func formatToolPrompt(header string, lines []string) string {
+	if len(lines) == 0 {
+		return header + "."
+	}
+	return header + " with the following parameters:\n" + strings.Join(lines, "\n")
 }
 
 func promptResult(desc, text string) *mcp.GetPromptResult {
