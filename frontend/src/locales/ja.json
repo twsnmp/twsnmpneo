@@ -1647,6 +1647,7 @@
     "monitoredNodes": "監視ノード数:",
     "activePolling": "アクティブポーリング:",
     "running": "● 稼働中",
+    "error": "● エラー",
     "stopped": "● 停止中",
     "disabled": "● 無効",
     "notConfigured": "未設定",

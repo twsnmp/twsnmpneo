@@ -88,17 +88,31 @@ func (s *MQTTServer) Start(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf(":%d", s.port)
+	portStr := fmt.Sprintf("TCP :%d", s.port)
 	slog.Info("Starting MQTT broker", "addr", addr)
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		slog.Warn("Failed to start MQTT broker", "addr", addr, "error", err)
+		SetReceiverStatus("mqtt", ReceiverStatus{
+			Status: "error",
+			Port:   portStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("MQTT server bind error: %v", err))
+		<-ctx.Done()
 		return fmt.Errorf("listen mqtt: %w", err)
 	}
 	s.mu.Lock()
 	s.listener = ln
 	s.mu.Unlock()
 	defer ln.Close()
+
+	SetReceiverStatus("mqtt", ReceiverStatus{
+		Status: "running",
+		Port:   portStr,
+	})
+	defer ClearReceiverStatus("mqtt")
 
 	slog.Info("Started MQTT broker", "addr", addr)
 

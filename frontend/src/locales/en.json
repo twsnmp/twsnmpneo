@@ -1647,6 +1647,7 @@
     "monitoredNodes": "Monitored Nodes:",
     "activePolling": "Active Polling:",
     "running": "● Running",
+    "error": "● Error",
     "stopped": "● Stopped",
     "disabled": "● Disabled",
     "notConfigured": "Not configured",

@@ -73,15 +73,26 @@ func (s *SyslogServer) Start(ctx context.Context) error {
 		s.mu.Unlock()
 	}()
 
+	var defaultPortStr string
+	if s.udpPort > 0 && s.tcpPort > 0 {
+		defaultPortStr = fmt.Sprintf("UDP :%d / TCP :%d", s.udpPort, s.tcpPort)
+	} else if s.udpPort > 0 {
+		defaultPortStr = fmt.Sprintf("UDP :%d", s.udpPort)
+	} else {
+		defaultPortStr = fmt.Sprintf("TCP :%d", s.tcpPort)
+	}
+
 	syslogCh := make(syslog.LogPartsChannel, 2000)
 	server := syslog.NewServer()
 	server.SetFormat(syslog.Automatic)
 	server.SetHandler(syslog.NewChannelHandler(syslogCh))
 
+	var udpErr, tcpErr error
 	if s.udpPort > 0 {
 		addr := fmt.Sprintf("0.0.0.0:%d", s.udpPort)
-		if err := server.ListenUDP(addr); err != nil {
-			slog.Error("Failed to start UDP syslog listener", "addr", addr, "error", err)
+		udpErr = server.ListenUDP(addr)
+		if udpErr != nil {
+			slog.Error("Failed to start UDP syslog listener", "addr", addr, "error", udpErr)
 		} else {
 			slog.Info("Started UDP Syslog receiver", "addr", addr)
 		}
@@ -89,15 +100,69 @@ func (s *SyslogServer) Start(ctx context.Context) error {
 
 	if s.tcpPort > 0 {
 		addr := fmt.Sprintf("0.0.0.0:%d", s.tcpPort)
-		if err := server.ListenTCP(addr); err != nil {
-			slog.Error("Failed to start TCP syslog listener", "addr", addr, "error", err)
+		tcpErr = server.ListenTCP(addr)
+		if tcpErr != nil {
+			slog.Error("Failed to start TCP syslog listener", "addr", addr, "error", tcpErr)
 		} else {
 			slog.Info("Started TCP Syslog receiver", "addr", addr)
 		}
 	}
 
+	hasConfiguredUDP := s.udpPort > 0
+	hasConfiguredTCP := s.tcpPort > 0
+	allFailed := (hasConfiguredUDP && udpErr != nil && (!hasConfiguredTCP || tcpErr != nil)) ||
+		(hasConfiguredTCP && tcpErr != nil && (!hasConfiguredUDP || udpErr != nil))
+
+	if allFailed {
+		var errStr string
+		if hasConfiguredUDP && hasConfiguredTCP {
+			errStr = fmt.Sprintf("UDP: %v / TCP: %v", udpErr, tcpErr)
+		} else if hasConfiguredUDP {
+			errStr = fmt.Sprintf("UDP: %v", udpErr)
+		} else {
+			errStr = fmt.Sprintf("TCP: %v", tcpErr)
+		}
+		SetReceiverStatus("syslog", ReceiverStatus{
+			Status: "error",
+			Port:   defaultPortStr,
+			Error:  errStr,
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("Syslog receiver bind error: %s", errStr))
+		<-ctx.Done()
+		return fmt.Errorf("syslog bind: %s", errStr)
+	}
+
+	if udpErr != nil {
+		SetReceiverStatus("syslog", ReceiverStatus{
+			Status: "running",
+			Port:   fmt.Sprintf("TCP :%d (UDP failed)", s.tcpPort),
+			Error:  fmt.Sprintf("UDP: %v", udpErr),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("Syslog UDP bind error: %v", udpErr))
+	} else if tcpErr != nil {
+		SetReceiverStatus("syslog", ReceiverStatus{
+			Status: "running",
+			Port:   fmt.Sprintf("UDP :%d (TCP failed)", s.udpPort),
+			Error:  fmt.Sprintf("TCP: %v", tcpErr),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("Syslog TCP bind error: %v", tcpErr))
+	} else {
+		SetReceiverStatus("syslog", ReceiverStatus{
+			Status: "running",
+			Port:   defaultPortStr,
+		})
+	}
+	defer ClearReceiverStatus("syslog")
+
 	if err := server.Boot(); err != nil {
 		slog.Error("Failed to boot syslog server", "error", err)
+		SetReceiverStatus("syslog", ReceiverStatus{
+			Status: "error",
+			Port:   defaultPortStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("Syslog receiver boot error: %v", err))
+		<-ctx.Done()
 		return err
 	}
 

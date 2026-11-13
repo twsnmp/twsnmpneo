@@ -61,6 +61,11 @@ func (s *ArpWatchServer) Start(ctx context.Context) error {
 	}
 
 	slog.Info("Starting ARP Watch Engine...", "range", s.cfg.Range)
+	SetReceiverStatus("arp", ReceiverStatus{
+		Status: "running",
+		Range:  s.cfg.Range,
+	})
+	defer ClearReceiverStatus("arp")
 	s.setLocalSegment()
 
 	if s.cfg.Store != nil {

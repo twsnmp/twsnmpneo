@@ -313,6 +313,7 @@ export interface MonitorDataEnt {
 export interface ReceiverStatusInfo {
   port?: string;
   status?: string;
+  error?: string;
   range?: string;
 }
 

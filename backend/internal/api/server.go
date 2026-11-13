@@ -581,6 +581,7 @@ func NewServer(cfg Config) (*Server, error) {
 			polls, _ := cfg.Store.ListPollings(c.Request().Context())
 			pollCount = len(polls)
 		}
+		systemStatus := "ok"
 		receivers := cfg.Receivers
 		if recvMgr != nil {
 			mcpEnabled := false
@@ -589,10 +590,20 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			receivers = recvMgr.GetReceiverStatus(mcpEnabled)
 		}
+		if receivers != nil {
+			for _, r := range receivers {
+				if rMap, ok := r.(map[string]any); ok {
+					if rMap["status"] == "error" {
+						systemStatus = "error"
+						break
+					}
+				}
+			}
+		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"version":    cfg.Version,
 			"commit":     cfg.Commit,
-			"status":     "ok",
+			"status":     systemStatus,
 			"time":       time.Now().Format(time.RFC3339),
 			"uptime":     uptime,
 			"node_count": nodeCount,

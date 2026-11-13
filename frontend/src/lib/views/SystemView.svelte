@@ -7,6 +7,7 @@
     fetchUpdateCheck,
     fetchMe,
     type SystemInfo,
+    type ReceiverStatusInfo,
     type MonitorDataEnt,
     type UpdateInfo,
   } from "../api";
@@ -64,6 +65,16 @@
   const formatReceiverPort = (port?: string) => {
     if (!port || port === "-") return $_('system.notConfigured');
     return port;
+  };
+
+  const getReceiverCardClass = (recv?: ReceiverStatusInfo) => {
+    if (recv?.status === "error") {
+      return "border-rose-300 dark:border-rose-800/80 bg-rose-50/50 dark:bg-rose-950/20 shadow-sm shadow-rose-500/10";
+    }
+    if (recv?.status === "running") {
+      return "border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60";
+    }
+    return "border-slate-200/80 dark:border-slate-800/60 bg-slate-50/60 dark:bg-slate-950/40 opacity-80";
   };
 
   const getTimezoneLabel = (timeStr?: string) => {
@@ -508,14 +519,27 @@
               <Server class="h-3.5 w-3.5" />
               <span>{$_('system.daemonStatus')}</span>
             </span>
-            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/80 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-              ● ACTIVE
-            </span>
+            {#if sysInfo?.status === "error"}
+              <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800/80 px-2 py-0.2 text-[10px] font-semibold text-rose-700 dark:text-rose-400">
+                ● ERROR
+              </span>
+            {:else}
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/80 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                ● ACTIVE
+              </span>
+            {/if}
           </div>
-          <div class="my-2 flex items-center gap-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 class="h-6 w-6" />
-            <span>{sysInfo?.status?.toUpperCase() || "HEALTHY"}</span>
-          </div>
+          {#if sysInfo?.status === "error"}
+            <div class="my-2 flex items-center gap-2 text-2xl font-bold text-rose-600 dark:text-rose-400">
+              <AlertTriangle class="h-6 w-6" />
+              <span>ERROR</span>
+            </div>
+          {:else}
+            <div class="my-2 flex items-center gap-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 class="h-6 w-6" />
+              <span>{sysInfo?.status?.toUpperCase() || "HEALTHY"}</span>
+            </div>
+          {/if}
           <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center justify-between">
             <span>{$_('system.uptime')} <span class="text-cyan-600 dark:text-cyan-300 font-semibold">{sysInfo?.uptime || $_('system.starting')}</span></span>
           </div>
@@ -663,6 +687,10 @@
             <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800/60 px-2 py-0.2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
               {$_('system.running')}
             </span>
+          {:else if status === "error"}
+            <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800/60 px-2 py-0.2 text-[10px] font-semibold text-rose-700 dark:text-rose-400">
+              {$_('system.error')}
+            </span>
           {:else if status === "disabled"}
             <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700/60 px-2 py-0.2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
               {$_('system.disabled')}
@@ -674,100 +702,117 @@
           {/if}
         {/snippet}
 
+        {#snippet errorNotice(recv?: ReceiverStatusInfo)}
+          {#if recv?.status === "error" && recv?.error}
+            <div class="text-[11px] text-rose-600 dark:text-rose-400 font-medium break-all flex items-start gap-1">
+              <AlertTriangle class="h-3.5 w-3.5 shrink-0 mt-0.5 text-rose-500" />
+              <span>{recv.error}</span>
+            </div>
+          {/if}
+        {/snippet}
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
           <!-- Syslog -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.syslog)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">Syslog</span>
               {@render statusBadge(sysInfo?.receivers?.syslog?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.syslog?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.syslog?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.syslog?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.syslog?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.syslog)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">RFC 3164 / RFC 5424</div>
           </div>
 
           <!-- SNMP TRAP -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.trap)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">SNMP TRAP</span>
               {@render statusBadge(sysInfo?.receivers?.trap?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.trap?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.trap?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.trap?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.trap?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.trap)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">SNMP TRAP / InformRequest</div>
           </div>
 
           <!-- NetFlow / IPFIX -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.netflow)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">NetFlow / IPFIX</span>
               {@render statusBadge(sysInfo?.receivers?.netflow?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.netflow?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.netflow?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.netflow?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.netflow?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.netflow)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">NetFlow v5 / v9 / IPFIX</div>
           </div>
 
           <!-- MCP Server -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.mcp)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.mcpServer')}</span>
               {@render statusBadge(sysInfo?.receivers?.mcp?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.mcp?.status === 'running' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.mcp?.status === 'running' ? 'text-emerald-600 dark:text-emerald-400' : sysInfo?.receivers?.mcp?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.mcp?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.mcp)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.mcpDesc')}</div>
           </div>
 
           <!-- OpenTelemetry -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.otel)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">OpenTelemetry</span>
               {@render statusBadge(sysInfo?.receivers?.otel?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.otel?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.otel?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.otel?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.otel?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.otel)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">OTLP Traces / Metrics / Logs</div>
           </div>
 
           <!-- MQTT Broker -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.mqtt)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">{$_('system.mqttBroker')}</span>
               {@render statusBadge(sysInfo?.receivers?.mqtt?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.mqtt?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.mqtt?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.mqtt?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.mqtt?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.mqtt)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.mqttDesc')}</div>
           </div>
 
           <!-- sFlow -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.sflow)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">sFlow</span>
               {@render statusBadge(sysInfo?.receivers?.sflow?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.sflow?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.sflow?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.sflow?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {formatReceiverPort(sysInfo?.receivers?.sflow?.port)}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.sflow)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.sflowDesc')}</div>
           </div>
 
           <!-- ARP Watch -->
-          <div class="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/60 p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+          <div class="rounded-xl border p-3.5 space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors {getReceiverCardClass(sysInfo?.receivers?.arp)}">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-800 dark:text-slate-200">ARP Watch</span>
               {@render statusBadge(sysInfo?.receivers?.arp?.status)}
             </div>
-            <div class="font-mono font-semibold {sysInfo?.receivers?.arp?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-slate-500'}">
+            <div class="font-mono font-semibold {sysInfo?.receivers?.arp?.status === 'running' ? 'text-cyan-600 dark:text-cyan-400' : sysInfo?.receivers?.arp?.status === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}">
               {sysInfo?.receivers?.arp?.status === 'running' ? (sysInfo?.receivers?.arp?.range || $_('system.arpScan')) : $_('system.disabled')}
             </div>
+            {@render errorNotice(sysInfo?.receivers?.arp)}
             <div class="text-[10px] text-slate-500 dark:text-slate-400">{$_('system.arpDesc')}</div>
           </div>
 

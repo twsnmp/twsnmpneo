@@ -373,6 +373,7 @@ func (m *Manager) startSyslogLocked() {
 
 func (m *Manager) stopSyslogLocked() {
 	if m.syslogRunner == nil {
+		ClearReceiverStatus("syslog")
 		return
 	}
 	r := m.syslogRunner
@@ -382,6 +383,7 @@ func (m *Manager) stopSyslogLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("syslog")
 	m.logReceiverEvent("Stopped Syslog receiver")
 }
 
@@ -410,6 +412,7 @@ func (m *Manager) startTrapLocked() {
 
 func (m *Manager) stopTrapLocked() {
 	if m.trapRunner == nil {
+		ClearReceiverStatus("trap")
 		return
 	}
 	r := m.trapRunner
@@ -419,6 +422,7 @@ func (m *Manager) stopTrapLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("trap")
 	m.logReceiverEvent("Stopped SNMP TRAP receiver")
 }
 
@@ -447,6 +451,7 @@ func (m *Manager) startNetFlowLocked() {
 
 func (m *Manager) stopNetFlowLocked() {
 	if m.netflowRunner == nil {
+		ClearReceiverStatus("netflow")
 		return
 	}
 	r := m.netflowRunner
@@ -456,6 +461,7 @@ func (m *Manager) stopNetFlowLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("netflow")
 	m.logReceiverEvent("Stopped NetFlow receiver")
 }
 
@@ -484,6 +490,7 @@ func (m *Manager) startSFlowLocked() {
 
 func (m *Manager) stopSFlowLocked() {
 	if m.sflowRunner == nil {
+		ClearReceiverStatus("sflow")
 		return
 	}
 	r := m.sflowRunner
@@ -493,6 +500,7 @@ func (m *Manager) stopSFlowLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("sflow")
 	m.logReceiverEvent("Stopped sFlow receiver")
 }
 
@@ -526,6 +534,7 @@ func (m *Manager) startOTelLocked() {
 
 func (m *Manager) stopOTelLocked() {
 	if m.otelRunner == nil {
+		ClearReceiverStatus("otel")
 		return
 	}
 	r := m.otelRunner
@@ -535,6 +544,7 @@ func (m *Manager) stopOTelLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("otel")
 	m.logReceiverEvent("Stopped OpenTelemetry receiver")
 }
 
@@ -565,6 +575,7 @@ func (m *Manager) startMQTTLocked() {
 
 func (m *Manager) stopMQTTLocked() {
 	if m.mqttRunner == nil {
+		ClearReceiverStatus("mqtt")
 		return
 	}
 	r := m.mqttRunner
@@ -574,6 +585,7 @@ func (m *Manager) stopMQTTLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("mqtt")
 	m.logReceiverEvent("Stopped MQTT broker")
 }
 
@@ -602,6 +614,7 @@ func (m *Manager) startArpWatchLocked() {
 
 func (m *Manager) stopArpWatchLocked() {
 	if m.arpRunner == nil {
+		ClearReceiverStatus("arp")
 		return
 	}
 	r := m.arpRunner
@@ -611,6 +624,7 @@ func (m *Manager) stopArpWatchLocked() {
 	case <-r.done:
 	case <-time.After(1 * time.Second):
 	}
+	ClearReceiverStatus("arp")
 	if m.arpWatch != nil {
 		m.arpWatch.cfg.Enabled = false
 	}
@@ -726,91 +740,66 @@ func (m *Manager) GetReceiverStatus(mcpEnabled bool) map[string]any {
 
 	result := make(map[string]any)
 
-	// Syslog
-	if m.syslogRunner != nil {
-		var portStr string
-		if m.baseSyslogUDP > 0 && m.baseSyslogTCP > 0 {
-			portStr = fmt.Sprintf("UDP :%d / TCP :%d", m.baseSyslogUDP, m.baseSyslogTCP)
-		} else if m.baseSyslogUDP > 0 {
-			portStr = fmt.Sprintf("UDP :%d", m.baseSyslogUDP)
-		} else {
-			portStr = fmt.Sprintf("TCP :%d", m.baseSyslogTCP)
+	checkReceiver := func(name string, defaultPort string, enabled bool, runner *receiverRunner) map[string]any {
+		if !enabled {
+			return map[string]any{
+				"port":   "-",
+				"status": "stopped",
+			}
 		}
-		result["syslog"] = map[string]any{
-			"port":   portStr,
-			"status": "running",
+		st, ok := GetReceiverStatus(name)
+		if !ok {
+			status := "stopped"
+			if runner != nil {
+				status = "running"
+			}
+			return map[string]any{
+				"port":   defaultPort,
+				"status": status,
+			}
 		}
-	} else {
-		result["syslog"] = map[string]any{
-			"port":   "-",
-			"status": "stopped",
+		port := defaultPort
+		if st.Port != "" {
+			port = st.Port
 		}
+		res := map[string]any{
+			"port":   port,
+			"status": st.Status,
+		}
+		if st.Error != "" {
+			res["error"] = st.Error
+		}
+		if st.Range != "" {
+			res["range"] = st.Range
+		}
+		return res
 	}
+
+	// Syslog
+	var syslogDefaultPort string
+	if m.baseSyslogUDP > 0 && m.baseSyslogTCP > 0 {
+		syslogDefaultPort = fmt.Sprintf("UDP :%d / TCP :%d", m.baseSyslogUDP, m.baseSyslogTCP)
+	} else if m.baseSyslogUDP > 0 {
+		syslogDefaultPort = fmt.Sprintf("UDP :%d", m.baseSyslogUDP)
+	} else {
+		syslogDefaultPort = fmt.Sprintf("TCP :%d", m.baseSyslogTCP)
+	}
+	result["syslog"] = checkReceiver("syslog", syslogDefaultPort, m.cfg.EnableSyslogd, m.syslogRunner)
 
 	// SNMP Trap
-	if m.trapRunner != nil {
-		result["trap"] = map[string]any{
-			"port":   fmt.Sprintf("UDP :%d (v1/v2c/v3)", m.baseTrapPort),
-			"status": "running",
-		}
-	} else {
-		result["trap"] = map[string]any{
-			"port":   "-",
-			"status": "stopped",
-		}
-	}
+	result["trap"] = checkReceiver("trap", fmt.Sprintf("UDP :%d (v1/v2c/v3)", m.baseTrapPort), m.cfg.EnableTrapd, m.trapRunner)
 
 	// NetFlow
-	if m.netflowRunner != nil {
-		result["netflow"] = map[string]any{
-			"port":   fmt.Sprintf("UDP :%d", m.baseNetFlowPort),
-			"status": "running",
-		}
-	} else {
-		result["netflow"] = map[string]any{
-			"port":   "-",
-			"status": "stopped",
-		}
-	}
+	result["netflow"] = checkReceiver("netflow", fmt.Sprintf("UDP :%d", m.baseNetFlowPort), m.cfg.EnableNetflowd, m.netflowRunner)
 
 	// sFlow
-	if m.sflowRunner != nil {
-		result["sflow"] = map[string]any{
-			"port":   fmt.Sprintf("UDP :%d", m.baseSFlowPort),
-			"status": "running",
-		}
-	} else {
-		result["sflow"] = map[string]any{
-			"port":   "-",
-			"status": "stopped",
-		}
-	}
+	result["sflow"] = checkReceiver("sflow", fmt.Sprintf("UDP :%d", m.baseSFlowPort), m.cfg.EnableSFlowd, m.sflowRunner)
 
 	// OpenTelemetry
-	if m.otelRunner != nil {
-		result["otel"] = map[string]any{
-			"port":   fmt.Sprintf("HTTP :%d (OTLP)", m.baseOTelPort),
-			"status": "running",
-		}
-	} else {
-		result["otel"] = map[string]any{
-			"port":   "-",
-			"status": "stopped",
-		}
-	}
+	result["otel"] = checkReceiver("otel", fmt.Sprintf("HTTP :%d (OTLP)", m.baseOTelPort), m.cfg.EnableOTel, m.otelRunner)
 
 	// MQTT Broker
-	if m.mqttRunner != nil {
-		result["mqtt"] = map[string]any{
-			"port":   fmt.Sprintf("TCP :%d", m.baseMQTTPort),
-			"status": "running",
-		}
-	} else {
-		result["mqtt"] = map[string]any{
-			"port":   "-",
-			"status": "stopped",
-		}
-	}
+	result["mqtt"] = checkReceiver("mqtt", fmt.Sprintf("TCP :%d", m.baseMQTTPort), m.cfg.EnableMqtt, m.mqttRunner)
 
 	// MCP Server
 	if mcpEnabled {
@@ -826,16 +815,32 @@ func (m *Manager) GetReceiverStatus(mcpEnabled bool) map[string]any {
 	}
 
 	// ARP Watch
-	if m.arpRunner != nil {
-		result["arp"] = map[string]any{
-			"status": "running",
-			"range":  m.cfg.ArpWatchRange,
-		}
-	} else {
+	if !m.cfg.EnableArpWatch {
 		result["arp"] = map[string]any{
 			"status": "disabled",
 			"range":  "",
 		}
+	} else {
+		arpStatus := "stopped"
+		arpRange := m.cfg.ArpWatchRange
+		var arpError string
+		if st, ok := GetReceiverStatus("arp"); ok {
+			arpStatus = st.Status
+			if st.Range != "" {
+				arpRange = st.Range
+			}
+			arpError = st.Error
+		} else if m.arpRunner != nil {
+			arpStatus = "running"
+		}
+		arpRes := map[string]any{
+			"status": arpStatus,
+			"range":  arpRange,
+		}
+		if arpError != "" {
+			arpRes["error"] = arpError
+		}
+		result["arp"] = arpRes
 	}
 
 	return result

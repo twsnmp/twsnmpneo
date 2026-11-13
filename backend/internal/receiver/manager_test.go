@@ -2,8 +2,11 @@ package receiver
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -254,5 +257,238 @@ func TestManager_UpdateConf(t *testing.T) {
 	}
 	if !hasStartNetflow {
 		t.Errorf("expected Start NetFlow event log, got: %v", events)
+	}
+}
+
+func TestManager_PortConflictDetection(t *testing.T) {
+	ResetAllReceiverStatuses()
+
+	tmpDir, err := os.MkdirTemp("", "twsnmpneo-portconflict-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	bStore, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open bbolt: %v", err)
+	}
+	defer bStore.Close()
+
+	logDir := filepath.Join(tmpDir, "logs")
+	logStore, err := parquet.New(parquet.Config{
+		Dir:        logDir,
+		BufferSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("failed to create log store: %v", err)
+	}
+	defer logStore.Close()
+
+	// Pre-occupy UDP port for NetFlow and TCP port for MQTT
+	conflictUDPPort := 61102
+	udpConn, err := net.ListenPacket("udp", fmt.Sprintf(":%d", conflictUDPPort))
+	if err != nil {
+		t.Skipf("cannot bind test udp port: %v", err)
+	}
+	defer udpConn.Close()
+
+	conflictTCPPort := 61105
+	tcpLn, err := net.Listen("tcp", fmt.Sprintf(":%d", conflictTCPPort))
+	if err != nil {
+		t.Skipf("cannot bind test tcp port: %v", err)
+	}
+	defer tcpLn.Close()
+
+	normalSyslogPort := 61100
+	cfg := Config{
+		Store:          bStore,
+		LogStore:       logStore,
+		SyslogUDP:      normalSyslogPort,
+		NetFlowPort:    conflictUDPPort,
+		MQTTPort:       conflictTCPPort,
+		EnableSyslogd:  true,
+		EnableNetflowd: true,
+		EnableMqtt:     true,
+	}
+
+	mgr := NewManager(cfg)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- mgr.Start(ctx)
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+
+	statuses := mgr.GetReceiverStatus(false)
+
+	// Syslog should be running normally
+	syslogSt, ok := statuses["syslog"].(map[string]any)
+	if !ok || syslogSt["status"] != "running" {
+		t.Errorf("expected syslog status running, got: %v", syslogSt)
+	}
+
+	// NetFlow should detect port error
+	netflowSt, ok := statuses["netflow"].(map[string]any)
+	if !ok || netflowSt["status"] != "error" {
+		t.Errorf("expected netflow status error, got: %v", netflowSt)
+	}
+	if netflowSt["error"] == nil || netflowSt["error"] == "" {
+		t.Errorf("expected netflow error message, got empty: %v", netflowSt)
+	}
+
+	// MQTT should detect port error
+	mqttSt, ok := statuses["mqtt"].(map[string]any)
+	if !ok || mqttSt["status"] != "error" {
+		t.Errorf("expected mqtt status error, got: %v", mqttSt)
+	}
+	if mqttSt["error"] == nil || mqttSt["error"] == "" {
+		t.Errorf("expected mqtt error message, got empty: %v", mqttSt)
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("manager start returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("manager did not stop in time")
+	}
+
+	// Verify warning event logs were recorded for port errors
+	events, err := bStore.ListEventLogs(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("list event logs: %v", err)
+	}
+	hasNetFlowErrorLog := false
+	hasMQTTErrorLog := false
+	for _, e := range events {
+		if strings.Contains(e.Event, "NetFlow") && e.Level == "warn" {
+			hasNetFlowErrorLog = true
+		}
+		if strings.Contains(e.Event, "MQTT") && e.Level == "warn" {
+			hasMQTTErrorLog = true
+		}
+	}
+	if !hasNetFlowErrorLog {
+		t.Errorf("expected warn event log for NetFlow bind error, got events: %v", events)
+	}
+	if !hasMQTTErrorLog {
+		t.Errorf("expected warn event log for MQTT bind error, got events: %v", events)
+	}
+}
+
+func TestManager_PortConflictDetection_MoreReceivers(t *testing.T) {
+	ResetAllReceiverStatuses()
+
+	tmpDir, err := os.MkdirTemp("", "twsnmpneo-portconflict-more-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	bStore, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open bbolt: %v", err)
+	}
+	defer bStore.Close()
+
+	logDir := filepath.Join(tmpDir, "logs")
+	logStore, err := parquet.New(parquet.Config{
+		Dir:        logDir,
+		BufferSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("failed to create log store: %v", err)
+	}
+	defer logStore.Close()
+
+	// Pre-occupy UDP port for Trap & sFlow, and TCP port for OTel
+	conflictTrapPort := 61201
+	trapConn, err := net.ListenPacket("udp", fmt.Sprintf(":%d", conflictTrapPort))
+	if err != nil {
+		t.Skipf("cannot bind test udp port for trap: %v", err)
+	}
+	defer trapConn.Close()
+
+	conflictSFlowPort := 61203
+	sflowConn, err := net.ListenPacket("udp", fmt.Sprintf(":%d", conflictSFlowPort))
+	if err != nil {
+		t.Skipf("cannot bind test udp port for sflow: %v", err)
+	}
+	defer sflowConn.Close()
+
+	conflictOTelPort := 61204
+	otelLn, err := net.Listen("tcp", fmt.Sprintf(":%d", conflictOTelPort))
+	if err != nil {
+		t.Skipf("cannot bind test tcp port for otel: %v", err)
+	}
+	defer otelLn.Close()
+
+	cfg := Config{
+		Store:        bStore,
+		LogStore:     logStore,
+		TrapPort:     conflictTrapPort,
+		SFlowPort:    conflictSFlowPort,
+		OTelPort:     conflictOTelPort,
+		EnableTrapd:  true,
+		EnableSFlowd: true,
+		EnableOTel:   true,
+	}
+
+	mgr := NewManager(cfg)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- mgr.Start(ctx)
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+
+	statuses := mgr.GetReceiverStatus(false)
+
+	// Trap should detect port error
+	trapSt, ok := statuses["trap"].(map[string]any)
+	if !ok || trapSt["status"] != "error" {
+		t.Errorf("expected trap status error, got: %v", trapSt)
+	}
+	if trapSt["error"] == nil || trapSt["error"] == "" {
+		t.Errorf("expected trap error message, got empty: %v", trapSt)
+	}
+
+	// sFlow should detect port error
+	sflowSt, ok := statuses["sflow"].(map[string]any)
+	if !ok || sflowSt["status"] != "error" {
+		t.Errorf("expected sflow status error, got: %v", sflowSt)
+	}
+	if sflowSt["error"] == nil || sflowSt["error"] == "" {
+		t.Errorf("expected sflow error message, got empty: %v", sflowSt)
+	}
+
+	// OTel should detect port error
+	otelSt, ok := statuses["otel"].(map[string]any)
+	if !ok || otelSt["status"] != "error" {
+		t.Errorf("expected otel status error, got: %v", otelSt)
+	}
+	if otelSt["error"] == nil || otelSt["error"] == "" {
+		t.Errorf("expected otel error message, got empty: %v", otelSt)
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("manager start returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("manager did not stop in time")
 	}
 }

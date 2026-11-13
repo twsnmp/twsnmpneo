@@ -103,12 +103,26 @@ func (s *OTelServer) Start(ctx context.Context) error {
 		Handler: mux,
 	}
 
+	portStr := fmt.Sprintf("HTTP :%d (OTLP)", s.port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		slog.Warn("Failed to start OpenTelemetry receiver", "addr", addr, "error", err)
+		SetReceiverStatus("otel", ReceiverStatus{
+			Status: "error",
+			Port:   portStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("OpenTelemetry server bind error: %v", err))
+		<-ctx.Done()
 		return fmt.Errorf("listen otel: %w", err)
 	}
 	defer ln.Close()
+
+	SetReceiverStatus("otel", ReceiverStatus{
+		Status: "running",
+		Port:   portStr,
+	})
+	defer ClearReceiverStatus("otel")
 
 	slog.Info("Started OpenTelemetry receiver", "addr", addr)
 

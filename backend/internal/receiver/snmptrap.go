@@ -78,7 +78,23 @@ func (s *TrapServer) Start(ctx context.Context) error {
 	}
 
 	listenAddr := fmt.Sprintf(":%d", s.port)
+	portStr := fmt.Sprintf("UDP :%d (v1/v2c/v3)", s.port)
 	slog.Info("Starting SNMP TRAP receiver", "addr", listenAddr)
+
+	// Probe port first to detect address already in use immediately
+	testConn, err := net.ListenPacket("udp", listenAddr)
+	if err != nil {
+		slog.Warn("Failed to bind SNMP TRAP socket", "addr", listenAddr, "error", err)
+		SetReceiverStatus("trap", ReceiverStatus{
+			Status: "error",
+			Port:   portStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("SNMP TRAP receiver bind error: %v", err))
+		<-ctx.Done()
+		return fmt.Errorf("listen snmptrap udp probe: %w", err)
+	}
+	_ = testConn.Close()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -95,8 +111,20 @@ func (s *TrapServer) Start(ctx context.Context) error {
 	select {
 	case <-tl.Listening():
 		slog.Info("Started SNMP TRAP receiver", "addr", listenAddr)
+		SetReceiverStatus("trap", ReceiverStatus{
+			Status: "running",
+			Port:   portStr,
+		})
+		defer ClearReceiverStatus("trap")
 	case err := <-errCh:
 		slog.Warn("Failed to start SNMP TRAP receiver", "addr", listenAddr, "error", err)
+		SetReceiverStatus("trap", ReceiverStatus{
+			Status: "error",
+			Port:   portStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("SNMP TRAP receiver bind error: %v", err))
+		<-ctx.Done()
 		return fmt.Errorf("listen snmptrap: %w", err)
 	case <-ctx.Done():
 		tl.Close()

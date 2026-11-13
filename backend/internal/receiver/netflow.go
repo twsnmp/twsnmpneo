@@ -58,14 +58,28 @@ func (s *NetFlowServer) Start(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf(":%d", s.port)
+	portStr := fmt.Sprintf("UDP :%d", s.port)
 	slog.Info("Starting NetFlow receiver", "addr", addr)
 
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		slog.Warn("Failed to start NetFlow receiver", "addr", addr, "error", err)
+		SetReceiverStatus("netflow", ReceiverStatus{
+			Status: "error",
+			Port:   portStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("NetFlow receiver bind error: %v", err))
+		<-ctx.Done()
 		return fmt.Errorf("listen netflow udp: %w", err)
 	}
 	defer conn.Close()
+
+	SetReceiverStatus("netflow", ReceiverStatus{
+		Status: "running",
+		Port:   portStr,
+	})
+	defer ClearReceiverStatus("netflow")
 
 	slog.Info("Started NetFlow receiver", "addr", addr)
 	buf := make([]byte, 65535)

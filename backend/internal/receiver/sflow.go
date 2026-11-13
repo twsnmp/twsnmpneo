@@ -51,14 +51,28 @@ func (s *SFlowServer) Start(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf(":%d", s.port)
+	portStr := fmt.Sprintf("UDP :%d", s.port)
 	slog.Info("Starting sFlow receiver", "addr", addr)
 
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		slog.Warn("Failed to start sFlow receiver", "addr", addr, "error", err)
+		SetReceiverStatus("sflow", ReceiverStatus{
+			Status: "error",
+			Port:   portStr,
+			Error:  err.Error(),
+		})
+		logReceiverWarn(s.store, fmt.Sprintf("sFlow receiver bind error: %v", err))
+		<-ctx.Done()
 		return fmt.Errorf("listen sflow udp: %w", err)
 	}
 	defer conn.Close()
+
+	SetReceiverStatus("sflow", ReceiverStatus{
+		Status: "running",
+		Port:   portStr,
+	})
+	defer ClearReceiverStatus("sflow")
 
 	slog.Info("Started sFlow receiver", "addr", addr)
 	buf := make([]byte, 65535)
