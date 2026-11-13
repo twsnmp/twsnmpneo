@@ -27,7 +27,7 @@ layout: default
 - **TWAgent & AI セキュリティ監査 (`twagentneo`)**: クロスプラットフォームエージェントの自動認識、リアルタイムテレメトリ、Sigmaルール検知＋ローカルAI判定、ファイル整合性監視 (FIM)、CIS ベンチマークセキュリティ設定診断 (SCA)。
 - **Apache Parquet 列指向ストレージ & 高速コンパクション**: 数百万件の Syslog、TRAP、NetFlow、sFlow を高速圧縮保存し、インメモリキャッシュと Parquet 自動結合（コンパクション）により瞬時に検索・集計。
 - **安全なデータベース運用 & 自動バックアップ**: トランザクションセーフなスナップショットによる定期バックアップ・自動世代管理、Web UIからの即時バックアップ/ダウンロード/復元管理、およびCLIオフライン復元・DB圧縮に対応。
-- **マルチLLM & 内蔵 MCP サーバー (25+ ツール)**: 生成AI（Gemini, OpenAI, Claude, Ollama）と Model Context Protocol (MCP) を標準搭載し、AIによるログ原因調査、OTel APM/トレース取得、ポーリング作成を支援。
+- **マルチLLM & 内蔵 MCP サーバー (42 ツール)**: 生成AI（Gemini, OpenAI, Claude, Ollama）と Model Context Protocol (MCP) を標準搭載し、AIによるログ原因調査、ノード・ポーリング管理、NetFlow・AI異常スコア確認、OTel APM/トレース取得を支援。
 - **ゼロ依存プライベート PKI**: ブラウザから即座に Root CA を立ち上げ、ACME/SCEP による証明書自動配布を実現。
 
 ---
@@ -482,7 +482,7 @@ TWSNMP NEO 自体の Web UI を HTTPS (TLS) で運用する際、Let's Encrypt �
 ![](./images/ja/ai_gpu_manager.png)
 
 ### 内蔵 MCP サーバー
-Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。25種以上の運用・診断ツール（ノード/マップ操作、Ping/SNMP/MIB、OTel APMメトリクス/トレース、各種レポートサマリー、センサー種別フィルタ等）と19種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせや障害診断を自律的に実行させる連携が可能です。
+Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。42種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、Ping/SNMP/MIB、NetFlow/Syslog/TRAP/イベント検索、AI異常スコア、OTel APMメトリクス/トレース、各種レポート、センサー種別フィルタ等）と31種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせ、監視設定の管理、障害診断を自律的に実行させる連携が可能です。
 
 詳細な構想やツール一覧は、**[MCP サーバー仕様・連携ガイド](mcp_ja.html)** および **[AI プロンプトガイド](prompt_ja.html)** をご覧ください。
 

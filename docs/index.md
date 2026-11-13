@@ -27,7 +27,7 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 - **TWAgent & AI Security Telemetry (`twagentneo`)**: Zero-config cross-platform agent ingestion, live host telemetry, Sigma rule detection with local LLM verification, File Integrity Monitoring (FIM), and CIS Benchmark Security Configuration Assessment (SCA).
 - **Apache Parquet Columnar Storage & Fast Compaction**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios, in-memory caching, timestamp range filtering, and automated background file compaction.
 - **Enterprise Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile`, automated recurring schedules, generation rotation, web-based archive management, and offline CLI disaster recovery & compaction.
-- **Native AI & Built-in MCP Server (25+ Tools)**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis, OTel APM metrics/traces inspection, and natural language polling creation.
+- **Native AI & Built-in MCP Server (42 Tools)**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis, topology/polling automation, NetFlow & AI anomaly inspection, OTel APM metrics/traces inspection, and natural language polling creation.
 - **Self-Contained Private PKI**: Issue, renew, and automate TLS certificates via ACME and SCEP directly within your network manager.
 
 ---
@@ -473,7 +473,7 @@ HTTP timeouts for local and external LLMs are extended to 15 minutes, with built
 ### Native Streamable HTTP MCP Server
 
 TWSNMP NEO provides a built-in **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
-Over 25 diagnostic and management tools (node/map management, Ping/SNMP/MIB, OTel APM metrics/traces, report summaries, sensor type filters) and 19 prompt templates are exposed directly to AI agents like Cursor, Claude Desktop, and Antigravity to inspect network status, query logs, and execute diagnostic tools autonomously.
+42 diagnostic and management tools (node/line/polling CRUD, immediate polling check, Ping/SNMP/MIB, NetFlow/Syslog/Trap/Event logs, AI anomaly scores, OTel APM metrics/traces, report summaries, sensor filters) and 31 prompt templates are exposed directly to AI agents like Cursor, Claude Desktop, and Antigravity to inspect network status, query logs, manage monitoring configurations, and execute diagnostic tools autonomously.
 
 Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](prompt.html)** for architecture details.
 

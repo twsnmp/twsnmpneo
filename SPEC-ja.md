@@ -48,8 +48,8 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
      - Apache Parquet 列指向圧縮保存による超高速クエリ、全カラムソート、詳細フィルタ、1万件取得、ページネーション、件数バッジ常時表示、受信推移グラフ連動、総合レポートモーダル (`LogReportModal`)。
   8. **ネイティブ AI & MCP (Model Context Protocol) 統合**:
      - `tensai` によるマルチLLM（Gemini, OpenAI, Claude, Ollama）オーケストレーション。
-     - **Streamable HTTP (`/api/mcp`)** による最新の双方向トランスポート、IPホワイトリスト制限（`-mcpFrom`）、および JWT 認証（`-mcpMode auth|noauth`）を完備したビルトイン MCP サーバー。
-     - 全25種類以上のツール群（Map/Node/Polling/Ping/SNMP/MIB、OpenTelemetry APMメトリクス/トレース、レポートサマリー、センサー［種別フィルタ対応］・IPAM・Wi-Fi・Bluetooth・証明書・リソースモニター、イベントログ・Syslog・Trap・IP/MAC情報）および19種の Prompt テンプレートを提供。
+     - **Streamable HTTP (`/api/mcp`)** による最新の双方向トランスポート、IP/CIDR ホワイトリスト制限（`-mcpFrom` / `TWSNMP_MCPFROM`）、および JWT 認証（`-mcpMode auth|noauth` / `TWSNMP_MCPMODE`）を完備したビルトイン MCP サーバー。
+     - 全42種類のツール群（マップ/ノード/ライン/ポーリング CRUD・即時チェック、Ping/SNMP/MIB、NetFlow・Syslog・TRAP・イベントログ検索、AI異常検知スコア、OpenTelemetry APM メトリクス/トレース、各種レポート/アドレス帳）および31種のプロンプトテンプレートを提供。
      - インラインAI支援ダイアログ（ログ原因分析、ポーリング生成支援、ノード診断）。
   9. **シングルバイナリ配布**:
      - Svelte 5 でビルドされたフロントエンド資産を Go の `embed.FS` で単一実行ファイルに完全内包。
@@ -252,11 +252,14 @@ twsnmpneo/
 
 ### 4.9 ネイティブ AI & MCP 統合および共通UI標準規約
 
-* **内蔵 MCP サーバーツール群 (25種類以上)**:
-  - **マップ・ネットワーク**: `get_node_list`, `add_node`, `update_node`, `get_network_list`, `get_polling_list`, `get_polling_log`, `get_polling_log_data`, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`, `get_system_status`, `diagnose_node`
-  - **レポート・アナリティクス**: `get_sensor_list`（種別フィルタ `type_filter` 対応）, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`（各種レポート件数一括取得）
+* **内蔵 MCP サーバーツール群 (42種類)**:
+  - **アクセス制御**: `-mcpFrom`（`TWSNMP_MCPFROM`）および `-mcpMode auth|noauth`（`TWSNMP_MCPMODE`）と Web UI マップ設定に対応し、起動時の明示的な CLI/環境変数指定は保存済み初期設定より優先適用（ループバックアドレスは常時許可）。
+  - **マップ・トポロジー**: `get_node_list`, `get_node`, `add_node`（ノードのみ登録し PING ポーリングは自動追加しない）, `update_node`, `delete_node`（一意名/ID指定・紐づくポーリングと接続ラインをカスケード削除）, `get_network_list`, `get_line_list`, `add_line`, `delete_line`, `get_system_status`（稼働中の設定済みレシーバー状態と uptime を返却）, `diagnose_node`
+  - **ポーリング・診断**: `get_polling_list`, `get_polling`, `add_polling`, `update_polling`（即時再チェック予約）, `delete_polling`（連動ライン削除）, `check_polling`（`polling_id` / `node_id` / `all` 指定による即時実行）, `get_polling_log`, `get_polling_log_data`（CSV 形式時系列メトリクス）, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`
+  - **レポート・AI異常検知**: `get_sensor_list`（`type_filter` / `state_filter` 対応）, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`（`public_address_only` 対応）, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`（指定レポート種別のレコード詳細取得）, `get_ai_anomaly_list`（AI 異常スコア一覧取得）
   - **OpenTelemetry APM**: `get_otel_metrics`（メトリック一覧・値取得）, `get_otel_traces`（分散トレーススパン取得）
-  - **ログ・診断**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `get_ip_address_info`, `get_mac_address_info`
+  - **ログ・トラフィック調査**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ip_address_info`, `get_mac_address_info`
+  - **MCP プロンプト**: 31 種類の対話用プロンプトテンプレートを提供
 * **OTel APM & LLM エンドポイント監視ポーリング**:
   - **OTel APM (`otel`)**: `metric`（Gauge/Sum等の直接集計・評価）、`trace`（期間内エラー率・P95所要時間・HTTP 4xx/5xx/gRPCエラー評価）、`heartbeat`/`last`（ハートビート途絶検知）
   - **LLM API監視 (`http`)**: `llm/openai`（OpenAI互換 `/v1/models`）、`llm/ollama`（Ollama `/api/tags`）、`metrics/json` によるAPI死活・RTT（`rtt_ms`）・モデル数（`models`）監視、`pe.Filter` による認証トークン（Bearer/API Key）自動付与

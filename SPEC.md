@@ -48,7 +48,7 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
      - Powered by Apache Parquet columnar storage for lightning-fast queries, filtering, and automated disk rotation.
   8. **Native AI & MCP (Model Context Protocol) Integration**:
      - Multi-LLM orchestration via `tensai` (Gemini, OpenAI, Claude, Ollama).
-     - Native built-in MCP server exposing system metrics, node topologies, logs, and diagnostic tools to external autonomous agents.
+     - Native built-in MCP server over Streamable HTTP (`/api/mcp`) exposing 42 diagnostic/management tools and 31 prompt templates to external autonomous agents.
      - Inline AI assistance dialogs (Log diagnosis, polling assistance, node health diagnosis).
   9. **Full Single-Binary Packaging**:
      - Embed the complete Svelte 5 frontend into the Go executable via `embed.FS`.
@@ -64,7 +64,7 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
   * **Apache Parquet**: Syslog, SNMP TRAP, NetFlow/IPFIX, sFlow, and polling metric time-series logs (columnar compression, fast filtering, safe disk rotation).
 * **AI & Agent Integrations**:
   * `tensai`: Multi-LLM client (Gemini, OpenAI, Claude, Ollama).
-  * Built-in **MCP Server** (`github.com/modelcontextprotocol/go-sdk`): Tools for system health, nodes, alerts, logs, and diagnostics over SSE and Stdio.
+  * Built-in **MCP Server** (`github.com/modelcontextprotocol/go-sdk`): 42 tools and 31 prompt templates for system health, topology CRUD, pollings, alerts, logs, NetFlow, and diagnostics over Streamable HTTP (`/api/mcp`).
 * **Built-in Protocol Receivers & Servers**:
   * Syslog (UDP, TCP, TLS)
   * SNMP TRAP (v1, v2c, v3)
@@ -519,13 +519,14 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
     - WebGPU native dynamic library installer and active backend detector (GPU Metal/Vulkan/D3D12, SIMD AVX2 / arm64 NEON, or Pure Go CPU fallback).
     - Dedicated REST APIs: `GET /api/ai/hardware`, `GET /api/ai/models`, `GET /api/ai/models/presets`, `POST /api/ai/models/download`, `POST /api/ai/models/cancel`, `DELETE /api/ai/models/:name`, `POST /api/ai/hardware/download-gpu`, `POST /api/ai/hardware/cancel-gpu`, and `GET /api/ai/download/status`.
 * **MCP Server Implementation**:
-  - Standard JSON-RPC 2.0 tools and prompts over modern **Streamable HTTP** (`/api/mcp`) with IP whitelist (`-mcpFrom`) and optional JWT authentication (`-mcpMode auth|noauth`).
-  - **Comprehensive Tools (25+ tools)**:
-    - **Map & Network**: `get_node_list`, `add_node`, `update_node`, `get_network_list`, `get_polling_list`, `get_polling_log`, `get_polling_log_data`, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`, `get_system_status`, `diagnose_node`.
-    - **Reports & Analytics**: `get_sensor_list` (with optional `type_filter`), `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`.
+  - Standard JSON-RPC 2.0 tools and prompts over modern **Streamable HTTP** (`/api/mcp`) with IP/CIDR whitelist (`-mcpFrom` / `TWSNMP_MCPFROM` / Web UI; loopback is always permitted) and optional JWT authentication (`-mcpMode auth|noauth` / `TWSNMP_MCPMODE` / Web UI; explicit CLI/env settings override initial stored config).
+  - **Comprehensive Tools (42 tools)**:
+    - **Map & Topology**: `get_node_list`, `get_node`, `add_node` (registers only the node without auto-creating a PING polling), `update_node`, `delete_node` (requires ID or unique name; cascades attached pollings and connected lines), `get_network_list`, `get_line_list`, `add_line`, `delete_line`, `get_system_status` (includes configured receiver statuses and uptime), `diagnose_node`.
+    - **Polling & Diagnostics**: `get_polling_list`, `get_polling`, `add_polling`, `update_polling` (triggers immediate recheck), `delete_polling` (cleans up bound lines), `check_polling` (`polling_id`, `node_id`, or `all`), `get_polling_log`, `get_polling_log_data` (CSV time-series metrics), `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`.
+    - **Reports & Analytics**: `get_sensor_list` (with `type_filter` and `state_filter`), `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list` (with `public_address_only`), `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`, `get_ai_anomaly_list`.
     - **OpenTelemetry APM**: `get_otel_metrics`, `get_otel_traces`.
-    - **Logs & Diagnostics**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `get_ip_address_info`, `get_mac_address_info`.
-  - **MCP Prompts**: Full suite of 19 interactive prompt templates for node inspection, poller queries, ping, SNMP walk, log search, and IP/MAC info retrieval.
+    - **Logs & Flows**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ip_address_info`, `get_mac_address_info`.
+  - **MCP Prompts**: Full suite of 31 interactive prompt templates covering node/topology CRUD, polling management & recheck, ping, SNMP, NetFlow/Syslog/Trap/Event log search, AI anomaly scores, and IP/MAC info retrieval.
 * **UI AI Assist Dialogs & Common Interaction Standards**:
   - **Component Coverage**: Applies universally across all AI-driven diagnosis and generation interfaces:
     - `LogAIDialog`: Inline log row AI analysis, root cause hypotheses, and remediation suggestions.

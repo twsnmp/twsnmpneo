@@ -47,7 +47,7 @@
 - **Syslog プローブタグ柔軟解析 & DNS 逆引きキャッシュ**: 各種プローブログ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）のタグを自動判別・正規化し、レポート集計時は未登録ノードのホスト名を DNS 逆引きキャッシュで高速解決。
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
-- **Streamable HTTP MCP サーバー (`/api/mcp`)**: 25種以上の運用・診断ツール（OTelメトリクス/トレース、レポートサマリー、センサー等）と19種のプロンプトテンプレートをAIエージェント（Cursor, Claude Desktop, Antigravity など）に提供。
+- **Streamable HTTP MCP サーバー (`/api/mcp`)**: 42種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、NetFlow 検索、AI 異常検知スコア、OTel メトリクス/トレース、各種レポート、センサー種別フィルタ等）と31種のプロンプトテンプレートを AI エージェント（Cursor, Claude Desktop, Antigravity など）に提供。
 - **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini, OpenAI, Claude, ローカル Ollama への接続、思考モデル（Thinking models）対応、タイムアウト延長（15分）、および WebGPU オフライン推論に対応。
 - **ワンクリック AI 診断**: イベントログの原因分析、全レポート画面（Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel 等）での統計データAI診断（Markdown表示、WAITアニメーション）、ノード健全性診断。
 - **OTel APM & AI/LLM ポーリング**: OTel メトリック集計・トレースエラー率/P95レイテンシ・ハートビート監視ポーリング、OTelView からのワンクリックポーリング作成、HTTP ポーリングによる OpenAI 互換 / Ollama API の死活・RTT・モデル数監視。

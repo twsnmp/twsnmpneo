@@ -46,7 +46,7 @@
 - **Probe Tag Parsing & Cached Reverse DNS**: Automatically extracts and normalizes tags for probe logs (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`) and resolves hostnames dynamically for unregistered IP nodes via cached reverse DNS lookup.
 
 ### 3. Native AI & Built-in MCP Server
-- **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 25+ diagnostic/management tools (OTel metrics/traces, report summary, sensor type filters) and 19 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
+- **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 42 diagnostic/management tools (node/line/polling CRUD, immediate polling check, NetFlow search, AI anomaly scores, OTel metrics/traces, report summaries, sensor filters) and 31 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
 - **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with support for thinking models, extended timeouts (15 minutes), and WebGPU offline inference.
 - **In-App AI Diagnosis**: One-click AI diagnosis across all report views (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) with rich Markdown output, smooth loading animations, and automated root cause analysis.
 - **OTel APM & AI/LLM Polling**: OTel metric evaluation, trace error-rate/P95 latency, and telemetry heartbeat polling with one-click polling generation from OTelView. HTTP polling monitoring OpenAI-compatible and Ollama endpoints (availability, RTT, model counts).
