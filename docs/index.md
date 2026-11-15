@@ -517,7 +517,10 @@ The system administration interface is organized into two dedicated tabs:
 ![](./images/en/system_monitor.png)
 
 - **"System Status" Tab**:
-  - **Daemon Health**: Comprehensive overview of Syslog, TRAP, NetFlow, sFlow, ARP Watch, OpenTelemetry, MQTT, MCP server, and PKI/ACME daemons.
+  - **Daemon Health**: Comprehensive overview of Syslog, TRAP, NetFlow, sFlow, ARP Watch, OpenTelemetry, MQTT, MCP server, and PKI/ACME daemons, including immediate bind error reporting (port conflicts or permission failures) on individual receiver cards and overall system status.
+
+  ![](./images/en/system_monitor_error.png)
+
   - **System Info & Self-Update**: Hardware specs (OS, CPU cores, architecture, uptime) and version information. Live update notification banners alert when new releases are available, enabling one-click in-place self-updates directly from the Web UI.
   - **Capacity Forecast & DB Backup**: One-click database backups and storage growth predictions.
 - **"Resource Monitor" Tab**:

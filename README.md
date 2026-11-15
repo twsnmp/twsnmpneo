@@ -74,7 +74,7 @@
 - **URL Parameter Auto-Login & History Sanitization**: One-click deep-linking with auto-authentication via `token` or credentials and direct view selection (`view`), automatically purging sensitive URL parameters from browser history for secure integration with portals like `twsnmpmw`.
 - **Log Storage & Deduplicated Events in Periodic Reports**: Daily operational reports sent via email or webhook include aggregated storage consumption for both bbolt and Parquet, alongside grouped warning event summaries (`count=N`).
 - **Standardized UI Badges & Severity Colors**: Unified uppercase English status indicators (`HIGH`, `LOW`, `WARN`, `INFO`, `NORMAL`, `REPAIR`) across all tables and modals, strict Amber theme coloring for warnings, and integrated line connection health status.
-- **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications, backup management modal, and one-click in-place upgrades
+- **System Administration**: Reorganized two-tab management view (System Status & Resource Monitor) with live update notifications, receiver bind error reporting, backup management modal, and one-click in-place upgrades
 
 ---
 
@@ -239,6 +239,13 @@ Run the Vite development server with Hot Module Replacement:
 ```bash
 mise run dev-frontend
 # Starts at http://localhost:5173
+```
+
+### 5. End-to-End Tests (Playwright)
+Run the automated Playwright E2E suite (builds the binary, spawns an isolated test server with seeded data, and verifies all views):
+```bash
+mise run e2e-install   # First-time Chromium & dependency setup
+mise run e2e           # Full build + E2E test suite
 ```
 
 ---

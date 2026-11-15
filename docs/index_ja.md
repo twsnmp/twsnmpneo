@@ -526,7 +526,10 @@ TWSNMP NEO は、ログイン不要で外部共有できる安全な「公開ダ
 ![](./images/ja/system_monitor.png)
 
 - **「システムステータス」タブ**:
-  - **デーモン稼働状態**: Syslog、TRAP、NetFlow、sFlow、ARP Watch、OpenTelemetry、MQTT、MCPサーバー、PKI/ACMEサービスの稼働状況を一元把握。
+  - **デーモン稼働状態**: Syslog、TRAP、NetFlow、sFlow、ARP Watch、OpenTelemetry、MQTT、MCPサーバー、PKI/ACMEサービスの稼働状況を一元把握。ポート競合や権限不足などによる受信デーモンのバインドエラーを検出し、個別カードおよびシステム全体のステータスとして即時表示します。
+
+  ![](./images/ja/system_monitor_error.png)
+
   - **システム情報 & セルフアップデート**: OS、CPUコア数、アーキテクチャ、稼働時間、現在のバージョンを表示。新バージョンがリリースされると更新バナーが表示され、Web UI からワンクリックで安全にアップデートを適用可能。
   - **サイズ予測 & DBバックアップ**: ワンクリックでのバックアップ作成や容量増加予測機能。
 - **「リソースモニター」タブ**:

@@ -245,7 +245,7 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
    - Top status summary cards: CPU utilization, Memory usage, Goroutines, Disk usage, Process Uptime, and Build/Git version.
    - **Self-Update & Environment Adaptation**: Live badge indicator when a new release is published on GitHub, one-click update trigger modal (`SystemUpdateModal.svelte`), release changelog inspection, and environment-aware update pathways: displays 'brew upgrade twsnmp/tap/twsnmpneo' for Homebrew installations, indicates debug mode when running in debug/dev builds, directs container users to 'docker compose pull', and executes in-place self-update with backup and automatic reconnect/reload for curl/standalone binary installations. Also supports CLI `twsnmpneo update` (and `twsnmpneo -update`) with identical environment adaptation.
    - ECharts multi-metric time-series telemetry charts (CPU, Memory, Goroutines, Disk I/O & Capacity).
-   - Internal daemon services health, receiver packet/message counters, and runtime version details.
+   - Internal daemon services health (including receiver bind error detection with `status: "error"` and diagnostic error details propagated to overall system status), receiver packet/message counters, and runtime version details.
 11. **Header Utility Bar & System Config (`ConfigModal.svelte`)**:
    - System settings button is located as an icon-only button on the top-right header utility bar.
    - The sidebar separates Map Settings, Polling Settings, and Database settings, alongside receivers, notifications, AI / LLM, and MIB management. Map options (name, size, icons, background image, and import), polling/SNMP parameters, and GeoIP, event-log retention, and datastore settings each have dedicated panels.
@@ -836,6 +836,7 @@ Consolidating and extending the public dashboard capabilities ported from **TWSN
 * **Test Isolation**: Abstract network protocols, external agents, and LLM APIs behind mockable interfaces.
 * **Race Detection**: All automated tests must pass cleanly with `go test -race ./...`.
 * **Frontend Verification**: TypeScript strict mode, lint checks, and successful production asset bundle compilation.
+* **End-to-End Verification (Playwright)**: Automated E2E test suite under `e2e/` (`auth-rbac`, `views-smoke`, `map-canvas`, `public-dashboard`, `i18n-theme`) running against an isolated `twsnmpneo` instance with seeded data, plus automated bilingual documentation screenshot capture (`e2e/scripts/capture-docs.ts`).
 
 ---
 
