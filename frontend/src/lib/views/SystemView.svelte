@@ -397,6 +397,7 @@
       <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800">
         <button
           type="button"
+          data-testid="system-tab-status"
           onclick={() => setTab("status")}
           class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'status' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >
@@ -406,6 +407,7 @@
 
         <button
           type="button"
+          data-testid="system-tab-monitor"
           onclick={() => setTab("monitor")}
           class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'monitor' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}"
         >

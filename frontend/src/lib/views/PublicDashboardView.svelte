@@ -556,6 +556,7 @@
       <!-- Language Switcher -->
       <button
         type="button"
+        data-testid="public-locale"
         onclick={toggleLocale}
         title={$_("publicDashboard.language")}
         class="flex h-7 items-center gap-1 px-2 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors cursor-pointer text-xs font-semibold"
@@ -577,6 +578,7 @@
 
       <button
         type="button"
+        data-testid="public-refresh"
         onclick={loadData}
         title={$_("publicDashboard.refresh")}
         class="p-1.5 rounded-lg border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
@@ -587,6 +589,7 @@
       {#if !isEmbed}
         <button
           type="button"
+          data-testid="public-test-alert"
           onclick={triggerTestAlert}
           title={$_("publicDashboard.testAlert")}
           class="p-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
@@ -966,6 +969,7 @@
         <!-- Dismiss Button -->
         <button
           type="button"
+          data-testid="public-drama-dismiss"
           onclick={dismissAlert}
           class="mt-2 mb-4 px-8 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-[0_0_25px_rgba(239,68,68,0.7)] transition-all cursor-pointer active:scale-95"
         >

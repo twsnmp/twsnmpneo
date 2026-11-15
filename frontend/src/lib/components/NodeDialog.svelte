@@ -210,6 +210,7 @@
 
 {#if show}
   <div
+    data-testid="node-dialog"
     class="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
     role="dialog"
     aria-modal="true"
@@ -264,6 +265,7 @@
                   </label>
                   <input
                     id="node-name"
+                    data-testid="node-input-name"
                     type="text"
                     bind:value={name}
                     placeholder=""
@@ -277,6 +279,7 @@
                   </label>
                   <input
                     id="node-ip"
+                    data-testid="node-input-ip"
                     type="text"
                     bind:value={ip}
                     placeholder={addrMode === 'host' ? $_('node.ipHostPlaceholder') : ''}
@@ -699,6 +702,7 @@
       <div class="flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-3.5 shrink-0">
         <button
           type="button"
+          data-testid="node-btn-cancel"
           onclick={() => (show = false)}
           class="px-4 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
         >
@@ -706,6 +710,7 @@
         </button>
         <button
           type="button"
+          data-testid="node-btn-save"
           onclick={handleSave}
           class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer"
         >

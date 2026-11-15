@@ -82,3 +82,42 @@ run = "air -c .air.toml"
 description = "Execute debug binary directly without live reload"
 run = "./bin/twsnmpneo --datadir ./data --debug"
 
+[tasks.e2e-install]
+description = "Install E2E Playwright dependencies and Chromium browser"
+dir = "e2e"
+run = "pnpm install && pnpm exec playwright install chromium"
+
+[tasks.e2e]
+description = "Build frontend & backend, then run headless Playwright E2E tests"
+depends = ["build"]
+dir = "e2e"
+run = "pnpm test"
+
+[tasks.e2e-only]
+description = "Run headless Playwright E2E tests using existing ./bin/twsnmpneo binary"
+dir = "e2e"
+run = "pnpm test"
+
+[tasks.e2e-headed]
+description = "Run Playwright E2E tests in a headed Chromium window"
+depends = ["build"]
+dir = "e2e"
+run = "pnpm test:headed"
+
+[tasks.e2e-report]
+description = "Open the last Playwright HTML report"
+dir = "e2e"
+run = "pnpm exec playwright show-report"
+
+[tasks.record-demo]
+description = "Record demo walkthrough video (WebM/MP4/GIF) into e2e/output"
+depends = ["build"]
+dir = "e2e"
+run = "pnpm run record:demo"
+
+[tasks.capture-docs]
+description = "Capture JA/EN documentation screenshots into e2e/output/docs-preview (use DOCS_WRITE=1 to overwrite docs/images)"
+depends = ["build"]
+dir = "e2e"
+run = "pnpm run capture:docs"
+

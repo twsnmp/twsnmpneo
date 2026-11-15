@@ -300,6 +300,7 @@
       <nav class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
         {#each navItems as item}
           <button
+            data-testid={`nav-${item.id}`}
             onclick={() => (currentPage = item.id as PageType)}
             class="relative flex flex-col items-center justify-center min-w-[58px] py-1 px-2.5 rounded-lg text-[11px] font-medium transition-all {currentPage === item.id ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60'}"
           >
@@ -324,6 +325,7 @@
         <!-- Current User Profile Badge -->
         {#if currentUser}
           <div
+            data-testid="user-badge"
             title={`Logged in as ${currentUser.name || currentUser.user} (${currentUser.role})`}
             class="flex h-8 items-center gap-1.5 px-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 text-xs font-semibold"
           >
@@ -337,6 +339,7 @@
 
         <!-- Language Switcher -->
         <button
+          data-testid="btn-locale"
           onclick={toggleLocale}
           title={$_('nav.language')}
           class="flex h-8 items-center gap-1 px-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:text-white transition-colors text-xs font-semibold"
@@ -347,6 +350,7 @@
 
         <!-- Settings Button -->
         <button
+          data-testid="btn-config"
           onclick={() => (showConfig = true)}
           title={$_('nav.settings')}
           class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
@@ -356,6 +360,7 @@
 
         <!-- Theme Toggle -->
         <button
+          data-testid="btn-theme"
           onclick={toggleTheme}
           title={$_('nav.theme')}
           class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
@@ -369,6 +374,7 @@
 
         <!-- Help Button -->
         <button
+          data-testid="btn-help"
           onclick={() => (showHelp = true)}
           title={$_('nav.help')}
           class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white transition-colors"
@@ -378,6 +384,7 @@
 
         <!-- Logout Button -->
         <button
+          data-testid="btn-logout"
           onclick={handleLogout}
           title={$_('auth.logout') || 'ログアウト'}
           class="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:border-rose-300 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60 transition-colors"

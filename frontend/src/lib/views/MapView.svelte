@@ -817,6 +817,7 @@
     <!-- Top-right Pinned Reload Button -->
     <div class="absolute top-3 right-4 z-20">
       <button
+        data-testid="map-reload"
         onclick={reloadAllData}
         title={$_('map.reload')}
         class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all backdrop-blur-md active:scale-95"
@@ -828,6 +829,7 @@
     <!-- Bottom-right Floating Map Controls (Save, Zoom In, Zoom Out) matching twsnmpfk -->
     <div class="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2">
       <button
+        data-testid="map-save"
         onclick={() => alert($_('map.saved'))}
         title={$_('map.save')}
         class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
@@ -836,6 +838,7 @@
       </button>
       <div class="flex items-center gap-1.5">
         <button
+          data-testid="map-zoom-in"
           onclick={() => zoom(true)}
           title={$_('map.zoomIn')}
           class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
@@ -843,6 +846,7 @@
           <ZoomIn class="h-4 w-4" />
         </button>
         <button
+          data-testid="map-zoom-out"
           onclick={() => zoom(false)}
           title={$_('map.zoomOut')}
           class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-200 shadow-md dark:shadow-xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-all backdrop-blur-md"
@@ -853,7 +857,7 @@
     </div>
 
     <!-- p5.js Canvas Container with native scrolling matching twsnmpfk -->
-    <div id="p5-map-canvas" class="h-full w-full overflow-auto"></div>
+    <div id="p5-map-canvas" data-testid="map-canvas" class="h-full w-full overflow-auto"></div>
   </div>
 
   <!-- Lower Section: Realtime Event Log Table (approx 38%) matching Image 1 + twnoaa style -->
@@ -916,6 +920,7 @@
   <!-- Right Click Context Menu -->
   {#if showContextMenu}
     <div
+      data-testid="map-context-menu"
       role="menu"
       tabindex="-1"
       class="fixed z-50 min-w-[180px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1.5 text-xs shadow-xl dark:shadow-2xl backdrop-blur-md {contextTargetNode ? 'max-h-[calc(100vh-1rem)] overflow-y-auto' : 'overflow-visible'}"
@@ -1035,17 +1040,17 @@
         </button>
       {:else}
         <!-- Add node (ノード追加) -->
-        <button onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+        <button data-testid="map-ctx-add-node" onclick={handleOpenAddNode} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Plus class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
           <span>{$_('map.context.addNode')}</span>
         </button>
         <!-- Draw item (描画アイテム) -->
-        <button onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+        <button data-testid="map-ctx-add-drawitem" onclick={handleOpenAddDrawItem} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Palette class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
           <span>{$_('map.context.addDrawItem')}</span>
         </button>
         <!-- New Network (新規ネットワーク) -->
-        <button onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
+        <button data-testid="map-ctx-add-network" onclick={handleOpenAddNetwork} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">
           <Network class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>{$_('map.context.addNetwork')}</span>
         </button>

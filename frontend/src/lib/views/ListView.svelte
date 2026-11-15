@@ -98,6 +98,7 @@
           drawItems.length}
         <button
           type="button"
+          data-testid={`list-cat-${cat.id}`}
           onclick={() => {
             activeCategory = cat.id;
           }}

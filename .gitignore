@@ -40,6 +40,11 @@ backend/web/dist/*
 frontend/dist/
 node_modules/
 frontend/node_modules/
+e2e/node_modules/
+e2e/output/
+e2e/playwright-report/
+e2e/test-results/
+e2e/.tmp-data*
 backend/tmp/
 
 .DS_Store

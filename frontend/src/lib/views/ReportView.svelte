@@ -352,6 +352,7 @@
       {#each categories as cat}
         <button
           type="button"
+          data-testid={`report-cat-${cat.id}`}
           onclick={() => {
             activeReport = cat.id;
             searchQuery = "";

@@ -1,0 +1,20 @@
+{
+  "name": "twsnmpneo-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "record:demo": "tsx scripts/record-demo.ts",
+    "capture:docs": "tsx scripts/capture-docs.ts",
+    "capture:docs:write": "DOCS_WRITE=1 tsx scripts/capture-docs.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

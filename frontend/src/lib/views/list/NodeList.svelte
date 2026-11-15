@@ -206,6 +206,7 @@
         <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
+          data-testid="node-search"
           placeholder={$_('list.search.nodes')}
           bind:value={searchQuery}
           oninput={() => (currentPage = 1)}
@@ -252,6 +253,7 @@
 
     <div class="flex items-center gap-2">
       <button
+        data-testid="btn-add-node"
         onclick={handleOpenAdd}
         class="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer"
       >
@@ -260,6 +262,7 @@
       </button>
 
       <button
+        data-testid="btn-refresh-nodes"
         onclick={onRefresh}
         disabled={loading}
         class="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
@@ -309,6 +312,7 @@
               <td class="py-0 px-1 text-right font-sans">
                 <div class="flex items-center justify-end">
                   <button
+                    data-testid="btn-node-detail"
                     onclick={() => handleDetailNode(n)}
                     class="rounded-lg p-1.5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
                     title={$_('map.context.vpanelDetail')}
@@ -316,6 +320,7 @@
                     <Box class="h-4 w-4" />
                   </button>
                   <button
+                    data-testid="btn-node-edit"
                     onclick={() => handleEditNode(n)}
                     class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
                     title={$_('common.edit')}
@@ -323,6 +328,7 @@
                     <Edit3 class="h-4 w-4" />
                   </button>
                   <button
+                    data-testid="btn-node-delete"
                     onclick={() => handleDeleteNode(n.id)}
                     class="rounded-lg p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                     title={$_('common.delete')}

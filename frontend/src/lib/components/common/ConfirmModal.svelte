@@ -106,6 +106,7 @@
       <div class="mt-6 flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
         <button
           type="button"
+          data-testid="confirm-cancel"
           onclick={handleCancel}
           class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all cursor-pointer shadow-xs"
         >
@@ -113,6 +114,7 @@
         </button>
         <button
           type="button"
+          data-testid="confirm-ok"
           onclick={handleConfirm}
           class="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 {confirmButtonClass}"
         >

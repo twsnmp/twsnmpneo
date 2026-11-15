@@ -54,6 +54,7 @@
           : (catCount ?? 0))}
       <button
         type="button"
+        data-testid={`log-cat-${cat.id}`}
         onclick={() => onTabSelect(cat.id)}
         class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === cat.id
           ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30'

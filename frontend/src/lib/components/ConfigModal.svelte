@@ -430,7 +430,7 @@
     tabindex="-1"
     onkeydown={(e) => { if (e.key === "Escape") show = false; }}
   >
-    <div class="flex h-[88vh] w-full max-w-7xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
+    <div data-testid="config-modal" class="flex h-[88vh] w-full max-w-7xl flex-col rounded-2xl border border-slate-800 bg-white dark:bg-[#0b1329] shadow-2xl overflow-hidden text-slate-800 dark:text-slate-200">
       <!-- Modal Header -->
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-900/60 px-6 py-4">
         <div class="flex items-center gap-3">
@@ -444,6 +444,7 @@
         </div>
         <button
           type="button"
+          data-testid="config-close"
           aria-label={$_('common.close')}
           onclick={() => (show = false)}
           class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer"
@@ -458,6 +459,7 @@
         <div class="w-52 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 p-3 space-y-1.5 shrink-0">
           <button
             type="button"
+            data-testid="config-tab-map"
             onclick={() => (activeTab = "map")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'map' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -466,6 +468,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-loc"
             onclick={() => (activeTab = "loc")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'loc' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -474,6 +477,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-dashboard"
             onclick={() => (activeTab = "dashboard")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'dashboard' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -482,6 +486,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-polling"
             onclick={() => (activeTab = "polling")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'polling' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -490,6 +495,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-receivers"
             onclick={() => (activeTab = "receivers")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'receivers' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -498,6 +504,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-notify"
             onclick={() => (activeTab = "notify")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'notify' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -506,6 +513,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-ai"
             onclick={() => (activeTab = "ai")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'ai' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -514,6 +522,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-database"
             onclick={() => (activeTab = "database")}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'database' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -522,6 +531,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-mib"
             onclick={() => { activeTab = "mib"; mibTabRef?.loadMIBModules(); }}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'mib' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -530,6 +540,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-icons"
             onclick={() => { activeTab = "icons"; iconsTabRef?.loadIcons(); }}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'icons' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -538,6 +549,7 @@
           </button>
           <button
             type="button"
+            data-testid="config-tab-users"
             onclick={() => { activeTab = "users"; usersTabRef?.loadUsers(); }}
             class="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === 'users' ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
           >
@@ -722,6 +734,7 @@
             </button>
             <button
               type="button"
+              data-testid="config-save"
               onclick={handleSave}
               class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all cursor-pointer"
             >

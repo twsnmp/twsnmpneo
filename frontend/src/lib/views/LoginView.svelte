@@ -78,6 +78,7 @@
   <div class="absolute top-4 right-4 z-20 flex items-center gap-2">
     <!-- Language Switcher -->
     <button
+      data-testid="login-locale"
       onclick={toggleLocale}
       type="button"
       title={$_('nav.language')}
@@ -90,6 +91,7 @@
     <!-- Theme Toggle -->
     {#if onToggleTheme}
       <button
+        data-testid="login-theme"
         onclick={onToggleTheme}
         type="button"
         title={$_('nav.theme')}
@@ -144,6 +146,7 @@
         <!-- Error Alert -->
         {#if errorMessage}
           <div
+            data-testid="login-error"
             class="flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 animate-shake"
             role="alert"
           >
@@ -163,6 +166,7 @@
             </div>
             <input
               id="login-username"
+              data-testid="login-username"
               type="text"
               bind:value={user}
               placeholder={$_('auth.usernamePlaceholder') || 'twsnmp'}
@@ -188,6 +192,7 @@
             {#if showPassword}
               <input
                 id="login-password"
+                data-testid="login-password"
                 type="text"
                 bind:value={password}
                 placeholder="••••••••"
@@ -199,6 +204,7 @@
             {:else}
               <input
                 id="login-password"
+                data-testid="login-password"
                 type="password"
                 bind:value={password}
                 placeholder="••••••••"
@@ -226,6 +232,7 @@
 
         <!-- Submit Button -->
         <button
+          data-testid="login-submit"
           type="submit"
           disabled={loading}
           class="relative mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-600/30 hover:from-cyan-500 hover:to-blue-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"

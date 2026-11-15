@@ -67,6 +67,7 @@
       <div class="mt-6 flex items-center justify-center pt-2 border-t border-slate-100 dark:border-slate-800/80">
         <button
           type="button"
+          data-testid="alert-ok"
           onclick={handleClose}
           class="min-w-28 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-cyan-600/30 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
         >

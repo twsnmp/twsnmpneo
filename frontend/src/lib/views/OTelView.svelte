@@ -872,6 +872,7 @@
       ] as item}
         <button
           type="button"
+          data-testid={`otel-tab-${item.id}`}
           onclick={() => handleTabChange(item.id as any)}
           class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === item.id ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-600/30' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}"
         >

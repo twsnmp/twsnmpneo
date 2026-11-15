@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import "maplibre-gl/dist/maplibre-gl.css";
-  import { Map as MapGl, NavigationControl, Marker } from "maplibre-gl";
+  import { Map as MapGl, NavigationControl, Marker, setWorkerUrl } from "maplibre-gl";
+  import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+
+  setWorkerUrl(maplibreWorkerUrl);
   import {
     fetchNodes,
     saveNode,

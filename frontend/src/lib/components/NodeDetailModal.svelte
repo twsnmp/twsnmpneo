@@ -940,6 +940,7 @@
           <!-- Close Button -->
           <button
             type="button"
+            data-testid="nodedetail-close"
             aria-label={$_('common.close')}
             onclick={() => (show = false)}
             class="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors cursor-pointer"
@@ -965,6 +966,7 @@
             {#each tabs as tab}
               <button
                 type="button"
+                data-testid={`nodedetail-tab-${tab.id}`}
                 onclick={() => (activeTab = tab.id)}
                 class="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all cursor-pointer {activeTab === tab.id
                   ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-md shadow-blue-600/30'
