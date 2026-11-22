@@ -567,6 +567,22 @@ func formatPollingResultForLLM(res map[string]interface{}) string {
 				formatted = append(formatted, fmt.Sprintf("%s: %.2f Mbps", k, vf))
 			case "days":
 				formatted = append(formatted, fmt.Sprintf("%s: %.0f days", k, vf))
+			case "pressure", "pressure_msl":
+				formatted = append(formatted, fmt.Sprintf("%s: %.1f hPa", k, vf))
+			case "pressure_diff_3h":
+				formatted = append(formatted, fmt.Sprintf("%s: %+.1f hPa", k, vf))
+			case "temp":
+				formatted = append(formatted, fmt.Sprintf("%s: %.1f C", k, vf))
+			case "humidity":
+				formatted = append(formatted, fmt.Sprintf("%s: %.0f%%", k, vf))
+			case "cape":
+				formatted = append(formatted, fmt.Sprintf("%s: %.0f J/kg", k, vf))
+			case "wind", "wind_gust":
+				formatted = append(formatted, fmt.Sprintf("%s: %.1f m/s", k, vf))
+			case "distance_km", "nearest_km", "depth_km":
+				formatted = append(formatted, fmt.Sprintf("%s: %.1f km", k, vf))
+			case "xray_flux":
+				formatted = append(formatted, fmt.Sprintf("%s: %.2e W/m2", k, vf))
 			default:
 				formatted = append(formatted, fmt.Sprintf("%s: %v", k, v))
 			}

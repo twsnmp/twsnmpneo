@@ -352,7 +352,41 @@ func TestSourceHelpers(t *testing.T) {
 			t.Fatalf("source %s", s)
 		}
 	}
-	if IsSource("syslog") || IsKind("nope") || !IsKind(KindWinTask) {
+	if IsSource("syslog") || IsKind("nope") || !IsKind(KindWinTask) || !IsKind(KindEarthEnv) {
 		t.Fatal("helper mismatch")
+	}
+}
+
+func TestRecordEarthEnvSample(t *testing.T) {
+	ctx := context.Background()
+	st := newStore(t)
+	now := time.Now().UnixNano()
+	err := RecordEarthEnvSample(ctx, st, "poll-1", "node-1", "Tokyo-GW", "weather", "Tokyo Weather", "35.6800,139.7500", "25.0C", "normal", EarthEnvDataEnt{
+		Time:     now,
+		State:    "normal",
+		Temp:     25.0,
+		Humidity: 60.0,
+		Pressure: 1013.2,
+	}, true)
+	if err != nil {
+		t.Fatalf("RecordEarthEnvSample error: %v", err)
+	}
+	earthItems := load[EarthEnvMonitorEnt](t, st, KindEarthEnv)
+	if len(earthItems) != 1 {
+		t.Fatalf("unexpected earthEnv items len: %d", len(earthItems))
+	}
+	for _, it := range earthItems {
+		if it.Count != 1 || len(it.Data) != 1 {
+			t.Fatalf("unexpected earthEnv item: %+v", it)
+		}
+	}
+	envItems := load[EnvMonitorEnt](t, st, KindEnvMonitor)
+	if len(envItems) != 1 {
+		t.Fatalf("unexpected mirrored envMonitor items len: %d", len(envItems))
+	}
+	for _, it := range envItems {
+		if len(it.EnvData) != 1 || it.EnvData[0].BarometricPressure != 1013.2 {
+			t.Fatalf("unexpected mirrored envMonitor item: %+v", it)
+		}
 	}
 }

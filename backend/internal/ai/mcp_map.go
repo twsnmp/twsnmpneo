@@ -276,7 +276,7 @@ type mcpGetPollingParams struct {
 type mcpAddPollingParams struct {
 	NodeID       string `json:"node_id" jsonschema:"target node ID or unique node name"`
 	Name         string `json:"name" jsonschema:"polling display name"`
-	Type         string `json:"type" jsonschema:"polling type (ping, snmp, http, tcp, dns, tls, syslog, trap, netflow, sflow, twsnmp, vmware, lxi, gnmi, cmd, mqtt, stun)"`
+	Type         string `json:"type" jsonschema:"polling type (ping, snmp, http, tcp, dns, tls, syslog, trap, netflow, sflow, twsnmp, vmware, lxi, gnmi, cmd, mqtt, stun, env)"`
 	Mode         string `json:"mode,omitempty" jsonschema:"polling sub-mode (e.g. 'get', 'stats', 'rtt', 'smoke', 'status', 'https', 'expire')"`
 	Params       string `json:"params,omitempty" jsonschema:"polling target parameters (e.g. OID/MIB name, URL, port, packet options)"`
 	Filter       string `json:"filter,omitempty" jsonschema:"log or value filter expression"`

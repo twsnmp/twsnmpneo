@@ -741,5 +741,63 @@
     "Script": "code == 200 && models > 0 && rtt_ms < 2000",
     "Level": "warn",
     "Descr": "Monitor local Ollama /api/tags health and loaded models"
+  },
+  {
+    "Name": "Earthquake Monitor (P2P / USGS Auto)",
+    "Type": "env",
+    "Mode": "quake",
+    "Params": "source=auto,max_age=3600",
+    "Script": "if (intensity >= 5.0) { setLevel('high'); false; } else if (intensity >= 3.0 || (distance_km <= 50 && magnitude >= 5.0)) { setLevel('warn'); false; } else { true; }",
+    "Level": "high",
+    "AutoParam": "loc",
+    "Descr": "Monitor seismic intensity and epicentral distance at the node location. Warn at intensity >= 3, High at >= 5-"
+  },
+  {
+    "Name": "Lightning & Surge Risk Monitor (JMA LIDEN / Open-Meteo)",
+    "Type": "env",
+    "Mode": "liden",
+    "Params": "radius=20,warn_radius=10",
+    "Script": "if (close_count > 0 || nearest_km <= 10.0) { setLevel('high'); false; } else if (strike_count > 0) { setLevel('warn'); false; } else { true; }",
+    "Level": "high",
+    "AutoParam": "loc",
+    "Descr": "Monitor lightning strikes around the site via JMA LIDEN or Open-Meteo. Warn within 20km, High within 10km"
+  },
+  {
+    "Name": "Space Weather & Solar Flare Monitor (NOAA)",
+    "Type": "env",
+    "Mode": "space",
+    "Params": "",
+    "Script": "if (flare_score >= 4.0 || kp_index >= 7.0) { setLevel('high'); false; } else if (flare_score >= 3.0 || kp_index >= 5.0) { setLevel('warn'); false; } else { true; }",
+    "Level": "warn",
+    "Descr": "Monitor NOAA GOES X-ray flux and Kp index. Warn at M-class flare or Kp >= 5 (G1), High at X-class or Kp >= 7 (G3)"
+  },
+  {
+    "Name": "Weather, Pressure Drop & Thunderstorm Risk (Open-Meteo)",
+    "Type": "env",
+    "Mode": "weather",
+    "Params": "",
+    "Script": "if (wind_gust >= 25.0 || cape >= 2500 || pressure_diff_3h <= -10.0) { setLevel('high'); false; } else if (wind_gust >= 15.0 || cape >= 1000 || pressure_diff_3h <= -5.0 || weather_code >= 95) { setLevel('warn'); false; } else { true; }",
+    "Level": "warn",
+    "AutoParam": "loc",
+    "Descr": "Monitor surface pressure, 3h pressure drop, CAPE, and wind gusts via Open-Meteo and record to EnvSensor report"
+  },
+  {
+    "Name": "Site Outdoor Temperature & Humidity Monitor (Open-Meteo)",
+    "Type": "env",
+    "Mode": "weather",
+    "Params": "",
+    "Script": "if (temp >= 38.0) { setLevel('high'); false; } else if (temp >= 35.0 || temp <= -5.0) { setLevel('warn'); false; } else { true; }",
+    "Level": "warn",
+    "AutoParam": "loc",
+    "Descr": "Record outdoor temperature, humidity, and pressure via Open-Meteo and alert on extreme heat or freezing temperatures"
+  },
+  {
+    "Name": "GPS & Radio Disruption Precursor Monitor (Solar Flare / Kp)",
+    "Type": "env",
+    "Mode": "space",
+    "Params": "",
+    "Script": "flare_score < 3.5 && kp_index < 6.0",
+    "Level": "warn",
+    "Descr": "Detect M5+ solar flares or G2+ geomagnetic storms that can degrade GPS/PTP timing or HF/satellite links"
   }
 ]

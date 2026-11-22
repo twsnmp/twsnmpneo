@@ -91,13 +91,18 @@ Select the best polling template and native parameters based on the user's inten
    - 'mqtt': Mode: "subscribe". Params: MQTT Broker URL (e.g. "tcp://localhost:1883").
    - 'netflow': Mode: "traffic" or "count".
    - 'stun': Mode: "ipv4" or "ipv6".
+   - 'env': Global environmental, disaster, and space weather open API monitoring.
+     - Mode "quake": Earthquake intensity & distance (P2P/JMA/USGS). Params: 'source=auto,max_age=3600' (optional: lat,lon,pref,area,radius). Variables: intensity (0-7), max_intensity, magnitude, distance_km, depth_km, mmi, tsunami.
+     - Mode "liden": Lightning strikes & thunderstorm risk (JMA LIDEN/Open-Meteo). Params: 'radius=20,warn_radius=10'. Variables: strike_count, close_count, cg_count, ic_count, nearest_km.
+     - Mode "space": Solar flares & geomagnetic storms (NOAA SWPC). Params: '' (or 'target=all|xray|kp'). Variables: xray_flux, flare_score (A=0.x, B=1.x, C=2.x, M=3.x, X=4.x+), flare_class, kp_index (0-9), g_scale (0-5).
+     - Mode "weather": Surface pressure, 3h drop, CAPE, temperature, wind (Open-Meteo). Params: '' (optional: lat,lon,sync_env_report=true|false). Variables: temp, humidity, pressure, pressure_msl, pressure_diff_3h, cape, wind, wind_gust, precipitation, weather_code.
 
 4. **Output Format**:
 You MUST return ONLY valid JSON matching this schema with NO markdown code fences or other prose:
 {
   "template_id": <int template ID from list or 0 if custom>,
   "name": "<clear descriptive polling name>",
-  "type": "<ping|snmp|http|tls|syslog|trap|mqtt|netflow|stun|cmd>",
+  "type": "<ping|snmp|http|tls|syslog|trap|mqtt|netflow|stun|env|cmd>",
   "mode": "<mode string>",
   "params": "<parameters string>",
   "filter": "<filter regex/expression or empty>",

@@ -133,6 +133,7 @@
     { value: "email", label: "EMAIL" },
     { value: "stun", label: "STUN" },
     { value: "otel", label: "OpenTelemetry" },
+    { value: "env", label: "Env / Disaster (Open API)" },
   ];
 
   const controlClass =
@@ -343,6 +344,13 @@
                 <option value="trace">trace (トレースエラー率・遅延監視)</option>
                 <option value="heartbeat">heartbeat (ハートビート受信途絶監視)</option>
               </select>
+            {:else if type === "env"}
+              <select id="poll-mode" bind:value={mode} class={controlClass}>
+                <option value="weather">weather (気象・気圧・CAPE / Open-Meteo)</option>
+                <option value="quake">quake (地震情報 / P2P・JMA・USGS)</option>
+                <option value="liden">liden (落雷・雷雨リスク / 気象庁LIDEN・Open-Meteo)</option>
+                <option value="space">space (宇宙天気・太陽フレア・Kp指数 / NOAA)</option>
+              </select>
             {:else if type === "tcp" || type === "tls"}
               <select id="poll-mode" bind:value={mode} class={controlClass}>
                 <option value="">{type === "tls" ? "verify" : $_("polling.modeDefault")}</option>
@@ -452,6 +460,8 @@
           <p class="text-[11px] text-slate-500 dark:text-slate-400">
             {#if type === "otel"}
               {$_("polling.otelParamsHelp")}
+            {:else if type === "env"}
+              {$_("polling.envParamsHelp") || "例: lat=35.68,lon=139.75,radius=20 (空欄時はノードの位置情報・地図中心を自動使用)"}
             {:else if (type === "http" || type === "https") && mode.startsWith("llm")}
               {$_("polling.llmParamsHelp")}
             {:else if type === "ping"}
@@ -507,6 +517,8 @@
           <p class="text-[11px] text-slate-500 dark:text-slate-400">
             {#if type === "otel"}
               {$_("polling.otelScriptHelp")}
+            {:else if type === "env"}
+              {$_("polling.envScriptHelp") || "利用可能変数: quake(intensity,magnitude,distance_km), liden(strike_count,close_count,nearest_km), space(flare_score,kp_index), weather(temp,humidity,pressure,pressure_diff_3h,cape,wind_gust)"}
             {:else if (type === "http" || type === "https") && mode.startsWith("llm")}
               {$_("polling.llmScriptHelp")}
             {:else}

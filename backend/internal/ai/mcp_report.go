@@ -36,7 +36,7 @@ type mcpGetSensorListParams struct {
 }
 
 type mcpGetReportSummaryParams struct {
-	ReportType string `json:"report_type" jsonschema:"Report kind name (e.g. wifiAP, blueDevice, envMonitor, dnsq, winEventID, twAgentAlert, twAgentInfo)."`
+	ReportType string `json:"report_type" jsonschema:"Report kind name (e.g. wifiAP, blueDevice, envMonitor, earthEnv, dnsq, winEventID, twAgentAlert, twAgentInfo)."`
 	Limit      int    `json:"limit,omitempty" jsonschema:"Maximum number of records to return (1-200, default 50)."`
 }
 
@@ -352,7 +352,7 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 	// 8. get_report_summary
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_report_summary",
-		Description: "Get report summary (wifiAP, blueDevice, envMonitor, dnsq, winEventID, twAgentAlert, twAgentInfo, etc.) from TWSNMP NEO",
+		Description: "Get report summary (wifiAP, blueDevice, envMonitor, earthEnv, dnsq, winEventID, twAgentAlert, twAgentInfo, etc.) from TWSNMP NEO",
 	}, s.getReportSummary)
 }
 

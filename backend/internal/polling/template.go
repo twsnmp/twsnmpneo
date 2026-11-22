@@ -47,6 +47,10 @@ func GenerateAutoPollings(ctx context.Context, node *datastore.NodeEnt, pt *Poll
 		}
 	}
 
+	if pt.Type == "env" {
+		return getAutoEnvPollings(ctx, node, pt)
+	}
+
 	// Default: single polling from template
 	nodeID := ""
 	if node != nil {
@@ -221,4 +225,47 @@ func autoGenGrok(td string) string {
 		}
 	}
 	return strings.TrimSpace(res)
+}
+
+func getAutoEnvPollings(ctx context.Context, node *datastore.NodeEnt, pt *PollingTemplateEnt) []*datastore.PollingEnt {
+	nodeID := ""
+	if node != nil {
+		nodeID = node.ID
+	}
+	p := &datastore.PollingEnt{
+		Name:      pt.Name,
+		NodeID:    nodeID,
+		Type:      pt.Type,
+		Mode:      pt.Mode,
+		Params:    pt.Params,
+		Filter:    pt.Filter,
+		Extractor: pt.Extractor,
+		Script:    pt.Script,
+		Level:     pt.Level,
+		Timeout:   10,
+		Retry:     1,
+		LogMode:   datastore.LogModeAlways,
+		State:     StateUnknown,
+	}
+	switch strings.ToLower(pt.Mode) {
+	case "quake", "liden":
+		p.PollInt = 120
+	case "space":
+		p.PollInt = 300
+	default:
+		p.PollInt = 600
+	}
+	if pt.AutoParam == "loc" {
+		pMap := parseEnvParams(pt.Params)
+		if pMap["lat"] == "" && pMap["lon"] == "" {
+			lat, lon := resolveTargetLatLon(ctx, nil, p, node, pMap)
+			locPrefix := fmt.Sprintf("lat=%.4f,lon=%.4f", lat, lon)
+			if strings.TrimSpace(p.Params) == "" {
+				p.Params = locPrefix
+			} else {
+				p.Params = locPrefix + "," + strings.TrimSpace(p.Params)
+			}
+		}
+	}
+	return []*datastore.PollingEnt{p}
 }

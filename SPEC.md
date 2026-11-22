@@ -35,7 +35,7 @@ Google Antigravity 2.0 must treat this document as the Single Source of Truth (S
        - **IPAM & IP Analytics**: Subnet utilization grids, IPv4 host inventory, IPv6 host inventory, host-to-host address relationship graphs, GeoIP.
        - **Flow & Traffic Analytics**: Top server ports, NetFlow/IPFIX flow statistics, Fumble flows (rejected/anomalous connections), packet type (Ethernet) distributions, DNS query analytics, RADIUS and TLS analytics.
        - **Host & Windows Analytics**: Windows Event IDs, Logon audits, Account alterations, Kerberos tickets, Privilege escalations, Process activity, Scheduled Tasks.
-       - **IoT & Sensor Monitoring**: Environmental sensors (temperature/humidity), Power consumption meters, Motion detection sensors, SDR radio frequency signal levels, MQTT topics and clients.
+       - **IoT & Sensor Monitoring**: Environmental sensors (temperature/humidity/barometric pressure), Earth/Disaster/Space Weather open API monitors (`earthEnv`: earthquake, lightning, solar flare/Kp, Open-Meteo weather), Power consumption meters, Motion detection sensors, SDR radio frequency signal levels, MQTT topics and clients.
        - **Security & Certificate Monitoring**: TLS/SSL server certificate expiration tracker, PKI certificate authority manager.
        - **AI Anomaly Detection**: AI anomaly scores across nodes, pollings, and log streams (`AIList`).
   6. **Diagnostic & Operational Tooling**:
@@ -113,7 +113,7 @@ twsnmpneo/
 │   │   ├── mib/                  # MIB module parser, OID tree resolver, SNMP Walk engine
 │   │   ├── notify/               # Notification dispatchers (SMTP, Slack, Teams, LINE, Webhook)
 │   │   ├── pki/                  # Private Root CA, TLS cert issuance, SCEP, ACME
-│   │   ├── polling/              # Monitoring pollers (Ping, SNMP, HTTP, TCP, DNS, NTP, TLS, Script, gNMI)
+│   │   ├── polling/              # Monitoring pollers (Ping, SNMP, HTTP, TCP, DNS, NTP, TLS, Script, gNMI, Env)
 │   │   ├── receiver/             # Ingestion servers (Syslog, TRAP, NetFlow, sFlow, OTel, MQTT, ARPWatch)
 │   │   └── report/               # Aggregation engine (IPAM, Devices, Flows, Windows, Sensors, Certs)
 │   └── web/                      # Embedded frontend static assets (web.go)
