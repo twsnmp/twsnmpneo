@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1583,6 +1584,227 @@ func TestPublicDashboardAPI(t *testing.T) {
 	e.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
 		t.Errorf("expected 200 OK or 404 for image endpoint, got %d", rec.Code)
+	}
+}
+
+func TestPollingDetailEndpointsAndRBAC(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	srv, err := api.NewServer(api.Config{
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	adminEcho := newAuthedEcho(t, srv)
+	ctx := context.Background()
+
+	// Seed node and two pollings
+	if err := bStore.SaveNode(ctx, &datastore.NodeEnt{
+		ID:    "node-pdet-1",
+		Name:  "Polling Target Router",
+		IP:    "192.0.2.10",
+		State: "normal",
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+	if err := bStore.SavePolling(ctx, &datastore.PollingEnt{
+		ID:      "poll-det-1",
+		NodeID:  "node-pdet-1",
+		Name:    "PING RTT",
+		Type:    "ping",
+		PollInt: 60,
+		Timeout: 1,
+		LogMode: datastore.LogModeAlways,
+		State:   "normal",
+		Result:  map[string]interface{}{"rtt": 15000000.0},
+	}); err != nil {
+		t.Fatalf("SavePolling 1: %v", err)
+	}
+	if err := bStore.SavePolling(ctx, &datastore.PollingEnt{
+		ID:      "poll-det-2",
+		NodeID:  "node-pdet-1",
+		Name:    "PING Keep",
+		Type:    "ping",
+		PollInt: 60,
+		LogMode: datastore.LogModeAlways,
+		State:   "normal",
+	}); err != nil {
+		t.Fatalf("SavePolling 2: %v", err)
+	}
+
+	// Seed AI result and 36 hours of polling logs
+	_ = bStore.SaveAIResult(ctx, &datastore.AIResultEnt{
+		PollingID: "poll-det-1",
+		LastTime:  time.Now().Unix(),
+		ScoreData: [][]float64{{float64(time.Now().Unix()), 10.0}},
+	})
+	base := time.Now().Add(-36 * time.Hour).Truncate(time.Hour)
+	for m := 0; m < 36*60; m += 30 {
+		ts := base.Add(time.Duration(m) * time.Minute)
+		_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+			Time: ts.UnixNano(),
+			Type: "polling",
+			Src:  "poll-det-1",
+			Log:  fmt.Sprintf(`{"State":"normal","Result":{"rtt":%d}}`, (10+m%20)*1000000),
+		})
+	}
+	_ = pqStore.WriteLog(&parquet.ParquetLogRecord{
+		Time: time.Now().UnixNano(),
+		Type: "polling",
+		Src:  "poll-det-2",
+		Log:  `{"State":"normal","Result":{"rtt":12000000}}`,
+	})
+	if err := pqStore.Flush(); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+
+	// 1. GET /api/pollings/:id
+	req := httptest.NewRequest(http.MethodGet, "/api/pollings/poll-det-1", nil)
+	rec := httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "PING RTT") {
+		t.Fatalf("GET /api/pollings/:id failed: %d %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/pollings/missing-id", nil)
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for missing polling, got %d", rec.Code)
+	}
+
+	// 2. GET /api/pollings/:id/logs (all time, range filter, limit + truncated)
+	req = httptest.NewRequest(http.MethodGet, "/api/pollings/poll-det-1/logs", nil)
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET logs failed: %d %s", rec.Code, rec.Body.String())
+	}
+	var logsResp struct {
+		Logs      []datastore.PollingLogEnt `json:"logs"`
+		Truncated bool                      `json:"truncated"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &logsResp); err != nil {
+		t.Fatalf("unmarshal logs: %v", err)
+	}
+	if len(logsResp.Logs) != 72 || logsResp.Truncated {
+		t.Errorf("expected 72 untruncated logs, got %d (truncated=%v)", len(logsResp.Logs), logsResp.Truncated)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/pollings/poll-det-1/logs?limit=10", nil)
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if err := json.Unmarshal(rec.Body.Bytes(), &logsResp); err != nil {
+		t.Fatalf("unmarshal limited logs: %v", err)
+	}
+	if len(logsResp.Logs) != 10 || !logsResp.Truncated {
+		t.Errorf("expected 10 truncated logs, got %d (truncated=%v)", len(logsResp.Logs), logsResp.Truncated)
+	}
+
+	// 3. GET /api/pollings/:id/time-analyze
+	req = httptest.NewRequest(http.MethodGet, "/api/pollings/poll-det-1/time-analyze", nil)
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET time-analyze failed: %d %s", rec.Code, rec.Body.String())
+	}
+	var taResp ai.TimeAnalyzeResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &taResp); err != nil {
+		t.Fatalf("unmarshal time-analyze: %v", err)
+	}
+	if len(taResp.TimeH) == 0 || taResp.StlMapH["rtt"] == nil || len(taResp.FFTH["rtt"]) == 0 {
+		t.Errorf("expected populated STL and FFT results for rtt, got TimeH=%d StlH=%v FFTH=%v",
+			len(taResp.TimeH), taResp.StlMapH["rtt"] != nil, len(taResp.FFTH["rtt"]))
+	}
+
+	// 4. Configure local LLM (without model) and verify POST /api/ai/explain/report executes polling_detail branch
+	confReq := httptest.NewRequest(http.MethodPost, "/api/map/conf", strings.NewReader(`{"LLMProvider":"local","LLMModel":"tensai-1"}`))
+	confReq.Header.Set("Content-Type", "application/json")
+	confRec := httptest.NewRecorder()
+	adminEcho.ServeHTTP(confRec, confReq)
+	if confRec.Code != http.StatusOK {
+		t.Fatalf("save map conf: %d", confRec.Code)
+	}
+
+	explainPayload := `{"report_type":"polling_detail","data":{"title":"PING RTT","polling_id":"poll-det-1","start_time":0,"end_time":0,"summary":"OK"},"lang":"en"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/ai/explain/report", strings.NewReader(explainPayload))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "local model not found") {
+		t.Errorf("expected polling_detail explain report to build context and hit local model check, got %d %s", rec.Code, rec.Body.String())
+	}
+
+	// 5. Create readonly user and verify RBAC on read vs DELETE /api/pollings/:id/logs
+	createUserReq := httptest.NewRequest(http.MethodPost, "/api/users", strings.NewReader(`{"user":"viewer1","name":"Viewer","password":"password123","role":"readonly"}`))
+	createUserReq.Header.Set("Content-Type", "application/json")
+	createUserRec := httptest.NewRecorder()
+	adminEcho.ServeHTTP(createUserRec, createUserReq)
+	if createUserRec.Code != http.StatusOK {
+		t.Fatalf("create readonly user: %d %s", createUserRec.Code, createUserRec.Body.String())
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"user":"viewer1","password":"password123"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRec := httptest.NewRecorder()
+	srv.GetEcho().ServeHTTP(loginRec, loginReq)
+	var viewerLogin struct {
+		Token string `json:"token"`
+	}
+	_ = json.Unmarshal(loginRec.Body.Bytes(), &viewerLogin)
+
+	// Readonly can GET logs & time-analyze
+	req = httptest.NewRequest(http.MethodGet, "/api/pollings/poll-det-1/logs", nil)
+	req.Header.Set("Authorization", "Bearer "+viewerLogin.Token)
+	rec = httptest.NewRecorder()
+	srv.GetEcho().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for readonly GET polling logs, got %d", rec.Code)
+	}
+
+	// Readonly is forbidden from DELETE /api/pollings/:id/logs
+	req = httptest.NewRequest(http.MethodDelete, "/api/pollings/poll-det-1/logs", nil)
+	req.Header.Set("Authorization", "Bearer "+viewerLogin.Token)
+	rec = httptest.NewRecorder()
+	srv.GetEcho().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for readonly DELETE polling logs, got %d", rec.Code)
+	}
+
+	// 6. Admin DELETE /api/pollings/:id/logs clears poll-det-1 only and deletes AIResult
+	req = httptest.NewRequest(http.MethodDelete, "/api/pollings/poll-det-1/logs", nil)
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /api/pollings/:id/logs failed: %d %s", rec.Code, rec.Body.String())
+	}
+
+	afterDelLogs, _, _ := pqStore.QueryPollingLogs(ctx, "poll-det-1", 0, 0, 100)
+	if len(afterDelLogs) != 0 {
+		t.Errorf("expected 0 logs after delete for poll-det-1, got %d", len(afterDelLogs))
+	}
+	keepLogs, _, _ := pqStore.QueryPollingLogs(ctx, "poll-det-2", 0, 0, 100)
+	if len(keepLogs) != 1 {
+		t.Errorf("expected 1 log kept for poll-det-2, got %d", len(keepLogs))
+	}
+	if aiRes, _ := bStore.GetAIResult("poll-det-1"); aiRes != nil {
+		t.Errorf("expected AIResult deleted on clear logs")
+	}
+
+	// 7. DELETE /api/pollings/:id also deletes polling logs
+	req = httptest.NewRequest(http.MethodDelete, "/api/pollings/poll-det-2", nil)
+	rec = httptest.NewRecorder()
+	adminEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /api/pollings/:id failed: %d", rec.Code)
+	}
+	afterPollDel, _, _ := pqStore.QueryPollingLogs(ctx, "poll-det-2", 0, 0, 100)
+	if len(afterPollDel) != 0 {
+		t.Errorf("expected 0 logs remaining after polling deletion, got %d", len(afterPollDel))
 	}
 }
 

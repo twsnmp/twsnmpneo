@@ -1575,6 +1575,122 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			return c.JSON(http.StatusOK, polls)
 		})
+		apiGroup.GET("/pollings/:id", func(c echo.Context) error {
+			p, err := cfg.Store.GetPolling(c.Request().Context(), c.Param("id"))
+			if err != nil || p == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "polling not found"})
+			}
+			return c.JSON(http.StatusOK, p)
+		})
+		apiGroup.GET("/pollings/:id/logs", func(c echo.Context) error {
+			id := c.Param("id")
+			p, err := cfg.Store.GetPolling(c.Request().Context(), id)
+			if err != nil || p == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "polling not found"})
+			}
+			if cfg.LogStore == nil {
+				return c.JSON(http.StatusOK, map[string]any{
+					"logs":      []*datastore.PollingLogEnt{},
+					"truncated": false,
+				})
+			}
+			parseTimeParam := func(raw string) int64 {
+				if raw == "" {
+					return 0
+				}
+				v, err := strconv.ParseInt(raw, 10, 64)
+				if err != nil || v <= 0 {
+					return 0
+				}
+				if v < 1e11 {
+					return v * 1e9 // seconds -> ns
+				}
+				if v < 1e14 {
+					return v * 1e6 // ms -> ns
+				}
+				return v
+			}
+			startTime := parseTimeParam(c.QueryParam("start"))
+			endTime := parseTimeParam(c.QueryParam("end"))
+			limit := 10000
+			if l := c.QueryParam("limit"); l != "" {
+				if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
+			logs, truncated, err := cfg.LogStore.QueryPollingLogs(c.Request().Context(), id, startTime, endTime, limit)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			if logs == nil {
+				logs = []*datastore.PollingLogEnt{}
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"logs":      logs,
+				"truncated": truncated,
+			})
+		})
+		apiGroup.DELETE("/pollings/:id/logs", func(c echo.Context) error {
+			id := c.Param("id")
+			p, err := cfg.Store.GetPolling(c.Request().Context(), id)
+			if err != nil || p == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "polling not found"})
+			}
+			if cfg.LogStore != nil {
+				if err := cfg.LogStore.DeletePollingLogs(c.Request().Context(), id); err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				}
+			}
+			_ = cfg.Store.DeleteAIResult(c.Request().Context(), id)
+			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
+				Time:   time.Now().UnixNano(),
+				Type:   "user",
+				Level:  "warn",
+				NodeID: p.NodeID,
+				Event:  fmt.Sprintf(i18n.Trans("Cleared polling logs %s"), p.Name),
+			})
+			return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})
+		})
+		apiGroup.GET("/pollings/:id/time-analyze", func(c echo.Context) error {
+			id := c.Param("id")
+			p, err := cfg.Store.GetPolling(c.Request().Context(), id)
+			if err != nil || p == nil {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "polling not found"})
+			}
+			if cfg.LogStore == nil {
+				return c.JSON(http.StatusOK, ai.AnalyzePollingTimeSeries(c.Request().Context(), p, nil))
+			}
+			parseTimeParam := func(raw string) int64 {
+				if raw == "" {
+					return 0
+				}
+				v, err := strconv.ParseInt(raw, 10, 64)
+				if err != nil || v <= 0 {
+					return 0
+				}
+				if v < 1e11 {
+					return v * 1e9
+				}
+				if v < 1e14 {
+					return v * 1e6
+				}
+				return v
+			}
+			startTime := parseTimeParam(c.QueryParam("start"))
+			endTime := parseTimeParam(c.QueryParam("end"))
+			limit := 20000
+			if l := c.QueryParam("limit"); l != "" {
+				if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+					limit = parsed
+				}
+			}
+			logs, _, err := cfg.LogStore.QueryPollingLogs(c.Request().Context(), id, startTime, endTime, limit)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			result := ai.AnalyzePollingTimeSeries(c.Request().Context(), p, logs)
+			return c.JSON(http.StatusOK, result)
+		})
 		apiGroup.POST("/pollings", func(c echo.Context) error {
 			var p datastore.PollingEnt
 			if err := c.Bind(&p); err != nil {
@@ -1650,6 +1766,10 @@ func NewServer(cfg Config) (*Server, error) {
 			}
 			if err := cfg.Store.DeletePolling(c.Request().Context(), id); err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+			_ = cfg.Store.DeleteAIResult(c.Request().Context(), id)
+			if cfg.LogStore != nil {
+				_ = cfg.LogStore.DeletePollingLogs(c.Request().Context(), id)
 			}
 			_ = cfg.Store.AddEventLog(c.Request().Context(), &datastore.EventLogEnt{
 				Time:  time.Now().UnixNano(),

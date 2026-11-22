@@ -431,6 +431,27 @@ The application provides a top navbar (or collapsible sidebar) allowing users to
   7. **RMON Tab**: RMON Ethernet statistics (drop events, packets, broadcast, multicast, CRC align errors, collision counters).
   8. **Diagnose Tab**: One-click health check (Ping test, SNMP connectivity check, Web port test).
 
+* **Polling Detail & Log Analysis Modal (`PollingDetailModal.svelte`)**:
+  - Accessible landscape multi-tab report (`max-w-6xl h-[88vh]`, maximize toggle to `96vw x 95vh`), opened from `PollingList.svelte`, `NodeDetailModal.svelte`, and `PollingReport.svelte`.
+  - **Tabs**:
+    1. **Basic Info**: Configuration parameters, target, filter/extractor, script, schedule (`PollInt`, `Timeout`, `Retry`, `LogMode`), and latest result key/value table with JSON copy.
+    2. **Downtime & SLA**: SLA %, total downtime, outage count, MTBF, MTTR, monitored span, downtime duration timeline chart, and sortable downtime event log.
+    3. **Polling Logs**: Stacked state histogram with interactive ECharts `dataZoom` filtering tied to a searchable, sortable, paginated polling log table.
+    4. **Time Series**: Metric selector (e.g., `rtt` and `offset` displayed in `ms`), `Raw` vs `Hourly Stats` (mean/max/min/median/variance without zero-padding empty buckets) toggle, and optional linear regression forecast trend.
+    5. **Histogram & Descriptive Stats**: Sample count, mean, median, min, max, sample stddev, sample variance, and adaptive frequency distribution bar chart.
+    6. **QQ Plot**: Normal probability quantile-quantile scatter plot with reference line against standard normal quantiles (`probit`).
+    7. **STL Decomposition**: 4-panel synchronized ECharts breakdown (`Observed`, `Trend`, `Seasonal`, `Residual`) at hourly (`H`) or sub-hourly adaptive (`PX2`) resolution computed by `/api/pollings/:id/time-analyze`.
+    8. **FFT Analysis**: Single-sided Hann-windowed FFT amplitude spectrum (with period tooltip in `s/min/h/d`) at `H` and `PX2` resolutions.
+    9. **AI Anomaly**: Shared AI anomaly heatmap, distribution pie chart, and score timeline (`AIResultEnt`).
+  - **Time Range, Export & Actions**:
+    - Default range on open is **All Time** (`start=0, end=0, limit=10000` most recent entries), with presets (`1h`, `6h`, `24h`, `7d`, `30d`, `Custom`).
+    - Supports `CSV` (raw logs) and `CSV (Data)` (numeric metrics in display units such as `ms`), manual-trigger AI diagnosis (`POST /api/ai/explain/report` with `report_type: "polling_detail"`), and non-`readonly` log clearing (`DELETE /api/pollings/:id/logs`).
+  - **Backend Polling Log & Time-Analysis APIs**:
+    - `GET /api/pollings/:id`: Fetch single polling entry.
+    - `GET /api/pollings/:id/logs?start=&end=&limit=`: Non-flushing merge query across Parquet in-memory buffer and disk files (returns `{ logs, truncated }`).
+    - `DELETE /api/pollings/:id/logs`: Clears matching polling logs from memory buffer and Parquet files plus `AIResultEnt` (admin/user only; `403 Forbidden` for `readonly`). Deleting a polling (`DELETE /api/pollings/:id`) also cleans up its polling logs and AI results.
+    - `GET /api/pollings/:id/time-analyze?start=&end=&limit=`: Server-side time-series resampling, pure-Go LOESS STL decomposition, and `gonum` FFT computation (`TimeAnalyzeResult`).
+
 ---
 
 ### 4.6 Analytics & Reporting Engine (`report` package)

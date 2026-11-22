@@ -632,3 +632,159 @@ func TestStore_CountByType(t *testing.T) {
 		t.Errorf("expected netflow 120 retained, got %d", counts3["netflow"])
 	}
 }
+
+func TestStore_QueryPollingLogs(t *testing.T) {
+	store, _, cleanup := setupParquetTest(t)
+	defer cleanup()
+
+	baseTime := time.Now().Add(-2 * time.Hour).UnixNano()
+	// Write 6 records for poll-1 (5+ flushes to disk, 1+ stays in buffer)
+	for i := 0; i < 6; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: baseTime + int64(i)*int64(10*time.Minute),
+			Type: "polling",
+			Src:  "poll-1",
+			Log:  fmt.Sprintf(`{"State":"normal","Result":{"rtt":%d}}`, (i+1)*1000000),
+		})
+	}
+	// Flush first batch, then write 2 more in memory buffer
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	for i := 6; i < 8; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: baseTime + int64(i)*int64(10*time.Minute),
+			Type: "polling",
+			Src:  "poll-1",
+			Log:  fmt.Sprintf(`{"State":"warn","Result":{"rtt":%d}}`, (i+1)*1000000),
+		})
+	}
+	// Write logs for a different polling ID that must not leak into poll-1 results
+	_ = store.WriteLog(&parquet.ParquetLogRecord{
+		Time: baseTime + int64(3*time.Minute),
+		Type: "polling",
+		Src:  "poll-other",
+		Log:  `{"State":"normal","Result":{"rtt":999000000}}`,
+	})
+
+	ctx := context.Background()
+
+	// 1. All-time query combines disk + buffer in chronological order
+	logs, truncated, err := store.QueryPollingLogs(ctx, "poll-1", 0, 0, 100)
+	if err != nil {
+		t.Fatalf("QueryPollingLogs all: %v", err)
+	}
+	if truncated {
+		t.Errorf("expected truncated=false, got true")
+	}
+	if len(logs) != 8 {
+		t.Fatalf("expected 8 logs for poll-1, got %d", len(logs))
+	}
+	for i := 1; i < len(logs); i++ {
+		if logs[i].Time < logs[i-1].Time {
+			t.Fatalf("logs not in chronological order at index %d", i)
+		}
+	}
+	if logs[7].State != "warn" {
+		t.Errorf("expected latest log state warn, got %s", logs[7].State)
+	}
+
+	// 2. Time range filter
+	startNs := baseTime + int64(2*10*time.Minute)
+	endNs := baseTime + int64(5*10*time.Minute)
+	ranged, _, err := store.QueryPollingLogs(ctx, "poll-1", startNs, endNs, 100)
+	if err != nil {
+		t.Fatalf("QueryPollingLogs ranged: %v", err)
+	}
+	if len(ranged) != 4 {
+		t.Fatalf("expected 4 ranged logs, got %d", len(ranged))
+	}
+
+	// 3. Limit + truncation keeps most recent entries in ascending order
+	limited, trunc, err := store.QueryPollingLogs(ctx, "poll-1", 0, 0, 3)
+	if err != nil {
+		t.Fatalf("QueryPollingLogs limited: %v", err)
+	}
+	if !trunc {
+		t.Errorf("expected truncated=true when limit=3")
+	}
+	if len(limited) != 3 {
+		t.Fatalf("expected 3 logs, got %d", len(limited))
+	}
+	if limited[0].Time != baseTime+int64(5*10*time.Minute) {
+		t.Errorf("expected oldest kept entry at index 5, got %v", limited[0].Time)
+	}
+}
+
+func TestStore_DeletePollingLogs(t *testing.T) {
+	store, _, cleanup := setupParquetTest(t)
+	defer cleanup()
+
+	now := time.Now().UnixNano()
+	// Mixed batch flushed together in the same file
+	for i := 0; i < 3; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i)*1000,
+			Type: "polling",
+			Src:  "poll-del",
+			Log:  `{"State":"normal","Result":{"rtt":1000000}}`,
+		})
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(i)*1000,
+			Type: "polling",
+			Src:  "poll-keep",
+			Log:  `{"State":"normal","Result":{"rtt":2000000}}`,
+		})
+	}
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush mixed: %v", err)
+	}
+
+	// File containing ONLY poll-del
+	for i := 0; i < 3; i++ {
+		_ = store.WriteLog(&parquet.ParquetLogRecord{
+			Time: now + int64(10+i)*1000,
+			Type: "polling",
+			Src:  "poll-del",
+			Log:  `{"State":"high","Result":{"rtt":5000000}}`,
+		})
+	}
+	if err := store.Flush(); err != nil {
+		t.Fatalf("flush poll-del only: %v", err)
+	}
+
+	// Unflushed in-memory buffer for both pollings
+	_ = store.WriteLog(&parquet.ParquetLogRecord{
+		Time: now + 99999,
+		Type: "polling",
+		Src:  "poll-del",
+		Log:  `{"State":"normal","Result":{"rtt":1500000}}`,
+	})
+	_ = store.WriteLog(&parquet.ParquetLogRecord{
+		Time: now + 99999,
+		Type: "polling",
+		Src:  "poll-keep",
+		Log:  `{"State":"normal","Result":{"rtt":2500000}}`,
+	})
+
+	ctx := context.Background()
+	if err := store.DeletePollingLogs(ctx, "poll-del"); err != nil {
+		t.Fatalf("DeletePollingLogs: %v", err)
+	}
+
+	delLogs, _, err := store.QueryPollingLogs(ctx, "poll-del", 0, 0, 100)
+	if err != nil {
+		t.Fatalf("query poll-del after delete: %v", err)
+	}
+	if len(delLogs) != 0 {
+		t.Errorf("expected 0 logs remaining for poll-del, got %d", len(delLogs))
+	}
+
+	keepLogs, _, err := store.QueryPollingLogs(ctx, "poll-keep", 0, 0, 100)
+	if err != nil {
+		t.Fatalf("query poll-keep after delete: %v", err)
+	}
+	if len(keepLogs) != 4 {
+		t.Errorf("expected 4 logs retained for poll-keep (3 disk + 1 buffer), got %d", len(keepLogs))
+	}
+}

@@ -19,6 +19,8 @@
     title?: string;
     summary?: string;
     items?: string[];
+    extraData?: Record<string, any>;
+    zIndexClass?: string;
     onClose?: () => void;
   }
 
@@ -28,6 +30,8 @@
     title = "",
     summary = "",
     items = [],
+    extraData,
+    zIndexClass = "z-50",
     onClose,
   }: Props = $props();
 
@@ -61,6 +65,7 @@
       const resp = await explainReport(
         reportType,
         {
+          ...(extraData || {}),
           title: title || reportType,
           summary: summary || "",
           items: (items || []).slice(0, 100), // Max 100 items for token budget
@@ -96,7 +101,7 @@
 
 {#if show}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-6 backdrop-blur-sm animate-in fade-in duration-150"
+    class="fixed inset-0 {zIndexClass} flex items-center justify-center bg-black/75 p-3 sm:p-6 backdrop-blur-sm animate-in fade-in duration-150 overscroll-contain"
     role="dialog"
     aria-modal="true"
     tabindex="-1"

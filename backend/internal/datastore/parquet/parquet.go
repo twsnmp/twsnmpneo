@@ -1706,6 +1706,326 @@ func (s *Store) GetAllPollingLog(ctx context.Context, pollingID string) ([]*data
 	return results, nil
 }
 
+// QueryPollingLogs retrieves polling logs for pollingID within [startTime, endTime] (UnixNano, 0 = unbounded),
+// returning up to limit most recent records in chronological order along with a truncated flag.
+func (s *Store) QueryPollingLogs(ctx context.Context, pollingID string, startTime, endTime int64, limit int) ([]*datastore.PollingLogEnt, bool, error) {
+	if pollingID == "" {
+		return nil, false, fmt.Errorf("polling ID is empty")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	if limit <= 0 {
+		limit = 10000
+	}
+	if limit > 50000 {
+		limit = 50000
+	}
+
+	matchTime := func(t int64) bool {
+		if startTime > 0 && t < startTime {
+			return false
+		}
+		if endTime > 0 && t > endTime {
+			return false
+		}
+		return true
+	}
+
+	// 1. Collect matching records from un-flushed in-memory buffer without flushing
+	var memResults []*datastore.PollingLogEnt
+	s.mu.Lock()
+	if buf, ok := s.typeBuffers["polling"]; ok && len(buf) > 0 {
+		for _, rec := range buf {
+			if rec.Src == pollingID && matchTime(rec.Time) {
+				memResults = append(memResults, parsePollingLogRecord(rec))
+			}
+		}
+	}
+	s.mu.Unlock()
+
+	// 2. Scan disk parquet files from newest to oldest
+	var diskResults []*datastore.PollingLogEnt
+	truncated := false
+
+	pollingDir := filepath.Join(s.dir, "polling")
+	entries, err := os.ReadDir(pollingDir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, false, err
+		}
+	} else {
+		files := make([]string, 0, len(entries))
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".parquet") {
+				files = append(files, filepath.Join(pollingDir, e.Name()))
+			}
+		}
+		// Sort descending by filename timestamp (newest first)
+		sort.Slice(files, func(i, j int) bool {
+			return files[i] > files[j]
+		})
+
+		scanDeadline := time.Now().Add(5 * time.Second)
+		for idx, filePath := range files {
+			if err := ctx.Err(); err != nil {
+				return nil, false, err
+			}
+			if time.Now().After(scanDeadline) {
+				truncated = true
+				break
+			}
+
+			baseName := filepath.Base(filePath)
+			curTs, curTsOk := parseFilenameTime(baseName)
+			if curTsOk {
+				if startTime > 0 && curTs.Add(5*time.Minute).UnixNano() < startTime {
+					break
+				}
+				if endTime > 0 && curTs.Add(-25*time.Hour).UnixNano() > endTime {
+					continue
+				}
+			}
+
+			f, err := os.Open(filePath)
+			if err != nil {
+				continue
+			}
+			stat, err := f.Stat()
+			if err != nil || stat.Size() == 0 {
+				_ = f.Close()
+				continue
+			}
+			if startTime > 0 && stat.ModTime().Add(5*time.Minute).UnixNano() < startTime {
+				_ = f.Close()
+				continue
+			}
+
+			pf, err := parquet.OpenFile(f, stat.Size())
+			if err != nil {
+				_ = f.Close()
+				continue
+			}
+
+			reader := parquet.NewGenericReader[ParquetLogRecord](pf)
+			buf := make([]ParquetLogRecord, 512)
+			for {
+				if err := ctx.Err(); err != nil {
+					_ = reader.Close()
+					_ = f.Close()
+					return nil, false, err
+				}
+				n, rErr := reader.Read(buf)
+				for j := 0; j < n; j++ {
+					rec := &buf[j]
+					if rec.Src == pollingID && matchTime(rec.Time) {
+						diskResults = append(diskResults, parsePollingLogRecord(rec))
+					}
+				}
+				if rErr != nil {
+					break
+				}
+			}
+			_ = reader.Close()
+			_ = f.Close()
+
+			// Stop once we have collected more than limit records from the newest files,
+			// but finish scanning any files that share the same filename second prefix
+			// because random hex suffixes do not preserve sub-second flush order.
+			if len(diskResults)+len(memResults) > limit {
+				if idx+1 < len(files) {
+					nextTs, nextTsOk := parseFilenameTime(filepath.Base(files[idx+1]))
+					if curTsOk && nextTsOk && curTs.Equal(nextTs) {
+						continue
+					}
+					truncated = true
+				}
+				break
+			}
+		}
+	}
+
+	allResults := make([]*datastore.PollingLogEnt, 0, len(diskResults)+len(memResults))
+	allResults = append(allResults, diskResults...)
+	allResults = append(allResults, memResults...)
+
+	sort.SliceStable(allResults, func(i, j int) bool {
+		return allResults[i].Time < allResults[j].Time
+	})
+
+	if len(allResults) > limit {
+		truncated = true
+		allResults = allResults[len(allResults)-limit:]
+	}
+
+	return allResults, truncated, nil
+}
+
+// DeletePollingLogs removes all stored polling log records matching pollingID
+// from both the in-memory buffer and Parquet files on disk.
+func (s *Store) DeletePollingLogs(ctx context.Context, pollingID string) error {
+	if pollingID == "" {
+		return fmt.Errorf("polling ID is empty")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	s.scanMu.Lock()
+	defer s.scanMu.Unlock()
+	s.compactMu.Lock()
+	defer s.compactMu.Unlock()
+
+	// 1. Remove matching records from in-memory buffer
+	s.mu.Lock()
+	if buf, ok := s.typeBuffers["polling"]; ok && len(buf) > 0 {
+		filtered := make([]*ParquetLogRecord, 0, len(buf))
+		removed := 0
+		for _, rec := range buf {
+			if rec.Src == pollingID {
+				removed++
+				continue
+			}
+			filtered = append(filtered, rec)
+		}
+		if removed > 0 {
+			if len(filtered) == 0 {
+				delete(s.typeBuffers, "polling")
+			} else {
+				s.typeBuffers["polling"] = filtered
+			}
+			s.bufferCount -= removed
+			if s.bufferCount < 0 {
+				s.bufferCount = 0
+			}
+		}
+	}
+	s.mu.Unlock()
+
+	// 2. Evict polling cache entry
+	s.cacheMu.Lock()
+	delete(s.pollingLogCache, pollingID)
+	s.cacheMu.Unlock()
+
+	pollingDir := filepath.Join(s.dir, "polling")
+	entries, err := os.ReadDir(pollingDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var removedTotal int64
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".parquet") {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		filePath := filepath.Join(pollingDir, e.Name())
+		f, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+		stat, err := f.Stat()
+		if err != nil || stat.Size() == 0 {
+			_ = f.Close()
+			continue
+		}
+		modTime := stat.ModTime()
+
+		pf, err := parquet.OpenFile(f, stat.Size())
+		if err != nil {
+			_ = f.Close()
+			continue
+		}
+
+		reader := parquet.NewGenericReader[ParquetLogRecord](pf)
+		buf := make([]ParquetLogRecord, 512)
+		var kept []ParquetLogRecord
+		var matchedCount int64
+		for {
+			n, rErr := reader.Read(buf)
+			for i := 0; i < n; i++ {
+				if buf[i].Src == pollingID {
+					matchedCount++
+				} else {
+					kept = append(kept, buf[i])
+				}
+			}
+			if rErr != nil {
+				break
+			}
+		}
+		_ = reader.Close()
+		_ = f.Close()
+
+		if matchedCount == 0 {
+			continue
+		}
+		removedTotal += matchedCount
+
+		if len(kept) == 0 {
+			if rmErr := os.Remove(filePath); rmErr != nil {
+				return rmErr
+			}
+			s.cacheMu.Lock()
+			delete(s.fileRowsCache, e.Name())
+			s.cacheMu.Unlock()
+			continue
+		}
+
+		tmpPath := filePath + ".del.tmp"
+		outFile, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return err
+		}
+		writer := parquet.NewGenericWriter[ParquetLogRecord](outFile)
+		if _, wErr := writer.Write(kept); wErr != nil {
+			_ = writer.Close()
+			_ = outFile.Close()
+			_ = os.Remove(tmpPath)
+			return wErr
+		}
+		if cErr := writer.Close(); cErr != nil {
+			_ = outFile.Close()
+			_ = os.Remove(tmpPath)
+			return cErr
+		}
+		if cErr := outFile.Close(); cErr != nil {
+			_ = os.Remove(tmpPath)
+			return cErr
+		}
+		_ = os.Chtimes(tmpPath, modTime, modTime)
+		if rErr := os.Rename(tmpPath, filePath); rErr != nil {
+			_ = os.Remove(tmpPath)
+			return rErr
+		}
+
+		s.cacheMu.Lock()
+		s.fileRowsCache[e.Name()] = int64(len(kept))
+		s.cacheMu.Unlock()
+	}
+
+	if removedTotal > 0 {
+		s.cacheMu.Lock()
+		s.diskCountCache = make(map[string]cachedDiskCountEntry)
+		if s.totalCountLoaded {
+			if s.totalCountCache["polling"] > removedTotal {
+				s.totalCountCache["polling"] -= removedTotal
+			} else {
+				s.totalCountCache["polling"] = 0
+			}
+		}
+		s.cacheMu.Unlock()
+	}
+
+	return nil
+}
+
 // Close flushes all data and terminates background threads.
 func (s *Store) Close() error {
 	s.mu.Lock()

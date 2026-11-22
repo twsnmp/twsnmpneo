@@ -11,9 +11,11 @@
     ArrowDown,
     ArrowUpDown,
     Sparkles,
+    Eye,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
   import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
+  import PollingDetailModal from "../../components/PollingDetailModal.svelte";
   import { getStateColor, getStateName, getStateLabel, getStatusBadgeClass } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import type { PollingEnt, NodeEnt } from "../../api";
@@ -34,7 +36,16 @@
   let pollingPageSize = $state(25);
   let pollingCurrentPage = $state(1);
   let showAiExplainModal = $state(false);
+  let showDetailModal = $state(false);
+  let detailPolling = $state<PollingEnt | null>(null);
+  let detailNode = $state<NodeEnt | null>(null);
   const isJaLocale = $derived($locale?.startsWith("ja") ?? true);
+
+  const openDetailModal = (p: PollingEnt) => {
+    detailPolling = p;
+    detailNode = nodes.find((n) => n.id === p.node_id) || null;
+    showDetailModal = true;
+  };
 
   let pollingChartElem = $state<HTMLDivElement | null>(null);
   let pollingChartInstance: echarts.ECharts | null = null;
@@ -467,12 +478,13 @@
               {/if}
             </div>
           </th>
+          <th scope="col" class="py-1.5 px-2.5 text-right">{$_("common.actions")}</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
         {#if sortedPollings.length === 0}
           <tr>
-            <td colspan="6" class="p-6 text-center text-slate-500 font-sans">
+            <td colspan="7" class="p-6 text-center text-slate-500 font-sans">
               {$_("report.noPollings")}
             </td>
           </tr>
@@ -501,6 +513,18 @@
               </td>
               <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">
                 {p.last_val !== undefined && p.last_val !== null ? p.last_val : "-"}
+              </td>
+              <td class="py-1 px-2 text-right">
+                <button
+                  type="button"
+                  data-testid="btn-report-polling-detail"
+                  onclick={() => openDetailModal(p)}
+                  aria-label={$_("pollingDetail.detailReport")}
+                  title={$_("pollingDetail.detailReport")}
+                  class="inline-flex items-center justify-center rounded-lg p-1 text-slate-400 hover:text-blue-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <Eye class="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
               </td>
             </tr>
           {/each}
@@ -536,4 +560,10 @@
       ]}
     />
   {/if}
+
+  <PollingDetailModal
+    bind:show={showDetailModal}
+    polling={detailPolling}
+    node={detailNode}
+  />
 </div>

@@ -1815,6 +1815,92 @@ export async function deletePolling(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Delete polling failed: ${res.statusText}`);
 }
 
+export interface PollingLogEnt {
+  Time: number;
+  PollingID: string;
+  State: string;
+  Result: Record<string, any>;
+}
+
+export interface PollingLogsResp {
+  logs: PollingLogEnt[];
+  truncated: boolean;
+}
+
+export interface STLSeries {
+  Seasonal: number[];
+  Trend: number[];
+  Resid: number[];
+}
+
+export interface PollingTimeAnalyzeResp {
+  PX2: number;
+  TimeH: number[];
+  TimePX2: number[];
+  StlMapH: Record<string, STLSeries>;
+  StlMapPX2: Record<string, STLSeries>;
+  FFTH: Record<string, [number, number][]>;
+  FFTPX2: Record<string, [number, number][]>;
+}
+
+export async function fetchPolling(id: string): Promise<PollingEnt> {
+  const res = await apiFetch(`${API_BASE}/pollings/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Fetch polling failed: ${res.statusText}`);
+  const p = await res.json();
+  return normalizePolling(p);
+}
+
+export async function fetchPollingLogs(
+  id: string,
+  params: { start?: number; end?: number; limit?: number } = {}
+): Promise<PollingLogsResp> {
+  const qs = new URLSearchParams();
+  if (params.start && params.start > 0) qs.set('start', String(Math.floor(params.start)));
+  if (params.end && params.end > 0) qs.set('end', String(Math.floor(params.end)));
+  if (params.limit && params.limit > 0) qs.set('limit', String(Math.floor(params.limit)));
+  const q = qs.toString();
+  const res = await apiFetch(`${API_BASE}/pollings/${encodeURIComponent(id)}/logs${q ? `?${q}` : ''}`);
+  if (!res.ok) throw new Error(`Fetch polling logs failed: ${res.statusText}`);
+  const data = await res.json();
+  return {
+    logs: Array.isArray(data?.logs) ? data.logs : [],
+    truncated: Boolean(data?.truncated),
+  };
+}
+
+export async function deletePollingLogs(id: string): Promise<void> {
+  const res = await apiFetch(`${API_BASE}/pollings/${encodeURIComponent(id)}/logs`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Delete polling logs failed: ${res.statusText}`);
+  }
+}
+
+export async function fetchPollingTimeAnalyze(
+  id: string,
+  params: { start?: number; end?: number; limit?: number } = {}
+): Promise<PollingTimeAnalyzeResp> {
+  const qs = new URLSearchParams();
+  if (params.start && params.start > 0) qs.set('start', String(Math.floor(params.start)));
+  if (params.end && params.end > 0) qs.set('end', String(Math.floor(params.end)));
+  if (params.limit && params.limit > 0) qs.set('limit', String(Math.floor(params.limit)));
+  const q = qs.toString();
+  const res = await apiFetch(`${API_BASE}/pollings/${encodeURIComponent(id)}/time-analyze${q ? `?${q}` : ''}`);
+  if (!res.ok) throw new Error(`Fetch polling time analyze failed: ${res.statusText}`);
+  const data = await res.json();
+  return {
+    PX2: Number(data?.PX2 || 120),
+    TimeH: Array.isArray(data?.TimeH) ? data.TimeH : [],
+    TimePX2: Array.isArray(data?.TimePX2) ? data.TimePX2 : [],
+    StlMapH: data?.StlMapH || {},
+    StlMapPX2: data?.StlMapPX2 || {},
+    FFTH: data?.FFTH || {},
+    FFTPX2: data?.FFTPX2 || {},
+  };
+}
+
 export interface PollingTemplateEnt {
   ID: number;
   Name: string;

@@ -50,6 +50,9 @@ var transMap = map[string]map[string]string{
 	"Delete polling %s": {
 		"ja": "ポーリング %s を削除しました",
 	},
+	"Cleared polling logs %s": {
+		"ja": "ポーリング %s のログを消去しました",
+	},
 	"Connected %d lines automatically": {
 		"ja": "自動トポロジー探索により %d 本のラインを結線しました",
 	},

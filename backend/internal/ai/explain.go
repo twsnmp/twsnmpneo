@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore/parquet"
@@ -174,6 +176,122 @@ func (c *LLMClient) ExplainReport(ctx context.Context, store datastore.DataStore
 			system = "あなたはネットワークサービス稼働率およびSLA監視の専門家です。提示されたポーリング稼働率・応答時間データを分析し、稼働率低下ノード、応答遅延スパイクの発生箇所、頻繁にタイムアウトする監視項目、およびポーリング間隔・タイムアウト閾値の最適化提案を日本語のマークダウン形式で解説してください。"
 		}
 		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
+	case "polling_detail":
+		system = "You are a polling monitoring and network diagnostics expert. Analyze the polling configuration, SLA/downtime metrics, numeric metric statistics, and historical polling logs. Explain monitor health, failure frequency, latency/value trends, and concrete remediation or tuning steps in clean markdown format (tables, bold text, bullet points)."
+		if isJa {
+			system = "あなたはポーリング監視およびネットワーク診断の専門家です。提示されたポーリング設定、ダウンタイム・SLA指標、数値メトリクス統計、およびポーリングログ履歴を分析し、監視対象の健全性、障害発生状況、応答遅延や測定値の変動傾向、および具体的な改善策・パラメータ調整案について、日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
+		}
+		if data != nil {
+			if pid, ok := data["polling_id"].(string); ok && pid != "" && store != nil {
+				if p, err := store.GetPolling(ctx, pid); err == nil && p != nil {
+					sb.WriteString("## Polling Configuration\n")
+					sb.WriteString(fmt.Sprintf("- Name: %s (Type: %s, Mode: %s, State: %s, Level: %s)\n", p.Name, p.Type, p.Mode, p.State, p.Level))
+					sb.WriteString(fmt.Sprintf("- Interval: %ds, Timeout: %ds, Retry: %d, LogMode: %d\n", p.PollInt, p.Timeout, p.Retry, p.LogMode))
+					if p.Params != "" {
+						sb.WriteString(fmt.Sprintf("- Params: %s\n", p.Params))
+					}
+					if p.Filter != "" {
+						sb.WriteString(fmt.Sprintf("- Filter: %s\n", p.Filter))
+					}
+					if p.LastTime > 0 {
+						sb.WriteString(fmt.Sprintf("- Last Check: %s\n", time.Unix(0, p.LastTime).Format(time.RFC3339)))
+					}
+					if len(p.Result) > 0 {
+						sb.WriteString(fmt.Sprintf("- Latest Result: %s\n", formatPollingResultForLLM(p.Result)))
+					}
+					if n, err := store.GetNode(ctx, p.NodeID); err == nil && n != nil {
+						sb.WriteString("\n## Target Node\n")
+						appendNodeSummary(&sb, n)
+					}
+					if logStore != nil {
+						var startNs, endNs int64
+						if s, ok := toNumericValue(data["start_time"]); ok {
+							startNs = int64(s)
+						}
+						if e, ok := toNumericValue(data["end_time"]); ok {
+							endNs = int64(e)
+						}
+						logs, _, lErr := logStore.QueryPollingLogs(ctx, pid, startNs, endNs, 2000)
+						if lErr == nil && len(logs) > 0 {
+							sb.WriteString(fmt.Sprintf("\n## Polling Logs Summary (%d entries analyzed)\n", len(logs)))
+							// Summarize numeric metrics (min/avg/max) in ms for rtt/offset
+							type aggStat struct {
+								count int
+								sum   float64
+								min   float64
+								max   float64
+							}
+							statsMap := make(map[string]*aggStat)
+							stateCounts := make(map[string]int)
+							for _, l := range logs {
+								stateCounts[l.State]++
+								for k, v := range l.Result {
+									if k == "lastTime" || strings.HasPrefix(k, "_") {
+										continue
+									}
+									if fv, okNum := toNumericValue(v); okNum {
+										if k == "rtt" || k == "offset" {
+											fv /= 1e6 // convert ns to ms
+										}
+										st, exists := statsMap[k]
+										if !exists {
+											statsMap[k] = &aggStat{count: 1, sum: fv, min: fv, max: fv}
+										} else {
+											st.count++
+											st.sum += fv
+											if fv < st.min {
+												st.min = fv
+											}
+											if fv > st.max {
+												st.max = fv
+											}
+										}
+									}
+								}
+							}
+							sb.WriteString("- State Distribution:")
+							stateKeys := make([]string, 0, len(stateCounts))
+							for k := range stateCounts {
+								stateKeys = append(stateKeys, k)
+							}
+							sort.Strings(stateKeys)
+							for _, k := range stateKeys {
+								sb.WriteString(fmt.Sprintf(" %s=%d", k, stateCounts[k]))
+							}
+							sb.WriteString("\n")
+							metricKeys := make([]string, 0, len(statsMap))
+							for k := range statsMap {
+								metricKeys = append(metricKeys, k)
+							}
+							sort.Strings(metricKeys)
+							for _, k := range metricKeys {
+								st := statsMap[k]
+								unit := ""
+								if k == "rtt" || k == "offset" {
+									unit = " ms"
+								}
+								sb.WriteString(fmt.Sprintf("- Metric `%s`: min=%.3f%s, avg=%.3f%s, max=%.3f%s (n=%d)\n",
+									k, st.min, unit, st.sum/float64(st.count), unit, st.max, unit, st.count))
+							}
+							sb.WriteString("\n## Recent Polling Logs (up to 30)\n")
+							startIdx := len(logs) - 30
+							if startIdx < 0 {
+								startIdx = 0
+							}
+							for i := len(logs) - 1; i >= startIdx; i-- {
+								l := logs[i]
+								tS := time.Unix(0, l.Time).Format(time.RFC3339)
+								sb.WriteString(fmt.Sprintf("- %s | State: %s | Result: %s\n", tS, l.State, formatPollingResultForLLM(l.Result)))
+							}
+						}
+					}
+				}
+			}
+			sb.WriteString("\n## Client Summary & Incidents\n")
 			b, _ := json.MarshalIndent(data, "", "  ")
 			sb.WriteString(string(b))
 		}
