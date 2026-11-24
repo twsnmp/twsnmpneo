@@ -25,6 +25,7 @@
     Terminal,
     Layers,
     Bot,
+    GitCompareArrows,
   } from "@lucide/svelte";
   import {
     fetchNodes,
@@ -65,6 +66,7 @@
   import MqttReport from "./reports/MqttReport.svelte";
   import OTelReport from "./reports/OTelReport.svelte";
   import AgentReport from "./reports/AgentReport.svelte";
+  import CorrelationReport from "./reports/CorrelationReport.svelte";
 
   type ReportCategory =
     | "device"
@@ -86,7 +88,8 @@
     | "twagent"
     | "mqtt"
     | "otel"
-    | "ai";
+    | "ai"
+    | "correlation";
 
   let activeReport = $state<ReportCategory>("device");
   let activeReportRef = $state<any>(null);
@@ -198,6 +201,7 @@
     { id: "mqtt", name: $_("report.tabMqtt") || "MQTT", icon: Radio },
     { id: "otel", name: $_("report.tabOtel") || "OpenTelemetry", icon: Layers },
     { id: "ai", name: $_("report.tabAi"), icon: Sparkles },
+    { id: "correlation", name: $_("Correlation.title"), icon: GitCompareArrows },
   ]);
 
   const loadCategoryData = async (category: ReportCategory = activeReport, force = false) => {
@@ -590,6 +594,11 @@
         {nodes}
         {pollings}
         {logs}
+      />
+    {:else if activeReport === "correlation"}
+      <CorrelationReport
+        bind:this={activeReportRef}
+        {searchQuery}
       />
     {/if}
   </div>

@@ -4168,6 +4168,182 @@ export async function fetchAIDownloadStatus(): Promise<AIDownloadStatus> {
   return await res.json();
 }
 
+// --- Polling Correlation Analysis ---
+
+export interface CorrelationCandidate {
+  PollingID: string;
+  PollingName: string;
+  NodeID: string;
+  NodeName: string;
+  Type: string;
+  Mode: string;
+  PollInt: number;
+  Vars: string[];
+}
+
+export interface CorrelationPairReq {
+  PollingID1: string;
+  PollingID2: string;
+  Vars1?: string[];
+  Vars2?: string[];
+  StartTime?: number;
+  EndTime?: number;
+  BucketSec?: number;
+  Algorithm?: string;
+  MaxLag?: number;
+  IncludeState?: boolean;
+}
+
+export interface CorrelationVarPairScore {
+  Var1: string;
+  Var2: string;
+  Score: number;
+  PValue: number;
+  Samples: number;
+}
+
+export interface CorrelationLagPoint {
+  LagBuckets: number;
+  LagSeconds: number;
+  Score: number;
+  Samples: number;
+}
+
+export interface CorrelationSeriesPoint {
+  Time: number;
+  Value1: number;
+  Value2: number;
+}
+
+export interface CorrelationPairRes {
+  PollingID1: string;
+  PollingName1: string;
+  NodeID1: string;
+  NodeName1: string;
+  PollingID2: string;
+  PollingName2: string;
+  NodeID2: string;
+  NodeName2: string;
+  StartTime: number;
+  EndTime: number;
+  BucketSec: number;
+  Algorithm: string;
+  AllVars1: string[];
+  AllVars2: string[];
+  UsedVars1: string[];
+  UsedVars2: string[];
+  BestVar1: string;
+  BestVar2: string;
+  SampleCount: number;
+  Pearson: number;
+  PearsonP: number;
+  Spearman: number;
+  SpearmanP: number;
+  Kendall: number;
+  KendallP: number;
+  CrossCorr: number;
+  CrossCorrP: number;
+  BestLagBuckets: number;
+  BestLagSeconds: number;
+  DistanceCorr: number;
+  DistanceCorrP: number;
+  Slope: number;
+  Intercept: number;
+  Series: CorrelationSeriesPoint[];
+  NormSeries: CorrelationSeriesPoint[];
+  LagProfile: CorrelationLagPoint[];
+  VarMatrix: CorrelationVarPairScore[];
+  Error?: string;
+}
+
+export interface CorrelationDiscoverReq {
+  BasePollingID?: string;
+  StartTime?: number;
+  EndTime?: number;
+  BucketSec?: number;
+  Algorithm?: string;
+  MaxLag?: number;
+  MinAbsScore?: number;
+  MinSamples?: number;
+  CrossNodeOnly?: boolean;
+  IncludeState?: boolean;
+  Limit?: number;
+}
+
+export interface CorrelationDiscoverItem {
+  PollingID1: string;
+  PollingName1: string;
+  NodeID1: string;
+  NodeName1: string;
+  PollingID2: string;
+  PollingName2: string;
+  NodeID2: string;
+  NodeName2: string;
+  SameNode: boolean;
+  BestVar1: string;
+  BestVar2: string;
+  Algorithm: string;
+  Score: number;
+  AbsScore: number;
+  PValue: number;
+  BestLagSec: number;
+  Samples: number;
+}
+
+export interface CorrelationDiscoverRes {
+  StartTime: number;
+  EndTime: number;
+  BucketSec: number;
+  Algorithm: string;
+  TotalPollings: number;
+  PairsEvaluated: number;
+  Canceled: boolean;
+  Items: CorrelationDiscoverItem[];
+  Error?: string;
+}
+
+export async function getCorrelationCandidates(): Promise<CorrelationCandidate[]> {
+  const res = await apiFetch(`${API_BASE}/correlation/candidates`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch correlation candidates: ${res.statusText}`);
+  }
+  return (await res.json()) || [];
+}
+
+export async function analyzePollingCorrelation(
+  req: CorrelationPairReq,
+  signal?: AbortSignal,
+): Promise<CorrelationPairRes> {
+  const res = await apiFetch(`${API_BASE}/correlation/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Correlation analysis failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function discoverPollingCorrelations(
+  req: CorrelationDiscoverReq,
+  signal?: AbortSignal,
+): Promise<CorrelationDiscoverRes> {
+  const res = await apiFetch(`${API_BASE}/correlation/discover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Correlation discovery failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
 
 
 

@@ -26,6 +26,7 @@
   } from "../api";
   import { showConfirm, showAlert } from "../stores/modalStore";
   import ReportAIExplainModal from "./ReportAIExplainModal.svelte";
+  import CorrelationModal from "./CorrelationModal.svelte";
   import {
     extractPollingMetricKeys,
     getMetricMeta,
@@ -68,6 +69,7 @@
     RotateCcw,
     Search,
     Info,
+    GitCompareArrows,
   } from "@lucide/svelte";
 
   type TabId =
@@ -160,6 +162,7 @@
 
   // AI Explain sub-modal
   let showAiExplainModal = $state(false);
+  let showCorrelationModal = $state(false);
 
   // Chart DOM refs & ECharts instance
   let chartEl: HTMLDivElement | null = $state(null);
@@ -1728,6 +1731,17 @@
             <span>{$_("pollingDetail.aiExplain")}</span>
           </button>
 
+          {#if (polling?.LogMode ?? 0) !== 0}
+            <button
+              type="button"
+              onclick={() => (showCorrelationModal = true)}
+              class="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 px-3.5 py-2 text-xs font-semibold shadow-sm transition-all cursor-pointer"
+            >
+              <GitCompareArrows class="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{$_("Correlation.findCorrelationBtn")}</span>
+            </button>
+          {/if}
+
           {#if logs.length > 0}
             <button
               type="button"
@@ -1786,5 +1800,11 @@
       end_time: appliedEndNs,
     }}
     zIndexClass="z-[80]"
+  />
+
+  <CorrelationModal
+    bind:show={showCorrelationModal}
+    initialTab="discover"
+    initialBasePollingID={pollingId}
   />
 {/if}

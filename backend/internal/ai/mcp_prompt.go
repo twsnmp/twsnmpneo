@@ -703,6 +703,25 @@ func (s *MCPServer) registerPrompts(server *mcp.Server) {
 		})
 		return promptResult("Get AI anomaly list prompt", formatToolPrompt("Retrieve AI anomaly detection scores using get_ai_anomaly_list tool", c)), nil
 	})
+
+	// 32. polling_correlation_analysis
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "polling_correlation_analysis",
+		Title:       "Analyze polling correlations",
+		Description: "Discover correlated polling metrics across nodes or analyze a specific polling pair for cascading failures and leading indicators.",
+		Arguments: []*mcp.PromptArgument{
+			{Name: "base_polling_id", Title: "Base Polling ID", Description: "Optional base polling ID (leave empty for all pairs)", Required: false},
+			{Name: "algorithm", Title: "Algorithm", Description: "pearson, spearman, kendall, crosscorr, or dcor", Required: false},
+			{Name: "hours", Title: "Lookback Hours", Description: "Lookback window in hours (e.g. 24, 168)", Required: false},
+		},
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		c := collectPromptFilterArgs(req.Params.Arguments, [][2]string{
+			{"base_polling_id", "Base Polling ID"},
+			{"algorithm", "Algorithm"},
+			{"hours", "Lookback Hours"},
+		})
+		return promptResult("Polling correlation analysis prompt", formatToolPrompt("Discover and analyze polling correlations using discover_polling_correlations and analyze_polling_correlation tools", c)), nil
+	})
 }
 
 func collectPromptFilterArgs(args map[string]string, fields [][2]string) []string {

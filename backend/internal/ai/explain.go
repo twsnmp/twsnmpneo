@@ -356,6 +356,16 @@ func (c *LLMClient) ExplainReport(ctx context.Context, store datastore.DataStore
 			sb.WriteString(string(b))
 		}
 
+	case "correlation":
+		system = "You are a network observability and statistical root-cause analysis expert. Analyze the polling correlation discovery or pair comparison results (Pearson, Spearman, Kendall, lagged Cross-Correlation, Distance Correlation, p-values, and time lag). Identify meaningful dependencies, potential cascading failure chains, leading/lagging indicators, and distinguish true operational coupling from spurious correlation. Provide clear investigation and remediation steps in clean markdown format."
+		if isJa {
+			system = "あなたはネットワーク監視および統計的根本原因分析（RCA）の専門家です。提示されたポーリング間の相関分析データ（ピアソン/スピアマン/ケンドール/ラグ付き相互相関/距離相関係数、p値、時間差ラグ）を分析し、①強い相関・時間差を伴う先行/遅行関係から推測される因果仮説やカスケード障害の予兆、②同一ノード内・異なるノード間の依存関係、③偽相関の可能性や確認すべき運用ポイント、④具体的な監視・改善アクションを、日本語のマークダウン形式（表、太字、箇条書き）で分かりやすく解説してください。"
+		}
+		if data != nil {
+			b, _ := json.MarshalIndent(data, "", "  ")
+			sb.WriteString(string(b))
+		}
+
 	case "address", "ipam":
 		system = "You are an IPAM and network architecture expert. Analyze the address management data and explain IP usage efficiency, duplicate IPs, APIPA (169.254.x.x) risks, MAC address changes, and subnet recommendations."
 		if isJa {

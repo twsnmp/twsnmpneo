@@ -10,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/parquet-go/parquet-go"
@@ -1859,6 +1861,161 @@ func (s *Store) QueryPollingLogs(ctx context.Context, pollingID string, startTim
 	}
 
 	return allResults, truncated, nil
+}
+
+// GetPollingLogsBatch retrieves polling logs for multiple pollingIDs within [startTime, endTime] (UnixNano, 0 = unbounded)
+// in a single parallel pass across matching Parquet files plus un-flushed in-memory buffers.
+func (s *Store) GetPollingLogsBatch(ctx context.Context, pollingIDs []string, startTime, endTime int64, progressCb func(done, total int)) map[string][]*datastore.PollingLogEnt {
+	res := make(map[string][]*datastore.PollingLogEnt, len(pollingIDs))
+	if len(pollingIDs) == 0 {
+		return res
+	}
+	targetMap := make(map[string]bool, len(pollingIDs))
+	for _, id := range pollingIDs {
+		if id != "" {
+			targetMap[id] = true
+		}
+	}
+	if len(targetMap) == 0 {
+		return res
+	}
+
+	matchTime := func(t int64) bool {
+		if startTime > 0 && t < startTime {
+			return false
+		}
+		if endTime > 0 && t > endTime {
+			return false
+		}
+		return true
+	}
+
+	var mu sync.Mutex
+	appendLog := func(id string, ent *datastore.PollingLogEnt) {
+		mu.Lock()
+		res[id] = append(res[id], ent)
+		mu.Unlock()
+	}
+
+	// 1. Collect matching records from un-flushed in-memory buffer without flushing
+	s.mu.Lock()
+	if buf, ok := s.typeBuffers["polling"]; ok && len(buf) > 0 {
+		for _, rec := range buf {
+			if targetMap[rec.Src] && matchTime(rec.Time) {
+				appendLog(rec.Src, parsePollingLogRecord(rec))
+			}
+		}
+	}
+	s.mu.Unlock()
+
+	// 2. Scan matching disk parquet files in parallel
+	pollingDir := filepath.Join(s.dir, "polling")
+	entries, err := os.ReadDir(pollingDir)
+	if err == nil {
+		var files []string
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".parquet") {
+				continue
+			}
+			baseName := e.Name()
+			curTs, curTsOk := parseFilenameTime(baseName)
+			if curTsOk {
+				if startTime > 0 && curTs.Add(5*time.Minute).UnixNano() < startTime {
+					continue
+				}
+				if endTime > 0 && curTs.Add(-25*time.Hour).UnixNano() > endTime {
+					continue
+				}
+			}
+			files = append(files, filepath.Join(pollingDir, baseName))
+		}
+
+		totalFiles := len(files)
+		if progressCb != nil && totalFiles > 0 {
+			progressCb(0, totalFiles)
+		}
+
+		if totalFiles > 0 {
+			workers := runtime.GOMAXPROCS(0)
+			if workers > 4 {
+				workers = 4
+			}
+			if workers < 1 {
+				workers = 1
+			}
+			if totalFiles < workers {
+				workers = totalFiles
+			}
+
+			fileCh := make(chan string, totalFiles)
+			for _, f := range files {
+				fileCh <- f
+			}
+			close(fileCh)
+
+			var doneCount atomic.Int64
+			var wg sync.WaitGroup
+			for w := 0; w < workers; w++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					buf := make([]ParquetLogRecord, 512)
+					for filePath := range fileCh {
+						if ctx != nil && ctx.Err() != nil {
+							return
+						}
+						f, openErr := os.Open(filePath)
+						if openErr == nil {
+							stat, statErr := f.Stat()
+							if statErr == nil && stat.Size() > 0 && !(startTime > 0 && stat.ModTime().Add(5*time.Minute).UnixNano() < startTime) {
+								if pf, pfErr := parquet.OpenFile(f, stat.Size()); pfErr == nil {
+									reader := parquet.NewGenericReader[ParquetLogRecord](pf)
+									local := make(map[string][]*datastore.PollingLogEnt)
+									for {
+										if ctx != nil && ctx.Err() != nil {
+											break
+										}
+										n, rErr := reader.Read(buf)
+										for j := 0; j < n; j++ {
+											rec := &buf[j]
+											if targetMap[rec.Src] && matchTime(rec.Time) {
+												local[rec.Src] = append(local[rec.Src], parsePollingLogRecord(rec))
+											}
+										}
+										if rErr != nil {
+											break
+										}
+									}
+									_ = reader.Close()
+									if len(local) > 0 {
+										mu.Lock()
+										for k, v := range local {
+											res[k] = append(res[k], v...)
+										}
+										mu.Unlock()
+									}
+								}
+							}
+							_ = f.Close()
+						}
+						done := int(doneCount.Add(1))
+						if progressCb != nil {
+							progressCb(done, totalFiles)
+						}
+					}
+				}()
+			}
+			wg.Wait()
+		}
+	}
+
+	// 3. Sort each polling's logs chronologically
+	for _, list := range res {
+		sort.SliceStable(list, func(i, j int) bool {
+			return list[i].Time < list[j].Time
+		})
+	}
+	return res
 }
 
 // DeletePollingLogs removes all stored polling log records matching pollingID

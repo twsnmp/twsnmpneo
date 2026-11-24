@@ -300,20 +300,20 @@ func TestMCP_AddNodeNoAutoPollingAndCRUD(t *testing.T) {
 	})
 	defer cleanup()
 
-	// 1. Verify full tool and prompt inventory counts (42 tools, 31 prompts)
+	// 1. Verify full tool and prompt inventory counts (44 tools, 32 prompts)
 	toolsRes, err := cs.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {
 		t.Fatalf("ListTools failed: %v", err)
 	}
-	if len(toolsRes.Tools) != 42 {
-		t.Errorf("expected 42 registered tools, got %d", len(toolsRes.Tools))
+	if len(toolsRes.Tools) != 44 {
+		t.Errorf("expected 44 registered tools, got %d", len(toolsRes.Tools))
 	}
 	promptsRes, err := cs.ListPrompts(ctx, &mcp.ListPromptsParams{})
 	if err != nil {
 		t.Fatalf("ListPrompts failed: %v", err)
 	}
-	if len(promptsRes.Prompts) != 31 {
-		t.Errorf("expected 31 registered prompts, got %d", len(promptsRes.Prompts))
+	if len(promptsRes.Prompts) != 32 {
+		t.Errorf("expected 32 registered prompts, got %d", len(promptsRes.Prompts))
 	}
 
 	// 2. add_node must NOT automatically add any PING polling

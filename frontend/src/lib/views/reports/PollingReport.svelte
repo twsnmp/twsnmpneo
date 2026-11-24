@@ -12,10 +12,12 @@
     ArrowUpDown,
     Sparkles,
     Eye,
+    GitCompareArrows,
   } from "@lucide/svelte";
   import ReportPagination from "./components/ReportPagination.svelte";
   import ReportAIExplainModal from "../../components/ReportAIExplainModal.svelte";
   import PollingDetailModal from "../../components/PollingDetailModal.svelte";
+  import CorrelationModal from "../../components/CorrelationModal.svelte";
   import { getStateColor, getStateName, getStateLabel, getStatusBadgeClass } from "../../common";
   import { isDarkMode } from "../../charts/utils";
   import type { PollingEnt, NodeEnt } from "../../api";
@@ -33,6 +35,8 @@
   let pollingSubFilter = $state<"all" | "error" | "warn" | "warn_above">("all");
   let pollingSortColumn = $state("name");
   let pollingSortDirection = $state<"asc" | "desc">("asc");
+  let showCorrelationModal = $state(false);
+  let correlationBasePollingID = $state("");
   let pollingPageSize = $state(25);
   let pollingCurrentPage = $state(1);
   let showAiExplainModal = $state(false);
@@ -514,7 +518,7 @@
               <td class="py-1 px-2 font-mono text-cyan-600 dark:text-cyan-400 text-[11px]">
                 {p.last_val !== undefined && p.last_val !== null ? p.last_val : "-"}
               </td>
-              <td class="py-1 px-2 text-right">
+              <td class="py-1 px-2 text-right whitespace-nowrap">
                 <button
                   type="button"
                   data-testid="btn-report-polling-detail"
@@ -525,6 +529,20 @@
                 >
                   <Eye class="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
+                {#if (p.LogMode ?? 0) !== 0}
+                  <button
+                    type="button"
+                    onclick={() => {
+                      correlationBasePollingID = p.id;
+                      showCorrelationModal = true;
+                    }}
+                    aria-label={$_("Correlation.findCorrelationBtn")}
+                    title={$_("Correlation.findCorrelationBtn")}
+                    class="inline-flex items-center justify-center rounded-lg p-1 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <GitCompareArrows class="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -566,4 +584,12 @@
     polling={detailPolling}
     node={detailNode}
   />
+
+  {#if showCorrelationModal}
+    <CorrelationModal
+      bind:show={showCorrelationModal}
+      initialTab="discover"
+      initialBasePollingID={correlationBasePollingID}
+    />
+  {/if}
 </div>

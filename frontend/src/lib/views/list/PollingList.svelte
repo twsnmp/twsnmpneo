@@ -16,6 +16,7 @@
     ArrowDown,
     ArrowUpDown,
     Sparkles,
+    GitCompareArrows,
   } from "@lucide/svelte";
   import { deletePolling, type PollingEnt, type NodeEnt } from "../../api";
   import { showConfirm } from "../../stores/modalStore";
@@ -28,6 +29,7 @@
   } from "../../common";
   import PollingDialog from "../../components/PollingDialog.svelte";
   import PollingDetailModal from "../../components/PollingDetailModal.svelte";
+  import CorrelationModal from "../../components/CorrelationModal.svelte";
   import PollingTemplateDialog from "../../components/PollingTemplateDialog.svelte";
   import AIPollingAssistDialog from "../../components/AIPollingAssistDialog.svelte";
   import ListPagination from "./ListPagination.svelte";
@@ -60,6 +62,8 @@
   let showAIAssistDialog = $state(false);
   let showPollingDetailModal = $state(false);
   let selectedPolling = $state<PollingEnt | null>(null);
+  let showCorrelationModal = $state(false);
+  let correlationBasePollingID = $state("");
   let detailPolling = $state<PollingEnt | null>(null);
   let detailPollingNode = $state<NodeEnt | null>(null);
 
@@ -387,6 +391,19 @@
                   >
                     <Eye class="h-4 w-4" />
                   </button>
+                  {#if (p.LogMode ?? 0) !== 0}
+                    <button
+                      onclick={() => {
+                        correlationBasePollingID = p.id;
+                        showCorrelationModal = true;
+                      }}
+                      class="rounded-lg p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                      title={$_('Correlation.findCorrelationBtn')}
+                      aria-label={$_('Correlation.findCorrelationBtn')}
+                    >
+                      <GitCompareArrows class="h-4 w-4" />
+                    </button>
+                  {/if}
                   <button
                     onclick={() => handleEditPolling(p)}
                     class="rounded-lg p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
@@ -461,3 +478,11 @@
     handleEditPolling(p);
   }}
 />
+
+{#if showCorrelationModal}
+  <CorrelationModal
+    bind:show={showCorrelationModal}
+    initialTab="discover"
+    initialBasePollingID={correlationBasePollingID}
+  />
+{/if}

@@ -274,7 +274,8 @@ func NewServer(cfg Config) (*Server, error) {
 							strings.HasPrefix(reqPath, "/api/ai/diagnose") ||
 							strings.HasPrefix(reqPath, "/api/ai/polling") ||
 							strings.HasPrefix(reqPath, "/api/ai/mib") ||
-							strings.HasPrefix(reqPath, "/api/ai/explain")
+							strings.HasPrefix(reqPath, "/api/ai/explain") ||
+							strings.HasPrefix(reqPath, "/api/correlation/")
 						if !isAllowed {
 							return c.JSON(http.StatusForbidden, map[string]string{"error": "permission denied: read-only user cannot perform write operations"})
 						}
@@ -1368,6 +1369,31 @@ func NewServer(cfg Config) (*Server, error) {
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusOK, list)
+		})
+	}
+
+	if cfg.Store != nil && cfg.LogStore != nil {
+		apiGroup.GET("/correlation/candidates", func(c echo.Context) error {
+			candidates := ai.GetCorrelationCandidates(c.Request().Context(), cfg.Store, cfg.LogStore)
+			return c.JSON(http.StatusOK, candidates)
+		})
+
+		apiGroup.POST("/correlation/analyze", func(c echo.Context) error {
+			var req ai.CorrelationPairReq
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			res := ai.AnalyzePollingCorrelation(c.Request().Context(), cfg.Store, cfg.LogStore, req)
+			return c.JSON(http.StatusOK, res)
+		})
+
+		apiGroup.POST("/correlation/discover", func(c echo.Context) error {
+			var req ai.CorrelationDiscoverReq
+			if err := c.Bind(&req); err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			res := ai.DiscoverPollingCorrelations(c.Request().Context(), cfg.Store, cfg.LogStore, req)
+			return c.JSON(http.StatusOK, res)
 		})
 	}
 

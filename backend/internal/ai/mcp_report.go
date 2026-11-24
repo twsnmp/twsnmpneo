@@ -128,6 +128,18 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 		Description: "Get list of remote monitoring sensors reporting to TWSNMP NEO",
 	}, s.getSensorList)
 
+	// 1b. analyze_polling_correlation
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "analyze_polling_correlation",
+		Description: "Analyze statistical correlation between two pollings using Pearson, Spearman, Kendall, Cross-Correlation (time-lag), and Distance Correlation.",
+	}, s.analyzePollingCorrelationTool)
+
+	// 1c. discover_polling_correlations
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "discover_polling_correlations",
+		Description: "Automatically discover strongly correlated polling pairs across all monitored nodes or relative to a base polling.",
+	}, s.discoverPollingCorrelationsTool)
+
 	// 2. get_mac_address_list
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_mac_address_list",
@@ -427,4 +439,88 @@ func (s *MCPServer) getReportSummary(ctx context.Context, req *mcp.CallToolReque
 		}
 	}
 	return jsonResult(list)
+}
+
+type mcpAnalyzeCorrelationParams struct {
+	PollingID1   string   `json:"polling_id_1" jsonschema:"First polling ID"`
+	PollingID2   string   `json:"polling_id_2" jsonschema:"Second polling ID"`
+	Vars1        []string `json:"vars_1,omitempty" jsonschema:"Optional variable names from first polling"`
+	Vars2        []string `json:"vars_2,omitempty" jsonschema:"Optional variable names from second polling"`
+	Hours        int      `json:"hours,omitempty" jsonschema:"Lookback window in hours (default 24)"`
+	BucketSec    int      `json:"bucket_sec,omitempty" jsonschema:"Time-bucket width in seconds (0 = auto)"`
+	Algorithm    string   `json:"algorithm,omitempty" jsonschema:"Correlation algorithm: pearson, spearman, kendall, crosscorr, or dcor (default pearson)"`
+	MaxLag       int      `json:"max_lag,omitempty" jsonschema:"Maximum lag in buckets for crosscorr (default 12)"`
+	IncludeState bool     `json:"include_state,omitempty" jsonschema:"Include polling state changes (normal=1, unknown=0.5, else=0)"`
+}
+
+type mcpDiscoverCorrelationsParams struct {
+	BasePollingID string  `json:"base_polling_id,omitempty" jsonschema:"Optional base polling ID (empty = all pairs)"`
+	Hours         int     `json:"hours,omitempty" jsonschema:"Lookback window in hours (default 24)"`
+	BucketSec     int     `json:"bucket_sec,omitempty" jsonschema:"Time-bucket width in seconds (0 = auto)"`
+	Algorithm     string  `json:"algorithm,omitempty" jsonschema:"Correlation algorithm: pearson, spearman, kendall, crosscorr, or dcor (default pearson)"`
+	MaxLag        int     `json:"max_lag,omitempty" jsonschema:"Maximum lag in buckets for crosscorr (default 6)"`
+	MinAbsScore   float64 `json:"min_abs_score,omitempty" jsonschema:"Minimum absolute correlation score (default 0.5)"`
+	MinSamples    int     `json:"min_samples,omitempty" jsonschema:"Minimum aligned samples (default 10)"`
+	CrossNodeOnly bool    `json:"cross_node_only,omitempty" jsonschema:"Only report pairs across different nodes"`
+	IncludeState  bool    `json:"include_state,omitempty" jsonschema:"Include polling state changes"`
+	Limit         int     `json:"limit,omitempty" jsonschema:"Maximum pairs to return (default 30)"`
+}
+
+func (s *MCPServer) analyzePollingCorrelationTool(ctx context.Context, req *mcp.CallToolRequest, args mcpAnalyzeCorrelationParams) (*mcp.CallToolResult, any, error) {
+	if s.store == nil || s.logStore == nil {
+		return textResult("datastore or log store is not initialized"), nil, nil
+	}
+	if args.PollingID1 == "" || args.PollingID2 == "" {
+		return textResult("polling_id_1 and polling_id_2 are required"), nil, nil
+	}
+	now := time.Now().Unix()
+	hours := args.Hours
+	if hours <= 0 {
+		hours = 24
+	}
+	res := AnalyzePollingCorrelation(ctx, s.store, s.logStore, CorrelationPairReq{
+		PollingID1:   args.PollingID1,
+		PollingID2:   args.PollingID2,
+		Vars1:        args.Vars1,
+		Vars2:        args.Vars2,
+		StartTime:    now - int64(hours)*3600,
+		EndTime:      now,
+		BucketSec:    args.BucketSec,
+		Algorithm:    args.Algorithm,
+		MaxLag:       args.MaxLag,
+		IncludeState: args.IncludeState,
+	})
+	// Trim raw time series arrays so LLM context stays compact
+	res.Series = nil
+	res.NormSeries = nil
+	return jsonResult(res)
+}
+
+func (s *MCPServer) discoverPollingCorrelationsTool(ctx context.Context, req *mcp.CallToolRequest, args mcpDiscoverCorrelationsParams) (*mcp.CallToolResult, any, error) {
+	if s.store == nil || s.logStore == nil {
+		return textResult("datastore or log store is not initialized"), nil, nil
+	}
+	now := time.Now().Unix()
+	hours := args.Hours
+	if hours <= 0 {
+		hours = 24
+	}
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 30
+	}
+	res := DiscoverPollingCorrelations(ctx, s.store, s.logStore, CorrelationDiscoverReq{
+		BasePollingID: args.BasePollingID,
+		StartTime:     now - int64(hours)*3600,
+		EndTime:       now,
+		BucketSec:     args.BucketSec,
+		Algorithm:     args.Algorithm,
+		MaxLag:        args.MaxLag,
+		MinAbsScore:   args.MinAbsScore,
+		MinSamples:    args.MinSamples,
+		CrossNodeOnly: args.CrossNodeOnly,
+		IncludeState:  args.IncludeState,
+		Limit:         limit,
+	})
+	return jsonResult(res)
 }
