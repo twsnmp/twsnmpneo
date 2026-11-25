@@ -36,6 +36,8 @@
 - **MapLibre GIS Geographic Map**: Plot and monitor nodes across geographical layers (OpenStreetMap, GSI, CARTO) with real-time status coloring, marker drag-and-drop repositioning, unplaced node placement, and default view persistence.
 - **3D Virtual Hardware Panel (`vpanel`)**: WebGL-accelerated 3D switch rendering with RJ45 port textures, Link UP/DOWN & 1Gbps+ speed LEDs, power LEDs, and interactive orbit controls.
 - **Apache ECharts Analytics**: High-performance multi-axis time-series charts, IPAM utilization heatmaps, response time distribution, and traffic rate graphs.
+- **Polling Detail & Time-Series Analytics**: 9-tab landscape `PollingDetailModal` featuring downtime/SLA metrics, `dataZoom`-filtered polling log history, Raw/Hourly time-series with linear regression forecasting, descriptive statistics & histogram, QQ plot, LOESS STL decomposition, `gonum` FFT frequency spectrum, and AI diagnosis.
+- **Polling Correlation & `tensai` ML**: Auto-discovery ($N:N$ / $1:N$ force-directed correlation network & ranked pairs) and pair comparison with 5 statistical algorithms (Pearson, Spearman, Kendall, Cross-Correlation, Distance Correlation) plus 3 `tensai` ML algorithms (MLP with Permutation Feature Importance, sequential LSTM, kNN regime classification) and AI explanation.
 - **Public Dashboard & Embed System**: Token-authenticated public view (`/dashboard/:key`) featuring multiple item rotations (topology map, polling metrics), balanced 5-level severity breakdown KPI pills, instant JA/EN locale switcher (i18n), TV drama alert overlay with audio hazard alarm, and iframe embedding (`?embed=true`).
 
 ### 2. Columnar Big Data Storage (Apache Parquet)
@@ -46,7 +48,7 @@
 - **Probe Tag Parsing & Cached Reverse DNS**: Automatically extracts and normalizes tags for probe logs (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`) and resolves hostnames dynamically for unregistered IP nodes via cached reverse DNS lookup.
 
 ### 3. Native AI & Built-in MCP Server
-- **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 42 diagnostic/management tools (node/line/polling CRUD, immediate polling check, NetFlow search, AI anomaly scores, OTel metrics/traces, report summaries, sensor filters) and 31 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
+- **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 44 diagnostic/management tools (node/line/polling CRUD, immediate polling check, NetFlow search, AI anomaly scores, polling correlation analysis, OTel metrics/traces, report summaries, sensor filters) and 32 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
 - **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with support for thinking models, extended timeouts (15 minutes), and WebGPU offline inference.
 - **In-App AI Diagnosis**: One-click AI diagnosis across all report views (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) with rich Markdown output, smooth loading animations, and automated root cause analysis.
 - **OTel APM & AI/LLM Polling**: OTel metric evaluation, trace error-rate/P95 latency, and telemetry heartbeat polling with one-click polling generation from OTelView. HTTP polling monitoring OpenAI-compatible and Ollama endpoints (availability, RTT, model counts).
@@ -67,6 +69,7 @@
 - **ARP Watch**: Continuous IP-to-MAC change and conflict detection
 - **OpenTelemetry**: OTel OTLP gRPC/HTTP log, trace & metrics collector with dedicated analytics
 - **MQTT Broker & Client**: Embedded broker for IoT sensors, topic statistics, and metric polling
+- **Global Environmental, Disaster & Space Weather Polling (`env`)**: Open API monitoring for earthquakes, lightning, solar flares/Kp index, and Open-Meteo weather with unified `earthEnv` reporting
 - **Optimized Analytics Suite**: Category-based lazy loading and query-time Parquet file pruning for responsive large-scale analytics.
 - **Built-in PKI & TLS Management**: Root CA management, web-based CSR creation, certificate issuance, CRL / OCSP / SCEP / ACME servers, and automated TLS certificate renewal via ACME client (lego)
 - **Diagnostic Tools**: Interactive Ping (ICMP/UDP), Smokeping, MTR with AI analysis, MIB Browser / Tree, gNMI (with column width adjustment, search, pagination, and shortcuts), and Wake-on-LAN (WOL)

@@ -27,7 +27,7 @@ It consolidates the container portability of **TWSNMP FC** and the advanced visu
 - **TWAgent & AI Security Telemetry (`twagentneo`)**: Zero-config cross-platform agent ingestion, live host telemetry, Sigma rule detection with local LLM verification, File Integrity Monitoring (FIM), and CIS Benchmark Security Configuration Assessment (SCA).
 - **Apache Parquet Columnar Storage & Fast Compaction**: Millions of Syslog, TRAP, NetFlow, and sFlow records stored with high compression ratios, in-memory caching, timestamp range filtering, and automated background file compaction.
 - **Enterprise Database Backup & Disaster Recovery**: Transaction-safe live snapshots via `bbolt.Tx.CopyFile`, automated recurring schedules, generation rotation, web-based archive management, and offline CLI disaster recovery & compaction.
-- **Native AI & Built-in MCP Server (42 Tools)**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis, topology/polling automation, NetFlow & AI anomaly inspection, OTel APM metrics/traces inspection, and natural language polling creation.
+- **Native AI & Built-in MCP Server (44 Tools)**: Integrated multi-LLM client (`tensai`) and Model Context Protocol (MCP) server for instant root cause diagnosis, topology/polling automation, NetFlow & AI anomaly inspection, polling correlation analysis, OTel APM metrics/traces inspection, and natural language polling creation.
 - **Self-Contained Private PKI**: Issue, renew, and automate TLS certificates via ACME and SCEP directly within your network manager.
 
 ---
@@ -290,8 +290,20 @@ The node configuration dialog features an expansive two-column layout:
 - **gNMI**: gRPC telemetry streaming and config inspection
 - **STUN**: Public IP monitoring and NAT type detection
 - **MQTT**: IoT topic subscription and metric assertion
+- **Env (`env`)**: Global environmental, disaster, and space weather open API monitoring (earthquakes, lightning, solar flares/Kp index, Open-Meteo weather)
 
 ![](./images/en/polling_list.png)
+
+### Polling Detail & Time-Series Analysis
+
+Clicking a polling's detail button from the Polling List, Node Details, or Polling Report opens the 9-tab landscape **Polling Detail Modal**:
+- **Basic Info & Downtime/SLA**: Configuration summary, latest key/value results, SLA %, outage count, MTBF/MTTR, and downtime timeline.
+- **Polling Logs & Time Series**: Stacked state histogram with interactive `dataZoom`, searchable log table, Raw vs. Hourly Stats charts, and linear regression forecasting.
+- **Statistical & Spectral Analysis**: Histogram & descriptive statistics, Normal QQ Plot, 4-panel LOESS STL decomposition (Observed / Trend / Seasonal / Residual), `gonum` FFT frequency spectrum, AI Anomaly score timeline, and CSV / CSV (Data) export.
+
+![](./images/en/polling_detail.png)
+
+![](./images/en/polling_detail_stl_fft.png)
 
 Global default polling parameters (interval, timeout, retry count, SNMP mode, community string) can be configured under System Configuration:
 
@@ -353,8 +365,10 @@ Top talkers, top ports, and Fumble anomalous connection tracking.
 ### Host Analysis (Windows Events / Processes)
 Windows Security event auditing, privilege escalation, and active processes.
 
-### IoT & Environmental Sensors (Temperature / Power)
-Temperature, humidity, pressure, and energy consumption (Wh) trends.
+### IoT & Environmental Sensors (Temperature / Power / Earth & Space Weather)
+Temperature, humidity, pressure, energy consumption (Wh), and global environmental/disaster/space weather open API feeds (`earthEnv` — earthquakes, lightning, solar flares/Kp index, and Open-Meteo weather) with interactive trend charts.
+
+![](./images/en/report_sensor_env.png)
 
 ### MQTT Reports
 IoT/Smart device message volume statistics by topic, client connections, and AI trend summaries.
@@ -379,6 +393,15 @@ Expiration countdown and revocation status verification.
 
 ### AI Anomaly Detection Scores
 Statistical anomaly scoring and ranking across nodes and pollings.
+
+### Polling Correlation Analysis (`tensai` ML)
+Discover hidden relationships across nodes and pollings via the dedicated Correlation Report or quick-launch modal:
+- **Auto Discovery**: $N:N$ or $1:N$ base-polling scan with force-directed correlation network graph and ranked pair table.
+- **Pair Comparison**: 5 statistical methods (Pearson, Spearman, Kendall, Cross-Correlation with lag profile, Distance Correlation) plus 3 `tensai` ML algorithms (MLP with Permutation Feature Importance, sequential LSTM, and kNN regime classification) with dual-axis overlay, scatter+regression, lag bar chart, and AI interpretation.
+
+![](./images/en/report_correlation_discover.png)
+
+![](./images/en/report_correlation_pair.png)
 
 ### One-Click "AI Diagnosis" Across All Reports
 Click the "AI Diagnosis" button on any report toolbar (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) to trigger instant LLM analysis of the current statistical data, producing bottleneck insights and actionable remediation steps in structured Markdown with smooth loading animations.
@@ -473,7 +496,7 @@ HTTP timeouts for local and external LLMs are extended to 15 minutes, with built
 ### Native Streamable HTTP MCP Server
 
 TWSNMP NEO provides a built-in **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
-42 diagnostic and management tools (node/line/polling CRUD, immediate polling check, Ping/SNMP/MIB, NetFlow/Syslog/Trap/Event logs, AI anomaly scores, OTel APM metrics/traces, report summaries, sensor filters) and 31 prompt templates are exposed directly to AI agents like Cursor, Claude Desktop, and Antigravity to inspect network status, query logs, manage monitoring configurations, and execute diagnostic tools autonomously.
+44 diagnostic and management tools (node/line/polling CRUD, immediate polling check, Ping/SNMP/MIB, NetFlow/Syslog/Trap/Event logs, AI anomaly scores, polling correlation analysis, OTel APM metrics/traces, report summaries, sensor filters) and 32 prompt templates are exposed directly to AI agents like Cursor, Claude Desktop, and Antigravity to inspect network status, query logs, manage monitoring configurations, and execute diagnostic tools autonomously.
 
 Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](prompt.html)** for architecture details.
 

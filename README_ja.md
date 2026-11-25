@@ -37,6 +37,8 @@
 - **MapLibre GIS 位置情報マップ**: 国土地理院・OpenStreetMap・CARTO 等の地図タイル上にノードを配置し、広域拠点網の地理的物理配置とリアルタイム稼働状態を監視。未配置ノード配置、マーカードラッグ＆ドロップ、表示位置保存に対応。
 - **3D 仮想ハードウェアパネル（`vpanel`）**: WebGLによる3Dスイッチングハブ描画。RJ45ポートテクスチャ、Link UP/DOWN緑LED、1Gbps+橙LED、POWER青LED、マウスによる3D回転・自動回転表示。
 - **Apache ECharts 分析チャート**: レスポンス推移、トラフィック量、IPAMヒートマップ、各種ログの時系列・ヒストグラム分析。
+- **ポーリング詳細 & 時系列統計分析**: 9タブ構成の横長モーダル（ダウンタイム/SLA、ポーリングログ履歴、Raw/時間別時系列＋線形回帰予測、ヒストグラム・基本統計量、QQプロット、LOESS STL分解、`gonum` FFT周期解析、AIレポート）による高度なポーリング深掘り分析。
+- **ポーリング相関分析 & `tensai` ML**: 自動発見（$N:N$ / $1:N$ 力学相関ネットワーク図・ランキング）およびペア比較において、統計5手法（Pearson, Spearman, Kendall, 相互相関, 距離相関）と `tensai` 機械学習3手法（MLP・LSTM・kNNレジーム分類）による相関可視化とAI解説に対応。
 - **公開ダッシュボード & 外部埋め込み (Public Dashboard)**: トークン認証による安全な公開画面（`/dashboard/:key`）。複数アイテム（マップ、ポーリング）の自動ローテーション、5段階状態（HIGH/LOW/WARN/REPAIR/NORMAL）の均等グリッドKPIカード、ヘッダー言語切替ボタンによる日英バイリンガル対応（i18n）、TVドラマ風緊急警報画面（Drama Alert Overlay）と電子警告音、および Wiki/社内ポータル向け iframe 埋め込みに対応。
 
 ### 2. Apache Parquet による大容量・超高速ログストレージ
@@ -47,7 +49,7 @@
 - **Syslog プローブタグ柔軟解析 & DNS 逆引きキャッシュ**: 各種プローブログ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）のタグを自動判別・正規化し、レポート集計時は未登録ノードのホスト名を DNS 逆引きキャッシュで高速解決。
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
-- **Streamable HTTP MCP サーバー (`/api/mcp`)**: 42種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、NetFlow 検索、AI 異常検知スコア、OTel メトリクス/トレース、各種レポート、センサー種別フィルタ等）と31種のプロンプトテンプレートを AI エージェント（Cursor, Claude Desktop, Antigravity など）に提供。
+- **Streamable HTTP MCP サーバー (`/api/mcp`)**: 44種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、NetFlow 検索、AI 異常検知スコア、ポーリング相関分析、OTel メトリクス/トレース、各種レポート、センサー種別フィルタ等）と32種のプロンプトテンプレートを AI エージェント（Cursor, Claude Desktop, Antigravity など）に提供。
 - **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini, OpenAI, Claude, ローカル Ollama への接続、思考モデル（Thinking models）対応、タイムアウト延長（15分）、および WebGPU オフライン推論に対応。
 - **ワンクリック AI 診断**: イベントログの原因分析、全レポート画面（Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel 等）での統計データAI診断（Markdown表示、WAITアニメーション）、ノード健全性診断。
 - **OTel APM & AI/LLM ポーリング**: OTel メトリック集計・トレースエラー率/P95レイテンシ・ハートビート監視ポーリング、OTelView からのワンクリックポーリング作成、HTTP ポーリングによる OpenAI 互換 / Ollama API の死活・RTT・モデル数監視。
@@ -68,6 +70,7 @@
 - **ARP監視**: IP-MAC対応関係の変更・競合・新規検知
 - **OpenTelemetry**: OTel OTLP gRPC/HTTP レシーバーおよびレポート分析
 - **MQTT ブローカー & クライアント**: IoTセンサー監視・トピック統計レポート
+- **地球環境・災害・宇宙天気オープンAPI監視 (`env`)**: 地震・落雷・太陽フレア/Kp指数・Open-Meteo気象などのオープンAPI監視と `earthEnv` 統合レポート
 - **オンデマンドレポート高速化**: カテゴリ別遅延読み込み（Lazy-load）とParquetクエリ時の時間範囲プルーニングによる高速レスポンス
 - **内蔵 PKI & TLS 管理**: Root CA構築、ブラウザ内CSR作成、証明書発行、CRL / OCSP / SCEP / ACME サーバー、および自身の HTTPS 運用を自動化する ACME 自動更新クライアント（lego 統合）
 - **診断ツール**: リアルタイムPing (ICMP/UDP)、Smokeping、MTR（AI解説付き）、MIBブラウザ / MIBツリー、gNMI（列幅調整・検索・ページネーション・ショートカット対応）、Wake-on-LAN (WOL)

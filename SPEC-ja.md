@@ -35,9 +35,11 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
      - **IPAM（IPアドレス管理）**: 複数サブネット範囲登録、広域アドレス対応ヒートマップ（ECharts集約ブロック＋クリックドリルダウン展開）、IPv4/IPv6インベントリ、ホスト間通信グラフ。
      - **フロー & トラフィック分析**: Topサーバーポート、NetFlow/IPFIX統計、Fumbleフロー（未応答SYN/スキャン等の異常通信）、パケット種別分布、DNSクエリ、RADIUS、TLS、GeoIP位置解決。
      - **Windows & ホスト分析**: WindowsイベントID、ログオン監査、アカウント変更、Kerberos、特権昇格、プロセス活動、タスクスケジュール。
-     - **IoT & センサー監視**: 環境センサー（温度/湿度）、電力消費量（Wh）、動体検知、SDR無線信号強度、MQTTトピック/クライアント。
+     - **IoT & センサー監視**: 環境センサー（温度/湿度/気圧）、地球環境・災害・宇宙天気オープンAPI監視（`earthEnv`: 地震、落雷、太陽フレア/Kp、Open-Meteo気象）、電力消費量（Wh）、動体検知、SDR無線信号強度、MQTTトピック/クライアント。
      - **セキュリティ & 証明書監視**: TLS/SSLサーバー証明書有効期限追跡、プライベートPKI認証局管理。
      - **AI 異常検知**: ノードおよびポーリングのAI異常スコアリスト (`AIList`)。
+     - **ポーリング相関分析**: 独立レポートおよびモーダルでの自動発見（$N:N$ / $1:N$ 相関ネットワーク・ペア比較）、統計5手法（Pearson, Spearman, Kendall, Cross-Correlation, dCor）＋ `tensai` ML 3手法（MLP, LSTM, kNN レジーム分類）。
+     - **ポーリング詳細 & ログ分析**: 9タブ構成モーダル（基本情報、ダウンタイム/SLA、ポーリングログ、時系列、ヒストグラム/統計、QQプロット、STL分解、FFT周期解析、AI異常検知）。
   6. **運用・診断ツール**:
      - **MIBブラウザ & MIBツリーエクスプローラ**: 標準・Enterprise MIBの階層ナビゲーション、SNMP Get / GetNext / Walk / Table 実行、Table結果のページネーション、直近の検索履歴と頻出MIB項目のワンクリック入力。
      - **リアルタイム Ping ツール**: 連続ICMP/UDP ping、レスポンス推移グラフ、ペイロード変更、応答音声再生。
@@ -49,7 +51,7 @@ Google Antigravity 2.0 は本仕様書（および英語版 `SPEC.md`）を単�
   8. **ネイティブ AI & MCP (Model Context Protocol) 統合**:
      - `tensai` によるマルチLLM（Gemini, OpenAI, Claude, Ollama）オーケストレーション。
      - **Streamable HTTP (`/api/mcp`)** による最新の双方向トランスポート、IP/CIDR ホワイトリスト制限（`-mcpFrom` / `TWSNMP_MCPFROM`）、および JWT 認証（`-mcpMode auth|noauth` / `TWSNMP_MCPMODE`）を完備したビルトイン MCP サーバー。
-     - 全42種類のツール群（マップ/ノード/ライン/ポーリング CRUD・即時チェック、Ping/SNMP/MIB、NetFlow・Syslog・TRAP・イベントログ検索、AI異常検知スコア、OpenTelemetry APM メトリクス/トレース、各種レポート/アドレス帳）および31種のプロンプトテンプレートを提供。
+     - 全44種類のツール群（マップ/ノード/ライン/ポーリング CRUD・即時チェック、Ping/SNMP/MIB、NetFlow・Syslog・TRAP・イベントログ検索、AI異常検知スコア、ポーリング相関分析、OpenTelemetry APM メトリクス/トレース、各種レポート/アドレス帳）および32種のプロンプトテンプレートを提供。
      - インラインAI支援ダイアログ（ログ原因分析、ポーリング生成支援、ノード診断）。
   9. **シングルバイナリ配布**:
      - Svelte 5 でビルドされたフロントエンド資産を Go の `embed.FS` で単一実行ファイルに完全内包。
@@ -115,7 +117,7 @@ twsnmpneo/
 │   │   ├── mib/                  # MIBパーサー、OIDツリー解決、SNMP Walkエンジン
 │   │   ├── notify/               # 各種通知ディスパッチャー (SMTP, Slack, Teams, LINE, Webhook)
 │   │   ├── pki/                  # 内蔵Root CA、証明書発行、SCEP, ACME
-│   │   ├── polling/              # 監視ポーラー (Ping, SNMP, HTTP, TCP, DNS, NTP, TLS, Script, gNMI)
+│   │   ├── polling/              # 監視ポーラー (Ping, SNMP, HTTP, TCP, DNS, NTP, TLS, Script, gNMI, Env)
 │   │   ├── receiver/             # プロトコル受信機 (Syslog, TRAP, NetFlow, sFlow, OTel, MQTT, ARPWatch)
 │   │   ├── report/               # 分析集計エンジン (IPAM, Devices, Flows, Windows, Sensors, Certs)
 │   │   └── topology/             # 近傍トポロジー探索・ライン自動構築エンジン
@@ -231,6 +233,8 @@ twsnmpneo/
      - **セキュリティ & 証明書**: TLS/SSLサーバー証明書有効期限追跡, PKI CA一覧
      - **センサー & IoT**: 環境（温度/湿度）, 電力消費 (Wh), 動体検知, SDR無線強度, MQTTトピック/クライアント
      - **AI 異常検知**: ノードおよびポーリングのAI異常スコアリスト
+     - **ポーリング相関分析 (`CorrelationReport.svelte` / `CorrelationModal.svelte`)**: 左サイドバーの独立レポートカテゴリおよび `PollingDetailModal` / `PollingList` / `PollingReport` からのクイック起動モーダルを提供。**自動発見（Auto Discovery）**（$N:N$ または $1:N$ 基準ポーリング、ノード間フィルタ、状態変化含有、`AbortController` によるキャンセル、力学モデル相関ネットワーク図、ソート・ページネーション対応ペア一覧）および **ペア比較（Pair Comparison）**（ノード/ポーリング絞り込み、変数チップ選択、統計5アルゴリズム `pearson`/`spearman`/`kendall`/`crosscorr`/`dcor` ＋ `tensai` ML 3アルゴリズム `mlp`（Permutation Feature Importance付き）・`lstm`（ペア分析用順次RNN）・`knn`（混同行列付きレジーム分類）、2軸/正規化重ね合わせグラフ、散布図＋回帰線、ラグ棒グラフ、変数ヒートマップ行列）を搭載。`parquet.Store.GetPollingLogsBatch`（シングルパス並列Parquetスキャン＋未フラッシュメモリバッファ統合）、REST API（`GET /api/correlation/candidates`, `POST /api/correlation/analyze`, `POST /api/correlation/discover`、`readonly` ユーザーも閲覧可）、および `ReportAIExplainModal`（`report_type: "correlation"`）と連携。
+     - **ポーリング詳細 & ログ分析モーダル (`PollingDetailModal.svelte`)**: `PollingList` / `NodeDetailModal` / `PollingReport` から開く9タブ構成の横長分析モーダル（基本情報、ダウンタイム & SLA、ポーリングログ、`Raw`/`Hourly Stats`・線形回帰予測付き時系列、ヒストグラム & 基本統計、QQプロット、LOESS STL分解、`gonum` FFT周期解析、AI異常検知）。全期間デフォルト表示・プリセット切替、`CSV` / `CSV (Data)` エクスポート、AI診断（`report_type: "polling_detail"`）、ログ削除（`DELETE /api/pollings/:id/logs`）、および `/api/pollings/:id/time-analyze` API に対応。
      - **ログレポート解析エンジン & DNS 逆引きキャッシュ (`logreport`)**:
        - Syslog プローブタグ柔軟検知: `twWifiScan`, `twBlueScan`, `twpcap`, `twwinlog`, `twsdrpower`, `twagentneo` 等からの送信ログにおいて、リレーやSyslogサーバによりホスト名やメッセージ先頭にタグが混入した場合でも自動抽出し、`type=` のKey-Valueを正規化して高速集計。
        - DNS 逆引きキャッシュ: レポート集計処理（`pcap` パケット解析やフロー解析等）において、マップ未登録のノード（IPアドレス）に対して自動的に DNS 逆引き（Reverse Lookup）を行いホスト名を表示。TTL 1時間のメモリキャッシュ（`sync.Map`）により高速性とネットワーク負荷軽減を両立。
@@ -252,14 +256,14 @@ twsnmpneo/
 
 ### 4.9 ネイティブ AI & MCP 統合および共通UI標準規約
 
-* **内蔵 MCP サーバーツール群 (42種類)**:
+* **内蔵 MCP サーバーツール群 (44種類)**:
   - **アクセス制御**: `-mcpFrom`（`TWSNMP_MCPFROM`）および `-mcpMode auth|noauth`（`TWSNMP_MCPMODE`）と Web UI マップ設定に対応し、起動時の明示的な CLI/環境変数指定は保存済み初期設定より優先適用（ループバックアドレスは常時許可）。
   - **マップ・トポロジー**: `get_node_list`, `get_node`, `add_node`（ノードのみ登録し PING ポーリングは自動追加しない）, `update_node`, `delete_node`（一意名/ID指定・紐づくポーリングと接続ラインをカスケード削除）, `get_network_list`, `get_line_list`, `add_line`, `delete_line`, `get_system_status`（稼働中の設定済みレシーバー状態と uptime を返却）, `diagnose_node`
   - **ポーリング・診断**: `get_polling_list`, `get_polling`, `add_polling`, `update_polling`（即時再チェック予約）, `delete_polling`（連動ライン削除）, `check_polling`（`polling_id` / `node_id` / `all` 指定による即時実行）, `get_polling_log`, `get_polling_log_data`（CSV 形式時系列メトリクス）, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`
-  - **レポート・AI異常検知**: `get_sensor_list`（`type_filter` / `state_filter` 対応）, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`（`public_address_only` 対応）, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`（指定レポート種別のレコード詳細取得）, `get_ai_anomaly_list`（AI 異常スコア一覧取得）
+  - **レポート・AI異常検知**: `get_sensor_list`（`type_filter` / `state_filter` 対応）, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`（`public_address_only` 対応）, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`（指定レポート種別のレコード詳細取得）, `get_ai_anomaly_list`（AI 異常スコア一覧取得）, `analyze_polling_correlation`（2ポーリング間の相関分析）, `discover_polling_correlations`（ポーリング相関の自動発見）
   - **OpenTelemetry APM**: `get_otel_metrics`（メトリック一覧・値取得）, `get_otel_traces`（分散トレーススパン取得）
   - **ログ・トラフィック調査**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ip_address_info`, `get_mac_address_info`
-  - **MCP プロンプト**: 31 種類の対話用プロンプトテンプレートを提供
+  - **MCP プロンプト**: 32 種類の対話用プロンプトテンプレートを提供
 * **OTel APM & LLM エンドポイント監視ポーリング**:
   - **OTel APM (`otel`)**: `metric`（Gauge/Sum等の直接集計・評価）、`trace`（期間内エラー率・P95所要時間・HTTP 4xx/5xx/gRPCエラー評価）、`heartbeat`/`last`（ハートビート途絶検知）
   - **LLM API監視 (`http`)**: `llm/openai`（OpenAI互換 `/v1/models`）、`llm/ollama`（Ollama `/api/tags`）、`metrics/json` によるAPI死活・RTT（`rtt_ms`）・モデル数（`models`）監視、`pe.Filter` による認証トークン（Bearer/API Key）自動付与

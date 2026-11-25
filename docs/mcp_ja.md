@@ -40,7 +40,7 @@ TWSNMP NEO の MCP サーバーは、最新の **Streamable HTTP** トランス�
 
 ## 3. 公開ツール (Tools) 一覧
 
-TWSNMP NEO MCP サーバーは、以下の 42 種類の高機能ツールおよび 31 種類のプロンプトテンプレートを提供します：
+TWSNMP NEO MCP サーバーは、以下の 44 種類の高機能ツールおよび 32 種類のプロンプトテンプレートを提供します：
 
 ### 3.1 マップ・トポロジー操作
 
@@ -101,14 +101,16 @@ TWSNMP NEO MCP サーバーは、以下の 42 種類の高機能ツールおよ�
 | `get_resource_monitor_list` | サーバ・ホストのリソース利用履歴 (CPU/メモリ/Swap/Disk/Load) | なし |
 | `get_report_summary` | 指定レポートカテゴリの記録レコード取得 | `report_type` (必須: `wifiAP`, `blueDevice`, `envMonitor`, `dnsq`, `winEventID`, `twAgentAlert`, `twAgentInfo` 等), `limit` |
 | `get_ai_anomaly_list` | AI 異常検知スコア一覧の取得 | `node_filter`, `polling_filter`, `min_score`, `limit` |
+| `analyze_polling_correlation` | 2つのポーリング間の相関分析（統計手法 & `tensai` ML） | `polling_id_a`, `polling_id_b`, `algorithm`, `hours` |
+| `discover_polling_correlations` | ノード・ポーリング間の相関ペア自動発見 | `base_polling_id`, `algorithm`, `hours`, `min_score`, `limit` |
 | `get_otel_metrics` | OpenTelemetry メトリクス一覧・値の取得 | `name_filter`, `service_filter`, `host_filter`, `limit` |
 | `get_otel_traces` | OpenTelemetry 分散トレース情報の取得 | `service_filter`, `error_only`, `limit` |
 
-### 3.5 内蔵 MCP プロンプト (31 種類)
+### 3.5 内蔵 MCP プロンプト (32 種類)
 
 - **トポロジー・ノード**: `get_node_list`, `get_node`, `add_node`, `update_node`, `delete_node`, `get_network_list`, `get_line_list`, `add_line`, `delete_line`
 - **ポーリング・診断**: `get_polling_list`, `get_polling`, `add_polling`, `update_polling`, `delete_polling`, `check_polling`, `get_polling_log`, `do_ping`, `snmpwalk`, `get_mib_tree`
-- **ログ・フロー・AI異常検知**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ai_anomaly_list`
+- **ログ・フロー・AI異常検知**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ai_anomaly_list`, `polling_correlation_analysis`
 - **台帳・レポート**: `get_ip_address_list`, `get_ip_address_info`, `get_mac_address_info`, `get_resource_monitor_list`, `get_server_certificate_list`
 
 ---

@@ -27,7 +27,7 @@ layout: default
 - **TWAgent & AI セキュリティ監査 (`twagentneo`)**: クロスプラットフォームエージェントの自動認識、リアルタイムテレメトリ、Sigmaルール検知＋ローカルAI判定、ファイル整合性監視 (FIM)、CIS ベンチマークセキュリティ設定診断 (SCA)。
 - **Apache Parquet 列指向ストレージ & 高速コンパクション**: 数百万件の Syslog、TRAP、NetFlow、sFlow を高速圧縮保存し、インメモリキャッシュと Parquet 自動結合（コンパクション）により瞬時に検索・集計。
 - **安全なデータベース運用 & 自動バックアップ**: トランザクションセーフなスナップショットによる定期バックアップ・自動世代管理、Web UIからの即時バックアップ/ダウンロード/復元管理、およびCLIオフライン復元・DB圧縮に対応。
-- **マルチLLM & 内蔵 MCP サーバー (42 ツール)**: 生成AI（Gemini, OpenAI, Claude, Ollama）と Model Context Protocol (MCP) を標準搭載し、AIによるログ原因調査、ノード・ポーリング管理、NetFlow・AI異常スコア確認、OTel APM/トレース取得を支援。
+- **マルチLLM & 内蔵 MCP サーバー (44 ツール)**: 生成AI（Gemini, OpenAI, Claude, Ollama）と Model Context Protocol (MCP) を標準搭載し、AIによるログ原因調査、ノード・ポーリング管理、NetFlow・AI異常スコア確認、ポーリング相関分析、OTel APM/トレース取得を支援。
 - **ゼロ依存プライベート PKI**: ブラウザから即座に Root CA を立ち上げ、ACME/SCEP による証明書自動配布を実現。
 
 ---
@@ -298,8 +298,20 @@ TWSNMP NEO は以下のプロトコル・方式による死活・性能監視に
 - **gNMI (gRPC ネットワーク管理)**
 - **STUN (グローバルIP変動・NATタイプ監視)**
 - **MQTT (トピック購読 / メトリックポーリング)**
+- **Env (`env` - 地球環境・災害・宇宙天気オープンAPI監視)**: 地震、落雷、太陽フレア/Kp指数、Open-Meteo 気象データ等の監視
 
 ![](./images/ja/polling_list.png)
+
+### ポーリング詳細 & 時系列統計分析
+
+ポーリング一覧、ノード詳細、またはポーリングレポートから詳細を開くと、9タブ構成の横長 **ポーリング詳細モーダル** で深掘り分析が行えます：
+- **基本情報 & ダウンタイム / SLA**: 設定概要、最新結果、SLA達成率、障害回数、MTBF / MTTR、ダウンタイム推移。
+- **ポーリングログ & 時系列**: `dataZoom` 連動の状態別積み上げヒストグラムとログ検索テーブル、Raw / 時間別統計チャート、線形回帰による将来予測。
+- **統計 & スペクトル解析**: ヒストグラムと基本統計量、正規 QQ プロット、4パネル LOESS STL 分解（観測値・トレンド・季節性・残差）、`gonum` FFT 周波数スペクトル解析、AI 異常検知タイムライン、および CSV / CSV (Data) エクスポート。
+
+![](./images/ja/polling_detail.png)
+
+![](./images/ja/polling_detail_stl_fft.png)
 
 システム設定内のポーリング設定画面から、標準ポーリング間隔、タイムアウト、リトライ回数、デフォルトSNMPモード、コミュニティ名などの全体デフォルト値を設定できます：
 
@@ -363,8 +375,10 @@ Topトーカー、Topプロトコル、スキャンや未応答SYN（Fumble）�
 ### ホスト分析（Windowsイベント / プロセス等）
 Windowsイベントログオン監査、特権昇格、プロセス・サービス稼働分析。
 
-### IoT & センサー（環境センサー / 電力）
-温度・湿度・気圧・電力（Wh）の推移グラフと閾値監視。
+### IoT & センサー（環境センサー / 電力 / 地球環境・宇宙天気）
+温度・湿度・気圧・電力（Wh）の推移グラフと閾値監視に加え、地震・落雷・太陽フレア/Kp指数・Open-Meteo気象などのオープンAPI監視データ（`earthEnv`）を統合表示します。
+
+![](./images/ja/report_sensor_env.png)
 
 ### MQTT レポート
 IoT/スマートデバイス向け MQTT のトピック別メッセージ頻度・サイズ統計、クライアント接続状況の集計および AI による傾向分析。
@@ -389,6 +403,15 @@ TLS/SSL 証明書の有効期限残日数追跡、失効（CRL/OCSP）状態チ�
 
 ### AI 異常検知スコア
 各ノード・ポーリングの統計的異常スコアランキング。
+
+### ポーリング相関分析 (`tensai` ML)
+独立レポート画面またはモーダルから、ノード・ポーリング間の隠れた相関関係を自動発見・詳細比較できます：
+- **自動発見 (Auto Discovery)**: $N:N$ または $1:N$ 基準ポーリングによる一括スキャン、力学モデル相関ネットワーク図、相関スコア順のペア一覧。
+- **ペア比較 (Pair Comparison)**: 統計5手法（Pearson, Spearman, Kendall, ラグ付き相互相関, 距離相関 dCor）と `tensai` 機械学習3手法（Permutation Feature Importance 付き MLP、順次 LSTM、混同行列付き kNN レジーム分類）による2軸重ね合わせ・散布図＋回帰線・ラグ棒グラフ・AI 解説。
+
+![](./images/ja/report_correlation_discover.png)
+
+![](./images/ja/report_correlation_pair.png)
 
 ### 各種レポートでのワンクリック「AI診断」
 各レポート画面（Syslog、TRAP、NetFlow、IP、ARP、Sensor、MQTT、OTel 等）のツールバーにある「AI診断」ボタンをクリックすると、現在の集計・統計データを AI が即座に読み込み、ボトルネックや異常兆候の分析結果、推奨される対処手順を Markdown 形式で分かりやすく提示します。
@@ -482,7 +505,7 @@ TWSNMP NEO 自体の Web UI を HTTPS (TLS) で運用する際、Let's Encrypt �
 ![](./images/ja/ai_gpu_manager.png)
 
 ### 内蔵 MCP サーバー
-Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。42種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、Ping/SNMP/MIB、NetFlow/Syslog/TRAP/イベント検索、AI異常スコア、OTel APMメトリクス/トレース、各種レポート、センサー種別フィルタ等）と31種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせ、監視設定の管理、障害診断を自律的に実行させる連携が可能です。
+Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。44種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、Ping/SNMP/MIB、NetFlow/Syslog/TRAP/イベント検索、AI異常スコア、ポーリング相関分析、OTel APMメトリクス/トレース、各種レポート、センサー種別フィルタ等）と32種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせ、監視設定の管理、障害診断を自律的に実行させる連携が可能です。
 
 詳細な構想やツール一覧は、**[MCP サーバー仕様・連携ガイド](mcp_ja.html)** および **[AI プロンプトガイド](prompt_ja.html)** をご覧ください。
 

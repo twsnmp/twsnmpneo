@@ -244,8 +244,8 @@ func TestCheckUpdate_ETagAndRateLimit(t *testing.T) {
 		w.Header().Set("ETag", etag)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(GitHubRelease{
-			TagName: "v0.7.0",
-			Name:    "v0.7.0",
+			TagName: "v0.8.0",
+			Name:    "v0.8.0",
 		})
 	}))
 	defer ts.Close()

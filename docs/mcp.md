@@ -40,7 +40,7 @@ TWSNMP NEO features a high-performance **Streamable HTTP** transport.
 
 ## 3. Available Tools
 
-The MCP server exposes 42 operational tools and 31 prompt templates:
+The MCP server exposes 44 operational tools and 32 prompt templates:
 
 ### 3.1 Topology & Map Operations
 
@@ -101,14 +101,16 @@ The MCP server exposes 42 operational tools and 31 prompt templates:
 | `get_resource_monitor_list` | Host CPU, memory, swap, disk, and load history | None |
 | `get_report_summary` | Retrieve stored records for a specified report category | `report_type` (required: `wifiAP`, `blueDevice`, `envMonitor`, `dnsq`, `winEventID`, `twAgentAlert`, `twAgentInfo`, etc.), `limit` |
 | `get_ai_anomaly_list` | Retrieve AI anomaly detection scores | `node_filter`, `polling_filter`, `min_score`, `limit` |
+| `analyze_polling_correlation` | Analyze correlation between two pollings (statistical & `tensai` ML) | `polling_id_a`, `polling_id_b`, `algorithm`, `hours` |
+| `discover_polling_correlations` | Auto-discover correlated polling pairs across nodes | `base_polling_id`, `algorithm`, `hours`, `min_score`, `limit` |
 | `get_otel_metrics` | Retrieve OpenTelemetry metrics | `name_filter`, `service_filter`, `host_filter`, `limit` |
 | `get_otel_traces` | Retrieve OpenTelemetry distributed traces | `service_filter`, `error_only`, `limit` |
 
-### 3.5 Built-in MCP Prompts (31 Templates)
+### 3.5 Built-in MCP Prompts (32 Templates)
 
 - **Topology & Node**: `get_node_list`, `get_node`, `add_node`, `update_node`, `delete_node`, `get_network_list`, `get_line_list`, `add_line`, `delete_line`
 - **Polling & Diagnostics**: `get_polling_list`, `get_polling`, `add_polling`, `update_polling`, `delete_polling`, `check_polling`, `get_polling_log`, `do_ping`, `snmpwalk`, `get_mib_tree`
-- **Logs, Flow & AI**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ai_anomaly_list`
+- **Logs, Flow & AI**: `search_event_log`, `add_event_log`, `search_syslog`, `get_syslog_summary`, `search_snmp_trap_log`, `search_netflow`, `get_ai_anomaly_list`, `polling_correlation_analysis`
 - **Inventory & Reports**: `get_ip_address_list`, `get_ip_address_info`, `get_mac_address_info`, `get_resource_monitor_list`, `get_server_certificate_list`
 
 ---
