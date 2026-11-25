@@ -19,6 +19,7 @@
     Grid3x3,
     AlertCircle,
     Info,
+    Eye,
   } from "@lucide/svelte";
   import {
     getCorrelationCandidates,
@@ -902,16 +903,18 @@
                     <td class="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">
                       {item.Samples}
                     </td>
-                    <td class="px-3 py-2 text-right">
+                    <td class="px-3 py-2 text-right whitespace-nowrap">
                       <button
                         type="button"
+                        title={$_("Correlation.detailBtn")}
+                        aria-label={$_("Correlation.detailBtn")}
                         onclick={(e) => {
                           e.stopPropagation();
                           inspectDiscoveredPair(item);
                         }}
-                        class="px-2.5 py-1 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium"
+                        class="p-1.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 inline-flex items-center justify-center transition-colors cursor-pointer"
                       >
-                        {$_("Correlation.detailBtn")}
+                        <Eye class="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
