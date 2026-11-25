@@ -2,6 +2,7 @@ package ai
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/twsnmp/twsnmpneo/backend/internal/datastore"
@@ -137,5 +138,85 @@ func TestBucketSeriesAlignmentAndState(t *testing.T) {
 	r, _ := pearsonCorr(mat1[0], mat2[0])
 	if math.Abs(r-1.0) > 1e-6 {
 		t.Fatalf("expected aligned r=1.0, got %f", r)
+	}
+}
+
+func TestMLCorrelationAlgorithms(t *testing.T) {
+	// 1. Nonlinear + lagged relationship: y[t] = sin(x[t-1]) + 0.35*x[t]^2
+	n := 120
+	x := make([]float64, n)
+	y := make([]float64, n)
+	noise := make([]float64, n)
+	rng := rand.New(rand.NewSource(123))
+	for i := 0; i < n; i++ {
+		x[i] = math.Sin(float64(i)*0.25)*2.0 + rng.NormFloat64()*0.1
+		noise[i] = rng.NormFloat64()
+	}
+	for i := 1; i < n; i++ {
+		y[i] = math.Sin(x[i-1]) + 0.35*x[i]*x[i]
+	}
+
+	mlpScore, _, imps := calcMLPCorrelation([]string{"x"}, [][]float64{x}, []string{"y"}, [][]float64{y}, 3)
+	if mlpScore < 0.7 {
+		t.Fatalf("expected high MLP score for nonlinear lagged relation, got %v", mlpScore)
+	}
+	if len(imps) == 0 {
+		t.Fatalf("expected non-empty feature importances from MLP")
+	}
+
+	mlpNoise, _, _ := calcMLPCorrelation([]string{"x"}, [][]float64{x}, []string{"noise"}, [][]float64{noise}, 3)
+	if mlpNoise > 0.45 {
+		t.Fatalf("expected low MLP score for independent noise, got %v", mlpNoise)
+	}
+
+	// 2. LSTM sequential accumulation: y[t] = 0.5*x[t] + 0.35*x[t-1] + 0.25*x[t-2]
+	ySeq := make([]float64, n)
+	for i := 2; i < n; i++ {
+		ySeq[i] = 0.5*x[i] + 0.35*x[i-1] + 0.25*x[i-2]
+	}
+	lstmScore, _ := calcLSTMCorrelation([]string{"x"}, [][]float64{x}, []string{"ySeq"}, [][]float64{ySeq})
+	if lstmScore < 0.65 {
+		t.Fatalf("expected high LSTM score for sequential accumulation, got %v", lstmScore)
+	}
+	lstmNoise, _ := calcLSTMCorrelation([]string{"x"}, [][]float64{x}, []string{"noise"}, [][]float64{noise})
+	if lstmNoise > 0.45 {
+		t.Fatalf("expected low LSTM score for independent noise, got %v", lstmNoise)
+	}
+
+	// 3. kNN Regime classification: distinct regimes of Y driven by X
+	yReg := make([]float64, n)
+	for i := 0; i < n; i++ {
+		ax := math.Abs(x[i])
+		if ax < 0.7 {
+			yReg[i] = 10.0 + rng.NormFloat64()*0.5
+		} else if ax < 1.5 {
+			yReg[i] = 50.0 + rng.NormFloat64()*0.5
+		} else {
+			yReg[i] = 90.0 + rng.NormFloat64()*0.5
+		}
+	}
+	knnScore, _, reg := calcKNNRegimeCorrelation([]string{"x"}, [][]float64{x}, []string{"yReg"}, [][]float64{yReg})
+	if knnScore < 0.6 || reg == nil || len(reg.Confusion) == 0 {
+		t.Fatalf("expected high kNN regime score and confusion matrix, got score=%v reg=%+v", knnScore, reg)
+	}
+	knnNoise, _, _ := calcKNNRegimeCorrelation([]string{"x"}, [][]float64{x}, []string{"noise"}, [][]float64{noise})
+	if knnNoise > 0.4 {
+		t.Fatalf("expected low kNN score for independent noise, got %v", knnNoise)
+	}
+
+	// 4. Multi-column polling where 1 column is correlated and 2 columns are independent noise
+	noise2 := make([]float64, n)
+	noise3 := make([]float64, n)
+	for i := 0; i < n; i++ {
+		noise2[i] = rng.NormFloat64()
+		noise3[i] = rng.NormFloat64()
+	}
+	multiMLP, _, _ := calcMLPCorrelation(
+		[]string{"x", "n1"}, [][]float64{x, noise2},
+		[]string{"y", "n2", "n3"}, [][]float64{y, noise, noise3},
+		3,
+	)
+	if multiMLP < 0.35 {
+		t.Fatalf("expected multi-column MLP score >= 0.35 even with noisy extra columns, got %v", multiMLP)
 	}
 }

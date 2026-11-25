@@ -204,6 +204,9 @@
     return p.toFixed(4);
   };
 
+  const isMLAlgo = (algo: string) =>
+    algo === "mlp" || algo === "lstm" || algo === "knn";
+
   const getActivePairScore = (res: CorrelationPairRes): { score: number; p: number } => {
     switch (algorithm) {
       case "spearman":
@@ -214,6 +217,12 @@
         return { score: res.CrossCorr, p: res.CrossCorrP };
       case "dcor":
         return { score: res.DistanceCorr, p: res.DistanceCorrP };
+      case "mlp":
+        return { score: res.MLP ?? 0, p: 1 };
+      case "lstm":
+        return { score: res.LSTM ?? 0, p: 1 };
+      case "knn":
+        return { score: res.KNN ?? 0, p: 1 };
       default:
         return { score: res.Pearson, p: res.PearsonP };
     }
@@ -231,12 +240,27 @@
     let direction = "";
     if (algorithm === "dcor") {
       direction = $_("Correlation.directionNonlinear");
+    } else if (algorithm === "mlp" || algorithm === "lstm") {
+      direction = $_("Correlation.directionPredictive");
+    } else if (algorithm === "knn") {
+      direction = $_("Correlation.directionRegime");
     } else {
       direction =
         score >= 0
           ? $_("Correlation.directionPositive")
           : $_("Correlation.directionNegative");
     }
+
+    if (isMLAlgo(algorithm)) {
+      const mlExtra =
+        algorithm === "knn" && res.RegimeResult
+          ? ` (BalAcc=${(res.RegimeResult.BalancedAccuracy * 100).toFixed(1)}%)`
+          : "";
+      return isJaLocale
+        ? `${strength}${direction}（tensai ML スコア=${score.toFixed(4)}${mlExtra}）`
+        : `${strength} ${direction} (tensai ML score=${score.toFixed(4)}${mlExtra})`;
+    }
+
     const sig =
       p < 0.05 ? $_("Correlation.significant") : $_("Correlation.notSignificant");
 
@@ -500,6 +524,10 @@
         `Kendall tau=${pairRes.Kendall.toFixed(4)} (p=${formatPValue(pairRes.KendallP)})`,
         `CrossCorr=${pairRes.CrossCorr.toFixed(4)} (p=${formatPValue(pairRes.CrossCorrP)}, BestLag=${pairRes.BestLagSeconds}s)`,
         `DistanceCorr=${pairRes.DistanceCorr.toFixed(4)} (p=${formatPValue(pairRes.DistanceCorrP)})`,
+        `Neural MLP=${(pairRes.MLP ?? 0).toFixed(4)}, LSTM=${(pairRes.LSTM ?? 0).toFixed(4)}, kNN Regime=${(pairRes.KNN ?? 0).toFixed(4)}${pairRes.RegimeResult ? ` (BalAcc=${(pairRes.RegimeResult.BalancedAccuracy * 100).toFixed(1)}%)` : ""}`,
+        ...(pairRes.FeatureImportances || []).slice(0, 6).map(
+          (fi) => `MLP Feature Importance ${fi.Feature}: ${(fi.Importance * 100).toFixed(1)}%`,
+        ),
         ...(pairRes.VarMatrix || []).slice(0, 15).map(
           (m) => `Matrix ${m.Var1} x ${m.Var2}: score=${m.Score.toFixed(4)}, p=${formatPValue(m.PValue)}`,
         ),
@@ -520,7 +548,10 @@
     <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
       <button
         type="button"
-        onclick={() => (activeTab = "discover")}
+        onclick={() => {
+          activeTab = "discover";
+          if (algorithm === "lstm") algorithm = "pearson";
+        }}
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors {activeTab ===
         'discover'
           ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
@@ -577,6 +608,11 @@
         <span>{$_("Correlation.algorithm")}:</span>
         <select
           bind:value={algorithm}
+          onchange={() => {
+            if (isMLAlgo(algorithm) && minAbsScore >= 0.5) {
+              minAbsScore = 0.2;
+            }
+          }}
           class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2 py-1 text-slate-800 dark:text-slate-200"
         >
           <option value="pearson">{$_("Correlation.algoPearson")}</option>
@@ -584,6 +620,11 @@
           <option value="kendall">{$_("Correlation.algoKendall")}</option>
           <option value="crosscorr">{$_("Correlation.algoCrossCorr")}</option>
           <option value="dcor">{$_("Correlation.algoDistance")}</option>
+          <option value="mlp">{$_("Correlation.algoMLP")}</option>
+          <option value="knn">{$_("Correlation.algoKNN")}</option>
+          {#if activeTab === "pair"}
+            <option value="lstm">{$_("Correlation.algoLSTM")}</option>
+          {/if}
         </select>
       </label>
 
@@ -645,16 +686,20 @@
         </select>
       </label>
 
-      <label class="flex flex-col gap-1 text-slate-600 dark:text-slate-400 w-28">
+      <label class="flex flex-col gap-1 text-slate-600 dark:text-slate-400 w-44">
         <span>{$_("Correlation.minScore")}</span>
-        <input
-          type="number"
-          step="0.05"
-          min="0.1"
-          max="0.99"
+        <select
           bind:value={minAbsScore}
           class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-800 dark:text-slate-200"
-        />
+        >
+          <option value={0}>{$_("Correlation.minScoreAll")}</option>
+          <option value={0.2}>&gt;= 0.2</option>
+          <option value={0.4}>&gt;= 0.4</option>
+          <option value={0.5}>&gt;= 0.5</option>
+          <option value={0.6}>&gt;= 0.6</option>
+          <option value={0.7}>&gt;= 0.7</option>
+          <option value={0.8}>&gt;= 0.8</option>
+        </select>
       </label>
 
       <label class="flex flex-col gap-1 text-slate-600 dark:text-slate-400 w-28">
@@ -1012,14 +1057,17 @@
         </div>
       </div>
 
-      <!-- 5 Algorithm Score Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+      <!-- 8 Algorithm Score Cards (Statistical + tensai ML) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {#each [
-          { key: "pearson", label: "Pearson r", val: pairRes.Pearson, p: pairRes.PearsonP, sub: "" },
-          { key: "spearman", label: "Spearman ρ", val: pairRes.Spearman, p: pairRes.SpearmanP, sub: "" },
-          { key: "kendall", label: "Kendall τ", val: pairRes.Kendall, p: pairRes.KendallP, sub: "" },
-          { key: "crosscorr", label: "Cross-Corr", val: pairRes.CrossCorr, p: pairRes.CrossCorrP, sub: `Lag: ${pairRes.BestLagSeconds}s` },
-          { key: "dcor", label: "Distance Corr", val: pairRes.DistanceCorr, p: pairRes.DistanceCorrP, sub: "" },
+          { key: "pearson", label: "Pearson r", val: pairRes.Pearson, p: pairRes.PearsonP, sub: "", desc: $_("Correlation.algoDescPearson"), ml: false },
+          { key: "spearman", label: "Spearman ρ", val: pairRes.Spearman, p: pairRes.SpearmanP, sub: "", desc: $_("Correlation.algoDescSpearman"), ml: false },
+          { key: "kendall", label: "Kendall τ", val: pairRes.Kendall, p: pairRes.KendallP, sub: "", desc: $_("Correlation.algoDescKendall"), ml: false },
+          { key: "crosscorr", label: "Cross-Corr", val: pairRes.CrossCorr, p: pairRes.CrossCorrP, sub: `Lag: ${pairRes.BestLagSeconds}s`, desc: $_("Correlation.algoDescCrossCorr"), ml: false },
+          { key: "dcor", label: "Distance Corr", val: pairRes.DistanceCorr, p: pairRes.DistanceCorrP, sub: "", desc: $_("Correlation.algoDescDCor"), ml: false },
+          { key: "mlp", label: "Neural MLP", val: pairRes.MLP ?? 0, p: 1, sub: "", desc: $_("Correlation.algoDescMLP"), ml: true },
+          { key: "lstm", label: "LSTM (RNN)", val: pairRes.LSTM ?? 0, p: 1, sub: "", desc: $_("Correlation.algoDescLSTM"), ml: true },
+          { key: "knn", label: "kNN Regime", val: pairRes.KNN ?? 0, p: 1, sub: pairRes.RegimeResult ? `BalAcc: ${(pairRes.RegimeResult.BalancedAccuracy * 100).toFixed(1)}%` : "", desc: $_("Correlation.algoDescKNN"), ml: true },
         ] as card}
           <button
             type="button"
@@ -1031,17 +1079,106 @@
               ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400'
               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}"
           >
-            <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{card.label}</div>
+            <div class="flex items-center justify-between gap-1">
+              <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{card.label}</span>
+              {#if card.ml}
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                  tensai ML
+                </span>
+              {/if}
+            </div>
             <div class="text-lg font-bold font-mono text-slate-900 dark:text-slate-100 mt-0.5">
               {card.val.toFixed(4)}
             </div>
             <div class="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between mt-0.5">
-              <span>p={formatPValue(card.p)}</span>
+              <span>{card.ml ? "R / Score" : `p=${formatPValue(card.p)}`}</span>
               {#if card.sub}<span>{card.sub}</span>{/if}
+            </div>
+            <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-tight">
+              {card.desc}
             </div>
           </button>
         {/each}
       </div>
+
+      <!-- ML Insights (MLP Feature Importance & kNN Regime Confusion Matrix) -->
+      {#if (pairRes.FeatureImportances && pairRes.FeatureImportances.length > 0) || pairRes.RegimeResult}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {#if pairRes.FeatureImportances && pairRes.FeatureImportances.length > 0}
+            <div
+              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs space-y-2 text-xs"
+            >
+              <div class="font-semibold text-slate-700 dark:text-slate-200">
+                {$_("Correlation.mlpFeatureImportance")}
+              </div>
+              <div class="space-y-1.5">
+                {#each pairRes.FeatureImportances.slice(0, 6) as fi}
+                  <div class="flex items-center gap-2">
+                    <span class="w-32 truncate text-[11px] text-slate-600 dark:text-slate-300 font-mono" title={fi.Feature}>
+                      {fi.Feature}
+                    </span>
+                    <div class="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded overflow-hidden">
+                      <div
+                        class="h-full bg-blue-500 rounded"
+                        style="width: {Math.min(100, Math.max(2, fi.Importance * 100)).toFixed(1)}%"
+                      ></div>
+                    </div>
+                    <span class="w-12 text-right text-[11px] font-mono text-slate-600 dark:text-slate-300">
+                      {(fi.Importance * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          {#if pairRes.RegimeResult}
+            <div
+              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs space-y-2 text-xs"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="font-semibold text-slate-700 dark:text-slate-200">
+                  {$_("Correlation.knnRegimeMatrix")} ({pairRes.RegimeResult.TargetVar})
+                </span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  Acc: <b>{(pairRes.RegimeResult.Accuracy * 100).toFixed(1)}%</b> |
+                  BalAcc: <b>{(pairRes.RegimeResult.BalancedAccuracy * 100).toFixed(1)}%</b>
+                </span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr class="text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                      <th class="py-1 px-2 text-left">{$_("Correlation.actualPredicted")}</th>
+                      {#each pairRes.RegimeResult.Labels || [] as lbl}
+                        <th class="py-1 px-2 text-center">{lbl}</th>
+                      {/each}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each pairRes.RegimeResult.Confusion || [] as row, rIdx}
+                      <tr class="border-b border-slate-100 dark:border-slate-800">
+                        <td class="py-1 px-2 font-medium text-slate-600 dark:text-slate-300">
+                          {pairRes.RegimeResult.Labels?.[rIdx] || rIdx}
+                        </td>
+                        {#each row as cell, cIdx}
+                          <td
+                            class="py-1 px-2 text-center font-mono {rIdx === cIdx
+                              ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-900/20'
+                              : 'text-slate-600 dark:text-slate-400'}"
+                          >
+                            {cell}
+                          </td>
+                        {/each}
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
 
       <!-- Pair Chart Panel -->
       <div

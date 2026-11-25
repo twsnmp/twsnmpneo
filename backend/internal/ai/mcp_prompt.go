@@ -711,7 +711,7 @@ func (s *MCPServer) registerPrompts(server *mcp.Server) {
 		Description: "Discover correlated polling metrics across nodes or analyze a specific polling pair for cascading failures and leading indicators.",
 		Arguments: []*mcp.PromptArgument{
 			{Name: "base_polling_id", Title: "Base Polling ID", Description: "Optional base polling ID (leave empty for all pairs)", Required: false},
-			{Name: "algorithm", Title: "Algorithm", Description: "pearson, spearman, kendall, crosscorr, or dcor", Required: false},
+			{Name: "algorithm", Title: "Algorithm", Description: "pearson, spearman, kendall, crosscorr, dcor, mlp, lstm (pair only), or knn", Required: false},
 			{Name: "hours", Title: "Lookback Hours", Description: "Lookback window in hours (e.g. 24, 168)", Required: false},
 		},
 	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {

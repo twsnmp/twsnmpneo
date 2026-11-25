@@ -26,6 +26,9 @@ const (
 	CorrKendall   CorrelationAlgorithm = "kendall"
 	CorrCrossCorr CorrelationAlgorithm = "crosscorr"
 	CorrDistance  CorrelationAlgorithm = "dcor"
+	CorrMLP       CorrelationAlgorithm = "mlp"
+	CorrLSTM      CorrelationAlgorithm = "lstm"
+	CorrKNN       CorrelationAlgorithm = "knn"
 )
 
 // CorrelationPairReq requests correlation analysis between two pollings.
@@ -66,46 +69,68 @@ type CorrelationSeriesPoint struct {
 	Value2 float64 `json:"Value2"`
 }
 
+// CorrelationFeatureImportance represents permutation feature importance from MLP correlation.
+type CorrelationFeatureImportance struct {
+	Feature    string  `json:"Feature"`
+	Var        string  `json:"Var"`
+	Lag        int     `json:"Lag"`
+	Importance float64 `json:"Importance"`
+}
+
+// CorrelationRegimeResult represents kNN regime classification metrics and confusion matrix.
+type CorrelationRegimeResult struct {
+	Accuracy         float64  `json:"Accuracy"`
+	BalancedAccuracy float64  `json:"BalancedAccuracy"`
+	Labels           []string `json:"Labels"`
+	Confusion        [][]int  `json:"Confusion"`
+	TargetVar        string   `json:"TargetVar"`
+}
+
 // CorrelationPairRes holds the full comparison results between two pollings.
 type CorrelationPairRes struct {
-	PollingID1      string                    `json:"PollingID1"`
-	PollingName1    string                    `json:"PollingName1"`
-	NodeID1         string                    `json:"NodeID1"`
-	NodeName1       string                    `json:"NodeName1"`
-	PollingID2      string                    `json:"PollingID2"`
-	PollingName2    string                    `json:"PollingName2"`
-	NodeID2         string                    `json:"NodeID2"`
-	NodeName2       string                    `json:"NodeName2"`
-	StartTime       int64                     `json:"StartTime"`
-	EndTime         int64                     `json:"EndTime"`
-	BucketSec       int                       `json:"BucketSec"`
-	Algorithm       string                    `json:"Algorithm"`
-	AllVars1        []string                  `json:"AllVars1"`
-	AllVars2        []string                  `json:"AllVars2"`
-	UsedVars1       []string                  `json:"UsedVars1"`
-	UsedVars2       []string                  `json:"UsedVars2"`
-	BestVar1        string                    `json:"BestVar1"`
-	BestVar2        string                    `json:"BestVar2"`
-	SampleCount     int                       `json:"SampleCount"`
-	Pearson         float64                   `json:"Pearson"`
-	PearsonP        float64                   `json:"PearsonP"`
-	Spearman        float64                   `json:"Spearman"`
-	SpearmanP       float64                   `json:"SpearmanP"`
-	Kendall         float64                   `json:"Kendall"`
-	KendallP        float64                   `json:"KendallP"`
-	CrossCorr       float64                   `json:"CrossCorr"`
-	CrossCorrP      float64                   `json:"CrossCorrP"`
-	BestLagBuckets  int                       `json:"BestLagBuckets"`
-	BestLagSeconds  int                       `json:"BestLagSeconds"`
-	DistanceCorr    float64                   `json:"DistanceCorr"`
-	DistanceCorrP   float64                   `json:"DistanceCorrP"`
-	Slope           float64                   `json:"Slope"`
-	Intercept       float64                   `json:"Intercept"`
-	Series          []CorrelationSeriesPoint  `json:"Series"`
-	NormSeries      []CorrelationSeriesPoint  `json:"NormSeries"`
-	LagProfile      []CorrelationLagPoint     `json:"LagProfile"`
-	VarMatrix       []CorrelationVarPairScore `json:"VarMatrix"`
-	Error           string                    `json:"Error,omitempty"`
+	PollingID1         string                         `json:"PollingID1"`
+	PollingName1       string                         `json:"PollingName1"`
+	NodeID1            string                         `json:"NodeID1"`
+	NodeName1          string                         `json:"NodeName1"`
+	PollingID2         string                         `json:"PollingID2"`
+	PollingName2       string                         `json:"PollingName2"`
+	NodeID2            string                         `json:"NodeID2"`
+	NodeName2          string                         `json:"NodeName2"`
+	StartTime          int64                          `json:"StartTime"`
+	EndTime            int64                          `json:"EndTime"`
+	BucketSec          int                            `json:"BucketSec"`
+	Algorithm          string                         `json:"Algorithm"`
+	AllVars1           []string                       `json:"AllVars1"`
+	AllVars2           []string                       `json:"AllVars2"`
+	UsedVars1          []string                       `json:"UsedVars1"`
+	UsedVars2          []string                       `json:"UsedVars2"`
+	BestVar1           string                         `json:"BestVar1"`
+	BestVar2           string                         `json:"BestVar2"`
+	SampleCount        int                            `json:"SampleCount"`
+	Pearson            float64                        `json:"Pearson"`
+	PearsonP           float64                        `json:"PearsonP"`
+	Spearman           float64                        `json:"Spearman"`
+	SpearmanP          float64                        `json:"SpearmanP"`
+	Kendall            float64                        `json:"Kendall"`
+	KendallP           float64                        `json:"KendallP"`
+	CrossCorr          float64                        `json:"CrossCorr"`
+	CrossCorrP         float64                        `json:"CrossCorrP"`
+	BestLagBuckets     int                            `json:"BestLagBuckets"`
+	BestLagSeconds     int                            `json:"BestLagSeconds"`
+	DistanceCorr       float64                        `json:"DistanceCorr"`
+	DistanceCorrP      float64                        `json:"DistanceCorrP"`
+	MLP                float64                        `json:"MLP"`
+	LSTM               float64                        `json:"LSTM"`
+	KNN                float64                        `json:"KNN"`
+	FeatureImportances []CorrelationFeatureImportance `json:"FeatureImportances,omitempty"`
+	RegimeResult       *CorrelationRegimeResult       `json:"RegimeResult,omitempty"`
+	Slope              float64                        `json:"Slope"`
+	Intercept          float64                        `json:"Intercept"`
+	Series             []CorrelationSeriesPoint       `json:"Series"`
+	NormSeries         []CorrelationSeriesPoint       `json:"NormSeries"`
+	LagProfile         []CorrelationLagPoint          `json:"LagProfile"`
+	VarMatrix          []CorrelationVarPairScore      `json:"VarMatrix"`
+	Error              string                         `json:"Error,omitempty"`
 }
 
 // CorrelationDiscoverReq requests automatic discovery of correlated polling pairs.
@@ -266,10 +291,16 @@ func normalizeAlgorithm(algo string) CorrelationAlgorithm {
 		return CorrSpearman
 	case string(CorrKendall):
 		return CorrKendall
-	case string(CorrCrossCorr):
+	case string(CorrCrossCorr), "cross", "lag":
 		return CorrCrossCorr
-	case string(CorrDistance):
+	case string(CorrDistance), "distance":
 		return CorrDistance
+	case string(CorrMLP), "neural", "tensai":
+		return CorrMLP
+	case string(CorrLSTM), "rnn":
+		return CorrLSTM
+	case string(CorrKNN), "regime":
+		return CorrKNN
 	default:
 		return CorrPearson
 	}
@@ -1101,8 +1132,8 @@ func AnalyzePollingCorrelation(ctx context.Context, store datastore.DataStore, l
 				sc, pv = kendallTauB(mat1[i], mat2[j])
 			case CorrCrossCorr:
 				sc, pv, _, _ = crossCorrLag(mat1[i], mat2[j], maxLag, bucketSec)
-			case CorrDistance:
-				sc, pv = distanceCorrMatrix([][]float64{mat1[i]}, [][]float64{mat2[j]}, false)
+			case CorrDistance, CorrMLP, CorrLSTM, CorrKNN:
+				sc, pv = pearsonCorr(mat1[i], mat2[j])
 			default:
 				sc, pv = pearsonCorr(mat1[i], mat2[j])
 			}
@@ -1133,6 +1164,9 @@ func AnalyzePollingCorrelation(ctx context.Context, store datastore.DataStore, l
 	res.CrossCorr, res.CrossCorrP, res.BestLagBuckets, res.LagProfile = crossCorrLag(bx, by, maxLag, bucketSec)
 	res.BestLagSeconds = res.BestLagBuckets * bucketSec
 	res.DistanceCorr, res.DistanceCorrP = distanceCorrMatrix(mat1, mat2, true)
+	res.MLP, _, res.FeatureImportances = calcMLPCorrelation(used1, mat1, used2, mat2, maxLag)
+	res.LSTM, _ = calcLSTMCorrelation(used1, mat1, used2, mat2)
+	res.KNN, _, res.RegimeResult = calcKNNRegimeCorrelation(used1, mat1, used2, mat2)
 	res.Slope, res.Intercept = linearRegression(bx, by)
 
 	nx := normalizeMinMax(bx)
@@ -1177,8 +1211,8 @@ func DiscoverPollingCorrelationsWithProgress(ctx context.Context, store datastor
 		minSamples = 10
 	}
 	minAbs := req.MinAbsScore
-	if minAbs <= 0 {
-		minAbs = 0.5
+	if minAbs < 0 {
+		minAbs = 0
 	}
 	limit := req.Limit
 	if limit <= 0 {
@@ -1200,6 +1234,11 @@ func DiscoverPollingCorrelationsWithProgress(ctx context.Context, store datastor
 		EndTime:   et,
 		BucketSec: bucketSec,
 		Algorithm: string(algo),
+	}
+
+	if algo == CorrLSTM {
+		res.Error = "lstm algorithm is only supported for pair correlation analysis"
+		return res
 	}
 
 	if store == nil || logStore == nil {
@@ -1371,8 +1410,16 @@ func DiscoverPollingCorrelationsWithProgress(ctx context.Context, store datastor
 					bestV1 := p1.bs.Vars[0]
 					bestV2 := p2.bs.Vars[0]
 
-					if algo == CorrDistance {
-						sc, _ := distanceCorrMatrix(mat1, mat2, false)
+					if algo == CorrDistance || algo == CorrMLP || algo == CorrKNN {
+						var sc float64
+						switch algo {
+						case CorrMLP:
+							sc, _, _ = calcMLPCorrelation(p1.bs.Vars, mat1, p2.bs.Vars, mat2, maxLag)
+						case CorrKNN:
+							sc, _, _ = calcKNNRegimeCorrelation(p1.bs.Vars, mat1, p2.bs.Vars, mat2)
+						default:
+							sc, _ = distanceCorrMatrix(mat1, mat2, false)
+						}
 						bestScore = sc
 						bestAbs = math.Abs(sc)
 						if len(p1.bs.Vars) > 1 || len(p2.bs.Vars) > 1 {

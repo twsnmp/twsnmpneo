@@ -131,7 +131,7 @@ func (s *MCPServer) registerReportTools(server *mcp.Server) {
 	// 1b. analyze_polling_correlation
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "analyze_polling_correlation",
-		Description: "Analyze statistical correlation between two pollings using Pearson, Spearman, Kendall, Cross-Correlation (time-lag), and Distance Correlation.",
+		Description: "Analyze statistical and ML correlation between two pollings using Pearson, Spearman, Kendall, Cross-Correlation (time-lag), Distance Correlation, and tensai ML (MLP, LSTM, kNN regime).",
 	}, s.analyzePollingCorrelationTool)
 
 	// 1c. discover_polling_correlations
@@ -448,7 +448,7 @@ type mcpAnalyzeCorrelationParams struct {
 	Vars2        []string `json:"vars_2,omitempty" jsonschema:"Optional variable names from second polling"`
 	Hours        int      `json:"hours,omitempty" jsonschema:"Lookback window in hours (default 24)"`
 	BucketSec    int      `json:"bucket_sec,omitempty" jsonschema:"Time-bucket width in seconds (0 = auto)"`
-	Algorithm    string   `json:"algorithm,omitempty" jsonschema:"Correlation algorithm: pearson, spearman, kendall, crosscorr, or dcor (default pearson)"`
+	Algorithm    string   `json:"algorithm,omitempty" jsonschema:"Correlation algorithm: pearson, spearman, kendall, crosscorr, dcor, mlp, lstm, or knn (default pearson)"`
 	MaxLag       int      `json:"max_lag,omitempty" jsonschema:"Maximum lag in buckets for crosscorr (default 12)"`
 	IncludeState bool     `json:"include_state,omitempty" jsonschema:"Include polling state changes (normal=1, unknown=0.5, else=0)"`
 }
@@ -457,7 +457,7 @@ type mcpDiscoverCorrelationsParams struct {
 	BasePollingID string  `json:"base_polling_id,omitempty" jsonschema:"Optional base polling ID (empty = all pairs)"`
 	Hours         int     `json:"hours,omitempty" jsonschema:"Lookback window in hours (default 24)"`
 	BucketSec     int     `json:"bucket_sec,omitempty" jsonschema:"Time-bucket width in seconds (0 = auto)"`
-	Algorithm     string  `json:"algorithm,omitempty" jsonschema:"Correlation algorithm: pearson, spearman, kendall, crosscorr, or dcor (default pearson)"`
+	Algorithm     string  `json:"algorithm,omitempty" jsonschema:"Correlation algorithm: pearson, spearman, kendall, crosscorr, dcor, mlp, or knn (default pearson)"`
 	MaxLag        int     `json:"max_lag,omitempty" jsonschema:"Maximum lag in buckets for crosscorr (default 6)"`
 	MinAbsScore   float64 `json:"min_abs_score,omitempty" jsonschema:"Minimum absolute correlation score (default 0.5)"`
 	MinSamples    int     `json:"min_samples,omitempty" jsonschema:"Minimum aligned samples (default 10)"`

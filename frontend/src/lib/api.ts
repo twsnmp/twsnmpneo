@@ -4215,6 +4215,21 @@ export interface CorrelationSeriesPoint {
   Value2: number;
 }
 
+export interface CorrelationFeatureImportance {
+  Feature: string;
+  Var: string;
+  Lag: number;
+  Importance: number;
+}
+
+export interface CorrelationRegimeResult {
+  Accuracy: number;
+  BalancedAccuracy: number;
+  Labels: string[];
+  Confusion: number[][];
+  TargetVar: string;
+}
+
 export interface CorrelationPairRes {
   PollingID1: string;
   PollingName1: string;
@@ -4247,6 +4262,11 @@ export interface CorrelationPairRes {
   BestLagSeconds: number;
   DistanceCorr: number;
   DistanceCorrP: number;
+  MLP: number;
+  LSTM: number;
+  KNN: number;
+  FeatureImportances?: CorrelationFeatureImportance[];
+  RegimeResult?: CorrelationRegimeResult;
   Slope: number;
   Intercept: number;
   Series: CorrelationSeriesPoint[];
