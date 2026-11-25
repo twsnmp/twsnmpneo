@@ -484,7 +484,7 @@ export const showCorrelationNetworkChart = (
             `Score: <b>${item.Score.toFixed(4)}</b> | p=${item.PValue.toExponential(2)} | n=${item.Samples}${lagStr}`
           );
         }
-        return params.data.name.replace('\n', ' / ');
+        return params.data.name.replaceAll('\n', ' / ');
       },
     },
     legend:

@@ -5,14 +5,17 @@ const TRANSPARENT_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const TRANSPARENT_PNG = Buffer.from(TRANSPARENT_PNG_BASE64, "base64");
 
+const matchesDomain = (host: string, domain: string): boolean =>
+  host === domain || host.endsWith(`.${domain}`);
+
 export async function mockExternalMapTiles(page: Page): Promise<void> {
   await page.route(
     (url) => {
       const host = url.hostname;
       return (
-        host.endsWith("openstreetmap.org") ||
-        host.endsWith("gsi.go.jp") ||
-        host.endsWith("cartocdn.com")
+        matchesDomain(host, "openstreetmap.org") ||
+        matchesDomain(host, "gsi.go.jp") ||
+        matchesDomain(host, "cartocdn.com")
       );
     },
     async (route) => {

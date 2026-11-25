@@ -10,7 +10,7 @@ require (
 	github.com/codegaudi/go-iforest v0.0.1
 	github.com/dustin/go-humanize v1.1.0
 	github.com/go-acme/lego/v4 v4.35.2
-	github.com/go-jose/go-jose/v4 v4.1.5
+	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/google/gopacket v1.1.19
 	github.com/gosnmp/gosnmp v1.47.0
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
@@ -37,6 +37,7 @@ require (
 	golang.org/x/mod v0.41.0
 	golang.org/x/net v0.60.0
 	golang.org/x/oauth2 v0.37.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/text v0.42.0
 	gonum.org/v1/gonum v0.17.0
@@ -83,7 +84,6 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.50.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260921155816-b14227669459 // indirect

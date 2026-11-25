@@ -701,7 +701,7 @@ func NewServer(cfg Config) (*Server, error) {
 		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
-		return c.Attachment(path, name)
+		return c.Attachment(path, filepath.Base(path))
 	})
 
 	apiGroup.DELETE("/system/backup/:name", func(c echo.Context) error {

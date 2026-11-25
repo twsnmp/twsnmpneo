@@ -322,30 +322,46 @@ func (s *Store) ListBackups(backupDir string) ([]*datastore.BackupFileInfo, erro
 	return list, nil
 }
 
+// resolveBackupFilePath validates a backup filename and resolves it against actual files in backupDir.
+func resolveBackupFilePath(backupDir, name string) (string, error) {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\") || filepath.Base(name) != name {
+		return "", fmt.Errorf("invalid backup filename: %s", name)
+	}
+	absDir, err := filepath.Abs(backupDir)
+	if err != nil {
+		return "", fmt.Errorf("invalid backup directory: %w", err)
+	}
+	entries, err := os.ReadDir(absDir)
+	if err != nil {
+		return "", fmt.Errorf("backup file not found: %w", err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if entry.Name() == name {
+			target := filepath.Join(absDir, entry.Name())
+			if !strings.HasPrefix(target, absDir+string(filepath.Separator)) {
+				return "", fmt.Errorf("invalid backup filename: %s", name)
+			}
+			return target, nil
+		}
+	}
+	return "", fmt.Errorf("backup file not found: %w", os.ErrNotExist)
+}
+
 // DeleteBackup deletes a specific backup file safely preventing path traversal.
 func (s *Store) DeleteBackup(backupDir, name string) error {
-	cleanName := filepath.Base(name)
-	if cleanName != name || cleanName == "." || cleanName == ".." {
-		return fmt.Errorf("invalid backup filename: %s", name)
+	target, err := resolveBackupFilePath(backupDir, name)
+	if err != nil {
+		return err
 	}
-
-	target := filepath.Join(backupDir, cleanName)
 	return os.Remove(target)
 }
 
 // GetBackupFilePath validates and returns the full path of a backup file.
 func (s *Store) GetBackupFilePath(backupDir, name string) (string, error) {
-	cleanName := filepath.Base(name)
-	if cleanName != name || cleanName == "." || cleanName == ".." {
-		return "", fmt.Errorf("invalid backup filename: %s", name)
-	}
-
-	target := filepath.Join(backupDir, cleanName)
-	if _, err := os.Stat(target); err != nil {
-		return "", fmt.Errorf("backup file not found: %w", err)
-	}
-
-	return target, nil
+	return resolveBackupFilePath(backupDir, name)
 }
 
 // RestoreDB restores the database from a backup file.

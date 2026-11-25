@@ -113,8 +113,23 @@ func TestBackupAndRestore(t *testing.T) {
 		t.Errorf("expected 3 backups after rotation, got %d", len(listAfter))
 	}
 
-	// 7. Test DeleteBackup
+	// 7. Test DeleteBackup & GetBackupFilePath
 	firstFile := listAfter[0].Name
+	resolvedPath, err := store.GetBackupFilePath(backupDir, firstFile)
+	if err != nil {
+		t.Fatalf("GetBackupFilePath failed: %v", err)
+	}
+	if filepath.Base(resolvedPath) != firstFile {
+		t.Errorf("expected resolved basename %q, got %q", firstFile, filepath.Base(resolvedPath))
+	}
+	for _, badName := range []string{"", ".", "..", "../evil", "sub/file", "nonexistent.db"} {
+		if _, err := store.GetBackupFilePath(backupDir, badName); err == nil {
+			t.Errorf("GetBackupFilePath(%q) expected error, got nil", badName)
+		}
+		if err := store.DeleteBackup(backupDir, badName); err == nil {
+			t.Errorf("DeleteBackup(%q) expected error, got nil", badName)
+		}
+	}
 	if err := store.DeleteBackup(backupDir, firstFile); err != nil {
 		t.Fatalf("DeleteBackup failed: %v", err)
 	}
