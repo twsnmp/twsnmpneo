@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -231,3 +232,79 @@ func TestBuildLLMReportPrompts_AggregationAndLimit(t *testing.T) {
 		t.Fatalf("expected omitted notice in prompts, got: %v", prompts)
 	}
 }
+
+func TestGenerateSummaryWithRetry_TemporaryErrorThenSuccess(t *testing.T) {
+	attempts := 0
+	var slept []time.Duration
+	resp, err := generateSummaryWithRetry(
+		context.Background(),
+		func(ctx context.Context) (string, error) {
+			attempts++
+			if attempts < 3 {
+				return "", errors.New("gemini API error 503 (UNAVAILABLE): model overloaded")
+			}
+			return "Summary OK", nil
+		},
+		[]time.Duration{time.Second, 2 * time.Second, 3 * time.Second},
+		func(ctx context.Context, d time.Duration) error {
+			slept = append(slept, d)
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp != "Summary OK" {
+		t.Fatalf("unexpected response: %q", resp)
+	}
+	if attempts != 3 {
+		t.Fatalf("expected 3 attempts, got %d", attempts)
+	}
+	if len(slept) != 2 || slept[0] != time.Second || slept[1] != 2*time.Second {
+		t.Fatalf("unexpected sleep durations: %v", slept)
+	}
+}
+
+func TestGenerateSummaryWithRetry_NonTemporaryErrorNoRetry(t *testing.T) {
+	attempts := 0
+	_, err := generateSummaryWithRetry(
+		context.Background(),
+		func(ctx context.Context) (string, error) {
+			attempts++
+			return "", errors.New("gemini API error 400 (INVALID_ARGUMENT): invalid key")
+		},
+		[]time.Duration{time.Second, 2 * time.Second},
+		func(ctx context.Context, d time.Duration) error {
+			t.Fatalf("sleep should not be called on non-temporary error")
+			return nil
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "400") {
+		t.Fatalf("expected 400 error, got %v", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("expected 1 attempt, got %d", attempts)
+	}
+}
+
+func TestGenerateSummaryWithRetry_ExhaustedRetries(t *testing.T) {
+	attempts := 0
+	_, err := generateSummaryWithRetry(
+		context.Background(),
+		func(ctx context.Context) (string, error) {
+			attempts++
+			return "", errors.New("429 too many requests")
+		},
+		[]time.Duration{time.Millisecond, 2 * time.Millisecond},
+		func(ctx context.Context, d time.Duration) error {
+			return nil
+		},
+	)
+	if err == nil || !strings.Contains(err.Error(), "429") {
+		t.Fatalf("expected 429 error, got %v", err)
+	}
+	if attempts != 3 {
+		t.Fatalf("expected 3 attempts, got %d", attempts)
+	}
+}
+

@@ -38,7 +38,7 @@
     if (llmProvider === "tensai" && (!llmModel || llmModel.includes("gemini") || llmModel.includes("gpt") || llmModel.includes("claude"))) {
       llmModel = "qwen2.5-0.5b";
     } else if (llmProvider === "gemini" && (!llmModel || llmModel === "qwen2.5-0.5b")) {
-      llmModel = "gemini-1.5-flash";
+      llmModel = "gemini-3.5-flash-lite";
     } else if (llmProvider === "openai" && (!llmModel || llmModel === "qwen2.5-0.5b")) {
       llmModel = "gpt-4o-mini";
     } else if (llmProvider === "claude" && (!llmModel || llmModel === "qwen2.5-0.5b")) {

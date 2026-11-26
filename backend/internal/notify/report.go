@@ -450,12 +450,92 @@ Do not include symbols such as # at the beginning of your answer.
 	}
 
 	userPrompt := strings.Join(prompts, "\n")
-	resp, err := llmClient.GenerateAnswer(timeoutCtx, system, userPrompt)
+	resp, err := generateSummaryWithRetry(
+		timeoutCtx,
+		func(callCtx context.Context) (string, error) {
+			return llmClient.GenerateAnswer(callCtx, system, userPrompt)
+		},
+		reportLLMRetryDelays,
+		sleepWithContext,
+	)
 	if err != nil {
 		slog.Error("llmAsk error", "error", err)
 		return fmt.Sprintf(i18n.Trans("An error occurred when contacting AI. err=%v"), err)
 	}
 	return strings.TrimSpace(resp)
+}
+
+var reportLLMRetryDelays = []time.Duration{
+	1 * time.Minute,
+	2 * time.Minute,
+	3 * time.Minute,
+}
+
+func generateSummaryWithRetry(
+	ctx context.Context,
+	callFn func(context.Context) (string, error),
+	delays []time.Duration,
+	sleepFn func(context.Context, time.Duration) error,
+) (string, error) {
+	var lastErr error
+	maxAttempts := len(delays) + 1
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		resp, err := callFn(ctx)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+		if attempt >= len(delays) || !isTemporaryLLMError(err) {
+			break
+		}
+		delay := delays[attempt]
+		slog.Warn("LLM report summary temporary error, retrying", "attempt", attempt+1, "maxAttempts", maxAttempts, "delay", delay, "error", err)
+		if sleepErr := sleepFn(ctx, delay); sleepErr != nil {
+			return "", lastErr
+		}
+	}
+	return "", lastErr
+}
+
+func isTemporaryLLMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, token := range []string{
+		"503",
+		"429",
+		"502",
+		"504",
+		"unavailable",
+		"overloaded",
+		"high demand",
+		"rate limit",
+		"too many requests",
+		"try again later",
+	} {
+		if strings.Contains(msg, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // MonitorDataEnt is an alias for easy access.

@@ -20,12 +20,14 @@ const DefaultLLMTimeout = 15 * time.Minute
 
 // LLMClient provides a unified abstraction across Gemini, OpenAI, Claude, Ollama, and local models.
 type LLMClient struct {
-	provider   string
-	model      string
-	apiKey     string
-	baseURL    string
-	dataDir    string
-	httpClient *http.Client
+	provider             string
+	model                string
+	apiKey               string
+	baseURL              string
+	dataDir              string
+	httpClient           *http.Client
+	geminiMaxRetries     int
+	geminiRetryBaseDelay time.Duration
 }
 
 // NewLLMClient creates an LLM client from MapConf settings and optional dataDir.
@@ -35,16 +37,35 @@ func NewLLMClient(conf *datastore.MapConfEnt, dataDirs ...string) *LLMClient {
 		dDir = dataDirs[0]
 	}
 	if conf == nil {
-		return &LLMClient{dataDir: dDir, httpClient: &http.Client{Timeout: DefaultLLMTimeout}}
+		return &LLMClient{
+			dataDir:              dDir,
+			httpClient:           &http.Client{Timeout: DefaultLLMTimeout},
+			geminiMaxRetries:     defaultGeminiMaxRetries,
+			geminiRetryBaseDelay: defaultGeminiRetryBaseDelay,
+		}
 	}
 	return &LLMClient{
-		provider:   conf.LLMProvider,
-		model:      conf.LLMModel,
-		apiKey:     conf.LLMAPIKey,
-		baseURL:    conf.LLMBaseURL,
-		dataDir:    dDir,
-		httpClient: &http.Client{Timeout: DefaultLLMTimeout},
+		provider:             conf.LLMProvider,
+		model:                conf.LLMModel,
+		apiKey:               conf.LLMAPIKey,
+		baseURL:              conf.LLMBaseURL,
+		dataDir:              dDir,
+		httpClient:           &http.Client{Timeout: DefaultLLMTimeout},
+		geminiMaxRetries:     defaultGeminiMaxRetries,
+		geminiRetryBaseDelay: defaultGeminiRetryBaseDelay,
 	}
+}
+
+// SetHTTPClient sets a custom HTTP client (primarily for testing).
+func (c *LLMClient) SetHTTPClient(client *http.Client) {
+	if client != nil {
+		c.httpClient = client
+	}
+}
+
+// SetGeminiRetryBaseDelay sets the base delay for Gemini retries (primarily for testing).
+func (c *LLMClient) SetGeminiRetryBaseDelay(delay time.Duration) {
+	c.geminiRetryBaseDelay = delay
 }
 
 // SetTimeout sets the HTTP client timeout for LLM requests.
@@ -211,62 +232,6 @@ func (c *LLMClient) generateOpenAI(ctx context.Context, system, prompt string) (
 	return res.Choices[0].Message.Content, nil
 }
 
-func (c *LLMClient) generateGemini(ctx context.Context, system, prompt string) (string, error) {
-	model := c.model
-	if model == "" {
-		model = "gemini-1.5-flash"
-	}
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, c.apiKey)
-	if c.baseURL != "" {
-		url = fmt.Sprintf("%s/models/%s:generateContent?key=%s", c.baseURL, model, c.apiKey)
-	}
-
-	payload := map[string]interface{}{
-		"system_instruction": map[string]interface{}{
-			"parts": []map[string]string{{"text": system}},
-		},
-		"contents": []map[string]interface{}{
-			{
-				"role":  "user",
-				"parts": []map[string]string{{"text": prompt}},
-			},
-		},
-	}
-	bodyBytes, _ := json.Marshal(payload)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("gemini request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("gemini api error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	var res struct {
-		Candidates []struct {
-			Content struct {
-				Parts []struct {
-					Text string `json:"text"`
-				} `json:"parts"`
-			} `json:"content"`
-		} `json:"candidates"`
-	}
-	if err := json.Unmarshal(body, &res); err != nil {
-		return "", err
-	}
-	if len(res.Candidates) == 0 || len(res.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("empty gemini response")
-	}
-	return res.Candidates[0].Content.Parts[0].Text, nil
-}
 
 func (c *LLMClient) generateClaude(ctx context.Context, system, prompt string) (string, error) {
 	model := c.model

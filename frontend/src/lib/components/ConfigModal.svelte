@@ -235,7 +235,7 @@
 
         llmProvider = conf.LLMProvider ?? conf.llm_provider ?? "tensai";
         llmBaseUrl = conf.LLMBaseURL ?? conf.llm_base_url ?? "http://localhost:11434";
-        llmModel = conf.LLMModel ?? conf.llm_model ?? "gemini-1.5-flash";
+        llmModel = conf.LLMModel ?? conf.llm_model ?? "gemini-3.5-flash-lite";
         llmApiKey = conf.LLMAPIKey ?? conf.llm_api_key ?? "";
         enableMCP = conf.EnableMCP ?? (conf as any).enable_mcp ?? true;
         mcpMode = conf.MCPMode ?? (conf as any).mcp_mode ?? "noauth";
@@ -352,7 +352,7 @@
         ArpWatchRange: arpWatchRange,
         ArpTimeout: Number(arpTimeout),
         LLMProvider: llmProvider,
-        LLMBaseURL: llmBaseUrl,
+        LLMBaseURL: llmProvider === "ollama" ? llmBaseUrl : "",
         LLMModel: llmModel,
         LLMAPIKey: llmApiKey,
         EnableMCP: Boolean(enableMCP),
