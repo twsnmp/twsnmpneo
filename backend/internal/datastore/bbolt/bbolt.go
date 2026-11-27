@@ -193,7 +193,7 @@ func New(dbPath string) (*Store, error) {
 
 			// If no admin user exists, or no user exists at all, seed default twsnmp user
 			twsnmpData := userBucket.Get([]byte("twsnmp"))
-			if !hasAdmin || twsnmpData == nil || userCount == 0 {
+			if !hasAdmin || userCount == 0 {
 				hash, err := bcrypt.GenerateFromPassword([]byte("twsnmp"), bcrypt.DefaultCost)
 				if err != nil {
 					return fmt.Errorf("hash default password: %w", err)
@@ -312,13 +312,13 @@ func (s *Store) loadCache() error {
 				var rawMap map[string]any
 				if err := json.Unmarshal(v, &rawMap); err == nil {
 					if _, hasOTel := rawMap["EnableOTel"]; !hasOTel {
-						s.mapConf.EnableOTel = true
+						s.mapConf.EnableOTel = false
 					}
 					if _, hasMCP := rawMap["EnableMCP"]; !hasMCP {
-						s.mapConf.EnableMCP = true
+						s.mapConf.EnableMCP = false
 					}
 					if s.mapConf.MCPMode == "" {
-						s.mapConf.MCPMode = "noauth"
+						s.mapConf.MCPMode = "auth"
 					}
 					if s.mapConf.EventLogDays <= 0 {
 						if s.mapConf.LogDays > 0 {
@@ -652,10 +652,10 @@ func (s *Store) initDefaultMapConf() {
 		EnableSyslogd:   true,
 		EnableTrapd:     true,
 		EnableArpWatch:  true,
-		EnableOTel:      true,
+		EnableOTel:      false,
 		OTelRetention:   24,
-		EnableMCP:       true,
-		MCPMode:         "noauth",
+		EnableMCP:       false,
+		MCPMode:         "auth",
 		ReportDays:      30,
 		ReportLimit:     10000,
 		ScoreThreshold:  35.0,

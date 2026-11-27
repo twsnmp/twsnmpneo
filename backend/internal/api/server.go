@@ -220,7 +220,7 @@ func NewServer(cfg Config) (*Server, error) {
 				path == "/api/health" || reqPath == "/api/health" ||
 				strings.HasPrefix(path, "/api/public/") || strings.HasPrefix(reqPath, "/api/public/") ||
 				(cfg.MCPServer != nil && cfg.MCPServer.Mode() != "auth" && (strings.HasPrefix(path, "/api/mcp") || strings.HasPrefix(reqPath, "/api/mcp"))) ||
-				strings.HasPrefix(path, "/api/notify/oauth2") || strings.HasPrefix(reqPath, "/api/notify/oauth2") ||
+				path == "/api/notify/oauth2/callback" || reqPath == "/api/notify/oauth2/callback" ||
 				path == "/api/pki/ca.pem" || reqPath == "/api/pki/ca.pem" ||
 				path == "/api/pki/scepca.pem" || reqPath == "/api/pki/scepca.pem" ||
 				path == "/api/pki/crl" || reqPath == "/api/pki/crl" ||

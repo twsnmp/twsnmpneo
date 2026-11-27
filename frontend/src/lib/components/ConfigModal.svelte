@@ -145,8 +145,8 @@
   let llmBaseUrl = $state("http://localhost:11434");
   let llmModel = $state("qwen2.5-0.5b");
   let llmApiKey = $state("");
-  let enableMCP = $state(true);
-  let mcpMode = $state("noauth");
+  let enableMCP = $state(false);
+  let mcpMode = $state("auth");
   let mcpFrom = $state("");
   let localAIModels = $state<ModelInfo[]>([]);
   let aiHardware = $state<AIHardwareStatus | null>(null);
@@ -237,8 +237,8 @@
         llmBaseUrl = conf.LLMBaseURL ?? conf.llm_base_url ?? "http://localhost:11434";
         llmModel = conf.LLMModel ?? conf.llm_model ?? "gemini-3.5-flash-lite";
         llmApiKey = conf.LLMAPIKey ?? conf.llm_api_key ?? "";
-        enableMCP = conf.EnableMCP ?? (conf as any).enable_mcp ?? true;
-        mcpMode = conf.MCPMode ?? (conf as any).mcp_mode ?? "noauth";
+        enableMCP = conf.EnableMCP ?? (conf as any).enable_mcp ?? false;
+        mcpMode = conf.MCPMode ?? (conf as any).mcp_mode ?? "auth";
         mcpFrom = conf.MCPFrom ?? (conf as any).mcp_from ?? "";
         logFormat = conf.LogFormat ?? conf.log_format ?? "parquet";
         geoIPInfo = conf.GeoIPInfo ?? conf.geo_ip_info ?? "";

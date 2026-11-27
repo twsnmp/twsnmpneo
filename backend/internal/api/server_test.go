@@ -1808,5 +1808,67 @@ func TestPollingDetailEndpointsAndRBAC(t *testing.T) {
 	}
 }
 
+func TestAPIServer_SecurityDefaultsAndAuth(t *testing.T) {
+	bStore, pqStore, mcpSvr, cleanup := setupTestAPIEnv(t)
+	defer cleanup()
+
+	srv, err := api.NewServer(api.Config{
+		Port:      9099,
+		Debug:     true,
+		Version:   "v0.1.0-test",
+		Store:     bStore,
+		LogStore:  pqStore,
+		MCPServer: mcpSvr,
+	})
+	if err != nil {
+		t.Fatalf("create api server failed: %v", err)
+	}
+
+	unauthedEcho := srv.GetEcho()
+	authedEcho := newAuthedEcho(t, srv)
+
+	// 1. Default MCP endpoint: unauthenticated request should receive 401 (MCPMode == "auth")
+	req := httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
+	rec := httptest.NewRecorder()
+	unauthedEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for unauthenticated /api/mcp by default, got %d", rec.Code)
+	}
+
+	// 2. Default MCP endpoint: authenticated request should receive 404 (EnableMCP == false)
+	req = httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
+	rec = httptest.NewRecorder()
+	authedEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for authenticated /api/mcp when disabled by default, got %d", rec.Code)
+	}
+
+	// 3. OAuth2 endpoints other than /callback must require authentication
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/notify/oauth2/start"},
+		{http.MethodDelete, "/api/notify/oauth2/token"},
+		{http.MethodGet, "/api/notify/oauth2/status"},
+	} {
+		req = httptest.NewRequest(tc.method, tc.path, nil)
+		rec = httptest.NewRecorder()
+		unauthedEcho.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401 for unauthenticated %s %s, got %d", tc.method, tc.path, rec.Code)
+		}
+	}
+
+	// 4. OAuth2 callback remains accessible without authentication (returns 400 on error param)
+	req = httptest.NewRequest(http.MethodGet, "/api/notify/oauth2/callback?error=access_denied", nil)
+	rec = httptest.NewRecorder()
+	unauthedEcho.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for unauthenticated /api/notify/oauth2/callback?error=access_denied, got %d", rec.Code)
+	}
+}
+
+
 
 

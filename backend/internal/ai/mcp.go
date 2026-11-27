@@ -248,7 +248,6 @@ func (s *MCPServer) rebuildAllowListLocked() {
 	s.allowIPs.Store("::1", true)
 	s.allowIPs.Store("localhost", true)
 	s.allowIPs.Store("192.0.2.1", true)
-	s.allowIPs.Store("", true)
 
 	if s.mcpFrom != "" {
 		for _, entry := range strings.Split(s.mcpFrom, ",") {
@@ -355,7 +354,7 @@ func (s *MCPServer) Mode() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.mcpMode == "" {
-		return "noauth"
+		return "auth"
 	}
 	return s.mcpMode
 }

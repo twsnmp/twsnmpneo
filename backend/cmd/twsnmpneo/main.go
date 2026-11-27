@@ -862,7 +862,7 @@ func runServer(ctx context.Context, cfg serverConfig) error {
 	enableNetflow := false
 	enableSFlow := false
 	enableArpWatch := true
-	enableOTel := true
+	enableOTel := false
 	enableMQTT := false
 	mqttToSyslog := false
 	arpWatchRange := ""

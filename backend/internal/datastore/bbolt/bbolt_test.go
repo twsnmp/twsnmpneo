@@ -951,5 +951,61 @@ func TestStore_DeferredPersistenceAndLineState(t *testing.T) {
 	}
 }
 
+func TestStore_SecurityDefaults(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "sec.db")
+
+	s1, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("bbolt.New: %v", err)
+	}
+	ctx := context.Background()
+
+	conf, err := s1.GetMapConf(ctx)
+	if err != nil {
+		t.Fatalf("GetMapConf: %v", err)
+	}
+	if conf.EnableMCP {
+		t.Errorf("expected EnableMCP to be false by default")
+	}
+	if conf.MCPMode != "auth" {
+		t.Errorf("expected MCPMode to be 'auth' by default, got %q", conf.MCPMode)
+	}
+	if conf.EnableOTel {
+		t.Errorf("expected EnableOTel to be false by default")
+	}
+
+	// Add another admin user and delete default twsnmp user; twsnmp must not be recreated on reopen.
+	err = s1.SaveUser(ctx, &datastore.UserEnt{
+		User:         "admin2",
+		Name:         "Second Admin",
+		PasswordHash: "$2a$10$7EqJtq98hPqEX7fNZaFWoOHi7cK3hW6qZ5s9w2K3a1b2c3d4e5f6g",
+		Role:         "admin",
+	})
+	if err != nil {
+		t.Fatalf("SaveUser admin2: %v", err)
+	}
+	if err := s1.DeleteUser(ctx, "twsnmp"); err != nil {
+		t.Fatalf("DeleteUser twsnmp: %v", err)
+	}
+	if err := s1.Close(); err != nil {
+		t.Fatalf("Close s1: %v", err)
+	}
+
+	s2, err := bbolt.New(dbPath)
+	if err != nil {
+		t.Fatalf("reopen bbolt.New: %v", err)
+	}
+	defer s2.Close()
+
+	if u, _ := s2.GetUser(ctx, "twsnmp"); u != nil {
+		t.Errorf("expected deleted default 'twsnmp' user not to be recreated when another admin exists")
+	}
+	if u2, _ := s2.GetUser(ctx, "admin2"); u2 == nil {
+		t.Errorf("expected 'admin2' user to persist across reopen")
+	}
+}
+
+
 
 
