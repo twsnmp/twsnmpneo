@@ -27,12 +27,12 @@ TWSNMP NEO features a high-performance **Streamable HTTP** transport.
 - **Port**: Shares the primary Web UI port (Default: `8080`)
 
 ### Security Controls
-- **Enable MCP**: MCP must be enabled in Web UI Map Settings (`EnableMCP`); when disabled, `/api/mcp` returns `404`.
+- **Enable MCP**: MCP is **disabled by default** (`EnableMCP: false`). It must be enabled in Web UI Map Settings (`EnableMCP`); when disabled, `/api/mcp` returns `404`.
 1. **IP Whitelisting (`-mcpFrom` / `TWSNMP_MCPFROM` / Map Settings)**:
    - Restrict incoming connections to trusted IP addresses or CIDR ranges (comma-separated, e.g. `127.0.0.1, 192.168.1.50, 10.0.0.0/24`).
-   - Loopback addresses (`127.0.0.1`, `::1`, `localhost`) are always permitted; unauthorized IPs receive `401 Unauthorized`.
+   - Loopback addresses (`127.0.0.1`, `::1`, `localhost`) are always permitted; unauthorized or unidentifiable IPs receive `401 Unauthorized`.
 2. **Authentication Modes (`-mcpMode auth|noauth` / `TWSNMP_MCPMODE` / Map Settings)**:
-   - `auth` mode: Requests must include an `Authorization: Bearer <API_TOKEN>` header (JWT obtained via the Web UI or `POST /api/login`).
+   - `auth` mode (**default**): Requests must include an `Authorization: Bearer <API_TOKEN>` header (JWT obtained via the Web UI or `POST /api/login`).
    - `noauth` mode: Access is governed exclusively by IP/CIDR whitelisting without requiring a Bearer token (intended for trusted loopback/local agent setups).
    - Explicit CLI flags (`-mcpFrom`, `-mcpMode`) or environment variables (`TWSNMP_MCPFROM`, `TWSNMP_MCPMODE`) take precedence over stored Map Settings on startup.
 

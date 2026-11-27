@@ -257,7 +257,7 @@ twsnmpneo/
 ### 4.9 ネイティブ AI & MCP 統合および共通UI標準規約
 
 * **内蔵 MCP サーバーツール群 (44種類)**:
-  - **アクセス制御**: `-mcpFrom`（`TWSNMP_MCPFROM`）および `-mcpMode auth|noauth`（`TWSNMP_MCPMODE`）と Web UI マップ設定に対応し、起動時の明示的な CLI/環境変数指定は保存済み初期設定より優先適用（ループバックアドレスは常時許可）。
+  - **アクセス制御**: 初期状態では無効（`EnableMCP: false`）・`auth` モードがデフォルト。`-mcpFrom`（`TWSNMP_MCPFROM`）および `-mcpMode auth|noauth`（`TWSNMP_MCPMODE`）と Web UI マップ設定に対応し、起動時の明示的な CLI/環境変数指定は保存済み初期設定より優先適用（ループバックアドレスは常時許可、空のリモートアドレスは拒否）。
   - **マップ・トポロジー**: `get_node_list`, `get_node`, `add_node`（ノードのみ登録し PING ポーリングは自動追加しない）, `update_node`, `delete_node`（一意名/ID指定・紐づくポーリングと接続ラインをカスケード削除）, `get_network_list`, `get_line_list`, `add_line`, `delete_line`, `get_system_status`（稼働中の設定済みレシーバー状態と uptime を返却）, `diagnose_node`
   - **ポーリング・診断**: `get_polling_list`, `get_polling`, `add_polling`, `update_polling`（即時再チェック予約）, `delete_polling`（連動ライン削除）, `check_polling`（`polling_id` / `node_id` / `all` 指定による即時実行）, `get_polling_log`, `get_polling_log_data`（CSV 形式時系列メトリクス）, `do_ping`, `get_mib_tree`, `snmpwalk`, `snmpset`
   - **レポート・AI異常検知**: `get_sensor_list`（`type_filter` / `state_filter` 対応）, `get_mac_address_list`, `get_ip_address_list`, `get_wifi_ap_list`, `get_bluetooth_device_list`（`public_address_only` 対応）, `get_server_certificate_list`, `get_resource_monitor_list`, `get_report_summary`（指定レポート種別のレコード詳細取得）, `get_ai_anomaly_list`（AI 異常スコア一覧取得）, `analyze_polling_correlation`（2ポーリング間の相関分析）, `discover_polling_correlations`（ポーリング相関の自動発見）

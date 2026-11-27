@@ -48,8 +48,8 @@
 - **Probe Tag Parsing & Cached Reverse DNS**: Automatically extracts and normalizes tags for probe logs (`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo`) and resolves hostnames dynamically for unregistered IP nodes via cached reverse DNS lookup.
 
 ### 3. Native AI & Built-in MCP Server
-- **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server exposing 44 diagnostic/management tools (node/line/polling CRUD, immediate polling check, NetFlow search, AI anomaly scores, polling correlation analysis, OTel metrics/traces, report summaries, sensor filters) and 32 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
-- **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini, OpenAI, Claude, and local Ollama models with support for thinking models, extended timeouts (15 minutes), and WebGPU offline inference.
+- **Streamable HTTP MCP Server (`/api/mcp`)**: Native Model Context Protocol server (disabled by default, defaulting to JWT `auth` mode for security) exposing 44 diagnostic/management tools (node/line/polling CRUD, immediate polling check, NetFlow search, AI anomaly scores, polling correlation analysis, OTel metrics/traces, report summaries, sensor filters) and 32 prompt templates to AI agents (Cursor, Claude Desktop, Antigravity, etc.).
+- **Multi-LLM Engine (`tensai` v0.0.35+)**: Seamlessly connects to Gemini (default `gemini-3.5-flash-lite` with automatic 429/5xx exponential backoff retry and thinking-part filtering), OpenAI, Claude, and local Ollama models with support for thinking models, extended timeouts (15 minutes), and WebGPU offline inference. Periodic AI report summaries also automatically retry transient LLM failures.
 - **In-App AI Diagnosis**: One-click AI diagnosis across all report views (Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel) with rich Markdown output, smooth loading animations, and automated root cause analysis.
 - **OTel APM & AI/LLM Polling**: OTel metric evaluation, trace error-rate/P95 latency, and telemetry heartbeat polling with one-click polling generation from OTelView. HTTP polling monitoring OpenAI-compatible and Ollama endpoints (availability, RTT, model counts).
 
@@ -67,7 +67,7 @@
 - **Dynamic Receiver Management**: Live reload and restart of receiver daemons upon configuration updates without restarting the application.
 - **Flow Monitoring**: NetFlow v5/v9/IPFIX, sFlow v5 (Flow & Counter samples), Fumble anomaly detection
 - **ARP Watch**: Continuous IP-to-MAC change and conflict detection
-- **OpenTelemetry**: OTel OTLP gRPC/HTTP log, trace & metrics collector with dedicated analytics
+- **OpenTelemetry**: OTel OTLP gRPC/HTTP log, trace & metrics collector (disabled by default; enable in Receivers & Daemons settings) with dedicated analytics
 - **MQTT Broker & Client**: Embedded broker for IoT sensors, topic statistics, and metric polling
 - **Global Environmental, Disaster & Space Weather Polling (`env`)**: Open API monitoring for earthquakes, lightning, solar flares/Kp index, and Open-Meteo weather with unified `earthEnv` reporting
 - **Optimized Analytics Suite**: Category-based lazy loading and query-time Parquet file pruning for responsive large-scale analytics.

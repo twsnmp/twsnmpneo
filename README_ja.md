@@ -49,8 +49,8 @@
 - **Syslog プローブタグ柔軟解析 & DNS 逆引きキャッシュ**: 各種プローブログ（`twpcap`, `twWifiScan`, `twBlueScan`, `twwinlog`, `twagentneo` 等）のタグを自動判別・正規化し、レポート集計時は未登録ノードのホスト名を DNS 逆引きキャッシュで高速解決。
 
 ### 3. ネイティブ AI & 内蔵 MCP (Model Context Protocol) サーバー
-- **Streamable HTTP MCP サーバー (`/api/mcp`)**: 44種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、NetFlow 検索、AI 異常検知スコア、ポーリング相関分析、OTel メトリクス/トレース、各種レポート、センサー種別フィルタ等）と32種のプロンプトテンプレートを AI エージェント（Cursor, Claude Desktop, Antigravity など）に提供。
-- **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini, OpenAI, Claude, ローカル Ollama への接続、思考モデル（Thinking models）対応、タイムアウト延長（15分）、および WebGPU オフライン推論に対応。
+- **Streamable HTTP MCP サーバー (`/api/mcp`)**: 44種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、NetFlow 検索、AI 異常検知スコア、ポーリング相関分析、OTel メトリクス/トレース、各種レポート、センサー種別フィルタ等）と32種のプロンプトテンプレートを AI エージェント（Cursor, Claude Desktop, Antigravity など）に提供（セキュリティ強化のため初期状態では無効、JWT `auth` モードがデフォルト）。
+- **マルチLLMエンジン (`tensai` v0.0.35+)**: Gemini（デフォルト `gemini-3.5-flash-lite`、429/5xx 一時エラーに対する指数バックオフ自動リトライ・思考パート除外対応）、OpenAI, Claude, ローカル Ollama への接続、思考モデル（Thinking models）対応、タイムアウト延長（15分）、および WebGPU オフライン推論に対応。定期日報の AI 要約生成でも一時的な LLM エラー時に自動リトライを行います。
 - **ワンクリック AI 診断**: イベントログの原因分析、全レポート画面（Syslog, TRAP, NetFlow, IP, ARP, Sensor, MQTT, OTel 等）での統計データAI診断（Markdown表示、WAITアニメーション）、ノード健全性診断。
 - **OTel APM & AI/LLM ポーリング**: OTel メトリック集計・トレースエラー率/P95レイテンシ・ハートビート監視ポーリング、OTelView からのワンクリックポーリング作成、HTTP ポーリングによる OpenAI 互換 / Ollama API の死活・RTT・モデル数監視。
 
@@ -68,7 +68,7 @@
 - **動的レシーバー管理**: レシーバー設定変更時にサービス全体を再起動することなく、対象デーモンを動的にリロード・再起動。
 - **フロー監視**: NetFlow v5/v9/IPFIX, sFlow v5（Flow/Counterサンプル）, Fumble異常通信検知
 - **ARP監視**: IP-MAC対応関係の変更・競合・新規検知
-- **OpenTelemetry**: OTel OTLP gRPC/HTTP レシーバーおよびレポート分析
+- **OpenTelemetry**: OTel OTLP gRPC/HTTP レシーバーおよびレポート分析（初期状態では無効、設定画面から有効化可能）
 - **MQTT ブローカー & クライアント**: IoTセンサー監視・トピック統計レポート
 - **地球環境・災害・宇宙天気オープンAPI監視 (`env`)**: 地震・落雷・太陽フレア/Kp指数・Open-Meteo気象などのオープンAPI監視と `earthEnv` 統合レポート
 - **オンデマンドレポート高速化**: カテゴリ別遅延読み込み（Lazy-load）とParquetクエリ時の時間範囲プルーニングによる高速レスポンス

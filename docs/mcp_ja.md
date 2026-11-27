@@ -27,13 +27,13 @@ TWSNMP NEO の MCP サーバーは、最新の **Streamable HTTP** トランス�
 - **ポート番号**: Web UI と同一の HTTP/HTTPS ポート（デフォルト: `8080`）
 
 ### セキュリティ制御
-- **MCP 有効化**: Web UI のマップ設定で MCP を有効化する必要があります（無効時は `/api/mcp` が `404` を返却）。
+- **MCP 有効化**: MCP は**デフォルトで無効**（`EnableMCP: false`）です。利用するには Web UI のマップ設定で MCP を有効化する必要があります（無効時は `/api/mcp` が `404` を返却）。
 1. **IP / CIDR ホワイトリスト (`-mcpFrom` / `TWSNMP_MCPFROM` / マップ設定)**:
    - 接続元 IP アドレスや CIDR レンジをカンマ区切りで制限できます（例: `127.0.0.1, 192.168.1.50, 10.0.0.0/24`）。
-   - ループバックアドレス（`127.0.0.1`, `::1`, `localhost`）は常に許可され、未許可 IP からのアクセスは `401 Unauthorized` となります。
+   - ループバックアドレス（`127.0.0.1`, `::1`, `localhost`）は常に許可され、未許可または送信元不明 IP からのアクセスは `401 Unauthorized` となります。
 2. **認証モード (`-mcpMode auth|noauth` / `TWSNMP_MCPMODE` / マップ設定)**:
-   - `auth` モード時: リクエストヘッダーに `Authorization: Bearer <API_TOKEN>`（Web UI または `POST /api/login` で取得する JWT トークン）が必要です。
-   - `noauth` モード時: IP/CIDR 許可リストに基づく接続制御のみを行い、Bearer トークンなしで接続できます（ローカル完結運用向け）。
+   - `auth` モード（**デフォルト**）: リクエストヘッダーに `Authorization: Bearer <API_TOKEN>`（Web UI または `POST /api/login` で取得する JWT トークン）が必要です。
+   - `noauth` モード: IP/CIDR 許可リストに基づく接続制御のみを行い、Bearer トークンなしで接続できます（ローカル完結運用向け）。
    - 起動時に明示された CLI フラグ（`-mcpFrom`, `-mcpMode`）や環境変数（`TWSNMP_MCPFROM`, `TWSNMP_MCPMODE`）は、初期読み込み時の保存済みマップ設定より優先されます。
 
 ---

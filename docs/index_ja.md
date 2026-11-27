@@ -446,6 +446,7 @@ TWSNMP NEO は、ログストレージに **Apache Parquet** 列指向圧縮フ�
 
 ### レシーバー & デーモン設定
 各ログ・パケット受信デーモン（Syslog UDP/TCP:514、SNMP TRAP UDP:162、NetFlow UDP:2055、sFlow UDP:6343、ARP Watch 監視CIDR範囲、OpenTelemetry OTLP gRPC/HTTP:4318、MQTT ブローカー）の有効化・待受ポートは、システム設定内の「レシーバー & デーモン設定」から個別に制御できます。
+セキュリティ強化のため、OpenTelemetry (OTel) レシーバーはデフォルトで無効（`EnableOTel: false`）となっており、利用時に本画面から有効化します。
 設定変更時はアプリケーション全体を再起動することなく、対象レシーバーのみを安全に動的リロードします。また、SNMPv3 TRAP の暗号化デコードおよび MIB OID 名前解決にも標準対応しています。
 
 ![](./images/ja/settings_receivers.png)
@@ -495,6 +496,7 @@ TWSNMP NEO 自体の Web UI を HTTPS (TLS) で運用する際、Let's Encrypt �
 ### LLM 設定（ローカル LLM / 各種クラウド AI）
 
 設定メニューからお好みの AI プロバイダー（ローカル LLM `tensai`、Gemini、OpenAI、Claude、Ollama 等）を柔軟に選択できます。
+Gemini 連携はデフォルトモデルに `gemini-3.5-flash-lite` を採用し、一時的なエラー（429/5xx、`Retry-After` ヘッダ対応）に対する指数バックオフ自動リトライおよび思考パート除外に対応しています。定期日報レポートの AI 要約生成でも一時的な LLM エラー時に自動リトライを行います。
 
 ![](./images/ja/ai_settings.png)
 
@@ -505,7 +507,7 @@ TWSNMP NEO 自体の Web UI を HTTPS (TLS) で運用する際、Let's Encrypt �
 ![](./images/ja/ai_gpu_manager.png)
 
 ### 内蔵 MCP サーバー
-Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。44種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、Ping/SNMP/MIB、NetFlow/Syslog/TRAP/イベント検索、AI異常スコア、ポーリング相関分析、OTel APMメトリクス/トレース、各種レポート、センサー種別フィルタ等）と32種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせ、監視設定の管理、障害診断を自律的に実行させる連携が可能です。
+Streamable HTTP (`/api/mcp`) による Model Context Protocol サーバーを標準搭載。セキュリティ強化のため初期状態では無効（`EnableMCP: false`）・JWT `auth` モードがデフォルトとなっており、外部 AI エージェント連携時に AI & MCP 設定画面から有効化できます。44種の運用・診断ツール（ノード/ライン/ポーリング CRUD、即時チェック、Ping/SNMP/MIB、NetFlow/Syslog/TRAP/イベント検索、AI異常スコア、ポーリング相関分析、OTel APMメトリクス/トレース、各種レポート、センサー種別フィルタ等）と32種のプロンプトテンプレートを公開しています。Cursor、Claude Desktop、Antigravity などの AI エージェントから TWSNMP NEO に直接接続し、ネットワーク情報の問い合わせ、監視設定の管理、障害診断を自律的に実行させる連携が可能です。
 
 詳細な構想やツール一覧は、**[MCP サーバー仕様・連携ガイド](mcp_ja.html)** および **[AI プロンプトガイド](prompt_ja.html)** をご覧ください。
 

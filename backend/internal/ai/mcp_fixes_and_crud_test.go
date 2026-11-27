@@ -25,7 +25,7 @@ func setupTestMCPClient(t *testing.T, store datastore.DataStore, pq *parquet.Sto
 		Store:    store,
 		LogStore: pq,
 		Monitor:  mon,
-		Version:  "v0.8.0-test",
+		Version:  "v0.9.0-test",
 		MCPMode:  "noauth",
 	}
 	if cfgPatch != nil {

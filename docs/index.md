@@ -435,6 +435,7 @@ Built on **Apache Parquet** columnar compression, TWSNMP NEO processes massive l
 
 ### Receivers & Daemons Settings
 Log and packet receiving daemons (Syslog UDP/TCP:514, SNMP TRAP UDP:162, NetFlow UDP:2055, sFlow UDP:6343, ARP Watch CIDR, OpenTelemetry OTLP gRPC/HTTP:4318, MQTT Broker) can be enabled or configured under Receivers & Daemons settings.
+For security hardening, the OpenTelemetry (OTel) receiver is disabled by default (`EnableOTel: false`) and can be enabled here when needed.
 Configuration updates dynamically reload and restart target daemons without restarting the application. Full support for SNMPv3 TRAP decryption and MIB OID name resolution is built-in.
 
 ![](./images/en/settings_receivers.png)
@@ -484,6 +485,7 @@ When operating TWSNMP NEO over HTTPS (TLS), the built-in ACME client (powered by
 ### LLM Configuration (Local LLM / Cloud AI Services)
 
 Configure AI providers (Local `tensai` LLM, Gemini, OpenAI, Claude, Ollama) and parameters directly from the settings.
+Gemini integration defaults to `gemini-3.5-flash-lite` with automatic exponential backoff retries on transient errors (429/5xx, `Retry-After` support) and thinking-part filtering; periodic AI report summaries also automatically retry transient LLM failures.
 
 ![](./images/en/ai_settings.png)
 
@@ -495,7 +497,7 @@ HTTP timeouts for local and external LLMs are extended to 15 minutes, with built
 
 ### Native Streamable HTTP MCP Server
 
-TWSNMP NEO provides a built-in **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`).
+TWSNMP NEO provides a built-in **Model Context Protocol (MCP)** server over Streamable HTTP (`/api/mcp`). For security, MCP is disabled by default (`EnableMCP: false`) and defaults to JWT `auth` mode; enable it in AI & MCP settings when connecting external AI agents.
 44 diagnostic and management tools (node/line/polling CRUD, immediate polling check, Ping/SNMP/MIB, NetFlow/Syslog/Trap/Event logs, AI anomaly scores, polling correlation analysis, OTel APM metrics/traces, report summaries, sensor filters) and 32 prompt templates are exposed directly to AI agents like Cursor, Claude Desktop, and Antigravity to inspect network status, query logs, manage monitoring configurations, and execute diagnostic tools autonomously.
 
 Refer to the **[MCP Specification & Guide](mcp.html)** and **[AI Prompts Guide](prompt.html)** for architecture details.
